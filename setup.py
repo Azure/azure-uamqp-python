@@ -1,13 +1,24 @@
 import os
 import sys
+import re
 import distutils
-from distutils.core import setup
+from setuptools import find_packages, setup
+#from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
+from wheel.bdist_wheel import bdist_wheel
+
 
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
+
+# Version extraction inspired from 'requests'
+with open(os.path.join('uamqp', 'version.py'), 'r') as fd:
+    version = re.search(r'^VERSION\s*=\s*[\'"]([^\'"]*)[\'"]',
+                        fd.read(), re.MULTILINE).group(1)
+
+
 cwd = os.path.abspath('.')
 inc_dir = os.path.join(cwd, "inc")
 sys.path.insert(0, inc_dir)
@@ -153,7 +164,31 @@ extensions = [Extension(
         **kwargs)
     ]
 
+with open('README.rst', encoding='utf-8') as f:
+    readme = f.read()
+with open('HISTORY.rst', encoding='utf-8') as f:
+    history = f.read()
+
 setup(
-    cmdclass = {'build_ext': build_ext},
+    name='uamqp',
+    version=version,
+    description='AMQP 1.0 Client Library for Python',
+    long_description=readme + '\n\n' + history,
+    license='MIT License',
+    author='Microsoft Corporation',
+    author_email='azpysdkhelp@microsoft.com',
+    url='https://github.com/Azure/azure-uamqp-python',
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Programming Language :: Cython',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'License :: OSI Approved :: MIT License',
+    ],
+    zip_safe=False,
+    packages=find_packages(exclude=["tests"]),
+    cmdclass = {'build_ext': build_ext, 'bdist_wheel': bdist_wheel},
     ext_modules = cythonize(extensions, gdb_debug=True)
 )

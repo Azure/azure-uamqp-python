@@ -1,5 +1,19 @@
+uAMQP for Python
+================
 
-# Contributing
+An AMQP 1.0 client library for Python.
+
+
+Provide Feedback
+================
+
+If you encounter any bugs or have suggestions, please file an issue in the
+`Issues <https://github.com/Azure/azure-uamqp-python/issues>`__
+section of the project.
+
+
+Contributing
+============
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
