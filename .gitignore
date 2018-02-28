@@ -13,6 +13,7 @@ azure-c-shared-utility/
 # Distribution / packaging
 .Python
 env/
+env_*/
 build/
 cython_debug/
 develop-eggs/
