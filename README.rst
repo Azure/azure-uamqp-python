@@ -38,7 +38,7 @@ This project has two C library dependencies:
 - `Azure Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__
 
 In order to build the Python extension, both of these repos will need to be cloned into the root directory.
-To build, start be creating a virtual environment and installing the required Python packages:
+To build, start by creating a virtual environment and installing the required Python packages:
 
 .. code:: shell
 
@@ -55,7 +55,7 @@ Next, run the build command:
 Tests
 +++++
 
-The tests can be run from within the virtual environment. The extension must be build first using the instructions above.
+The tests can be run from within the virtual environment. The extension must be built first using the instructions above.
 
 .. code:: shell
 
