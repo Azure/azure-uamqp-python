@@ -18,8 +18,7 @@ except Exception:
 from uamqp import utils
 from uamqp import sasl
 from uamqp import constants
-
-import c_uamqp
+from uamqp import c_uamqp
 
 
 _logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ cimport c_session
 cimport c_message
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqp_management.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/amqp_management.h":
 
     cdef enum AMQP_MANAGEMENT_EXECUTE_OPERATION_RESULT_TAG:
         AMQP_MANAGEMENT_EXECUTE_OPERATION_OK,

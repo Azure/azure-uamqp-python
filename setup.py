@@ -51,7 +51,8 @@ for f in os.listdir("./src"):
     if f.endswith(".pyx"):
         print("Adding {}".format(f))
         content_includes += "include \"src/" + f + "\"\n"
-with open("c_uamqp.pyx", 'w') as lib_file:
+combined_pyx = os.path.join("uamqp", "c_uamqp.pyx")
+with open(combined_pyx, 'w') as lib_file:
     lib_file.write(content_includes)
 
 kwargs = {}
@@ -131,7 +132,7 @@ sources = [
     "./azure-uamqp-c/src/sasl_anonymous.c",
     "./azure-uamqp-c/src/session.c",
     "./azure-uamqp-c/src/socket_listener_win32.c" if is_win  else "./azure-uamqp-c/src/socket_listener_berkeley.c",
-    "c_uamqp.pyx",
+    combined_pyx,
 ]
 
 if is_win:
@@ -146,7 +147,7 @@ else:
     ])
 
 extensions = [Extension(
-        "c_uamqp",
+        "uamqp.c_uamqp",
         sources=sources,
         include_dirs=dirs,
         **kwargs)

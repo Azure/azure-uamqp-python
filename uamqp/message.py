@@ -6,7 +6,7 @@
 
 import logging
 
-import c_uamqp
+from uamqp import c_uamqp
 from uamqp import utils
 from uamqp import constants
 

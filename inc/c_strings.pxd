@@ -5,13 +5,13 @@
 #--------------------------------------------------------------------------
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/strings_types.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/strings_types.h":
 
     ctypedef struct STRING_HANDLE:
         pass
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/strings.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/strings.h":
 
     STRING_HANDLE STRING_new()
     STRING_HANDLE STRING_clone(STRING_HANDLE handle)

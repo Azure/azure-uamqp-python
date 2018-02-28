@@ -10,7 +10,7 @@ import time
 import base64
 
 
-import c_uamqp
+from uamqp import c_uamqp
 
 
 def parse_connection_string(connect_str):

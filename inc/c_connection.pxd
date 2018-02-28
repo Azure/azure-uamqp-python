@@ -10,7 +10,7 @@ cimport c_amqp_definitions
 cimport c_amqpvalue
 cimport c_xio
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/connection.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/connection.h":
 
     ctypedef struct CONNECTION_HANDLE:
         pass

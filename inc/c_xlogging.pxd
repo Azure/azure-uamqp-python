@@ -4,7 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/xlogging.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/xlogging.h":
 
     cdef enum LOG_CATEGORY_TAG:
         AZ_LOG_ERROR,

@@ -11,7 +11,7 @@ cimport c_amqpvalue
 cimport c_session
 cimport c_async_operation
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/link.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/link.h":
 
     ctypedef struct LINK_HANDLE:
         pass

@@ -7,8 +7,7 @@
 from enum import Enum
 
 from uamqp import utils
-
-import c_uamqp
+from uamqp import c_uamqp
 
 
 DEFAULT_AMQPS_PORT = c_uamqp.AMQPS_PORT

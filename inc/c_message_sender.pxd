@@ -12,7 +12,7 @@ cimport c_async_operation
 cimport c_amqp_definitions
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/message_sender.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/message_sender.h":
 
     cdef enum MESSAGE_SEND_RESULT_TAG:
         MESSAGE_SEND_OK,

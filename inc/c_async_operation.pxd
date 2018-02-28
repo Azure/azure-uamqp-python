@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------------
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/async_operation.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/async_operation.h":
 
     ctypedef struct ASYNC_OPERATION_HANDLE:
         pass

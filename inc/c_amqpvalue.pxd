@@ -7,12 +7,12 @@
 from libc cimport stdint
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqpvalue_to_string.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/amqpvalue_to_string.h":
 
     char* amqpvalue_to_string(AMQP_VALUE amqp_value)
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqp_types.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/amqp_types.h":
 
     cdef enum AMQP_TYPE_TAG:
         AMQP_TYPE_NULL,
@@ -41,7 +41,7 @@ cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqp_types.h":
         AMQP_TYPE_UNKNOWN
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqpvalue.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/amqpvalue.h":
 
     ctypedef struct AMQP_VALUE:
         pass

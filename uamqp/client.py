@@ -16,11 +16,9 @@ from uamqp import sender
 from uamqp import receiver
 from uamqp import address
 from uamqp import errors
-
+from uamqp import c_uamqp
 from uamqp import Connection
 from uamqp import Session
-
-import c_uamqp
 
 
 _logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ try:
 except Exception:
     from urllib.parse import quote_plus
 
-import c_uamqp
+from uamqp import c_uamqp
 
 
 class SASLClient:

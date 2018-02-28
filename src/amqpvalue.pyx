@@ -355,9 +355,11 @@ cdef class BoolValue(AMQPValue):
     @property
     def value(self):
         assert self.type
-        cdef bint _value
-        if c_amqpvalue.amqpvalue_get_boolean(self._c_value, &_value) == 0:
-            return _value
+        str_value = str(self)
+        if str_value in ["false"]:
+            return False
+        elif str_value in ["true"]:
+            return True
         else:
             self._value_error()
 

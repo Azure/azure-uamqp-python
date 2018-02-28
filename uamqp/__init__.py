@@ -25,9 +25,6 @@ if sys.version_info.major >= 3 and sys.version_info.minor >= 5:
     from uamqp.async import SendClientAsync, ReceiveClientAsync
 
 
-import c_uamqp
-
-
 _logger = logging.getLogger(__name__)
 _is_win = sys.platform.startswith('win')
 #c_uamqp.set_custom_logger()

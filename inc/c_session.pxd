@@ -11,7 +11,7 @@ cimport c_connection
 cimport c_amqp_definitions
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/session.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/session.h":
 
     ctypedef struct SESSION_HANDLE:
         pass

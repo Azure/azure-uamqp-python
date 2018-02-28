@@ -9,7 +9,7 @@ from libc cimport stdint
 cimport c_xio
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/tlsio_openssl.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/tlsio_openssl.h":
 
     int tlsio_openssl_init()
     void tlsio_openssl_deinit()

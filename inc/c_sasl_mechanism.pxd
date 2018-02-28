@@ -9,7 +9,7 @@ from libc cimport stdint
 cimport c_xio
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_mechanism.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/sasl_mechanism.h":
 
     ctypedef struct SASL_MECHANISM_HANDLE:
         pass
@@ -44,12 +44,12 @@ cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_mechanism.h":
     int saslmechanism_challenge(SASL_MECHANISM_HANDLE sasl_mechanism, const SASL_MECHANISM_BYTES* challenge_bytes, SASL_MECHANISM_BYTES* response_bytes)
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_anonymous.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/sasl_anonymous.h":
 
         const SASL_MECHANISM_INTERFACE_DESCRIPTION* saslanonymous_get_interface()
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_plain.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/sasl_plain.h":
 
     ctypedef struct SASL_PLAIN_CONFIG_TAG:
         const char* authcid
@@ -61,7 +61,7 @@ cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_plain.h":
     const SASL_MECHANISM_INTERFACE_DESCRIPTION* saslplain_get_interface()
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_mssbcbs.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/sasl_mssbcbs.h":
 
     CONCRETE_SASL_MECHANISM_HANDLE saslmssbcbs_create(void* config)
     void saslmssbcbs_destroy(CONCRETE_SASL_MECHANISM_HANDLE sasl_mechanism_concrete_handle)
@@ -71,7 +71,7 @@ cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/sasl_mssbcbs.h":
     const SASL_MECHANISM_INTERFACE_DESCRIPTION* saslmssbcbs_get_interface()
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/saslclientio.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/saslclientio.h":
 
     ctypedef struct SASLCLIENTIO_CONFIG_TAG:
         c_xio.XIO_HANDLE underlying_io

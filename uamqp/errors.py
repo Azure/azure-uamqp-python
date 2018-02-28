@@ -7,7 +7,11 @@
 from uamqp import utils
 
 
-class RejectMessage(Exception):
+class MessageResponse(Exception):
+    pass
+
+
+class RejectMessage(MessageResponse):
 
     def __init__(self, message):
         self.rejection_description = message.encode('utf-8')

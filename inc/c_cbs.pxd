@@ -20,7 +20,7 @@ cdef enum AUTH_STATUS:
     AUTH_STATUS_FAILURE
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/cbs.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/cbs.h":
 
     cdef enum CBS_OPERATION_RESULT_TAG:
         CBS_OPERATION_RESULT_OK,

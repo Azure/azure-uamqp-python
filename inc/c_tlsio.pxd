@@ -9,7 +9,7 @@ from libc cimport stdint
 cimport c_xio
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/tlsio.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/tlsio.h":
 
     ctypedef struct TLSIO_CONFIG_TAG:
         const char* hostname

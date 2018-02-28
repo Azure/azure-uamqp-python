@@ -9,12 +9,11 @@ import datetime
 import queue
 import uuid
 
-import c_uamqp
-
 import uamqp
 from uamqp import utils
 from uamqp import errors
 from uamqp import constants
+from uamqp import c_uamqp
 
 
 _logger = logging.getLogger(__name__)

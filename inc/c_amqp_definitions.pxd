@@ -9,7 +9,7 @@ from libc cimport stdint
 cimport c_amqpvalue
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/amqp_definitions.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/amqp_definitions.h":
 
     ctypedef stdint.uint_fast32_t tickcounter_ms_t
 

@@ -9,7 +9,7 @@ cimport c_message
 cimport c_link
 cimport c_amqpvalue
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/message_receiver.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/message_receiver.h":
 
     cdef enum MESSAGE_RECEIVER_STATE_TAG:
         MESSAGE_RECEIVER_STATE_IDLE,

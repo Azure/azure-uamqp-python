@@ -10,7 +10,7 @@ cimport c_amqpvalue
 cimport c_amqp_definitions
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/messaging.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/messaging.h":
 
     c_amqpvalue.AMQP_VALUE messaging_create_source(const char* address)
     c_amqpvalue.AMQP_VALUE messaging_create_target(const char* address)
@@ -22,7 +22,7 @@ cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/messaging.h":
     c_amqpvalue.AMQP_VALUE messaging_delivery_modified(bint delivery_failed, bint undeliverable_here, c_amqp_definitions.fields message_annotations) nogil
 
 
-cdef extern from "./azure-uamqp-c/inc/azure_uamqp_c/message.h":
+cdef extern from "../azure-uamqp-c/inc/azure_uamqp_c/message.h":
 
     cdef enum MESSAGE_BODY_TYPE_TAG:
         MESSAGE_BODY_TYPE_NONE,

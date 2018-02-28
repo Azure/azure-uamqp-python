@@ -10,7 +10,7 @@ cimport c_strings
 cimport c_xio
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/platform.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/platform.h":
 
     int platform_init()
     void platform_deinit()

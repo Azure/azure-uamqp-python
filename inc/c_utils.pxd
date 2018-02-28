@@ -16,13 +16,13 @@ cdef extern from "Python.h":
     ctypedef size_t Py_ssize_t
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/sastoken.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/sastoken.h":
     bint SASToken_Validate(c_strings.STRING_HANDLE sasToken)
     c_strings.STRING_HANDLE SASToken_Create(c_strings.STRING_HANDLE key, c_strings.STRING_HANDLE scope, c_strings.STRING_HANDLE keyName, size_t expiry)
     c_strings.STRING_HANDLE SASToken_CreateString(const char* key, const char* scope, const char* keyName, size_t expiry)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/buffer_.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/buffer_.h":
 
     ctypedef struct BUFFER_HANDLE:
         pass
@@ -31,7 +31,7 @@ cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/buffer_.h"
     void BUFFER_delete(BUFFER_HANDLE handle)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/map.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/map.h":
 
     cdef enum MAP_RESULT_TAG:
         MAP_OK,
@@ -53,20 +53,20 @@ cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/map.h":
     void Map_Destroy(MAP_HANDLE handle)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/urlencode.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/urlencode.h":
 
     c_strings.STRING_HANDLE URL_EncodeString(const char* textEncode)
     c_strings.STRING_HANDLE URL_Encode(c_strings.STRING_HANDLE input)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/base64.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/base64.h":
 
     c_strings.STRING_HANDLE Base64_Encoder(BUFFER_HANDLE input)
     c_strings.STRING_HANDLE Base64_Encode_Bytes(const unsigned char* source, size_t size)
     BUFFER_HANDLE Base64_Decoder(const char* source)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/tickcounter.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/tickcounter.h":
 
     ctypedef struct TICK_COUNTER_HANDLE:
         pass
@@ -78,7 +78,7 @@ cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/tickcounte
     int tickcounter_get_current_ms(TICK_COUNTER_HANDLE tick_counter, tickcounter_ms_t* current_ms)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/doublylinkedlist.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/doublylinkedlist.h":
 
     ctypedef struct DLIST_ENTRY_TAG:
         DLIST_ENTRY_TAG *Flink
@@ -96,7 +96,7 @@ cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/doublylink
     PDLIST_ENTRY DList_RemoveHeadList(PDLIST_ENTRY listHead)
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/optionhandler.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/optionhandler.h":
 
     cdef enum OPTIONHANDLER_RESULT_TAG:
         OPTIONHANDLER_OK,

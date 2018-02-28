@@ -9,7 +9,7 @@ from libc cimport stdint
 cimport c_utils
 
 
-cdef extern from "./azure-c-shared-utility/inc/azure_c_shared_utility/xio.h":
+cdef extern from "../azure-c-shared-utility/inc/azure_c_shared_utility/xio.h":
 
     ctypedef void* CONCRETE_IO_HANDLE
     ctypedef struct XIO_HANDLE:
