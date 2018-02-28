@@ -10,17 +10,23 @@ import uamqp
 from uamqp import authentication
 
 
-uri = os.environ.get("AMQP_SERVICE_URI")
-key_name = os.environ.get("AMQP_SERVICE_KEY_NAME")
-access_key = os.environ.get("AMQP_SERVICE_ACCESS_KEY")
+hostname = os.environ.get("EVENT_HUB_HOSTNAME")
+event_hub = os.environ.get("EVENT_HUB_NAME")
+key_name = os.environ.get("EVENT_HUB_KEY_NAME")
+access_key = os.environ.get("EVENT_HUB_ACCESS_KEY")
+consumer_group = "$Default"
+partition = "0"
 
 
-def uamqp_receive_simple():
-
+def azure_event_hub_simple_receive():
     plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
 
-    message = uamqp.receive_message(uri, auth=plain_auth)
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        hostname, event_hub, consumer_group, partition)
+
+    message = uamqp.receive_message(source, auth=plain_auth)
     print("Received: {}".format(message))
 
+
 if __name__ == "__main__":
-    uamqp_receive_simple()
+    azure_event_hub_simple_receive()

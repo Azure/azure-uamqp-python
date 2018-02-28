@@ -1,9 +1,14 @@
+#-------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+#--------------------------------------------------------------------------
+
 import os
 import sys
 import re
 import distutils
 from setuptools import find_packages, setup
-#from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
