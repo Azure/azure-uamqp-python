@@ -88,7 +88,7 @@ if is_win:
 else:
     if not is_mac:
         kwargs['libraries'] = ['uuid']
-    kwargs['extra_link_args'] = [O('libcrypto'), O('libssl'), '-g']  #, '-fopenmp']
+    kwargs['extra_link_args'] = [O('libcrypto'), O('libssl'), '-g', '-Wno-export-dynamic', '-static-libgcc', '-static']  #, '-fopenmp']
     kwargs['extra_compile_args'] = ['-g', '-O0']  #, '-fopenmp']
 
 sources = [
@@ -193,6 +193,7 @@ setup(
         'License :: OSI Approved :: MIT License',
     ],
     zip_safe=False,
+    include_package_data=True,
     packages=find_packages(exclude=["tests"]),
     cmdclass = {'build_ext': build_ext, 'bdist_wheel': bdist_wheel},
     ext_modules = cythonize(extensions, gdb_debug=True)
