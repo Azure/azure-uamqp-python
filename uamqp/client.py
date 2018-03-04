@@ -30,7 +30,7 @@ class SendClient:
         self._target = target if isinstance(target, address.AddressMixin) else address.Target(target)
         self._hostname = self._target.parsed_address.netloc
 
-        self._auth = auth if auth else authentication.SASLAnnoymous(self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._msg_timeout = msg_timeout

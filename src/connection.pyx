@@ -6,7 +6,7 @@
 
 # Python imports
 import logging
-import enum
+from enum import Enum
 
 # C imports
 from libc cimport stdint
