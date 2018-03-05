@@ -17,6 +17,7 @@ from wheel.bdist_wheel import bdist_wheel
 
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
+is_manylinux = True #os.environ.get('MANY_LINUX_IMAGE', False)
 
 # Version extraction inspired from 'requests'
 with open(os.path.join('uamqp', 'version.py'), 'r') as fd:
@@ -30,23 +31,30 @@ sys.path.insert(0, inc_dir)
 
 dirs = [
     inc_dir,
+    "/usr/local/include/openssl",
     "/usr/local/opt/openssl/include",
     "/usr/include",
+    "/util-linux/libuuid/src",
+    "/openssl/include",
     "./azure-c-shared-utility/pal",
     "./azure-c-shared-utility/pal/inc",
     "./azure-c-shared-utility/inc",
     "./azure-uamqp-c/inc"
 ]
 
-ossl_base = '/usr/lib/x86_64-linux-gnu'
+default_ossl_base = '/usr/lib/x86_64-linux-gnu'
+# Many Linux openssl install location
+many_linux_ossl_base = '/openssl-1.1.0g'
 # Since openssl is deprecated on MacOSX 10.7+, look for homebrew installs
 homebrew_ossl_base = '/usr/local/opt/openssl/lib'
 
 def O (path):
     if is_mac and os.path.exists(homebrew_ossl_base):
         return os.path.join(homebrew_ossl_base, path) + ".a"
+    elif is_manylinux and os.path.exists(many_linux_ossl_base):
+        return os.path.join(many_linux_ossl_base, path) + ".a"
     else:
-        return os.path.join(ossl_base, path) + ".so"
+        return os.path.join(default_ossl_base, path) + ".so"
 
 
 if is_win:
@@ -82,14 +90,14 @@ if is_win:
         'schannel',
         'RpcRT4',
         'WSock32',
-        'WS2_32',
-        #'OpenMP'
-    ]
+        'WS2_32']
 else:
-    if not is_mac:
+    if not is_mac and not is_manylinux:
         kwargs['libraries'] = ['uuid']
-    kwargs['extra_link_args'] = [O('libcrypto'), O('libssl'), '-g', '-Wno-export-dynamic', '-static-libgcc', '-static']  #, '-fopenmp']
-    kwargs['extra_compile_args'] = ['-g', '-O0']  #, '-fopenmp']
+    kwargs['extra_link_args'] = [O('libcrypto'), O('libssl'), '-g', '-Wno-export-dynamic', '-static-libgcc', '-static', '-Bstatic']
+    kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
+    if is_manylinux:
+        kwargs['extra_link_args'].insert(0, '/util-linux/.libs/libuuid.a')
 
 sources = [
     "./azure-c-shared-utility/src/xlogging.c",

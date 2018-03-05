@@ -7,22 +7,27 @@ An AMQP 1.0 client library for Python.
 Installation
 ============
 
-For Windows and MacOS
-+++++++++++++++++++++
-
-Download the release build matching your OS configuration.
-Install the Wheel using Pip - ideally into a virtual environment.
+A wheel is provided most platforms, so in most cases you can install directly with pip:
 
 .. code:: shell
 
-    $ python -m venv env
-    $ env/Scripts/activate
-    (env)$ pip install uamqp-0.1.0a1-cp36-cp36m-[os_config].whl
+    $ pip install uamqp
 
-For Linux
-+++++++++
 
-Builds pending - please follow the developer setup below.
+Installing from source
+++++++++++++++++++++++
+
+If you use a Linux distro not supported by manylinux, so can build from source like so:
+
+.. code:: shell
+
+    $ apt-get update
+    $ apt-get install openssl-dev uuid
+    $ pip install uamqp --no-binary
+
+Python 2.7 support
+++++++++++++++++++
+Coming soon...
 
 
 Developer Setup

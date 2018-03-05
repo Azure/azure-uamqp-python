@@ -1,0 +1,44 @@
+#!/bin/bash
+set -e
+
+UAMQP_VERSION="0.1.0a1"
+MANY_LINUX_IMAGE=True
+OPENSSL_VERSION="1.1.0g"
+UUID_VERSION="2.31"
+PY_VERSION="34"
+export CFLAGS=-fPIC
+CWD=$(pwd)
+
+# Install new Perl because OpenSSL configure scripts require > 5.10.0.
+curl -L https://install.perlbrew.pl | bash
+export PERLBREW_ROOT=/root/perl5/perlbrew
+source ${PERLBREW_ROOT}/etc/bashrc
+perlbrew install perl-5.16.0
+perlbrew use perl-5.16.0
+
+/opt/python/cp${PY_VERSION}-cp${PY_VERSION}m/bin/pip install -U setuptools
+/opt/python/cp${PY_VERSION}-cp${PY_VERSION}m/bin/pip install -U wheel pip
+/opt/python/cp${PY_VERSION}-cp${PY_VERSION}m/bin/pip install -U cython
+curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+tar xvf openssl-${OPENSSL_VERSION}.tar.gz
+cd openssl-${OPENSSL_VERSION}
+./config no-shared no-ssl2 no-ssl3 -fPIC --prefix=/openssl
+make && make install
+cd ..
+
+curl -O https://www.kernel.org/pub/linux/utils/util-linux/v${UUID_VERSION}/util-linux-${UUID_VERSION}.tar.gz
+mkdir util-linux && tar xfv util-linux-${UUID_VERSION}.tar.gz -C util-linux --strip-components 1
+cd util-linux
+./configure --prefix=/linux-util --disable-all-programs --enable-libuuid --enable-shared
+make && make install
+mkdir libuuid/src/uuid && cp libuuid/src/uuid.h libuuid/src/uuid/uuid.h
+cd ..
+
+#cd /opt/rh/devtoolset-2/root/usr/lib/gcc/x86_64-CentOS-linux/4.8.2/
+#cp crtbeginT.o crtbeginT.orig.o
+#rm -f crtbeginT.o
+#cp crtbeginS.o crtbeginT.o
+
+#cd /Code
+#/opt/python/cp${PY_VERSION}-cp${PY_VERSION}m/bin/python setup.py bdist_wheel
+#auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp${PY_VERSION}-cp${PY_VERSION}m-linux_x86_64.whl
