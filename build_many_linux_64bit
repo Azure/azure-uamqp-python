@@ -8,12 +8,10 @@ OPENSSL_VERSION="1.1.0g"
 source ${PERLBREW_ROOT}/etc/bashrc
 perlbrew use perl-5.16.0
 curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
-tar xvf openssl-${OPENSSL_VERSION}.tar.gz
-cd openssl-${OPENSSL_VERSION}
+mkdir openssl-src && tar xvf openssl-${OPENSSL_VERSION}.tar.gz -C openssl-src --strip-components 1 && \
+cd openssl-src
 ./config no-shared no-ssl2 no-ssl3 -fPIC --prefix=/openssl
 make && make install
-cd ..
-
 
 cd /code
 /opt/python/cp34-cp34m/bin/python setup.py bdist_wheel
