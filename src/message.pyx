@@ -320,3 +320,73 @@ cdef class Messaging:
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for modified delivery.")
         return value_factory(_value)
+
+
+cpdef size_t get_encoded_message_size(cMessage message):
+
+        cdef c_message.MESSAGE_HANDLE c_msg
+        c_msg = c_message.message_clone(<c_message.MESSAGE_HANDLE>message._c_value)
+        if <void*>c_msg == NULL:
+            raise MemoryError("Unable to clone cMessage.")
+
+        cdef c_message.MESSAGE_BODY_TYPE message_body_type
+        cdef c_amqp_definitions.HEADER_HANDLE header
+        cdef c_amqpvalue.AMQP_VALUE header_amqp_value
+        cdef c_amqp_definitions.PROPERTIES_HANDLE properties
+        cdef c_amqpvalue.AMQP_VALUE properties_amqp_value
+        cdef c_amqpvalue.AMQP_VALUE application_properties
+        cdef c_amqpvalue.AMQP_VALUE application_properties_value
+        cdef c_amqpvalue.AMQP_VALUE body_amqp_value
+        cdef c_amqpvalue.AMQP_VALUE msg_annotations
+        cdef size_t encoded_size
+        cdef size_t total_encoded_size = 0
+        cdef size_t body_data_count = 0
+
+        # message header
+        if c_message.message_get_header(c_msg, &header) == 0 and <void*>header != NULL:
+            header_amqp_value = c_amqp_definitions.amqpvalue_create_header(header)
+            if <void*>header_amqp_value == NULL:
+                _logger.debug("Cannot create header AMQP value")
+                raise MemoryError("Cannot get cMessage header.")
+            else:
+                if c_amqpvalue.amqpvalue_get_encoded_size(header_amqp_value, &encoded_size) != 0:
+                    _logger.debug("Cannot obtain header encoded size")
+                    raise ValueError("Cannot obtain header encoded size")
+                else:
+                    total_encoded_size += encoded_size
+
+        # message annotations
+        if c_message.message_get_message_annotations(c_msg, &msg_annotations) == 0 and <void*>msg_annotations != NULL:
+            if c_amqpvalue.amqpvalue_get_encoded_size(msg_annotations, &encoded_size) != 0:
+                _logger.debug("Cannot obtain message annotations encoded size")
+                raise ValueError("Cannot obtain message annotations encoded size")
+            else:
+                total_encoded_size += encoded_size
+
+        # properties
+        if c_message.message_get_properties(c_msg, &properties) == 0 and <void*>properties != NULL:
+            properties_amqp_value = c_amqp_definitions.amqpvalue_create_properties(properties)
+            if <void*>properties_amqp_value == NULL:
+                _logger.debug("Cannot create properties AMQP value")
+                raise MemoryError("Cannot get cMessage properties.")
+            else:
+                if c_amqpvalue.amqpvalue_get_encoded_size(properties_amqp_value, &encoded_size) != 0:
+                    _logger.debug("Cannot obtain message properties encoded size")
+                    raise ValueError("Cannot obtain message properties encoded size")
+                else:
+                    total_encoded_size += encoded_size
+
+        # application properties
+        if c_message.message_get_application_properties(c_msg, &application_properties) == 0 and <void*>application_properties != NULL:
+            application_properties_value = c_amqp_definitions.amqpvalue_create_application_properties(application_properties)
+            if <void*>application_properties_value == NULL:
+                _logger.debug("Cannot create application properties AMQP value")
+                raise MemoryError("Cannot get cMessage application properties.")
+            else:
+                if c_amqpvalue.amqpvalue_get_encoded_size(application_properties_value, &encoded_size) != 0:
+                    _logger.debug("Cannot obtain application properties encoded size")
+                    raise ValueError("Cannot obtain application properties encoded size")
+                else:
+                    total_encoded_size += encoded_size
+
+        return total_encoded_size

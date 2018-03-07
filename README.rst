@@ -32,7 +32,7 @@ Or for RHEL/CentOS:
 
 .. code:: shell
 
-    $ yum install redhat-rpm-config gcc openssl-devel python-devel uuid-devel
+    $ yum install redhat-rpm-config gcc openssl-devel python-devel libuuid-devel
 
 Python 2.7 support
 ++++++++++++++++++
@@ -47,7 +47,7 @@ Pre-requisites
 ++++++++++++++
 
 - Windows: None
-- MacOS: Install OpenSSL using Homebrew (`brew install openssl@1.1`)
+- MacOS: Install OpenSSL using Homebrew: `brew install openssl@1.1`
 - Linux: Install dependencies as descriped above in the installation instructions.
 
 Building the extension
