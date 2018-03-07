@@ -7,23 +7,32 @@ An AMQP 1.0 client library for Python.
 Installation
 ============
 
-A wheel is provided most platforms, so in most cases you can install directly with pip:
+Windows and MacOS
++++++++++++++++++
+
+Wheels are provided for these platforms, so you can install directly with pip:
 
 .. code:: shell
 
     $ pip install uamqp
 
 
-Installing from source
-++++++++++++++++++++++
+Linux
++++++
 
-If you use a Linux distro not supported by manylinux, so can build from source like so:
+On Linux you must install the dependencies before you install from pip, like so:
 
 .. code:: shell
 
     $ apt-get update
-    $ apt-get install openssl-dev uuid
-    $ pip install uamqp --no-binary
+    $ apt-get install build-essential libssl-dev python3-dev uuid-dev
+    $ pip3 install uamqp --no-binary
+
+Or for RHEL/CentOS:
+
+.. code:: shell
+
+    $ yum install redhat-rpm-config gcc openssl-devel python-devel uuid-devel
 
 Python 2.7 support
 ++++++++++++++++++
@@ -33,6 +42,13 @@ Coming soon...
 Developer Setup
 ===============
 In order to run the code directly, the Cython extension will need to be build first.
+
+Pre-requisites
+++++++++++++++
+
+- Windows: None
+- MacOS: Install OpenSSL using Homebrew (`brew install openssl@1.1`)
+- Linux: Install dependencies as descriped above in the installation instructions.
 
 Building the extension
 ++++++++++++++++++++++

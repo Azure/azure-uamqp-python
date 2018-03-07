@@ -127,3 +127,7 @@ cdef class cLink(StructBase):
     cpdef set_prefetch_count(self, stdint.uint32_t prefetch):
         if c_link.link_set_max_link_credit(self._c_value, prefetch) != 0:
             self._value_error("Unable to set link credit.")
+
+    cpdef set_attach_properties(self, AMQPValue properties):
+        if c_link.link_set_attach_properties(self._c_value, <c_amqp_definitions.fields>properties._c_value) != 0:
+            self._value_error("Unable to set link attach properties.")

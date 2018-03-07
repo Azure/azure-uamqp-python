@@ -139,6 +139,21 @@ cdef class Connection(StructBase):
             self._value_error()
 
     @property
+    def properties(self):
+        cdef c_amqp_definitions.fields _value
+        if c_connection.connection_get_properties(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return value_factory(_value)
+        else:
+            self._value_error()
+
+    @properties.setter
+    def properties(self, AMQPValue value):
+        if c_connection.connection_set_properties(self._c_value, <c_amqp_definitions.fields>value._c_value) != 0:
+            self._value_error()
+
+    @property
     def remote_max_frame_size(self):
         cdef stdint.uint32_t _value
         if c_connection.connection_get_remote_max_frame_size(self._c_value, &_value) == 0:

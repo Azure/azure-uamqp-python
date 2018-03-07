@@ -7,7 +7,6 @@
 import logging
 import uuid
 import queue
-from urllib.parse import urlparse
 
 import uamqp
 from uamqp import authentication
@@ -28,7 +27,12 @@ class SendClient:
 
     def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
         self._target = target if isinstance(target, address.AddressMixin) else address.Target(target)
-        self._hostname = self._target.parsed_address.netloc
+        self._hostname = self._target.parsed_address.hostname
+        if not auth:
+            username = self._target.parsed_address.username
+            password = self._target.parsed_address.password
+            if username and password:
+                auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
@@ -40,6 +44,7 @@ class SendClient:
         self._message_sent_callback = None
 
         self._connection = None
+        self._ext_connection = False
         self._session = None
         self._message_sender = None
 
@@ -47,6 +52,7 @@ class SendClient:
         self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
+        self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
@@ -60,15 +66,20 @@ class SendClient:
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
-    def open(self):
-        uamqp.initialize_platform()
-        self._connection = Connection(
+    def open(self, connection=None):
+        _logger.debug("Opening client conneciton.")
+        if connection:
+            _logger.debug("Using existing connection.")
+            self._auth = connection.auth
+            self._ext_connection = True
+        self._connection = connection or Connection(
             self._hostname,
-            self._auth.sasl_client,
+            self._auth,
             container_id=self._name,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
+            properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace)
         self._session = Session(
@@ -79,6 +90,7 @@ class SendClient:
             self._cbs_handle = self._auth.create_authenticator(self._session)
 
     def close(self):
+        _logger.debug("Closing client.")
         if self._message_sender:
             self._message_sender._destroy()
             self._message_sender = None
@@ -87,25 +99,27 @@ class SendClient:
             self._cbs_handle = None
         self._session.destroy()
         self._session = None
-        self._connection.destroy()
-        self._connection = None
+        if not self._ext_connection:
+            _logger.debug("Closing connection.")
+            self._connection.destroy()
+            self._connection = None
         self._pending_messages = []
-        self._auth.close()
-        uamqp.deinitialize_platform()
 
     def queue_message(self, message):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
 
-    def send_all_messages(self):
-        self.open()
+    def send_all_messages(self, close_on_done=True):
+        if not self._session:
+            self.open()
         try:
             while self._pending_messages:
                 self.do_work()
         except:
             raise
         else:
-            self.close()
+            if close_on_done:
+                self.close()
 
     def do_work(self):
         timeout = False
@@ -145,11 +159,12 @@ class SendClient:
                             message.on_send_complete = self._message_sent_callback
                         try:
                             current_time = self._counter.get_current_ms()
-                            if self._msg_timeout > 0 and (current_time - message.idle_time)/1000 > self._msg_timeout:
+                            elapsed_time = (current_time - message.idle_time)/1000
+                            if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
                                 message._on_message_sent(constants.MessageSendResult.Timeout)
                             else:
-                                self._message_sender.send_async(message)
-                            #message.clear()
+                                timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+                                self._message_sender.send_async(message, timeout=timeout)
 
                         except Exception as exp:
                             message._on_message_sent(constants.MessageSendResult.Error, error=exp)
@@ -164,7 +179,12 @@ class ReceiveClient:
 
     def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, **kwargs):
         self._source = source if isinstance(source, address.AddressMixin) else address.Source(source)
-        self._hostname = self._source.parsed_address.netloc
+        self._hostname = self._source.parsed_address.hostname
+        if not auth:
+            username = self._target.parsed_address.username
+            password = self._target.parsed_address.password
+            if username and password:
+                auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth or authentication.SASLAnonymous(self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
@@ -175,6 +195,7 @@ class ReceiveClient:
         self._count = 0
 
         self._connection = None
+        self._ext_connection = False
         self._session = None
         self._message_receiver = None
         self._shutdown = False
@@ -187,6 +208,7 @@ class ReceiveClient:
         self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
+        self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
@@ -226,7 +248,8 @@ class ReceiveClient:
     def receive_messages_iter(self, on_message_received=None):
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue(self._prefetch)
-        self.open()
+        if not self._session:
+            self.open()
         return self._message_generator()
 
     def receive_messages(self, on_message_received):
@@ -236,15 +259,18 @@ class ReceiveClient:
         while receiving:
             receiving = self._do_work()
 
-    def open(self):
-        uamqp.initialize_platform()
-        self._connection = Connection(
+    def open(self, connection=None):
+        if connection:
+            self._auth = connection.auth
+            self._ext_connection = True
+        self._connection = connection or Connection(
             self._hostname,
-            self._auth.sasl_client,
+            self._auth,
             container_id=self._name,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
+            properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace)
         self._session = Session(
@@ -263,12 +289,13 @@ class ReceiveClient:
             self._cbs_handle = None
         self._session.destroy()
         self._session = None
-        self._connection.destroy()
-        self._connection = None
+        if self._ext_connection:
+            self._connection.destroy()
+            self._connection = None
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
-        uamqp.deinitialize_platform()
+        
 
     def _do_work(self):
         timeout = False

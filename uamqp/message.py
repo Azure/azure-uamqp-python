@@ -102,6 +102,21 @@ class Message:
             return None
         return _app_props.map.value
 
+    @application_properties.setter
+    def application_properties(self, value):
+        if not self._message:
+            raise ValueError("No underlying message.")
+        if not isinstance(value, dict):
+            raise TypeError("Application properties must be a dictionary.")
+        app_props = self.application_properties
+        if app_props:
+            app_props.update(value)
+        else:
+            app_props = dict(value)
+        amqp_props = utils.data_factory(app_props)
+        wrapped_props = c_uamqp.create_application_properties(amqp_props)
+        self._message.application_properties = wrapped_props
+
     @property
     def message_annotations(self):
         if not self._message:
@@ -110,6 +125,21 @@ class Message:
         if _ann is None:
             return None
         return _ann.map.value
+
+    @message_annotations.setter
+    def message_annotations(self, value):
+        if not self._message:
+            raise ValueError("No underlying message.")
+        if not isinstance(value, dict):
+            raise TypeError("Message annotations must be a dictionary.")
+        annotations = self.message_annotations
+        if annotations:
+            annotations.update(value)
+        else:
+            annotations = dict(value)
+        amqp_props = utils.data_factory(annotations)
+        wrapped_props = c_uamqp.create_message_annotations(amqp_props)
+        self._message.message_annotations = wrapped_props
 
     @property
     def delivery_annotations(self):
@@ -129,11 +159,6 @@ class Message:
         self.state = constants.MessageState.Complete
         if self.on_send_complete:
             self.on_send_complete(result, error)
-
-    def clear(self):
-        self._message.destroy()
-        self._message = None
-        self._body = None
 
     def get_data(self):
         if not self._message:

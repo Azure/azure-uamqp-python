@@ -131,7 +131,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  token_type=b"servicebus.windows.net:sastoken"):
         self._refresh_token = None
         parsed = urlparse(uri)
-        self.hostname = parsed.netloc
+        self.hostname = parsed.hostname
         self.audience = audience if isinstance(audience, bytes) else audience.encode('utf-8')
         self.token_type = token_type if isinstance(token_type, bytes) else token_type.encode('utf-8')
         self.token = token if isinstance(token, bytes) else token.encode('utf-8')

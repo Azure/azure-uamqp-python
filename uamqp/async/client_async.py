@@ -9,7 +9,6 @@ import logging
 import functools
 import uuid
 import queue
-from urllib.parse import urlparse
 
 import uamqp
 from uamqp import client
