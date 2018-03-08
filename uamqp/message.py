@@ -183,14 +183,20 @@ class BatchMessage(Message):
         self._application_properties = application_properties
         self._annotations = annotations
         self._body_gen = data
-        self._sent = 0
+        self._total_messages = 0
+        self._sent_messages = 0
 
     def _on_message_sent(self, result, error=None):
+        self._sent_messages += 1
         result = constants.MessageSendResult(result)
         _logger.debug("Message sent: {}, {}".format(result, error))
-        self.state = constants.MessageState.Complete
-        if self.on_send_complete:
-            self.on_send_complete(result, error)
+        _logger.debug("Sent {} of {} batched messages.".format(self._sent_messages, self._total_messages))
+        if self._sent_messages == self._total_messages:
+            self.state = constants.MessageState.Complete
+            if self.on_send_complete:
+                self.on_send_complete(result, error)
+        else:
+            self.state = constants.MessageState.PartiallySent
 
     def _create_batch_message(self):
         c_message = c_uamqp.create_message()
@@ -213,11 +219,11 @@ class BatchMessage(Message):
                 combined = b"".join(message_segment)
                 body_size += len(combined)
                 if (body_size + message_size) > self.max_message_length:
+                    self._total_messages += 1
                     yield new_message
                     break
                 else:
                     msg_body.append(combined)
-        return self._message
 
     def get_message(self):
         if self._multi_messages:
@@ -241,6 +247,7 @@ class BatchMessage(Message):
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
             msg_body.append(combined)
+        self._total_messages = 1
         return new_message
 
 
