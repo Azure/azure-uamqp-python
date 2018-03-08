@@ -9,10 +9,13 @@ import sys
 import re
 import distutils
 from setuptools import find_packages, setup
-from Cython.Build import cythonize
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
-from wheel.bdist_wheel import bdist_wheel
+
+try:
+    from Cython.Build import cythonize
+    USE_CYTHON = True
+except ImportError:
+    USE_CYTHON = False
 
 
 is_win = sys.platform.startswith('win')
@@ -65,18 +68,23 @@ if is_manylinux:
 
 # Build unique source pyx
 
-content_includes = ""
-for f in os.listdir("./src"):
-    if is_win and 'openssl' in f:
-        continue
-    elif not is_win and 'schannel' in f:
-        continue
-    if f.endswith(".pyx"):
-        print("Adding {}".format(f))
-        content_includes += "include \"src/" + f + "\"\n"
-combined_pyx = os.path.join("uamqp", "c_uamqp.pyx")
-with open(combined_pyx, 'w') as lib_file:
-    lib_file.write(content_includes)
+c_uamqp_src = None
+if USE_CYTHON:
+    content_includes = ""
+    for f in os.listdir("./src"):
+        if is_win and 'openssl' in f:
+            continue
+        elif not is_win and 'schannel' in f:
+            continue
+        if f.endswith(".pyx"):
+            print("Adding {}".format(f))
+            content_includes += "include \"src/" + f + "\"\n"
+    c_uamqp_src = os.path.join("uamqp", "c_uamqp.pyx")
+    with open(c_uamqp_src, 'w') as lib_file:
+        lib_file.write(content_includes)
+else:
+    c_uamqp_src = "uamqp/c_uamqp.c"
+
 
 # Libraries and extra compile args
 
@@ -163,7 +171,7 @@ sources = [
     "./src/vendor/azure-uamqp-c/src/sasl_anonymous.c",
     "./src/vendor/azure-uamqp-c/src/session.c",
     "./src/vendor/azure-uamqp-c/src/socket_listener_win32.c" if is_win else "./src/vendor/azure-uamqp-c/src/socket_listener_berkeley.c",
-    combined_pyx,
+    c_uamqp_src,
 ]
 
 if is_win:
@@ -192,6 +200,9 @@ with open('README.rst', encoding='utf-8') as f:
 with open('HISTORY.rst', encoding='utf-8') as f:
     history = f.read()
 
+if USE_CYTHON:
+    extensions = cythonize(extensions)
+
 setup(
     name='uamqp',
     version=version,
@@ -214,6 +225,5 @@ setup(
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=["tests"]),
-    cmdclass = {'build_ext': build_ext, 'bdist_wheel': bdist_wheel},
-    ext_modules = cythonize(extensions, gdb_debug=True)
+    ext_modules = extensions
 )
