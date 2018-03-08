@@ -7,6 +7,7 @@
 import logging
 import uuid
 import queue
+import threading
 
 import uamqp
 from uamqp import authentication
@@ -42,11 +43,13 @@ class SendClient:
         self._cbs_handle = None
         self._pending_messages = []
         self._message_sent_callback = None
+        self._daemon = None
 
         self._connection = None
         self._ext_connection = False
         self._session = None
         self._message_sender = None
+        self._shutdown = None
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
@@ -65,6 +68,17 @@ class SendClient:
 
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
+
+    def _run_background(self):
+        self.open()
+        try:
+            while not self._shutdown.is_set():
+                self.send_all_messages(close_on_done=False)
+        except Exception as e:
+            return e
+        finally:
+            self.close()
+
 
     def open(self, connection=None):
         _logger.debug("Opening client conneciton.")
@@ -90,89 +104,107 @@ class SendClient:
             self._cbs_handle = self._auth.create_authenticator(self._session)
 
     def close(self):
-        _logger.debug("Closing client.")
-        if self._message_sender:
-            self._message_sender._destroy()
-            self._message_sender = None
-        if self._cbs_handle:
-            self._auth.close_authenticator()
-            self._cbs_handle = None
-        self._session.destroy()
-        self._session = None
-        if not self._ext_connection:
-            _logger.debug("Closing connection.")
-            self._connection.destroy()
-            self._connection = None
-        self._pending_messages = []
+        if self._daemon and not self._shutdown.is_set():
+            self.stop_daemon()
+        else:
+            _logger.debug("Closing client.")
+            if self._message_sender:
+                self._message_sender._destroy()
+                self._message_sender = None
+            if self._cbs_handle:
+                self._auth.close_authenticator()
+                self._cbs_handle = None
+            self._session.destroy()
+            self._session = None
+            if not self._ext_connection:
+                _logger.debug("Closing connection.")
+                self._connection.destroy()
+                self._connection = None
+            self._pending_messages = []
 
     def queue_message(self, message):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
 
+    def run_daemon(self):
+        if self._session:
+            raise ValueError("SendClient is already open.")
+        _logger.info("Starting SendClient daemon")
+        self._shutdown = threading.Event()
+        self._daemon = threading.Thread(target=self._run_background)
+        self._daemon.daemon = True
+        self._daemon.start()
+
+    def stop_daemon(self):  #TODO: Implement force close
+        if not self._daemon or not self._shutdown:
+            raise ValueError("No daemon running.")
+        if self._shutdown.is_set():
+            raise ValueError("Daemon has already stopped.")
+        self._shutdown.set()
+        self._daemon.join()
+
+
     def send_all_messages(self, close_on_done=True):
         if not self._session:
             self.open()
         try:
-            while self._pending_messages:
-                self.do_work()
+            pending = list(self._pending_messages)
+            while pending:
+                self.do_work(pending)
         except:
             raise
-        else:
+        finally:
             if close_on_done:
                 self.close()
 
-    def do_work(self):
+    def do_work(self, pending_messages):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
             timeout, auth_in_progress = self._auth.handle_token()
 
-        try:
-            if timeout:
-                raise TimeoutError("Authorization timeout.")
-            elif auth_in_progress:
-                self._connection.work()
+        if timeout:
+            raise TimeoutError("Authorization timeout.")
+        elif auth_in_progress:
+            self._connection.work()
 
-            elif not self._message_sender:
-                self._message_sender = sender.MessageSender(
-                    self._session, self._name, self._target,
-                    name='sender-link',
-                    debug=self._debug_trace,
-                    send_settle_mode=self._send_settle_mode,
-                    max_message_size=self._max_message_size)
-                self._message_sender.open()
-                self._connection.work()
+        elif not self._message_sender:
+            self._message_sender = sender.MessageSender(
+                self._session, self._name, self._target,
+                name='sender-link',
+                debug=self._debug_trace,
+                send_settle_mode=self._send_settle_mode,
+                max_message_size=self._max_message_size)
+            self._message_sender.open()
+            self._connection.work()
 
-            elif self._message_sender._state == constants.MessageSenderState.Error:
-                raise ValueError("Message sender in error state.")
+        elif self._message_sender._state == constants.MessageSenderState.Error:
+            raise ValueError("Message sender in error state.")
 
-            elif self._message_sender._state != constants.MessageSenderState.Open:
-                self._connection.work()
+        elif self._message_sender._state != constants.MessageSenderState.Open:
+            self._connection.work()
 
-            else:
-                for message in self._pending_messages[:]:
-                    if message.state == constants.MessageState.Complete:
-                        self._pending_messages.remove(message)
-                    elif message.state == constants.MessageState.WaitingToBeSent:
-                        message.state = constants.MessageState.WaitingForAck
-                        if not message.on_send_complete:
-                            message.on_send_complete = self._message_sent_callback
-                        try:
-                            current_time = self._counter.get_current_ms()
-                            elapsed_time = (current_time - message.idle_time)/1000
-                            if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
-                                message._on_message_sent(constants.MessageSendResult.Timeout)
-                            else:
-                                timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                                self._message_sender.send_async(message, timeout=timeout)
+        else:
+            for message in pending_messages[:]:
+                if message.state == constants.MessageState.Complete:
+                    pending_messages.remove(message)
+                elif message.state == constants.MessageState.WaitingToBeSent:
+                    message.state = constants.MessageState.WaitingForAck
+                    if not message.on_send_complete:
+                        message.on_send_complete = self._message_sent_callback
+                    try:
+                        current_time = self._counter.get_current_ms()
+                        elapsed_time = (current_time - message.idle_time)/1000
+                        if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
+                            message._on_message_sent(constants.MessageSendResult.Timeout)
+                        else:
+                            timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+                            self._message_sender.send_async(message, timeout=timeout)
 
-                        except Exception as exp:
-                            message._on_message_sent(constants.MessageSendResult.Error, error=exp)
-                #if self._pending_messages:
-                self._connection.work()
-        except:
-            self.close()
-            raise
+                    except Exception as exp:
+                        message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+            #if pending_messages:
+            self._connection.work()
 
 
 class ReceiveClient:
