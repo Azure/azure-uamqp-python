@@ -34,11 +34,6 @@ sys.path.insert(0, pxd_inc_dir)
 
 include_dirs = [
     pxd_inc_dir,
-    "/usr/local/include/openssl",
-    "/usr/local/opt/openssl/include",
-    "/usr/include",
-    "/util-linux/libuuid/src",
-    "/openssl/include",
     # azure-c-shared-utility inc
     "./src/vendor/azure-c-shared-utility/pal/inc",
     "./src/vendor/azure-c-shared-utility/inc",
@@ -47,19 +42,28 @@ include_dirs = [
     "./src/vendor/azure-uamqp-c/inc",
 ]
 
-default_ossl_base = '/usr/lib/x86_64-linux-gnu'
-# Many Linux openssl install location
-many_linux_ossl_base = '/openssl-src'
-# Since openssl is deprecated on MacOSX 10.7+, look for homebrew installs
-homebrew_ossl_base = '/usr/local/opt/openssl/lib'
+if is_mac:
+    include_dirs += [
+        "/usr/local/opt/openssl/include"
+    ]
+if is_manylinux:
+    include_dirs += [
+        "/openssl/include",
+        "/util-linux/libuuid/src"
+    ]
 
-def abs_ssl (path):
-    if is_mac and os.path.exists(homebrew_ossl_base):
-        return os.path.join(homebrew_ossl_base, path) + ".a"
-    elif is_manylinux and os.path.exists(many_linux_ossl_base):
-        return os.path.join(many_linux_ossl_base, path) + ".a"
-    else:
-        return os.path.join(default_ossl_base, path) + ".so"
+# Library dirs
+
+library_dirs = []
+if is_mac:
+    # Since openssl is deprecated on MacOSX 10.7+, look for homebrew installs
+    library_dirs += ['/usr/local/opt/openssl/lib']
+
+if is_manylinux:
+    # Many Linux openssl install location
+    library_dirs += ['/openssl-src']
+
+# Build unique source pyx
 
 content_includes = ""
 for f in os.listdir("./src"):
@@ -74,6 +78,8 @@ combined_pyx = os.path.join("uamqp", "c_uamqp.pyx")
 with open(combined_pyx, 'w') as lib_file:
     lib_file.write(content_includes)
 
+# Libraries and extra compile args
+
 kwargs = {}
 if is_win:
     kwargs['extra_compile_args'] = ['/openmp']
@@ -87,12 +93,18 @@ if is_win:
         'WSock32',
         'WS2_32']
 else:
-    if not is_mac and not is_manylinux:
-        kwargs['libraries'] = ['uuid']
-    kwargs['extra_link_args'] = [abs_ssl('libcrypto'), abs_ssl('libssl')]
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     if is_manylinux:
-        kwargs['extra_link_args'] += ['-Wl,-Bstatic', '-luuid']  # link statically uuid
+        # In manylinux, link everything statically
+        kwargs['extra_link_args'] += [
+            '-Wl,-Bstatic', '-luuid',
+            '-Wl,-Bstatic', '-lssl',
+            '-Wl,-Bstatic', '-lcrypto'
+        ]
+    else:
+        kwargs['libraries'] = ['uuid', 'crypto', 'ssl']
+
+# Sources
 
 sources = [
     "./src/vendor/azure-c-shared-utility/src/xlogging.c",
@@ -165,10 +177,13 @@ else:
         "./src/vendor/azure-c-shared-utility/src/x509_openssl.c",
     ])
 
+# Configure the extension
+
 extensions = [Extension(
         "uamqp.c_uamqp",
         sources=sources,
         include_dirs=include_dirs,
+        library_dirs=library_dirs,
         **kwargs)
     ]
 
