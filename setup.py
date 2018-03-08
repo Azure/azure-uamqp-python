@@ -20,7 +20,6 @@ except ImportError:
 
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
-is_manylinux = os.environ.get('MANY_LINUX_IMAGE', False)
 
 # Version extraction inspired from 'requests'
 with open(os.path.join('uamqp', 'version.py'), 'r') as fd:
@@ -49,11 +48,6 @@ if is_mac:
     include_dirs += [
         "/usr/local/opt/openssl/include"
     ]
-if is_manylinux:
-    include_dirs += [
-        "/openssl/include",
-        "/util-linux/libuuid/src"
-    ]
 
 # Library dirs
 
@@ -61,10 +55,6 @@ library_dirs = []
 if is_mac:
     # Since openssl is deprecated on MacOSX 10.7+, look for homebrew installs
     library_dirs += ['/usr/local/opt/openssl/lib']
-
-if is_manylinux:
-    # Many Linux openssl install location
-    library_dirs += ['/openssl-src']
 
 # Build unique source pyx
 
@@ -102,15 +92,8 @@ if is_win:
         'WS2_32']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
-    if is_manylinux:
-        # In manylinux, link everything statically
-        kwargs['extra_link_args'] += [
-            '-Wl,-Bstatic', '-luuid',
-            '-Wl,-Bstatic', '-lssl',
-            '-Wl,-Bstatic', '-lcrypto'
-        ]
-    else:
-        kwargs['libraries'] = ['uuid', 'crypto', 'ssl']
+    # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
+    kwargs['libraries'] = ['ssl', 'crypto', 'uuid']
 
 # Sources
 
