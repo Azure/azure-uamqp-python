@@ -26,10 +26,13 @@ with open(os.path.join('uamqp', 'version.py'), 'r') as fd:
 
 
 cwd = os.path.abspath('.')
+
+# Headers
+
 pxd_inc_dir = os.path.join(cwd, "src", "vendor", "inc")
 sys.path.insert(0, pxd_inc_dir)
 
-dirs = [
+include_dirs = [
     pxd_inc_dir,
     "/usr/local/include/openssl",
     "/usr/local/opt/openssl/include",
@@ -39,8 +42,9 @@ dirs = [
     # azure-c-shared-utility inc
     "./src/vendor/azure-c-shared-utility/pal/inc",
     "./src/vendor/azure-c-shared-utility/inc",
+    "./src/vendor/azure-c-shared-utility/pal/windows" if is_win else "./src/vendor/azure-c-shared-utility/pal/linux",
     # azure-uamqp-c inc
-    "./src/vendor/azure-uamqp-c/inc"
+    "./src/vendor/azure-uamqp-c/inc",
 ]
 
 default_ossl_base = '/usr/lib/x86_64-linux-gnu'
@@ -56,16 +60,6 @@ def abs_ssl (path):
         return os.path.join(many_linux_ossl_base, path) + ".a"
     else:
         return os.path.join(default_ossl_base, path) + ".so"
-
-
-if is_win:
-    dirs.extend([
-        "./src/vendor/azure-c-shared-utility/pal/windows",
-    ])
-else:
-    dirs.extend([
-        "./src/vendor/azure-c-shared-utility/pal/linux",
-    ])
 
 content_includes = ""
 for f in os.listdir("./src"):
@@ -156,7 +150,7 @@ sources = [
     "./src/vendor/azure-uamqp-c/src/saslclientio.c",
     "./src/vendor/azure-uamqp-c/src/sasl_anonymous.c",
     "./src/vendor/azure-uamqp-c/src/session.c",
-    "./src/vendor/azure-uamqp-c/src/socket_listener_win32.c" if is_win  else "./src/vendor/azure-uamqp-c/src/socket_listener_berkeley.c",
+    "./src/vendor/azure-uamqp-c/src/socket_listener_win32.c" if is_win else "./src/vendor/azure-uamqp-c/src/socket_listener_berkeley.c",
     combined_pyx,
 ]
 
@@ -174,7 +168,7 @@ else:
 extensions = [Extension(
         "uamqp.c_uamqp",
         sources=sources,
-        include_dirs=dirs,
+        include_dirs=include_dirs,
         **kwargs)
     ]
 
