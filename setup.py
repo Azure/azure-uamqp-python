@@ -92,7 +92,7 @@ else:
     kwargs['extra_link_args'] = [abs_ssl('libcrypto'), abs_ssl('libssl')]
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     if is_manylinux:
-        kwargs['extra_link_args'].insert(0, '/util-linux/.libs/libuuid.a')
+        kwargs['extra_link_args'] += ['-Wl,-Bstatic', '-luuid']  # link statically uuid
 
 sources = [
     "./src/vendor/azure-c-shared-utility/src/xlogging.c",
