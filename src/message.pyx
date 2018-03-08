@@ -329,7 +329,6 @@ cpdef size_t get_encoded_message_size(cMessage message):
         if <void*>c_msg == NULL:
             raise MemoryError("Unable to clone cMessage.")
 
-        cdef c_message.MESSAGE_BODY_TYPE message_body_type
         cdef c_amqp_definitions.HEADER_HANDLE header
         cdef c_amqpvalue.AMQP_VALUE header_amqp_value
         cdef c_amqp_definitions.PROPERTIES_HANDLE properties

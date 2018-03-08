@@ -21,6 +21,7 @@ class Message:
                  properties=None,
                  application_properties=None,
                  annotations=None,
+                 msg_format=None,
                  message=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
@@ -50,6 +51,8 @@ class Message:
             else:
                 self._body = ValueBody(self._message)
 
+        if msg_format:
+            self._message.message_format = msg_format
         if properties:
             self._message.properties = properties._properties
         if application_properties and isinstance(application_properties, dict):
@@ -160,6 +163,9 @@ class Message:
         if self.on_send_complete:
             self.on_send_complete(result, error)
 
+    def get_message_encoded_size(self):
+        return c_uamqp.get_encoded_message_size(self._message)
+
     def get_data(self):
         if not self._message:
             return None
@@ -185,13 +191,15 @@ class BatchMessage(Message):
         self._body_gen = data
         self._total_messages = 0
         self._sent_messages = 0
+        self.state = constants.MessageState.WaitingToBeSent
+        self.on_send_complete = None
 
     def _on_message_sent(self, result, error=None):
         self._sent_messages += 1
         result = constants.MessageSendResult(result)
         _logger.debug("Message sent: {}, {}".format(result, error))
         _logger.debug("Sent {} of {} batched messages.".format(self._sent_messages, self._total_messages))
-        if self._sent_messages == self._total_messages:
+        if self._sent_messages >= self._total_messages:
             self.state = constants.MessageState.Complete
             if self.on_send_complete:
                 self.on_send_complete(result, error)
@@ -199,45 +207,51 @@ class BatchMessage(Message):
             self.state = constants.MessageState.PartiallySent
 
     def _create_batch_message(self):
-        c_message = c_uamqp.create_message()
-        c_message.message_format = self.batch_format
-        return Message(properties=self._properties, annotations=self._annotations, message=c_message)
+        return Message(properties=self._properties, annotations=self._annotations, msg_format=self.batch_format)
 
-    def _multi_message_generator(self)
+    def _multi_message_generator(self):
         while True:
             new_message = self._create_batch_message()
-            msg_body = DataBody(new_message)
-            message_size = c_uamqp.get_encoded_message_size(new_message._message)
+            new_message._body = DataBody(new_message._message)
+            message_size = new_message.get_message_encoded_size()
             body_size = 0
-            for data in self._body_gen:
-                message_segment = []
-                if isinstance(data, str):
-                    data = data.encode('utf-8')
-
-                batch_data = c_uamqp.create_data(data)
-                c_uamqp.enocde_batch_value(batch_data, message_segment)
-                combined = b"".join(message_segment)
-                body_size += len(combined)
-                if (body_size + message_size) > self.max_message_length:
-                    self._total_messages += 1
-                    yield new_message
-                    break
-                else:
-                    msg_body.append(combined)
+            try:
+                for data in self._body_gen:
+                    message_segment = []
+                    if isinstance(data, str):
+                        data = data.encode('utf-8')
+                    batch_data = c_uamqp.create_data(data)
+                    c_uamqp.enocde_batch_value(batch_data, message_segment)
+                    combined = b"".join(message_segment)
+                    body_size += len(combined)
+                    if (body_size + message_size) > self.max_message_length:
+                        self._total_messages += 1
+                        yield new_message.get_message()
+                        raise StopIteration()
+                    else:
+                        new_message._body.append(combined)
+            except StopIteration:
+                _logger.debug("Sent partial message.")
+                continue
+            else:
+                self._total_messages += 1
+                yield new_message.get_message()
+                _logger.debug("Sent all batched data.")
+                break
 
     def get_message(self):
         if self._multi_messages:
             return self._multi_message_generator()
 
-        new_message = new_message = self._create_batch_message()
-        msg_body = DataBody(new_message)
-        message_size = c_uamqp.get_encoded_message_size(new_message._message)
+        new_message = self._create_batch_message()
+        new_message._body = DataBody(new_message._message)
+        message_size = new_message.get_message_encoded_size()
         body_size = 0
+
         for data in self._body_gen:
             message_segment = []
             if isinstance(data, str):
                 data = data.encode('utf-8')
-
             batch_data = c_uamqp.create_data(data)
             c_uamqp.enocde_batch_value(batch_data, message_segment)
             combined = b"".join(message_segment)
@@ -246,9 +260,10 @@ class BatchMessage(Message):
                 raise ValueError(
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
-            msg_body.append(combined)
+            new_message._body.append(combined)
+
         self._total_messages = 1
-        return new_message
+        return new_message.get_message()
 
 
 class MessageProperties:

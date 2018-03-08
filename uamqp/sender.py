@@ -65,11 +65,12 @@ class MessageSender():
         self._sender.close()
 
     def send_async(self, message, timeout=0):
+        c_message = message.get_message()
         try:
-            for data in message.get_message():
+            for data in c_message:
                 self._sender.send(data, timeout, message)
         except TypeError:
-            self._sender.send(message.get_message(), timeout, message)
+            self._sender.send(c_message, timeout, message)
 
     def _state_changed(self, previous_state, new_state):
         try:
