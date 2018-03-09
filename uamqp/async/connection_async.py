@@ -24,7 +24,7 @@ class ConnectionAsync(connection.Connection):
 
     async def work_async(self):
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self._conn.do_work))
+        await loop.run_in_executor(None, functools.partial(self.work))
 
     async def open_async(self):
         loop = asyncio.get_event_loop()

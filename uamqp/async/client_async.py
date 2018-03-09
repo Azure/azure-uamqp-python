@@ -30,14 +30,21 @@ _logger = logging.getLogger(__name__)
 
 class SendClientAsync(client.SendClient):
 
-    async def open_async(self):
-        self._connection = ConnectionAsync(
+    async def open_async(self, connection=None):
+        if self._session:
+            return  # already open
+        if connection:
+            _logger.debug("Using existing connection.")
+            self._auth = connection.auth
+            self._ext_connection = True
+        self._connection = connection or ConnectionAsync(
             self._hostname,
-            self._auth.sasl_client,
+            self._auth,
             container_id=self._name,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
+            properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace)
         self._session = SessionAsync(
@@ -50,25 +57,32 @@ class SendClientAsync(client.SendClient):
             raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
 
     async def close_async(self):
-        if self._message_sender:
-            await self._message_sender._destroy_async()
-            self._message_sender = None
-        if self._cbs_handle:
-            await self._auth.close_authenticator_async()
-            self._cbs_handle = None
-        await self._session.destroy_async()
-        self._session = None
-        await self._connection.destroy_async()
-        self._connection = None
-        self._pending_messages = []
-        self._auth.close()
-        uamqp.deinitialize_platform()
+        if not self._session:
+            return  # already closed.
+        if self._daemon and not is_daemon:
+            self.stop_daemon()
+        else:
+            if self._message_sender:
+                await self._message_sender._destroy_async()
+                self._message_sender = None
+            if self._cbs_handle:
+                await self._auth.close_authenticator_async()
+                self._cbs_handle = None
+            await self._session.destroy_async()
+            self._session = None
+            if not self._ext_connection:
+                await self._connection.destroy_async()
+                self._connection = None
+            self._pending_messages = []
+
+    async def wait_async(self):
+        while self.messages_pending():
+            await self.do_work_async()
 
     async def send_all_messages_async(self):
         await self.open_async()
         try:
-            while self._pending_messages:
-                await self.do_work_async()
+            await self.wait()
         except:
             raise
         else:
@@ -80,52 +94,51 @@ class SendClientAsync(client.SendClient):
         if self._cbs_handle:
             timeout, auth_in_progress = await self._auth.handle_token_async()
 
-        try:
-            if timeout:
-                raise TimeoutError("Authorization timeout.")
+        if timeout:
+            raise TimeoutError("Authorization timeout.")
 
-            elif auth_in_progress:
-                await self._connection.work_async()
+        elif auth_in_progress:
+            await self._connection.work_async()
 
-            elif not self._message_sender:
-                self._message_sender = MessageSenderAsync(
-                    self._session, self._name, self._target,
-                    name='sender-link',
-                    debug=self._debug_trace,
-                    send_settle_mode=self._send_settle_mode,
-                    max_message_size=self._max_message_size)
-                await self._message_sender.open_async()
-                await self._connection.work_async()
+        elif not self._message_sender:
+            self._message_sender = MessageSenderAsync(
+                self._session, self._name, self._target,
+                name='sender-link',
+                debug=self._debug_trace,
+                send_settle_mode=self._send_settle_mode,
+                max_message_size=self._max_message_size)
+            await self._message_sender.open_async()
+            await self._connection.work_async()
 
-            elif self._message_sender._state == constants.MessageSenderState.Error:
-                raise ValueError("Message sender in error state.")
+        elif self._message_sender._state == constants.MessageSenderState.Error:
+            raise ValueError("Message sender in error state.")
 
-            elif self._message_sender._state != constants.MessageSenderState.Open:
-                await self._connection.work_async()
+        elif self._message_sender._state != constants.MessageSenderState.Open:
+            await self._connection.work_async()
 
-            else:
-                for message in self._pending_messages[:]:
-                    if message.state == constants.MessageState.Complete:
+        else:
+            for message in self._pending_messages[:]:
+                if message.state == constants.MessageState.Complete:
+                    try:
                         self._pending_messages.remove(message)
-                    elif message.state == constants.MessageState.WaitingToBeSent:
-                        message.state = constants.MessageState.WaitingForAck
-                        if not message.on_send_complete:
-                            message.on_send_complete = self._message_sent_callback
-                        try:
-                            current_time = self._counter.get_current_ms()
-                            if self._msg_timeout > 0 and (current_time - message.idle_time)/1000 > self._msg_timeout:
-                                message._on_message_sent(constants.MessageSendResult.Timeout)
-                            else:
-                                self._message_sender.send_async(message)
-                            #message.clear()
+                    except ValueError:
+                        pass
+                elif message.state == constants.MessageState.WaitingToBeSent:
+                    message.state = constants.MessageState.WaitingForAck
+                    if not message.on_send_complete:
+                        message.on_send_complete = self._message_sent_callback
+                    try:
+                        current_time = self._counter.get_current_ms()
+                        elapsed_time = (current_time - message.idle_time)/1000
+                        if self._msg_timeout > 0 and elapsed_time/1000 > self._msg_timeout:
+                            message._on_message_sent(constants.MessageSendResult.Timeout)
+                        else:
+                            timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+                            self._message_sender.send_async(message, timeout=timeout)
 
-                        except Exception as exp:
-                            message._on_message_sent(constants.MessageSendResult.Error, error=exp)
-                #if self._pending_messages:
-                await self._connection.work_async()
-        except:
-            await self.close_async()
-            raise
+                    except Exception as exp:
+                        message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+            await self._connection.work_async()
 
 
 class ReceiveClientAsync(client.ReceiveClient):

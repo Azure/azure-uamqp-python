@@ -75,11 +75,11 @@ class SendClient:
         try:
             while not self._shutdown.is_set():
                 self.wait()
-            self.close(is_daemon=True)
         except Exception as e:
             _logger.debug("Error: {}".format(e))
             raise e
         finally:
+            print("closing daemon")
             self.close(is_daemon=True)
 
     def open(self, connection=None):
@@ -113,7 +113,6 @@ class SendClient:
         if self._daemon and not is_daemon:
             self.stop_daemon()
         else:
-            _logger.debug("Closing client.")
             if self._message_sender:
                 self._message_sender._destroy()
                 self._message_sender = None
@@ -123,7 +122,6 @@ class SendClient:
             self._session.destroy()
             self._session = None
             if not self._ext_connection:
-                _logger.debug("Closing connection.")
                 self._connection.destroy()
                 self._connection = None
             self._pending_messages = []
@@ -131,6 +129,12 @@ class SendClient:
     def queue_message(self, message):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
+
+    def is_running_daemon(self):
+        return bool(self._daemon) and self._daemon.is_alive()
+
+    def messages_pending(self):
+        return bool(self._pending_messages)
 
     def run_daemon(self, connection=None):
         if self._session:
@@ -152,7 +156,7 @@ class SendClient:
         self._shutdown = None
 
     def wait(self):
-        while self._pending_messages:
+        while self.messages_pending():
             self.do_work()
 
     def send_all_messages(self):
