@@ -1,9 +1,2 @@
-include README.rst
-include requirements.txt
-include inc/*.pxd
-include src/*.pyx
-include azure-uamqp-c/inc/azure-uamqp-c/*.h
-include azure-uamqp-c/src/*.c
-include azure-c-shared-utility/inc/azure-c-shared-utility/*.h
-include azure-c-shared-utility/src/*.c
-include azure-c-shared-utility/adapters/*.c
+include *.rst
+recursive-include src *

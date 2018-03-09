@@ -25,7 +25,7 @@ On Linux you must install the dependencies before you install from pip, like so:
 .. code:: shell
 
     $ apt-get update
-    $ apt-get install build-essential libssl-dev python3-dev uuid-dev
+    $ apt-get install build-essential libssl-dev python3-dev uuid-dev cython3 cmake
     $ pip3 install uamqp --no-binary
 
 Or for RHEL/CentOS:
@@ -58,7 +58,10 @@ This project has two C library dependencies:
 - `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__
 - `Azure Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__
 
-In order to build the Python extension, both of these repos will need to be cloned into the root directory.
+They are vendored in this repository in these versions:
+- Azure uAMQP 19746c8a3e142c5539d45c80a56219660ea374eb + PR 221
+- Azure Share Utility 9b34365bf3f9073af3e1c280939247b1d647c680
+
 To build, start by creating a virtual environment and installing the required Python packages:
 
 .. code:: shell
