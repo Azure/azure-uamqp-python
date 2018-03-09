@@ -4,7 +4,10 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from urllib.parse import urlparse
+try:
+    from urllib import urlparse
+except Exception:
+    from urllib.parse import urlparse
 import logging
 
 from uamqp import constants

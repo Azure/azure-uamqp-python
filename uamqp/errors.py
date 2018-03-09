@@ -7,6 +7,24 @@
 from uamqp import utils
 
 
+class AuthenticationException(Exception):
+    pass
+
+
+class TokenExpired(AuthenticationException):
+    pass
+
+
+class TokenAuthFailure(AuthenticationException):
+
+    def __init__(self, status_code, description):
+        self.status_code = status_code
+        self.description = description
+        message = ("CBS Token authentication failed."
+                   "\nStatus code: {}"
+                   "\nDescription: {}").format(self.status_code, self.description)
+        super(TokenAuthFailure, self).__init__(message)
+
 class MessageResponse(Exception):
     pass
 

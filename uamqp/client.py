@@ -8,6 +8,7 @@ import logging
 import uuid
 import queue
 import threading
+import functools
 
 import uamqp
 from uamqp import authentication
@@ -69,18 +70,21 @@ class SendClient:
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
-    def _run_background(self):
-        self.open()
+    def _run_background(self, connection=None):
+        self.open(connection=connection)
         try:
             while not self._shutdown.is_set():
-                self.send_all_messages(close_on_done=False)
+                self.wait()
+            self.close(is_daemon=True)
         except Exception as e:
-            return e
+            _logger.debug("Error: {}".format(e))
+            raise e
         finally:
-            self.close()
-
+            self.close(is_daemon=True)
 
     def open(self, connection=None):
+        if self._session:
+            return  # already open.
         _logger.debug("Opening client conneciton.")
         if connection:
             _logger.debug("Using existing connection.")
@@ -103,8 +107,10 @@ class SendClient:
         if isinstance(self._auth, authentication.CBSAuthMixin):
             self._cbs_handle = self._auth.create_authenticator(self._session)
 
-    def close(self):
-        if self._daemon and not self._shutdown.is_set():
+    def close(self, is_daemon=False):
+        if not self._session:
+            return  # already closed.
+        if self._daemon and not is_daemon:
             self.stop_daemon()
         else:
             _logger.debug("Closing client.")
@@ -126,12 +132,12 @@ class SendClient:
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
 
-    def run_daemon(self):
+    def run_daemon(self, connection=None):
         if self._session:
             raise ValueError("SendClient is already open.")
         _logger.info("Starting SendClient daemon")
         self._shutdown = threading.Event()
-        self._daemon = threading.Thread(target=self._run_background)
+        self._daemon = threading.Thread(target=functools.partial(self._run_background, connection=connection))
         self._daemon.daemon = True
         self._daemon.start()
 
@@ -142,22 +148,23 @@ class SendClient:
             raise ValueError("Daemon has already stopped.")
         self._shutdown.set()
         self._daemon.join()
+        self._daemon = None
+        self._shutdown = None
 
+    def wait(self):
+        while self._pending_messages:
+            self.do_work()
 
-    def send_all_messages(self, close_on_done=True):
-        if not self._session:
-            self.open()
+    def send_all_messages(self):
+        self.open()
         try:
-            pending = list(self._pending_messages)
-            while pending:
-                self.do_work(pending)
+            self.wait()
         except:
             raise
         finally:
-            if close_on_done:
-                self.close()
+            self.close()
 
-    def do_work(self, pending_messages):
+    def do_work(self):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
@@ -185,9 +192,12 @@ class SendClient:
             self._connection.work()
 
         else:
-            for message in pending_messages[:]:
+            for message in self._pending_messages[:]:
                 if message.state == constants.MessageState.Complete:
-                    pending_messages.remove(message)
+                    try:
+                        self._pending_messages.remove(message)
+                    except ValueError:
+                        pass
                 elif message.state == constants.MessageState.WaitingToBeSent:
                     message.state = constants.MessageState.WaitingForAck
                     if not message.on_send_complete:
@@ -203,7 +213,6 @@ class SendClient:
 
                     except Exception as exp:
                         message._on_message_sent(constants.MessageSendResult.Error, error=exp)
-            #if pending_messages:
             self._connection.work()
 
 
@@ -225,6 +234,8 @@ class ReceiveClient:
         self._counter = c_uamqp.TickCounter()
         self._cbs_handle = None
         self._count = 0
+        self._daemon = None
+        self._close_daemon = None
 
         self._connection = None
         self._ext_connection = False
@@ -270,28 +281,51 @@ class ReceiveClient:
         receiving = True
         while receiving:
             while receiving and self._received_messages.empty():
-                receiving = self._do_work()
+                receiving = self.do_work()
             try:
                 for message in iter(self._received_messages.get_nowait, None):
                     yield message
             except queue.Empty:
                 continue
 
+    def _run_background(self, on_message_received, connection=None):
+        self.open(connection=connection)
+        self._message_received_callback = on_message_received
+        try:
+            receiving = True
+            while not self._close_daemon.is_set() and receiving:
+                receiving = self.do_work()
+        except Exception as e:
+            return e
+        finally:
+            self.close()
+
     def receive_messages_iter(self, on_message_received=None):
+        if self._daemon:
+            raise ValueError("This function is not supported while daemon is running.")
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue(self._prefetch)
         if not self._session:
             self.open()
         return self._message_generator()
 
-    def receive_messages(self, on_message_received):
-        self.open()
+    def receive_messages(self, on_message_received, close_on_done=True):
+        if not self._session:
+            self.open()
         self._message_received_callback = on_message_received
         receiving = True
-        while receiving:
-            receiving = self._do_work()
+        try:
+            while receiving:
+                receiving = self.do_work()
+        except:
+            raise
+        finally:
+            if close_on_done:
+                self.close()
 
     def open(self, connection=None):
+        if self._session:
+            raise ValueError("ReceiveClient is already open.")
         if connection:
             self._auth = connection.auth
             self._ext_connection = True
@@ -313,73 +347,88 @@ class ReceiveClient:
             self._cbs_handle = self._auth.create_authenticator(self._session)
 
     def close(self):
-        if self._message_receiver:
-            self._message_receiver._destroy()
-            self._message_receiver = None
-        if self._cbs_handle:
-            self._auth.close_authenticator()
-            self._cbs_handle = None
-        self._session.destroy()
-        self._session = None
-        if self._ext_connection:
-            self._connection.destroy()
-            self._connection = None
-        self._shutdown = False
-        self._last_activity_timestamp = None
-        self._was_message_received = False
-        
+        if not self._session:
+            raise ValueError("ReceiveClient is already closed.")
+        if self._daemon and not self._close_daemon.is_set():
+            self.stop_daemon()
+        else:
+            if self._message_receiver:
+                self._message_receiver._destroy()
+                self._message_receiver = None
+            if self._cbs_handle:
+                self._auth.close_authenticator()
+                self._cbs_handle = None
+            self._session.destroy()
+            self._session = None
+            if self._ext_connection:
+                self._connection.destroy()
+                self._connection = None
+            self._shutdown = False
+            self._last_activity_timestamp = None
+            self._was_message_received = False
 
-    def _do_work(self):
+    def run_daemon(self, on_message_received, connection=None):
+        if self._session:
+            raise ValueError("ReceiveClient is already open.")
+        _logger.info("Starting ReceiveClient daemon")
+        self._close_daemon = threading.Event()
+        self._daemon = threading.Thread(target=functools.partial(self._run_background, on_message_received, connection=connection))
+        self._daemon.daemon = True
+        self._daemon.start()
+
+    def stop_daemon(self):  #TODO: Implement force close
+        if not self._daemon or not self._close_daemon:
+            raise ValueError("No daemon running.")
+        self._close_daemon.set()
+        self._daemon.join()
+        self._daemon = None
+        self._shutdown = None
+
+    def do_work(self):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
             timeout, auth_in_progress = self._auth.handle_token()
 
         if self._shutdown:
-            self.close()
             return False
 
-        try:
-            if timeout:
-                raise TimeoutError("Authorization timeout.")
+        if timeout:
+            raise TimeoutError("Authorization timeout.")
 
-            elif auth_in_progress:
-                self._connection.work()
+        elif auth_in_progress:
+            self._connection.work()
 
-            elif not self._message_receiver:
-                self._message_receiver = receiver.MessageReceiver(
-                    self._session, self._source, self._name,
-                    name='receiver-link',
-                    debug=self._debug_trace,
-                    receive_settle_mode=self._receive_settle_mode,
-                    prefetch=self._prefetch,
-                    max_message_size=self._max_message_size)
-                self._message_receiver.open(self)
-                self._connection.work()
+        elif not self._message_receiver:
+            self._message_receiver = receiver.MessageReceiver(
+                self._session, self._source, self._name,
+                name='receiver-link',
+                debug=self._debug_trace,
+                receive_settle_mode=self._receive_settle_mode,
+                prefetch=self._prefetch,
+                max_message_size=self._max_message_size)
+            self._message_receiver.open(self)
+            self._connection.work()
 
-            elif self._message_receiver._state == constants.MessageReceiverState.Error:
-                raise ValueError("Message receiver in error state.")
+        elif self._message_receiver._state == constants.MessageReceiverState.Error:
+            raise ValueError("Message receiver in error state.")
 
-            elif self._message_receiver._state != constants.MessageReceiverState.Open:
-                self._connection.work()
-                self._last_activity_timestamp = self._counter.get_current_ms()
+        elif self._message_receiver._state != constants.MessageReceiverState.Open:
+            self._connection.work()
+            self._last_activity_timestamp = self._counter.get_current_ms()
 
-            else:
-                self._connection.work()
-                if self._max_count is not None and self._count >= self._max_count:
-                    self._shutdown = True
-                if self._timeout > 0:
-                    now = self._counter.get_current_ms()
-                    if not self._was_message_received:
-                        timespan = now - self._last_activity_timestamp
-                        if timespan >= self._timeout:
-                            _logger.debug("Timeout reached, closing receiver.")
-                            self._shutdown = True
-                    else:
-                        self._last_activity_timestamp = now
-                self._was_message_received = False
-        except:
-            self.close()
-            raise
         else:
-            return True
+            self._connection.work()
+            if self._max_count is not None and self._count >= self._max_count:
+                self._shutdown = True
+            if self._timeout > 0:
+                now = self._counter.get_current_ms()
+                if not self._was_message_received:
+                    timespan = now - self._last_activity_timestamp
+                    if timespan >= self._timeout:
+                        _logger.debug("Timeout reached, closing receiver.")
+                        self._shutdown = True
+                else:
+                    self._last_activity_timestamp = now
+            self._was_message_received = False
+        return True

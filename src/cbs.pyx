@@ -44,6 +44,8 @@ cdef class CBSTokenAuth:
     cdef c_cbs.AUTH_STATUS state
     cdef stdint.uint64_t auth_timeout
     cdef stdint.uint64_t _token_put_time
+    cdef unsigned int token_status_code
+    cdef const char* token_status_description
 
     def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expiry, cSession session, stdint.uint64_t timeout):
         self.state = AUTH_STATUS_IDLE
@@ -95,6 +97,9 @@ cdef class CBSTokenAuth:
         self._update_status()
         return self.state
 
+    cpdef get_failure_info(self):
+        return self.token_status_code, self.token_status_description
+
     cpdef refresh(self):
         self._update_status()
         if self.state == AUTH_STATUS_REFRESH_REQUIRED:
@@ -144,6 +149,8 @@ cdef class CBSTokenAuth:
             self.state = AUTH_STATUS_OK
         else:
             self.state = AUTH_STATUS_FAILURE
+        self.token_status_code = status_code
+        self.token_status_description = status_description
         self.on_cbs_put_token_complete(result, status_code, status_description)
 
     cpdef on_cbs_put_token_complete(self, result, status_code, status_description):

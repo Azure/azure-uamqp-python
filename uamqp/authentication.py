@@ -18,6 +18,7 @@ except Exception:
 from uamqp import utils
 from uamqp import sasl
 from uamqp import constants
+from uamqp import errors
 from uamqp import c_uamqp
 
 
@@ -97,13 +98,12 @@ class CBSAuthMixin:
     def handle_token(self):
         timeout = False
         in_progress = False
-
         auth_status = self._cbs_auth.get_status()
         auth_status = constants.CBSAuthStatus(auth_status)
         if auth_status == constants.CBSAuthStatus.Failure:
-            raise ValueError("CBS Authentication failed.")
+            raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
         elif auth_status == constants.CBSAuthStatus.Expired:
-            raise ValueError("CBS Authentication Expired.")
+            raise errors.TokenExpired("CBS Authentication Expired.")
         elif auth_status == constants.CBSAuthStatus.Timeout:
             timeout = True
         elif auth_status == constants.CBSAuthStatus.InProgress:
