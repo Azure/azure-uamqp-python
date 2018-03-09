@@ -182,8 +182,9 @@ class BatchMessage(Message):
 
     batch_format = 0x80013700
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
+    _size_buffer = 25000
 
-    def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=True):
+    def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):
         self._multi_messages = multi_messages
         self._properties = properties
         self._application_properties = application_properties
@@ -191,6 +192,7 @@ class BatchMessage(Message):
         self._body_gen = data
         self._total_messages = 0
         self._sent_messages = 0
+        self._batch_complete = False
         self.state = constants.MessageState.WaitingToBeSent
         self.on_send_complete = None
 
@@ -199,7 +201,7 @@ class BatchMessage(Message):
         result = constants.MessageSendResult(result)
         _logger.debug("Message sent: {}, {}".format(result, error))
         _logger.debug("Sent {} of {} batched messages.".format(self._sent_messages, self._total_messages))
-        if self._sent_messages >= self._total_messages:
+        if self._batch_complete and self._sent_messages >= self._total_messages:
             self.state = constants.MessageState.Complete
             if self.on_send_complete:
                 self.on_send_complete(result, error)
@@ -213,7 +215,7 @@ class BatchMessage(Message):
         while True:
             new_message = self._create_batch_message()
             new_message._body = DataBody(new_message._message)
-            message_size = new_message.get_message_encoded_size()
+            message_size = new_message.get_message_encoded_size() + self._size_buffer
             body_size = 0
             try:
                 for data in self._body_gen:
@@ -235,6 +237,7 @@ class BatchMessage(Message):
                 continue
             else:
                 self._total_messages += 1
+                self._batch_complete = True
                 yield new_message.get_message()
                 _logger.debug("Sent all batched data.")
                 break
@@ -245,7 +248,7 @@ class BatchMessage(Message):
 
         new_message = self._create_batch_message()
         new_message._body = DataBody(new_message._message)
-        message_size = new_message.get_message_encoded_size()
+        message_size = new_message.get_message_encoded_size() + self._size_buffer
         body_size = 0
 
         for data in self._body_gen:
@@ -263,6 +266,7 @@ class BatchMessage(Message):
             new_message._body.append(combined)
 
         self._total_messages = 1
+        self._batch_complete = True
         return new_message.get_message()
 
 
