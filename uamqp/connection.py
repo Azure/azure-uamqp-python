@@ -6,7 +6,6 @@
 
 import logging
 import uuid
-import threading
 
 import uamqp
 from uamqp import c_uamqp
@@ -33,7 +32,6 @@ class Connection:
         self._conn = c_uamqp.create_connection(sasl.sasl_client.get_client(), hostname.encode('utf-8'), container_id.encode('utf-8'), self)
         self._conn.set_trace(debug)
         self._sessions = []
-        self._lock = threading.Lock()
 
         if max_frame_size:
             self.max_frame_size = max_frame_size
@@ -52,11 +50,6 @@ class Connection:
     def __exit__(self, *args):
         self.destroy()
 
-    def work(self):
-        self._lock.acquire()
-        self._conn.do_work()
-        self._lock.release()
-
     def _state_changed(self, previous_state, new_state):
         try:
             _previous_state = c_uamqp.ConnectionState(previous_state)
@@ -72,6 +65,9 @@ class Connection:
         self._conn.destroy()
         self.auth.close()
         uamqp.deinitialize_platform()
+
+    def work(self):
+        self._conn.do_work()
 
     @property
     def max_frame_size(self):

@@ -7,7 +7,6 @@
 import logging
 import uuid
 import queue
-import threading
 import functools
 
 import uamqp
@@ -44,7 +43,6 @@ class SendClient:
         self._cbs_handle = None
         self._pending_messages = []
         self._message_sent_callback = None
-        self._daemon = None
 
         self._connection = None
         self._ext_connection = False
@@ -69,18 +67,6 @@ class SendClient:
 
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
-
-    def _run_background(self, connection=None):
-        self.open(connection=connection)
-        try:
-            while not self._shutdown.is_set():
-                self.wait()
-        except Exception as e:
-            _logger.debug("Error: {}".format(e))
-            raise e
-        finally:
-            print("closing daemon")
-            self.close(is_daemon=True)
 
     def open(self, connection=None):
         if self._session:
@@ -107,11 +93,9 @@ class SendClient:
         if isinstance(self._auth, authentication.CBSAuthMixin):
             self._cbs_handle = self._auth.create_authenticator(self._session)
 
-    def close(self, is_daemon=False):
+    def close(self):
         if not self._session:
             return  # already closed.
-        if self._daemon and not is_daemon:
-            self.stop_daemon()
         else:
             if self._message_sender:
                 self._message_sender._destroy()
@@ -130,43 +114,33 @@ class SendClient:
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
 
-    def is_running_daemon(self):
-        return bool(self._daemon) and self._daemon.is_alive()
-
-    def messages_pending(self):
-        return bool(self._pending_messages)
-
-    def run_daemon(self, connection=None):
-        if self._session:
-            raise ValueError("SendClient is already open.")
-        _logger.info("Starting SendClient daemon")
-        self._shutdown = threading.Event()
-        self._daemon = threading.Thread(target=functools.partial(self._run_background, connection=connection))
-        self._daemon.daemon = True
-        self._daemon.start()
-
-    def stop_daemon(self):  #TODO: Implement force close
-        if not self._daemon or not self._shutdown:
-            raise ValueError("No daemon running.")
-        if self._shutdown.is_set():
-            raise ValueError("Daemon has already stopped.")
-        self._shutdown.set()
-        self._daemon.join()
-        self._daemon = None
-        self._shutdown = None
-
-    def wait(self):
-        while self.messages_pending():
-            self.do_work()
-
-    def send_all_messages(self):
+    def send_message(self, message):
+        message.idle_time = self._counter.get_current_ms()
+        self._pending_messages.append(message)
         self.open()
         try:
-            self.wait()
+            while message.state != constants.MessageState.Complete:
+                self.do_work()
         except:
             raise
         finally:
             self.close()
+
+    def messages_pending(self):
+        return bool(self._pending_messages)
+
+    def wait(self):
+        try:
+            while self.messages_pending():
+                self.do_work()
+        except:
+            raise
+        finally:
+            self.close()
+
+    def send_all_messages(self):
+        self.open()
+        self.wait()
 
     def do_work(self):
         timeout = False
@@ -238,8 +212,6 @@ class ReceiveClient:
         self._counter = c_uamqp.TickCounter()
         self._cbs_handle = None
         self._count = 0
-        self._daemon = None
-        self._close_daemon = None
 
         self._connection = None
         self._ext_connection = False
@@ -283,39 +255,28 @@ class ReceiveClient:
 
     def _message_generator(self):
         receiving = True
-        while receiving:
-            while receiving and self._received_messages.empty():
-                receiving = self.do_work()
-            try:
-                for message in iter(self._received_messages.get_nowait, None):
-                    yield message
-            except queue.Empty:
-                continue
-
-    def _run_background(self, on_message_received, connection=None):
-        self.open(connection=connection)
-        self._message_received_callback = on_message_received
         try:
-            receiving = True
-            while not self._close_daemon.is_set() and receiving:
-                receiving = self.do_work()
-        except Exception as e:
-            return e
+            while receiving:
+                while receiving and self._received_messages.empty():
+                    receiving = self.do_work()
+                try:
+                    for message in iter(self._received_messages.get_nowait, None):
+                        yield message
+                except queue.Empty:
+                    continue
+        except:
+            raise
         finally:
             self.close()
 
     def receive_messages_iter(self, on_message_received=None):
-        if self._daemon:
-            raise ValueError("This function is not supported while daemon is running.")
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue(self._prefetch)
-        if not self._session:
-            self.open()
+        self.open()
         return self._message_generator()
 
     def receive_messages(self, on_message_received, close_on_done=True):
-        if not self._session:
-            self.open()
+        self.open()
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -329,7 +290,7 @@ class ReceiveClient:
 
     def open(self, connection=None):
         if self._session:
-            raise ValueError("ReceiveClient is already open.")
+            return  # Already open
         if connection:
             self._auth = connection.auth
             self._ext_connection = True
@@ -352,9 +313,7 @@ class ReceiveClient:
 
     def close(self):
         if not self._session:
-            raise ValueError("ReceiveClient is already closed.")
-        if self._daemon and not self._close_daemon.is_set():
-            self.stop_daemon()
+            return  # Already closed
         else:
             if self._message_receiver:
                 self._message_receiver._destroy()
@@ -370,23 +329,6 @@ class ReceiveClient:
             self._shutdown = False
             self._last_activity_timestamp = None
             self._was_message_received = False
-
-    def run_daemon(self, on_message_received, connection=None):
-        if self._session:
-            raise ValueError("ReceiveClient is already open.")
-        _logger.info("Starting ReceiveClient daemon")
-        self._close_daemon = threading.Event()
-        self._daemon = threading.Thread(target=functools.partial(self._run_background, on_message_received, connection=connection))
-        self._daemon.daemon = True
-        self._daemon.start()
-
-    def stop_daemon(self):  #TODO: Implement force close
-        if not self._daemon or not self._close_daemon:
-            raise ValueError("No daemon running.")
-        self._close_daemon.set()
-        self._daemon.join()
-        self._daemon = None
-        self._shutdown = None
 
     def do_work(self):
         timeout = False
