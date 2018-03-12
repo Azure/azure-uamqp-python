@@ -22,8 +22,8 @@ is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 
 # Version extraction inspired from 'requests'
-with open(os.path.join('uamqp', 'version.py'), 'r') as fd:
-    version = re.search(r'^VERSION\s*=\s*[\'"]([^\'"]*)[\'"]',
+with open(os.path.join('uamqp', '__init__.py'), 'r') as fd:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
                         fd.read(), re.MULTILINE).group(1)
 
 

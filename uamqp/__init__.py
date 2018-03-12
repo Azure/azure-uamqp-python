@@ -18,12 +18,17 @@ from uamqp.client import SendClient, ReceiveClient
 from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
 
-if sys.version_info.major >= 3 and sys.version_info.minor >= 5:
+try:
     from uamqp.async import ConnectionAsync
     from uamqp.async import SessionAsync
     from uamqp.async import MessageSenderAsync
     from uamqp.async import MessageReceiverAsync
     from uamqp.async import SendClientAsync, ReceiveClientAsync
+except (SyntaxError, ImportError):
+    pass  # Async not supported.
+
+
+__version__ = "0.1.0a2"
 
 
 _logger = logging.getLogger(__name__)
