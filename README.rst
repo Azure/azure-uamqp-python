@@ -64,8 +64,8 @@ This project has two C library dependencies:
 - `Azure Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__
 
 They are vendored in this repository in these versions:
-- Azure uAMQP 19746c8a3e142c5539d45c80a56219660ea374eb + PR 221
-- Azure Share Utility 9b34365bf3f9073af3e1c280939247b1d647c680
+- Azure uAMQP @1.2.0
+- Azure C Shared Utility @2018-03-07-temp-pod
 
 To build, start by creating a virtual environment and installing the required Python packages:
 
