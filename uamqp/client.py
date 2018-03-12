@@ -8,6 +8,10 @@ import logging
 import uuid
 import queue
 import functools
+try:
+    from urllib import unquote_plus
+except Exception:
+    from urllib.parse import unquote_plus
 
 import uamqp
 from uamqp import authentication
@@ -33,6 +37,8 @@ class SendClient:
             username = self._target.parsed_address.username
             password = self._target.parsed_address.password
             if username and password:
+                username = unquote_plus(username)
+                password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
@@ -114,7 +120,7 @@ class SendClient:
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
 
-    def send_message(self, message):
+    def send_message(self, message, close_on_done=False):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
         self.open()
@@ -124,23 +130,25 @@ class SendClient:
         except:
             raise
         finally:
-            self.close()
+            if close_on_done:
+                self.close()
 
     def messages_pending(self):
         return bool(self._pending_messages)
 
     def wait(self):
+        while self.messages_pending():
+            self.do_work()
+
+    def send_all_messages(self, close_on_done=True):
+        self.open()
         try:
-            while self.messages_pending():
-                self.do_work()
+            self.wait()
         except:
             raise
         finally:
-            self.close()
-
-    def send_all_messages(self):
-        self.open()
-        self.wait()
+            if close_on_done:
+                self.close()
 
     def do_work(self):
         timeout = False
@@ -323,7 +331,7 @@ class ReceiveClient:
                 self._cbs_handle = None
             self._session.destroy()
             self._session = None
-            if self._ext_connection:
+            if not self._ext_connection:
                 self._connection.destroy()
                 self._connection = None
             self._shutdown = False

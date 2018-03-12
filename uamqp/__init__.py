@@ -31,9 +31,9 @@ _is_win = sys.platform.startswith('win')
 #c_uamqp.set_custom_logger()
 
 
-def send_message(target, data, auth=None):
+def send_message(target, data, auth=None, debug=False):
     message = data if isinstance(data, Message) else Message(data)
-    send_client = SendClient(target, auth=auth, debug=True)
+    send_client = SendClient(target, auth=auth, debug=debug)
     send_client.queue_message(message)
     send_client.send_all_messages()
 
@@ -44,8 +44,8 @@ def receive_message(source, auth=None):
     return messages[0]
 
 
-def receive_messages(source, timeout=0, auth=None, prefetch=None, max_count=None):
-    receive_client = ReceiveClient(source, auth=auth, timeout=timeout, prefetch=prefetch, debug=True, max_count=max_count)
+def receive_messages(source, timeout=0, auth=None, prefetch=None, max_count=None, debug=False):
+    receive_client = ReceiveClient(source, auth=auth, timeout=timeout, prefetch=prefetch, debug=debug, max_count=max_count)
     return receive_client.receive_messages_iter()
 
 

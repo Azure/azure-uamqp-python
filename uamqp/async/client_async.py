@@ -74,30 +74,31 @@ class SendClientAsync(client.SendClient):
             self._pending_messages = []
 
     async def wait_async(self):
-        try:
-            while self.messages_pending():
-                await self.do_work_async()
-        except:
-            raise
-        else:
-            await self.close_async()
+        while self.messages_pending():
+            await self.do_work_async()
 
-    async def send_message_async(self, message):
+    async def send_message_async(self, message, close_on_done=False):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
-        if not self._session:
-            await self.open_async()
+        await self.open_async()
         try:
             while message.state != constants.MessageState.Complete:
                 await self.do_work_async()
         except:
             raise
         else:
-            await self.close_async()
+            if close_on_done:
+                await self.close_async()
 
-    async def send_all_messages_async(self):
+    async def send_all_messages_async(self, close_on_done=True):
         await self.open_async()
-        await self.wait_async()
+        try:
+            await self.wait_async()
+        except:
+            raise
+        finally:
+            if close_on_done:
+                await self.close_async()
 
     async def do_work_async(self):
         timeout = False
@@ -167,7 +168,7 @@ class ReceiveClientAsync(client.ReceiveClient):
             if close_on_done:
                 await self.close_async()
 
-    async def open_async(self):
+    async def open_async(self, connection=None):
         if self._session:
             return  # Already open
         if connection:
@@ -175,7 +176,7 @@ class ReceiveClientAsync(client.ReceiveClient):
             self._ext_connection = True
         self._connection = connection or ConnectionAsync(
             self._hostname,
-            self._auth.sasl_client,
+            self._auth,
             container_id=self._name,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
@@ -203,7 +204,7 @@ class ReceiveClientAsync(client.ReceiveClient):
                 self._cbs_handle = None
             await self._session.destroy_async()
             self._session = None
-            if self._ext_connection:
+            if not self._ext_connection:
                 await self._connection.destroy_async()
                 self._connection = None
             self._shutdown = False
