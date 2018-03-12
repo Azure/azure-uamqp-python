@@ -1,0 +1,223 @@
+#Copyright (c) Microsoft. All rights reserved.
+#Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
+cmake_minimum_required(VERSION 2.8.11)
+project(uamqp)
+
+FILE(READ ${CMAKE_CURRENT_LIST_DIR}/version.txt UAMQP_VERSION)
+
+# Include the common build rules for the C SDK
+include(deps/azure-c-shared-utility/configs/azure_iot_build_rules.cmake)
+
+option(run_e2e_tests "set run_e2e_tests to ON to run e2e tests (default is OFF) [if possible, they are always built]" OFF)
+option(run_unittests "set run_unittests to ON to run unittests (default is OFF)" OFF)
+option(skip_samples "set skip_samples to ON to skip building samples (default is OFF)[if possible, they are always built]" OFF)
+option(use_installed_dependencies "set use_installed_dependencies to ON to use installed packages instead of building dependencies from submodules" OFF)
+option(memory_trace "set memory_trace to ON if memory usage is to be used, set to OFF to not use it" OFF)
+
+if(${no_logging})
+    add_definitions(-DNO_LOGGING)
+endif()
+
+#do not add or build any tests of the dependencies
+set(original_run_e2e_tests ${run_e2e_tests})
+set(original_run_int_tests ${run_int_tests})
+set(original_run_unittests ${run_unittests})
+
+set(run_e2e_tests OFF)
+set(run_int_tests OFF)
+set(run_unittests OFF)
+
+if(NOT ${use_installed_dependencies})
+    if(${original_run_e2e_tests} OR ${original_run_unittests})
+        add_subdirectory(deps/azure-c-testrunnerswitcher)
+        add_subdirectory(deps/azure-ctest)
+        add_subdirectory(deps/umock-c)
+    endif()	
+    add_subdirectory(deps/azure-c-shared-utility)
+endif()
+include("dependencies.cmake")
+
+set_platform_files(${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-shared-utility)
+
+set(run_e2e_tests ${original_run_e2e_tests})
+set(run_int_tests ${original_run_int_tests})
+set(run_unittests ${original_run_unittests})
+
+if(${memory_trace})
+    add_definitions(-DGB_MEASURE_MEMORY_FOR_THIS -DGB_DEBUG_ALLOC)
+endif()
+
+option(use_socketio "set use_socketio to ON if socketio is to be included in the library, set to OFF if a different implementation will be provided" ON)
+if(WIN32)
+    option(use_schannel "set use_schannel to ON if schannel is to be used, set to OFF to not use schannel" ON)
+    option(use_openssl "set use_openssl to ON if openssl is to be used, set to OFF to not use openssl" OFF)
+    option(use_wolfssl "set use_wolfssl to ON if wolfssl is to be used, set to OFF to not use wolfssl" OFF)
+else()
+    option(use_schannel "set use_schannel to ON if schannel is to be used, set to OFF to not use schannel" OFF)
+    option(use_openssl "set use_openssl to ON if openssl is to be used, set to OFF to not use openssl" ON)
+    option(use_wolfssl "set use_wolfssl to ON if wolfssl is to be used, set to OFF to not use wolfssl" OFF)
+endif()
+
+# The native apple tlsio does not support socket_io
+if(MACOSX AND NOT ${use_openssl})
+    set(use_socketio OFF)
+endif()
+
+add_definitions(-DREFCOUNT_ATOMIC_DONTCARE)
+add_definitions(-D__STDC_NO_ATOMICS__=1)
+
+
+include_directories(${CMAKE_CURRENT_LIST_DIR}/inc)
+
+if(WIN32)
+    include_directories($ENV{OpenSSLDir}/include)
+endif()
+
+set(uamqp_h_files
+    ./inc/azure_uamqp_c/amqp_definitions.h
+    ./inc/azure_uamqp_c/amqp_frame_codec.h
+    ./inc/azure_uamqp_c/amqp_management.h
+    ./inc/azure_uamqp_c/amqp_types.h
+    ./inc/azure_uamqp_c/amqpvalue.h
+    ./inc/azure_uamqp_c/amqpvalue_to_string.h
+    ./inc/azure_uamqp_c/async_operation.h
+    ./inc/azure_uamqp_c/cbs.h
+    ./inc/azure_uamqp_c/connection.h
+    ./inc/azure_uamqp_c/frame_codec.h
+    ./inc/azure_uamqp_c/header_detect_io.h
+    ./inc/azure_uamqp_c/link.h
+    ./inc/azure_uamqp_c/message.h
+    ./inc/azure_uamqp_c/message_receiver.h
+    ./inc/azure_uamqp_c/message_sender.h
+    ./inc/azure_uamqp_c/messaging.h
+    ./inc/azure_uamqp_c/sasl_anonymous.h
+    ./inc/azure_uamqp_c/sasl_frame_codec.h
+    ./inc/azure_uamqp_c/sasl_mechanism.h
+    ./inc/azure_uamqp_c/sasl_server_mechanism.h
+    ./inc/azure_uamqp_c/sasl_mssbcbs.h
+    ./inc/azure_uamqp_c/sasl_plain.h
+    ./inc/azure_uamqp_c/saslclientio.h
+    ./inc/azure_uamqp_c/sasl_server_io.h
+    ./inc/azure_uamqp_c/server_protocol_io.h
+    ./inc/azure_uamqp_c/session.h
+    ./inc/azure_uamqp_c/socket_listener.h
+    ./inc/azure_uamqp_c/uamqp.h
+)
+
+set(uamqp_c_files
+    ./src/amqp_definitions.c
+    ./src/amqp_frame_codec.c
+    ./src/amqp_management.c
+    ./src/amqpvalue.c
+    ./src/amqpvalue_to_string.c
+    ./src/async_operation.c
+    ./src/cbs.c
+    ./src/connection.c
+    ./src/frame_codec.c
+    ./src/header_detect_io.c
+    ./src/link.c
+    ./src/message.c
+    ./src/message_receiver.c
+    ./src/message_sender.c
+    ./src/messaging.c
+    ./src/sasl_anonymous.c
+    ./src/sasl_frame_codec.c
+    ./src/sasl_mechanism.c
+    ./src/sasl_server_mechanism.c
+    ./src/sasl_mssbcbs.c
+    ./src/sasl_plain.c
+    ./src/saslclientio.c
+    ./src/session.c
+)
+
+if(WIN32)
+    set(socketlistener_c_files
+        ./src/socket_listener_win32.c
+    )
+elseif(UNIX)
+    set(socketlistener_c_files
+        ./src/socket_listener_berkeley.c
+    )
+else()
+    set(socketlistener_c_files
+    )
+endif()
+
+add_library(uamqp
+    ${uamqp_c_files}
+    ${uamqp_h_files}
+    ${socketlistener_c_files}
+    )
+
+target_link_libraries(uamqp aziotsharedutil)
+
+if (NOT ${skip_samples})
+    add_subdirectory(samples)
+endif()
+    
+if (${run_unittests})
+    include("dependencies-test.cmake")
+    add_subdirectory(tests)
+endif()
+
+# The following "set" statetement exports across the project a global variable
+set(UAMQP_INC_FOLDER ${CMAKE_CURRENT_LIST_DIR}/inc CACHE INTERNAL "This is the include folder for UAMQP" FORCE)
+set(UAMQP_SRC_FOLDER ${CMAKE_CURRENT_LIST_DIR}/src CACHE INTERNAL "This is the lib folder for UAMQP" FORCE)
+
+# Set CMAKE_INSTALL_LIBDIR if not defined
+include(GNUInstallDirs)
+
+if(${use_installed_dependencies})
+    # Install uamqp
+    set(package_location "cmake")
+
+    if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+        set(CMAKE_INSTALL_LIBDIR "lib")
+    endif()
+
+    install(TARGETS uamqp EXPORT uamqpTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/../bin
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot
+    )
+    install(FILES ${uamqp_h_files} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot/azure_uamqp_c)
+
+    include(CMakePackageConfigHelpers)
+
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
+        VERSION ${UAMQP_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+
+    configure_file("configs/${PROJECT_NAME}Config.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake"
+        COPYONLY
+    )
+
+    install(EXPORT uamqpTargets
+        FILE
+            "${PROJECT_NAME}Targets.cmake"
+        DESTINATION
+            ${package_location}
+    )
+
+    install(
+        FILES
+            "configs/${PROJECT_NAME}Config.cmake"
+            "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION
+            ${package_location}
+    )
+else()
+    set(install_staticlibs
+        uamqp
+    )
+    install(FILES ${uamqp_h_files}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_uamqp_c) 
+    install(TARGETS ${install_staticlibs} 
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()

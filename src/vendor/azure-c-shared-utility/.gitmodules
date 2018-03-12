@@ -1,0 +1,9 @@
+[submodule "testtools/ctest"]
+	path = testtools/ctest
+	url = https://github.com/Azure/azure-ctest.git
+[submodule "testtools/umock-c"]
+	path = testtools/umock-c
+	url = https://github.com/Azure/umock-c.git
+[submodule "testtools/testrunner"]
+	path = testtools/testrunner
+	url = https://github.com/Azure/azure-c-testrunnerswitcher.git

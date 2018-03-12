@@ -1,0 +1,133 @@
+#-------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+#--------------------------------------------------------------------------
+
+# Python imports
+import logging
+
+# C imports
+from libc cimport stdint
+
+cimport c_link
+cimport c_session
+cimport c_amqp_definitions
+cimport c_amqpvalue
+
+
+_logger = logging.getLogger(__name__)
+
+
+cpdef create_link(cSession session, const char* name, bint role, AMQPValue source, AMQPValue target):
+    new_link = cLink()
+    new_link.create(<c_session.SESSION_HANDLE>session._c_value, name, <c_amqp_definitions.role>role, <c_amqpvalue.AMQP_VALUE>source._c_value, <c_amqpvalue.AMQP_VALUE>target._c_value)
+    return new_link
+
+
+cdef class cLink(StructBase):
+
+    cdef c_link.LINK_HANDLE _c_value
+
+    def __cinit__(self):
+        pass
+
+    def __dealloc__(self):
+        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        self.destroy()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.destroy()
+
+    cdef _create(self):
+        if <void*>self._c_value is NULL:
+            self._memory_error()
+
+    cpdef destroy(self):
+        if <void*>self._c_value is not NULL:
+            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            c_link.link_destroy(self._c_value)
+            self._c_value = <c_link.LINK_HANDLE>NULL
+
+    cdef wrap(self, c_link.LINK_HANDLE value):
+        self.destroy()
+        self._c_value = value
+        self._create()
+
+    cdef create(self, c_session.SESSION_HANDLE session, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target):
+        self.destroy()
+        self._c_value = c_link.link_create(session, name, role, source, target)
+        self._create()
+
+    @property
+    def send_settle_mode(self):
+        cdef c_amqp_definitions.sender_settle_mode snd_settle_mode
+        if  c_link.link_get_snd_settle_mode(self._c_value, &snd_settle_mode) != 0:
+            self._value_error()
+        return <stdint.uint8_t>snd_settle_mode
+
+    @send_settle_mode.setter
+    def send_settle_mode(self, stdint.uint8_t value):
+        if c_link.link_set_snd_settle_mode(self._c_value, <c_amqp_definitions.sender_settle_mode>value) != 0:
+            self._value_error()
+
+    @property
+    def receive_settle_mode(self):
+        cdef c_amqp_definitions.receiver_settle_mode rcv_settle_mode
+        if  c_link.link_get_rcv_settle_mode(self._c_value, &rcv_settle_mode) != 0:
+            self._value_error()
+        return <stdint.uint8_t>rcv_settle_mode
+
+    @receive_settle_mode.setter
+    def receive_settle_mode(self, stdint.uint8_t value):
+        if c_link.link_set_rcv_settle_mode(self._c_value, <c_amqp_definitions.receiver_settle_mode>value) != 0:
+            self._value_error()
+
+    @property
+    def max_message_size(self):
+        cdef stdint.uint64_t value
+        if c_link.link_get_max_message_size(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
+    @max_message_size.setter
+    def max_message_size(self, stdint.uint64_t value):
+        if c_link.link_set_max_message_size(self._c_value, value) != 0:
+            self._value_error()
+
+    @property
+    def initial_delivery_count(self):
+        cdef c_amqp_definitions.sequence_no value
+        if c_link.link_get_initial_delivery_count(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
+    @initial_delivery_count.setter
+    def initial_delivery_count(self, c_amqp_definitions.sequence_no value):
+        if c_link.link_set_initial_delivery_count(self._c_value, value) != 0:
+            self._value_error()
+
+    @property
+    def peer_max_message_size(self):
+        cdef stdint.uint64_t value
+        if c_link.link_get_peer_max_message_size(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
+    @property
+    def name(self):
+        cdef const char* value
+        if c_link.link_get_name(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
+    cpdef set_prefetch_count(self, stdint.uint32_t prefetch):
+        if c_link.link_set_max_link_credit(self._c_value, prefetch) != 0:
+            self._value_error("Unable to set link credit.")
+
+    cpdef set_attach_properties(self, AMQPValue properties):
+        if c_link.link_set_attach_properties(self._c_value, <c_amqp_definitions.fields>properties._c_value) != 0:
+            self._value_error("Unable to set link attach properties.")

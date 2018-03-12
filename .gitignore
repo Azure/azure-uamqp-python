@@ -6,10 +6,17 @@ __pycache__/
 # C extensions
 *.so
 
+# C dependencies
+azure-uamqp-c/
+azure-c-shared-utility/
+
 # Distribution / packaging
 .Python
 env/
+env*/
 build/
+wheelhouse/
+cython_debug/
 develop-eggs/
 dist/
 downloads/
@@ -45,6 +52,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.pytest_cache/
 
 # Translations
 *.mo
@@ -99,3 +107,6 @@ ENV/
 
 # mypy
 .mypy_cache/
+uamqp/c_uamqp.c
+uamqp/c_uamqp.pyx
+tests/test_dont_merge.py
