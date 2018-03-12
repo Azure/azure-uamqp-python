@@ -47,8 +47,13 @@ Pre-requisites
 ++++++++++++++
 
 - Windows: None
-- MacOS: Install OpenSSL using Homebrew: `brew install openssl@1.1`
 - Linux: Install dependencies as descriped above in the installation instructions.
+- MacOS: Install OpenSSL and UUID using Homebrew:
+
+.. code:: shell
+
+    $ brew install openssl@1.1
+    $ brew install ossp-uuid
 
 Building the extension
 ++++++++++++++++++++++

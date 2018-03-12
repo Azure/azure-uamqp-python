@@ -17,7 +17,7 @@ try:
 except ImportError:
     USE_CYTHON = False
 
-
+supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 
@@ -43,18 +43,6 @@ include_dirs = [
     # azure-uamqp-c inc
     "./src/vendor/azure-uamqp-c/inc",
 ]
-
-if is_mac:
-    include_dirs += [
-        "/usr/local/opt/openssl/include"
-    ]
-
-# Library dirs
-
-library_dirs = []
-if is_mac:
-    # Since openssl is deprecated on MacOSX 10.7+, look for homebrew installs
-    library_dirs += ['/usr/local/opt/openssl/lib']
 
 # Build unique source pyx
 
@@ -93,7 +81,8 @@ if is_win:
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    kwargs['libraries'] = ['ssl', 'crypto', 'uuid']
+    if not supress_link_flags:
+        kwargs['libraries'] = ['ssl', 'crypto', 'uuid']
 
 # Sources
 
@@ -174,7 +163,6 @@ extensions = [Extension(
         "uamqp.c_uamqp",
         sources=sources,
         include_dirs=include_dirs,
-        library_dirs=library_dirs,
         **kwargs)
     ]
 
