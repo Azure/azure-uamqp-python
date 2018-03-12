@@ -8,7 +8,6 @@ import logging
 import sys
 
 from uamqp import c_uamqp
-from uamqp.version import VERSION
 from uamqp.message import Message, BatchMessage
 from uamqp.address import Source, Target
 
