@@ -261,7 +261,7 @@ class ReceiveClient:
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
-    def _message_generator(self):
+    def _message_generator(self, close_on_done):
         receiving = True
         try:
             while receiving:
@@ -275,13 +275,14 @@ class ReceiveClient:
         except:
             raise
         finally:
-            self.close()
+            if close_on_done:
+                self.close()
 
-    def receive_messages_iter(self, on_message_received=None):
+    def receive_messages_iter(self, on_message_received=None, close_on_done=True):
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue(self._prefetch)
         self.open()
-        return self._message_generator()
+        return self._message_generator(close_on_done)
 
     def receive_messages(self, on_message_received, close_on_done=True):
         self.open()

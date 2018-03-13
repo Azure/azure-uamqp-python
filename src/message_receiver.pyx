@@ -7,6 +7,7 @@
 # Python imports
 import logging
 import functools
+import asyncio
 
 # C imports
 cimport c_message_receiver
@@ -81,7 +82,10 @@ cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE
     cloned = c_message.message_clone(message)
     wrapped_message = message_factory(cloned)
     try:
-        context_obj._message_received(wrapped_message)
+        if hasattr(context_obj, "_message_received_async"):
+            asyncio.ensure_future(context_obj._message_received_async(wrapped_message), loop=context_obj.loop)
+        else:
+            context_obj._message_received(wrapped_message)
 
     except Exception as e:
         if hasattr(e, 'rejection_description'):

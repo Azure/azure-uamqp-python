@@ -3,6 +3,12 @@
 Release History
 ===============
 
+0.1.0a3 (unreleased)
+++++++++++++++++++++
+
+- Added support for asynchronous message receive by iterator or batch.
+
+
 0.1.0a2 (2018-03-12)
 ++++++++++++++++++++
 
