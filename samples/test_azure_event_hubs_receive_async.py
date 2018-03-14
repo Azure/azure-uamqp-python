@@ -39,6 +39,7 @@ async def on_message_received(message):
     log.info("Message format: {}".format(message._message.message_format))
     log.info("{}".format(list(message.get_data())))
 
+
 def test_event_hubs_callback_receive_async():
     if not hostname:
         pytest.skip("No live endpoint configured.")
@@ -74,7 +75,7 @@ def test_event_hubs_filter_receive_async():
 
 async def event_hubs_iter_receive(receive_client):
     count = 0
-    async for message in await receive_client.receive_messages_iter_async():
+    async for message in receive_client.receive_messages_iter_async():
         count += 1
         annotations = message.message_annotations
         log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))

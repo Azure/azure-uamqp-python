@@ -181,6 +181,7 @@ class ReceiveClientAsync(client.ReceiveClient):
         await self.close_async()
 
     async def _message_generator_async(self, close_on_done):
+        await self.open_async()
         receiving = True
         try:
             while receiving:
@@ -217,6 +218,7 @@ class ReceiveClientAsync(client.ReceiveClient):
                 message_future = asyncio.Task(self._received_messages.put(wrapped_message), loop=self.loop)
                 self._prefetched_messages.append(message_future)
                 await asyncio.wait_for(message_future, timeout=expiry)
+
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 raise errors.AbandonMessage()
             else:
@@ -267,10 +269,9 @@ class ReceiveClientAsync(client.ReceiveClient):
             self._received_messages.task_done()
         return batch
 
-    async def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
+    def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
         self._message_received_callback = on_message_received
         self._received_messages = asyncio.Queue(self._prefetch)
-        await self.open_async()
         return self._message_generator_async(close_on_done)
 
     async def open_async(self, connection=None):
