@@ -8,3 +8,4 @@ install:
   - pip install -e .
 script: 
   - pytest
+  - python ./setup.py check -r -s
