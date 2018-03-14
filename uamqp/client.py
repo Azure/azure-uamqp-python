@@ -270,8 +270,9 @@ class ReceiveClient:
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
-    def receive_message_batch(self, batch_size, on_message_received=None):
+    def receive_message_batch(self, batch_size=None, on_message_received=None):
         self._message_received_callback = on_message_received
+        batch_size = batch_size or self._prefetch
         self._received_messages = self._received_messages or queue.Queue(self._prefetch)
         self.open()
         receiving = True
@@ -281,13 +282,14 @@ class ReceiveClient:
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
-
-        while receiving and self._received_messages.qsize() < batch_size:
-            receiving = self.do_work()
-        while not self._received_messages.empty() and len(batch) < batch_size:
-            batch.append(self._received_messages.get())
-            self._received_messages.task_done()
-        return batch
+        while len(batch) < batch_size:  # TODO: Add receive timeout
+            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+                receiving = self.do_work()
+            while not self._received_messages.empty() and len(batch) < batch_size:
+                batch.append(self._received_messages.get())
+                self._received_messages.task_done()
+        else:
+            return batch
 
     def receive_messages(self, on_message_received, close_on_done=True):
         self.open()

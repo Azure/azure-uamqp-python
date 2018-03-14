@@ -244,8 +244,9 @@ class ReceiveClientAsync(client.ReceiveClient):
             if close_on_done:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, batch_size, on_message_received=None):
+    async def receive_message_batch_async(self, batch_size=None, on_message_received=None):
         self._message_received_callback = on_message_received
+        batch_size = batch_size or self._prefetch
         self._received_messages = self._received_messages or asyncio.Queue(batch_size)
         await self.open_async()
         receiving = True
