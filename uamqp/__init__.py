@@ -42,17 +42,17 @@ def send_message(target, data, auth=None, debug=False):
         send_client.send_all_messages()
 
 
-def receive_message(source, auth=None, timeout=0):
-    received = receive_messages(source, auth=auth, prefetch=1, batch_size=1)
+def receive_message(source, auth=None, timeout=0, debug=False):
+    received = receive_messages(source, auth=auth, batch_size=1, timeout=timeout, debug=debug, prefetch=1,)
     if received:
         return received[0]
     else:
         return None
 
 
-def receive_messages(source, timeout=0, auth=None, prefetch=None, batch_size=None, debug=False):
-    with ReceiveClient(source, auth=auth, timeout=timeout, prefetch=prefetch, debug=debug) as receive_client:
-        return receive_client.receive_message_batch(batch_size=batch_size or prefetch)
+def receive_messages(source, auth=None, batch_size=None, timeout=0, prefetch=None, debug=False, **kwargs):
+    with ReceiveClient(source, auth=auth, timeout=timeout, debug=debug, **kwargs) as receive_client:
+        return receive_client.receive_message_batch(batch_size=batch_size or receive_client._prefetch)
 
 
 def initialize_platform():

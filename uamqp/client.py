@@ -57,19 +57,19 @@ class SendClient:
         self._shutdown = None
 
         # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
+        self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
-        self._outgoing_window = kwargs.pop('outgoing_window', constants.MAX_FRAME_SIZE_BYTES)
+        self._outgoing_window = kwargs.pop('outgoing_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
 
         # Sender and Link settings
-        self._send_settle_mode = kwargs.pop('send_settle_mode', constants.SenderSettleMode.Unsettled)
-        self._max_message_size = kwargs.pop('max_message_size', constants.MAX_MESSAGE_LENGTH_BYTES)
+        self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
+        self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
 
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
@@ -238,20 +238,20 @@ class ReceiveClient:
         self._received_messages = None
 
         # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
+        self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
-        self._incoming_window = kwargs.pop('incoming_window', constants.MAX_FRAME_SIZE_BYTES)
+        self._incoming_window = kwargs.pop('incoming_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
 
         # Receiver and Link settings
-        self._receive_settle_mode = kwargs.pop('receive_settle_mode', constants.ReceiverSettleMode.PeekLock)
-        self._max_message_size = kwargs.pop('max_message_size', constants.MAX_MESSAGE_LENGTH_BYTES)
-        self._prefetch = kwargs.pop('prefetch', 0)
+        self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
+        self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
+        self._prefetch = kwargs.pop('prefetch', None) or 300
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
