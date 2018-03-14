@@ -74,6 +74,13 @@ class SendClient:
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def open(self, connection=None):
         if self._session:
             return  # already open.
@@ -219,7 +226,6 @@ class ReceiveClient:
         self._timeout = timeout
         self._counter = c_uamqp.TickCounter()
         self._cbs_handle = None
-        self._count = 0
 
         self._connection = None
         self._ext_connection = False
@@ -246,43 +252,42 @@ class ReceiveClient:
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', constants.ReceiverSettleMode.PeekLock)
         self._max_message_size = kwargs.pop('max_message_size', constants.MAX_MESSAGE_LENGTH_BYTES)
         self._prefetch = kwargs.pop('prefetch', 0)
-        self._max_count = kwargs.pop('max_count', None)
-
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def _message_received(self, message):
         self._was_message_received = True
-        if self._max_count is not None:
-            self._count += 1
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
             self._message_received_callback(wrapped_message)
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
-    def _message_generator(self, close_on_done):
-        receiving = True
-        try:
-            while receiving:
-                while receiving and self._received_messages.empty():
-                    receiving = self.do_work()
-                try:
-                    for message in iter(self._received_messages.get_nowait, None):
-                        yield message
-                except queue.Empty:
-                    continue
-        except:
-            raise
-        finally:
-            if close_on_done:
-                self.close()
-
-    def receive_messages_iter(self, on_message_received=None, close_on_done=True):
+    def receive_message_batch(self, batch_size, on_message_received=None):
         self._message_received_callback = on_message_received
-        self._received_messages = queue.Queue(self._prefetch)
+        self._received_messages = self._received_messages or queue.Queue(self._prefetch)
         self.open()
-        return self._message_generator(close_on_done)
+        receiving = True
+        batch = []
+        while not self._received_messages.empty() and len(batch) < batch_size:
+            batch.append(self._received_messages.get())
+            self._received_messages.task_done()
+        if len(batch) >= batch_size:
+            return batch
+
+        while receiving and self._received_messages.qsize() < batch_size:
+            receiving = self.do_work()
+        while not self._received_messages.empty() and len(batch) < batch_size:
+            batch.append(self._received_messages.get())
+            self._received_messages.task_done()
+        return batch
 
     def receive_messages(self, on_message_received, close_on_done=True):
         self.open()
@@ -374,8 +379,6 @@ class ReceiveClient:
 
         else:
             self._connection.work()
-            if self._max_count is not None and self._count >= self._max_count:
-                self._shutdown = True
             if self._timeout > 0:
                 now = self._counter.get_current_ms()
                 if not self._was_message_received:

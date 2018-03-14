@@ -35,6 +35,13 @@ class SendClientAsync(client.SendClient):
         super(SendClientAsync, self).__init__(
             target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
 
+    async def __aenter__(self):
+        await self.open_async()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close_async()
+
     async def open_async(self, connection=None):
         if self._session:
             return  # already open
@@ -166,6 +173,13 @@ class ReceiveClientAsync(client.ReceiveClient):
         super(ReceiveClientAsync, self).__init__(
             source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
 
+    async def __aenter__(self):
+        await self.open_async()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close_async()
+
     async def _message_generator_async(self, close_on_done):
         receiving = True
         try:
@@ -174,7 +188,15 @@ class ReceiveClientAsync(client.ReceiveClient):
                     receiving = await self.do_work_async()
                 while not self._received_messages.empty():
                     message = await self._received_messages.get()
-                    yield message
+                    try:
+                        yield message
+                    except Exception as e:
+                        message.on_receive_complete.set_exception(e)
+                    else:
+                        if not message.on_receive_complete.cancelled():
+                            message.on_receive_complete.set_result(None)
+                    finally:
+                        self._received_messages.task_done()
         except:
             raise
         finally:
@@ -184,26 +206,28 @@ class ReceiveClientAsync(client.ReceiveClient):
     async def _message_received_async(self, message):
         expiry = None
         self._was_message_received = True
-        if self._max_count is not None:
-            self._count += 1
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
             await self._message_received_callback(wrapped_message)
+
         if self._received_messages:
             try:
-                number = message.message_annotations.map.value.get(b'x-opt-sequence-number')
-                print("putting message on queue", number)
+                wrapped_message.on_receive_complete = asyncio.Future()
+                self._prefetched_messages.append(wrapped_message.on_receive_complete)
                 message_future = asyncio.Task(self._received_messages.put(wrapped_message), loop=self.loop)
                 self._prefetched_messages.append(message_future)
                 await asyncio.wait_for(message_future, timeout=expiry)
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 raise errors.AbandonMessage()
             else:
-                try:
-                    print("finished adding to queue", number)
-                    self._prefetched_messages.remove(message_future)
-                except:
-                    pass
+                self._prefetched_messages.remove(message_future)
+            try:
+                await asyncio.wait_for(wrapped_message.on_receive_complete, timeout=expiry)
+                wrapped_message.on_receive_complete.result()
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                raise errors.AbandonMessage()
+            else:
+                self._prefetched_messages.remove(wrapped_message.on_receive_complete)
 
     async def receive_messages_async(self, on_message_received, close_on_done=True):
         await self.open_async()
@@ -218,28 +242,34 @@ class ReceiveClientAsync(client.ReceiveClient):
             if close_on_done:
                 await self.close_async()
 
-    async def receive_message_batch(self, batch_size):
-        self._message_received_callback = None
+    async def receive_message_batch_async(self, batch_size, on_message_received=None):
+        self._message_received_callback = on_message_received
         self._received_messages = self._received_messages or asyncio.Queue(batch_size)
         await self.open_async()
         receiving = True
         batch = []
         while not self._received_messages.empty() and len(batch) < batch_size:
-            batch.append(await self._received_messages.get())
+            message = await self._received_messages.get()
+            batch.append(message)
+            if not message.on_receive_complete.cancelled():
+                message.on_receive_complete.set_result(None)
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
-        print("doing work")
+
         while receiving and not self._received_messages.full():
             receiving = await self.do_work_async()
         while not self._received_messages.empty() and len(batch) < batch_size:
-            batch.append(await self._received_messages.get())
+            message = await self._received_messages.get()
+            batch.append(message)
+            if not message.on_receive_complete.cancelled():
+                message.on_receive_complete.set_result(None)
             self._received_messages.task_done()
         return batch
 
-    async def receive_messages_iter_async(self, batch_size=None, on_message_received=None, close_on_done=True):
+    async def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
         self._message_received_callback = on_message_received
-        self._received_messages = asyncio.Queue(batch_size or self._prefetch)
+        self._received_messages = asyncio.Queue(self._prefetch)
         await self.open_async()
         return self._message_generator_async(close_on_done)
 
@@ -323,8 +353,6 @@ class ReceiveClientAsync(client.ReceiveClient):
 
         else:
             await self._connection.work_async()
-            if self._max_count is not None and self._count >= self._max_count:
-                self._shutdown = True
             if self._timeout > 0:
                 now = self._counter.get_current_ms()
                 if not self._was_message_received:

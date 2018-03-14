@@ -36,6 +36,30 @@ def test_event_hubs_simple_receive():
     log.info("Received: {}".format(message))
 
 
+def test_event_hubs_simple_batch_receive():
+    if not hostname:
+        pytest.skip("No live endpoint configured.")
+
+    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        hostname, event_hub, consumer_group, partition)
+
+    messages = uamqp.receive_messages(source, auth=plain_auth, prefetch=10, batch_size=10)
+    assert len(messages) == 10
+
+
+def test_event_hubs_single_batch_receive():
+    if not hostname:
+        pytest.skip("No live endpoint configured.")
+
+    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        hostname, event_hub, consumer_group, partition)
+
+    message = uamqp.receive_messages(source, auth=plain_auth, prefetch=1, batch_size=1)
+    assert len(message) == 1
+
+
 def test_event_hubs_client_receive():
     if not hostname:
         pytest.skip("No live endpoint configured.")
@@ -44,22 +68,19 @@ def test_event_hubs_client_receive():
 
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         hostname, event_hub, consumer_group, partition)
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000)
-    log.info("Created client, receiving...")
-    
-    receiver = receive_client.receive_messages_iter()
-    count = 0
-    for message in receiver:
-        if count >= max_messages:
-            break
-        annotations = message.message_annotations
-        log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
-        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-        log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-        log.info("Message format: {}".format(message._message.message_format))
-        log.info("{}".format(list(message.get_data())))
-        count += 1
+    with uamqp.ReceiveClient(source, auth=sas_auth, timeout=50, prefetch=50) as receive_client:
+        log.info("Created client, receiving...")
+        batch = receive_client.receive_message_batch(batch_size=10)
+        while batch:
+            for message in batch:
+                annotations = message.message_annotations
+                log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
+                log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+                log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
+                log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
+                log.info("Message format: {}".format(message._message.message_format))
+                log.info("{}".format(list(message.get_data())))
+            batch = receive_client.receive_message_batch(batch_size=10)
     log.info("Finished receiving")
 
 
@@ -79,7 +100,7 @@ def test_event_hubs_callback_receive():
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         hostname, event_hub, consumer_group, partition)
 
-    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, timeout=5)
+    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, timeout=50)
     log.info("Created client, receiving...")
     
     receive_client.receive_messages(on_message_received)
@@ -95,22 +116,19 @@ def test_event_hubs_filter_receive():
     source = address.Source(source_url)
     source.set_filter(b"amqp.annotation.x-opt-enqueuedtimeutc > 1518731960545")
 
-    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, prefetch=1, timeout=1000)
-    log.info("Created client, receiving...")
-    
-    receiver = receive_client.receive_messages_iter()
-    count = 0
-    for message in receiver:
-        if count >= max_messages:
-            break
-        annotations = message.message_annotations
-        log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
-        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-        log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-        log.info("Message format: {}".format(message._message.message_format))
-        log.info("{}".format(list(message.get_data())))
-        count += 1
+    with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
+        log.info("Created client, receiving...")
+        batch = receive_client.receive_message_batch(batch_size=10)
+        while batch:
+            for message in batch:
+                annotations = message.message_annotations
+                log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
+                log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+                log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
+                log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
+                log.info("Message format: {}".format(message._message.message_format))
+                log.info("{}".format(list(message.get_data())))
+            batch = receive_client.receive_message_batch(batch_size=10)
     log.info("Finished receiving")
 
 

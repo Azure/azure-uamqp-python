@@ -26,6 +26,7 @@ class Message:
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.on_send_complete = None
+        self.on_receive_complete = None
 
         self._message = message if message else c_uamqp.create_message()
         self._body = None
