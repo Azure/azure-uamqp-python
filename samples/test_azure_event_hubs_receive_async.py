@@ -26,6 +26,7 @@ async def on_message_received(message):
     log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
     log.info("Message format: {}".format(message._message.message_format))
     log.info("{}".format(list(message.get_data())))
+    return message
 
 
 @pytest.mark.asyncio

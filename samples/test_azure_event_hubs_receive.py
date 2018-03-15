@@ -7,6 +7,11 @@
 import logging
 import os
 import pytest
+import time
+try:
+    from urllib import quote_plus #Py2
+except Exception:
+    from urllib.parse import quote_plus
 
 import uamqp
 from uamqp import address
@@ -32,18 +37,20 @@ def test_event_hubs_simple_receive(live_eventhub_config):
 
 
 def test_event_hubs_simple_batch_receive(live_eventhub_config):
-    plain_auth = authentication.SASLPlain(
-        live_eventhub_config['hostname'],
-        live_eventhub_config['key_name'],
-        live_eventhub_config['access_key'])
-    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+
+    source = "amqps://{}:{}@{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        quote_plus(live_eventhub_config['key_name']),
+        quote_plus(live_eventhub_config['access_key']),
         live_eventhub_config['hostname'],
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    messages = uamqp.receive_messages(source, auth=plain_auth, prefetch=10, batch_size=10)
+    messages = uamqp.receive_messages(source, batch_size=10)
     assert len(messages) == 10
+
+    message = uamqp.receive_messages(source, batch_size=1)
+    assert len(message) == 1
 
 
 def test_event_hubs_single_batch_receive(live_eventhub_config):
@@ -57,8 +64,8 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    message = uamqp.receive_messages(source, auth=plain_auth, prefetch=1, batch_size=1)
-    assert len(message) == 1
+    message = uamqp.receive_messages(source, auth=plain_auth)
+    assert len(message) == 300
 
 
 def test_event_hubs_client_receive(live_eventhub_config):
@@ -71,7 +78,7 @@ def test_event_hubs_client_receive(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
-    with uamqp.ReceiveClient(source, auth=sas_auth, timeout=50, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
         batch = receive_client.receive_message_batch(batch_size=10)
         while batch:
@@ -96,6 +103,7 @@ def test_event_hubs_callback_receive(live_eventhub_config):
         log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
         log.info("Message format: {}".format(message._message.message_format))
         log.info("{}".format(list(message.get_data())))
+        return message
 
     plain_auth = authentication.SASLPlain(
         live_eventhub_config['hostname'],

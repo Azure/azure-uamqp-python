@@ -169,7 +169,7 @@ class ReceiveClientAsync(client.ReceiveClient):
 
     def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
-        self._prefetched_messages = []
+        self._pending_futures = []
         super(ReceiveClientAsync, self).__init__(
             source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
 
@@ -188,14 +188,14 @@ class ReceiveClientAsync(client.ReceiveClient):
                 while receiving and self._received_messages.empty():
                     receiving = await self.do_work_async()
                 while not self._received_messages.empty():
-                    message = await self._received_messages.get()
+                    message, on_complete = await self._received_messages.get()
                     try:
                         yield message
                     except Exception as e:
-                        message.on_receive_complete.set_exception(e)
+                        on_complete.set_exception(e)
                     else:
-                        if not message.on_receive_complete.cancelled():
-                            message.on_receive_complete.set_result(None)
+                        if not on_complete.cancelled():
+                            on_complete.set_result(None)
                     finally:
                         self._received_messages.task_done()
         except:
@@ -209,27 +209,27 @@ class ReceiveClientAsync(client.ReceiveClient):
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
-            await self._message_received_callback(wrapped_message)
+            wrapped_message = await self._message_received_callback(wrapped_message)
 
         if self._received_messages:
             try:
-                wrapped_message.on_receive_complete = asyncio.Future()
-                self._prefetched_messages.append(wrapped_message.on_receive_complete)
-                message_future = asyncio.Task(self._received_messages.put(wrapped_message), loop=self.loop)
-                self._prefetched_messages.append(message_future)
+                on_receive_complete = asyncio.Future()
+                self._pending_futures.append(on_receive_complete)
+                message_future = asyncio.Task(self._received_messages.put((wrapped_message, on_receive_complete)), loop=self.loop)
+                self._pending_futures.append(message_future)
                 await asyncio.wait_for(message_future, timeout=expiry)
 
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 raise errors.AbandonMessage()
             else:
-                self._prefetched_messages.remove(message_future)
+                self._pending_futures.remove(message_future)
             try:
-                await asyncio.wait_for(wrapped_message.on_receive_complete, timeout=expiry)
-                wrapped_message.on_receive_complete.result()
+                await asyncio.wait_for(on_receive_complete, timeout=expiry)
+                on_receive_complete.result()
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 raise errors.AbandonMessage()
             else:
-                self._prefetched_messages.remove(wrapped_message.on_receive_complete)
+                self._pending_futures.remove(on_receive_complete)
 
     async def receive_messages_async(self, on_message_received, close_on_done=True):
         await self.open_async()
@@ -252,10 +252,10 @@ class ReceiveClientAsync(client.ReceiveClient):
         receiving = True
         batch = []
         while not self._received_messages.empty() and len(batch) < batch_size:
-            message = await self._received_messages.get()
+            message, on_complete = await self._received_messages.get()
             batch.append(message)
-            if not message.on_receive_complete.cancelled():
-                message.on_receive_complete.set_result(None)
+            if not on_complete.cancelled():
+                on_complete.set_result(None)
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
@@ -263,10 +263,10 @@ class ReceiveClientAsync(client.ReceiveClient):
         while receiving and not self._received_messages.full():
             receiving = await self.do_work_async()
         while not self._received_messages.empty() and len(batch) < batch_size:
-            message = await self._received_messages.get()
+            message, on_complete = await self._received_messages.get()
             batch.append(message)
-            if not message.on_receive_complete.cancelled():
-                message.on_receive_complete.set_result(None)
+            if not on_complete.cancelled():
+                on_complete.set_result(None)
             self._received_messages.task_done()
         return batch
 
@@ -303,7 +303,7 @@ class ReceiveClientAsync(client.ReceiveClient):
         if not self._session:
             return  # Already closed
         else:
-            for future in self._prefetched_messages:
+            for future in self._pending_futures:
                 future.cancel()
             if self._message_receiver:
                 await self._message_receiver._destroy_async()

@@ -43,7 +43,7 @@ def send_message(target, data, auth=None, debug=False):
 
 
 def receive_message(source, auth=None, timeout=0, debug=False):
-    received = receive_messages(source, auth=auth, batch_size=1, timeout=timeout, debug=debug, prefetch=1)
+    received = receive_messages(source, auth=auth, batch_size=1, timeout=timeout, debug=debug)
     if received:
         return received[0]
     else:
@@ -51,6 +51,8 @@ def receive_message(source, auth=None, timeout=0, debug=False):
 
 
 def receive_messages(source, auth=None, batch_size=None, timeout=0, debug=False, **kwargs):
+    if batch_size:
+        kwargs['prefetch'] = batch_size
     with ReceiveClient(source, auth=auth, timeout=timeout, debug=debug, **kwargs) as receive_client:
         return receive_client.receive_message_batch(batch_size=batch_size or receive_client._prefetch)
 
