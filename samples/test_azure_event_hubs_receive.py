@@ -7,6 +7,11 @@
 import logging
 import os
 import pytest
+import time
+try:
+    from urllib import quote_plus #Py2
+except Exception:
+    from urllib.parse import quote_plus
 
 import uamqp
 from uamqp import address
@@ -16,56 +21,80 @@ from uamqp import authentication
 log = logging.getLogger(__name__)
 
 
-hostname = os.environ.get("EVENT_HUB_HOSTNAME")
-event_hub = os.environ.get("EVENT_HUB_NAME")
-key_name = os.environ.get("EVENT_HUB_SAS_POLICY")
-access_key = os.environ.get("EVENT_HUB_SAS_KEY")
-consumer_group = "$Default"
-partition = "0"
-max_messages = 10
-
-
-def test_event_hubs_simple_receive():
-    if not hostname:
-        pytest.skip("No live endpoint configured.")
-    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+def test_event_hubs_simple_receive(live_eventhub_config):
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        hostname, event_hub, consumer_group, partition)
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
 
     message = uamqp.receive_message(source, auth=plain_auth)
     log.info("Received: {}".format(message))
 
 
-def test_event_hubs_client_receive():
-    if not hostname:
-        pytest.skip("No live endpoint configured.")
-    uri = "sb://{}/{}".format(hostname, event_hub)
-    sas_auth = authentication.SASTokenAuth.from_shared_access_key(uri, key_name, access_key)
+def test_event_hubs_simple_batch_receive(live_eventhub_config):
+
+    source = "amqps://{}:{}@{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        quote_plus(live_eventhub_config['key_name']),
+        quote_plus(live_eventhub_config['access_key']),
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    messages = uamqp.receive_messages(source, batch_size=10)
+    assert len(messages) == 10
+
+    message = uamqp.receive_messages(source, batch_size=1)
+    assert len(message) == 1
+
+
+def test_event_hubs_single_batch_receive(live_eventhub_config):
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    message = uamqp.receive_messages(source, auth=plain_auth)
+    assert len(message) == 300
+
+
+def test_event_hubs_client_receive(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        hostname, event_hub, consumer_group, partition)
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000)
-    log.info("Created client, receiving...")
-    
-    receiver = receive_client.receive_messages_iter()
-    count = 0
-    for message in receiver:
-        if count >= max_messages:
-            break
-        annotations = message.message_annotations
-        log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
-        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-        log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-        log.info("Message format: {}".format(message._message.message_format))
-        log.info("{}".format(list(message.get_data())))
-        count += 1
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
+        log.info("Created client, receiving...")
+        batch = receive_client.receive_message_batch(batch_size=10)
+        while batch:
+            for message in batch:
+                annotations = message.message_annotations
+                log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
+                log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+                log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
+                log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
+                log.info("Message format: {}".format(message._message.message_format))
+                log.info("{}".format(list(message.get_data())))
+            batch = receive_client.receive_message_batch(batch_size=10)
     log.info("Finished receiving")
 
 
-def test_event_hubs_callback_receive():
-    if not hostname:
-        pytest.skip("No live endpoint configured.")
+def test_event_hubs_callback_receive(live_eventhub_config):
     def on_message_received(message):
         annotations = message.message_annotations
         log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
@@ -74,45 +103,51 @@ def test_event_hubs_callback_receive():
         log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
         log.info("Message format: {}".format(message._message.message_format))
         log.info("{}".format(list(message.get_data())))
+        return message
 
-    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        hostname, event_hub, consumer_group, partition)
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, timeout=5)
+    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, timeout=50)
     log.info("Created client, receiving...")
     
     receive_client.receive_messages(on_message_received)
     log.info("Finished receiving")
 
 
-def test_event_hubs_filter_receive():
-    if not hostname:
+def test_event_hubs_filter_receive(live_eventhub_config):
+    if not live_eventhub_config['hostname']:
         pytest.skip("No live endpoint configured.")
-    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
     source_url = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        hostname, event_hub, consumer_group, partition)
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
     source = address.Source(source_url)
     source.set_filter(b"amqp.annotation.x-opt-enqueuedtimeutc > 1518731960545")
 
-    receive_client = uamqp.ReceiveClient(source, auth=plain_auth, prefetch=1, timeout=1000)
-    log.info("Created client, receiving...")
-    
-    receiver = receive_client.receive_messages_iter()
-    count = 0
-    for message in receiver:
-        if count >= max_messages:
-            break
-        annotations = message.message_annotations
-        log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
-        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-        log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-        log.info("Message format: {}".format(message._message.message_format))
-        log.info("{}".format(list(message.get_data())))
-        count += 1
+    with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
+        log.info("Created client, receiving...")
+        batch = receive_client.receive_message_batch(batch_size=10)
+        while batch:
+            for message in batch:
+                annotations = message.message_annotations
+                log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
+                log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+                log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
+                log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
+                log.info("Message format: {}".format(message._message.message_format))
+                log.info("{}".format(list(message.get_data())))
+            batch = receive_client.receive_message_batch(batch_size=10)
     log.info("Finished receiving")
-
-
-if __name__ == "__main__":
-    azure_event_hub_simple_receive()

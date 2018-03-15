@@ -46,9 +46,9 @@ class SendClient:
         self._debug_trace = debug
         self._msg_timeout = msg_timeout
         self._counter = c_uamqp.TickCounter()
-        self._cbs_handle = None
         self._pending_messages = []
         self._message_sent_callback = None
+        self._cbs_handle = None
 
         self._connection = None
         self._ext_connection = False
@@ -57,22 +57,29 @@ class SendClient:
         self._shutdown = None
 
         # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
+        self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
-        self._outgoing_window = kwargs.pop('outgoing_window', constants.MAX_FRAME_SIZE_BYTES)
+        self._outgoing_window = kwargs.pop('outgoing_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
 
         # Sender and Link settings
-        self._send_settle_mode = kwargs.pop('send_settle_mode', constants.SenderSettleMode.Unsettled)
-        self._max_message_size = kwargs.pop('max_message_size', constants.MAX_MESSAGE_LENGTH_BYTES)
+        self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
+        self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
 
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def open(self, connection=None):
         if self._session:
@@ -97,7 +104,7 @@ class SendClient:
             outgoing_window=self._outgoing_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session)
+            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
 
     def close(self):
         if not self._session:
@@ -208,9 +215,11 @@ class ReceiveClient:
         self._source = source if isinstance(source, address.AddressMixin) else address.Source(source)
         self._hostname = self._source.parsed_address.hostname
         if not auth:
-            username = self._target.parsed_address.username
-            password = self._target.parsed_address.password
+            username = self._source.parsed_address.username
+            password = self._source.parsed_address.password
             if username and password:
+                username = unquote_plus(username)
+                password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth or authentication.SASLAnonymous(self._hostname)
@@ -219,7 +228,6 @@ class ReceiveClient:
         self._timeout = timeout
         self._counter = c_uamqp.TickCounter()
         self._cbs_handle = None
-        self._count = 0
 
         self._connection = None
         self._ext_connection = False
@@ -232,56 +240,58 @@ class ReceiveClient:
         self._received_messages = None
 
         # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', constants.MAX_FRAME_SIZE_BYTES)
+        self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
-        self._incoming_window = kwargs.pop('incoming_window', constants.MAX_FRAME_SIZE_BYTES)
+        self._incoming_window = kwargs.pop('incoming_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
 
         # Receiver and Link settings
-        self._receive_settle_mode = kwargs.pop('receive_settle_mode', constants.ReceiverSettleMode.PeekLock)
-        self._max_message_size = kwargs.pop('max_message_size', constants.MAX_MESSAGE_LENGTH_BYTES)
-        self._prefetch = kwargs.pop('prefetch', 0)
-        self._max_count = kwargs.pop('max_count', None)
-
+        self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
+        self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
+        self._prefetch = kwargs.pop('prefetch', None) or 300
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def _message_received(self, message):
         self._was_message_received = True
-        if self._max_count is not None:
-            self._count += 1
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
-            self._message_received_callback(wrapped_message)
+            wrapped_message = self._message_received_callback(wrapped_message)
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
-    def _message_generator(self):
-        receiving = True
-        try:
-            while receiving:
-                while receiving and self._received_messages.empty():
-                    receiving = self.do_work()
-                try:
-                    for message in iter(self._received_messages.get_nowait, None):
-                        yield message
-                except queue.Empty:
-                    continue
-        except:
-            raise
-        finally:
-            self.close()
-
-    def receive_messages_iter(self, on_message_received=None):
+    def receive_message_batch(self, batch_size=None, on_message_received=None):
         self._message_received_callback = on_message_received
-        self._received_messages = queue.Queue(self._prefetch)
+        batch_size = batch_size or self._prefetch
+        self._received_messages = self._received_messages or queue.Queue(self._prefetch)
         self.open()
-        return self._message_generator()
+        receiving = True
+        batch = []
+        while not self._received_messages.empty() and len(batch) < batch_size:
+            batch.append(self._received_messages.get())
+            self._received_messages.task_done()
+        if len(batch) >= batch_size:
+            return batch
+        while receiving and len(batch) < batch_size:  # TODO: Add receive timeout
+            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+                receiving = self.do_work()
+            while not self._received_messages.empty() and len(batch) < batch_size:
+                batch.append(self._received_messages.get())
+                self._received_messages.task_done()
+        else:
+            return batch
 
     def receive_messages(self, on_message_received, close_on_done=True):
         self.open()
@@ -317,7 +327,8 @@ class ReceiveClient:
             incoming_window=self._incoming_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session)
+            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
+
 
     def close(self):
         if not self._session:
@@ -373,8 +384,6 @@ class ReceiveClient:
 
         else:
             self._connection.work()
-            if self._max_count is not None and self._count >= self._max_count:
-                self._shutdown = True
             if self._timeout > 0:
                 now = self._counter.get_current_ms()
                 if not self._was_message_received:

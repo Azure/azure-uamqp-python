@@ -37,20 +37,24 @@ _is_win = sys.platform.startswith('win')
 
 def send_message(target, data, auth=None, debug=False):
     message = data if isinstance(data, Message) else Message(data)
-    send_client = SendClient(target, auth=auth, debug=debug)
-    send_client.queue_message(message)
-    send_client.send_all_messages()
+    with SendClient(target, auth=auth, debug=debug) as send_client:
+        send_client.queue_message(message)
+        send_client.send_all_messages()
 
 
-def receive_message(source, auth=None):
-    receiver = receive_messages(source, auth=auth, prefetch=1, max_count=1)
-    messages = list(receiver)
-    return messages[0]
+def receive_message(source, auth=None, timeout=0, debug=False):
+    received = receive_messages(source, auth=auth, batch_size=1, timeout=timeout, debug=debug)
+    if received:
+        return received[0]
+    else:
+        return None
 
 
-def receive_messages(source, timeout=0, auth=None, prefetch=None, max_count=None, debug=False):
-    receive_client = ReceiveClient(source, auth=auth, timeout=timeout, prefetch=prefetch, debug=debug, max_count=max_count)
-    return receive_client.receive_messages_iter()
+def receive_messages(source, auth=None, batch_size=None, timeout=0, debug=False, **kwargs):
+    if batch_size:
+        kwargs['prefetch'] = batch_size
+    with ReceiveClient(source, auth=auth, timeout=timeout, debug=debug, **kwargs) as receive_client:
+        return receive_client.receive_message_batch(batch_size=batch_size or receive_client._prefetch)
 
 
 def initialize_platform():

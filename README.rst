@@ -47,14 +47,10 @@ Pre-requisites
 Building the extension
 ++++++++++++++++++++++
 
-This project has two C library dependencies:
+This project has two C library dependencies. They are vendored in this repository in these versions:
 
-- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__
-- `Azure Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__
-
-They are vendored in this repository in these versions:
-- Azure uAMQP @1.2.0
-- Azure C Shared Utility @2018-03-07-temp-pod
+- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__ @ `1.2.0 <https://github.com/Azure/azure-uamqp-c/releases/tag/v1.2.0>`__
+- `Azure C Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__ @ `2018-03-07-temp-pod <https://github.com/Azure/azure-c-shared-utility/releases/tag/2018-03-07-temp-pod>`__
 
 To build, start by creating a virtual environment and installing the required Python packages:
 
@@ -62,7 +58,7 @@ To build, start by creating a virtual environment and installing the required Py
 
     $ python -m venv env
     $ env/Scripts/activate
-    (env)$ pip install -r requirements.txt
+    (env)$ pip install -r dev_requirements.txt
 
 Next, run the build command:
 
@@ -93,12 +89,12 @@ Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
+the rights to use your contribution. For details, visit `https://cla.microsoft.com <https://cla.microsoft.com>`__.
 
 When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
 provided by the bot. You will only need to do this once across all repos using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+This project has adopted the `Microsoft Open Source Code of Conduct <https://opensource.microsoft.com/codeofconduct/>`__.
+For more information see the `Code of Conduct FAQ <https://opensource.microsoft.com/codeofconduct/faq/>`__ or
+contact `opencode@microsoft.com <mailto:opencode@microsoft.com>`__ with any additional questions or comments.

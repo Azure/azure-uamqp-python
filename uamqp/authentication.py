@@ -33,6 +33,13 @@ def _get_default_tlsio():
         return c_uamqp.get_openssl_tlsio()
 
 
+class TokenRetryPolicy:
+
+    def __init__(self, retries=3, backoff=0):
+        self.retries = retries
+        self.backoff = backoff
+
+
 class AMQPAuth:
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT):
@@ -79,7 +86,7 @@ class CBSAuthMixin:
             "Token auth must implement configuration."
         )
 
-    def create_authenticator(self, session):
+    def create_authenticator(self, session, debug=False):
         self._cbs_auth = c_uamqp.CBSTokenAuth(
             self.audience,
             self.token_type,
@@ -87,6 +94,7 @@ class CBSAuthMixin:
             self.expiry,
             session._session,
             self.timeout)
+        self._cbs_auth.set_trace(debug)
         return self._cbs_auth
 
     def close_authenticator(self):
@@ -101,7 +109,13 @@ class CBSAuthMixin:
         auth_status = self._cbs_auth.get_status()
         auth_status = constants.CBSAuthStatus(auth_status)
         if auth_status == constants.CBSAuthStatus.Failure:
-            raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
+            if self.retries >= self._retry_policy.retries:
+                raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
+            else:
+                self.retries += 1
+                time.sleep(self._retry_policy.backoff)
+                self._cbs_auth.authenticate()
+                in_progress = True
         elif auth_status == constants.CBSAuthStatus.Expired:
             raise errors.TokenExpired("CBS Authentication Expired.")
         elif auth_status == constants.CBSAuthStatus.Timeout:
@@ -128,8 +142,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
 
     def __init__(self, audience, uri, token, expiry,
                  port=constants.DEFAULT_AMQPS_PORT, timeout=10,
+                 retry_policy=TokenRetryPolicy(),
                  token_type=b"servicebus.windows.net:sastoken"):
         self._refresh_token = None
+        self._retry_policy = retry_policy
         parsed = urlparse(uri)
         self.hostname = parsed.hostname
         self.audience = audience if isinstance(audience, bytes) else audience.encode('utf-8')
@@ -137,6 +153,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.token = token if isinstance(token, bytes) else token.encode('utf-8')
         self.expiry = expiry
         self.timeout = timeout
+        self.retries = 0
 
         self.sasl = sasl.SASL()
         self.set_tlsio(self.hostname, port)

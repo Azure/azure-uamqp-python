@@ -30,6 +30,18 @@ _logger = logging.getLogger(__name__)
 
 class SendClientAsync(client.SendClient):
 
+    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, msg_timeout=0, **kwargs):
+        self.loop = loop or asyncio.get_event_loop()
+        super(SendClientAsync, self).__init__(
+            target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
+
+    async def __aenter__(self):
+        await self.open_async()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close_async()
+
     async def open_async(self, connection=None):
         if self._session:
             return  # already open
@@ -46,13 +58,16 @@ class SendClientAsync(client.SendClient):
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            debug=self._debug_trace)
+            debug=self._debug_trace,
+            loop=self.loop)
         self._session = SessionAsync(
             self._connection,
             outgoing_window=self._outgoing_window,
-            handle_max=self._handle_max)
+            handle_max=self._handle_max,
+            loop=self.loop)
         if isinstance(self._auth, CBSAsyncAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(self._session)
+            self._cbs_handle = await self._auth.create_authenticator_async(
+                self._session, debug=self._debug_trace, loop=self.loop)
         elif isinstance(self._auth, authentication.CBSAuthMixin):
             raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
 
@@ -118,7 +133,8 @@ class SendClientAsync(client.SendClient):
                 name='sender-link',
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                loop=self.loop)
             await self._message_sender.open_async()
             await self._connection.work_async()
 
@@ -155,6 +171,70 @@ class SendClientAsync(client.SendClient):
 
 class ReceiveClientAsync(client.ReceiveClient):
 
+    def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, **kwargs):
+        self.loop = loop or asyncio.get_event_loop()
+        self._pending_futures = []
+        super(ReceiveClientAsync, self).__init__(
+            source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
+
+    async def __aenter__(self):
+        await self.open_async()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close_async()
+
+    async def _message_generator_async(self, close_on_done):
+        await self.open_async()
+        receiving = True
+        try:
+            while receiving:
+                while receiving and self._received_messages.empty():
+                    receiving = await self.do_work_async()
+                while not self._received_messages.empty():
+                    message, on_complete = await self._received_messages.get()
+                    try:
+                        yield message
+                    except Exception as e:
+                        on_complete.set_exception(e)
+                    else:
+                        if not on_complete.cancelled():
+                            on_complete.set_result(None)
+                    finally:
+                        self._received_messages.task_done()
+        except:
+            raise
+        finally:
+            if close_on_done:
+                await self.close_async()
+
+    async def _message_received_async(self, message):
+        expiry = None
+        self._was_message_received = True
+        wrapped_message = uamqp.Message(message=message)
+        if self._message_received_callback:
+            wrapped_message = await self._message_received_callback(wrapped_message)
+
+        if self._received_messages:
+            try:
+                on_receive_complete = asyncio.Future()
+                self._pending_futures.append(on_receive_complete)
+                message_future = asyncio.Task(self._received_messages.put((wrapped_message, on_receive_complete)), loop=self.loop)
+                self._pending_futures.append(message_future)
+                await asyncio.wait_for(message_future, timeout=expiry)
+
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                raise errors.AbandonMessage()
+            else:
+                self._pending_futures.remove(message_future)
+            try:
+                await asyncio.wait_for(on_receive_complete, timeout=expiry)
+                on_receive_complete.result()
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                raise errors.AbandonMessage()
+            else:
+                self._pending_futures.remove(on_receive_complete)
+
     async def receive_messages_async(self, on_message_received, close_on_done=True):
         await self.open_async()
         self._message_received_callback = on_message_received
@@ -167,6 +247,37 @@ class ReceiveClientAsync(client.ReceiveClient):
         finally:
             if close_on_done:
                 await self.close_async()
+
+    async def receive_message_batch_async(self, batch_size=None, on_message_received=None):
+        self._message_received_callback = on_message_received
+        batch_size = batch_size or self._prefetch
+        self._received_messages = self._received_messages or asyncio.Queue(batch_size)
+        await self.open_async()
+        receiving = True
+        batch = []
+        while not self._received_messages.empty() and len(batch) < batch_size:
+            message, on_complete = await self._received_messages.get()
+            batch.append(message)
+            if not on_complete.cancelled():
+                on_complete.set_result(None)
+            self._received_messages.task_done()
+        if len(batch) >= batch_size:
+            return batch
+
+        while receiving and not self._received_messages.full():
+            receiving = await self.do_work_async()
+        while not self._received_messages.empty() and len(batch) < batch_size:
+            message, on_complete = await self._received_messages.get()
+            batch.append(message)
+            if not on_complete.cancelled():
+                on_complete.set_result(None)
+            self._received_messages.task_done()
+        return batch
+
+    def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
+        self._message_received_callback = on_message_received
+        self._received_messages = asyncio.Queue(self._prefetch)
+        return self._message_generator_async(close_on_done)
 
     async def open_async(self, connection=None):
         if self._session:
@@ -182,13 +293,16 @@ class ReceiveClientAsync(client.ReceiveClient):
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            debug=self._debug_trace)
+            debug=self._debug_trace,
+            loop=self.loop)
         self._session = SessionAsync(
             self._connection,
             incoming_window=self._incoming_window,
-            handle_max=self._handle_max)
+            handle_max=self._handle_max,
+            loop=self.loop)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(self._session)
+            self._cbs_handle = await self._auth.create_authenticator_async(
+                self._session, debug=self._debug_trace, loop=self.loop)
         elif isinstance(self._auth, authentication.CBSAuthMixin):
             raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
 
@@ -196,6 +310,8 @@ class ReceiveClientAsync(client.ReceiveClient):
         if not self._session:
             return  # Already closed
         else:
+            for future in self._pending_futures:
+                future.cancel()
             if self._message_receiver:
                 await self._message_receiver._destroy_async()
                 self._message_receiver = None
@@ -233,7 +349,8 @@ class ReceiveClientAsync(client.ReceiveClient):
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                loop=self.loop)
             await self._message_receiver.open_async(self)
             await self._connection.work_async()
 
@@ -246,8 +363,6 @@ class ReceiveClientAsync(client.ReceiveClient):
 
         else:
             await self._connection.work_async()
-            if self._max_count is not None and self._count >= self._max_count:
-                self._shutdown = True
             if self._timeout > 0:
                 now = self._counter.get_current_ms()
                 if not self._was_message_received:

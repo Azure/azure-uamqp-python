@@ -16,6 +16,26 @@ _logger = logging.getLogger(__name__)
 
 class ConnectionAsync(connection.Connection):
 
+    def __init__(self, hostname, sasl,
+                 container_id=False,
+                 max_frame_size=None,
+                 channel_max=None,
+                 idle_timeout=None,
+                 properties=None,
+                 remote_idle_timeout_empty_frame_send_ratio=None,
+                 debug=False,
+                 loop=None):
+        self.loop = loop or asyncio.get_event_loop()
+        super(ConnectionAsync, self).__init__(
+            hostname, sasl,
+            container_id=container_id,
+            max_frame_size=max_frame_size,
+            channel_max=channel_max,
+            idle_timeout=idle_timeout,
+            properties=properties,
+            remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
+            debug=debug)
+
     async def __aenter__(self):
         return self
 
@@ -23,13 +43,10 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
 
     async def work_async(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self.work))
+        await self.loop.run_in_executor(None, functools.partial(self.work))
 
     async def open_async(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self._conn.open))
+        await self.loop.run_in_executor(None, functools.partial(self._conn.open))
 
     async def destroy_async(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self._conn.destroy))
+        await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))

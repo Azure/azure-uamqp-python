@@ -182,7 +182,7 @@ class BatchMessage(Message):
 
     batch_format = 0x80013700
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
-    _size_buffer = 25000
+    _size_buffer = 65000
 
     def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):
         self._multi_messages = multi_messages

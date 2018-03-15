@@ -9,7 +9,7 @@ from datetime import timedelta
 import time
 import base64
 
-
+from uamqp import types
 from uamqp import c_uamqp
 
 
@@ -33,6 +33,10 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
 def data_factory(value):
     if value is None:
         return c_uamqp.null_value()
+    elif isinstance(value, types.AMQPType):
+        return value.c_data
+    elif isinstance(value, c_uamqp.AMQPValue):
+        return value
     elif isinstance(value, bool):
         return c_uamqp.bool_value(value)
     elif isinstance(value, str) and len(value) == 1:
@@ -58,22 +62,3 @@ def data_factory(value):
         for index, item in enumerate(value):
             wrapped_list[index] = data_factory(item)
         return wrapped_list
-    elif isinstance(value, AMQPSymbol):
-        return value.symbol
-    elif isinstance(value, c_uamqp.AMQPValue):
-        return value
-
-
-class AMQPSymbol:
-
-    def __init__(self, value):
-        value = value.encode('utf-8') if isinstance(value, str) else value
-        self._symbol = c_uamqp.symbol_value(value)
-
-    @property
-    def symbol(self):
-        return self._symbol
-
-    @property
-    def value(self):
-        return self._symbol.value

@@ -19,7 +19,7 @@ class TokenAuthFailure(AuthenticationException):
 
     def __init__(self, status_code, description):
         self.status_code = status_code
-        self.description = description.decode('utf-8')
+        self.description = str(description)
         message = ("CBS Token authentication failed."
                    "\nStatus code: {}"
                    "\nDescription: {}").format(self.status_code, self.description)

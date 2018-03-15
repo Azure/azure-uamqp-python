@@ -26,11 +26,12 @@ _logger = logging.getLogger(__name__)
 cpdef create_sas_token(const char* key, const char* scope, const char* keyname, size_t expiry):
     cdef c_strings.STRING_HANDLE str_value
     str_value = c_utils.SASToken_CreateString(key, scope, keyname, expiry)
+
     if <void*>str_value == NULL:
         raise ValueError("Failed to create SAS token.")
-    token = c_strings.STRING_c_str(str_value)
-    c_strings.STRING_delete(str_value)
-    return token
+    if c_utils.SASToken_Validate(str_value) != True:
+        raise ValueError("Generated invalid SAS token")
+    return c_strings.STRING_c_str(str_value)
 
 
 cdef class CBSTokenAuth:
@@ -75,6 +76,10 @@ cdef class CBSTokenAuth:
             c_cbs.cbs_destroy(self._cbs_handle)
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
 
+    cpdef set_trace(self, bint trace_on):
+        if c_cbs.cbs_set_trace(self._cbs_handle, trace_on) != 0:
+            raise ValueError("Unable to set debug trace.")
+
     cpdef authenticate(self):
         if self.state == AUTH_STATUS_IN_PROGRESS:
             return
@@ -89,7 +94,7 @@ cdef class CBSTokenAuth:
                 self.token,
                 <c_cbs.ON_CBS_OPERATION_COMPLETE>on_cbs_put_token_complete,
                 <void*>self) != 0:
-            self._value_error()
+            raise ValueError("Put-Token request failed.")
         else:
             self.state = AUTH_STATUS_IN_PROGRESS
 
