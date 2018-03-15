@@ -17,6 +17,22 @@ _logger = logging.getLogger(__name__)
 
 class MessageReceiverAsync(receiver.MessageReceiver):
 
+    def __init__(self, session, source, target,
+                 name=None,
+                 receive_settle_mode=None,
+                 max_message_size=None,
+                 prefetch=None,
+                 debug=False,
+                 loop=None):
+        self.loop = loop or asyncio.get_event_loop()
+        super(MessageReceiverAsync, self).__init__(
+            session, source, target,
+            name=name,
+            receive_settle_mode=receive_settle_mode,
+            max_message_size=max_message_size,
+            prefetch=prefetch,
+            debug=debug)
+
     async def __aenter__(self):
         await self.open_async()
         return self
@@ -25,13 +41,10 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         await self._destroy_async()
 
     async def _destroy_async(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self._destroy))
+        await self.loop.run_in_executor(None, functools.partial(self._destroy))
 
     async def open_async(self, on_message_received):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self.open, on_message_received))
+        await self.loop.run_in_executor(None, functools.partial(self.open, on_message_received))
 
     async def close_async(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, functools.partial(self.close))
+        await self.loop.run_in_executor(None, functools.partial(self.close))

@@ -63,7 +63,8 @@ class SendClientAsync(client.SendClient):
         self._session = SessionAsync(
             self._connection,
             outgoing_window=self._outgoing_window,
-            handle_max=self._handle_max)
+            handle_max=self._handle_max,
+            loop=self.loop)
         if isinstance(self._auth, CBSAsyncAuthMixin):
             self._cbs_handle = await self._auth.create_authenticator_async(
                 self._session, debug=self._debug_trace, loop=self.loop)
@@ -78,7 +79,7 @@ class SendClientAsync(client.SendClient):
                 await self._message_sender._destroy_async()
                 self._message_sender = None
             if self._cbs_handle:
-                await self._auth.close_authenticator_async(loop=self.loop)
+                await self._auth.close_authenticator_async()
                 self._cbs_handle = None
             await self._session.destroy_async()
             self._session = None
@@ -118,7 +119,7 @@ class SendClientAsync(client.SendClient):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
-            timeout, auth_in_progress = await self._auth.handle_token_async(loop=self.loop)
+            timeout, auth_in_progress = await self._auth.handle_token_async()
 
         if timeout:
             raise TimeoutError("Authorization timeout.")
@@ -132,7 +133,8 @@ class SendClientAsync(client.SendClient):
                 name='sender-link',
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                loop=self.loop)
             await self._message_sender.open_async()
             await self._connection.work_async()
 
@@ -296,7 +298,8 @@ class ReceiveClientAsync(client.ReceiveClient):
         self._session = SessionAsync(
             self._connection,
             incoming_window=self._incoming_window,
-            handle_max=self._handle_max)
+            handle_max=self._handle_max,
+            loop=self.loop)
         if isinstance(self._auth, authentication.CBSAuthMixin):
             self._cbs_handle = await self._auth.create_authenticator_async(
                 self._session, debug=self._debug_trace, loop=self.loop)
@@ -313,7 +316,7 @@ class ReceiveClientAsync(client.ReceiveClient):
                 await self._message_receiver._destroy_async()
                 self._message_receiver = None
             if self._cbs_handle:
-                await self._auth.close_authenticator_async(loop=self.loop)
+                await self._auth.close_authenticator_async()
                 self._cbs_handle = None
             await self._session.destroy_async()
             self._session = None
@@ -328,7 +331,7 @@ class ReceiveClientAsync(client.ReceiveClient):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
-            timeout, auth_in_progress = await self._auth.handle_token_async(loop=self.loop)
+            timeout, auth_in_progress = await self._auth.handle_token_async()
 
         if self._shutdown:
             await self.close_async()
@@ -346,7 +349,8 @@ class ReceiveClientAsync(client.ReceiveClient):
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                loop=self.loop)
             await self._message_receiver.open_async(self)
             await self._connection.work_async()
 
