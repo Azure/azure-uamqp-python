@@ -78,7 +78,7 @@ def test_event_hubs_client_receive(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=50, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
         batch = receive_client.receive_message_batch(batch_size=10)
         while batch:

@@ -46,9 +46,9 @@ class SendClient:
         self._debug_trace = debug
         self._msg_timeout = msg_timeout
         self._counter = c_uamqp.TickCounter()
-        self._cbs_handle = None
         self._pending_messages = []
         self._message_sent_callback = None
+        self._cbs_handle = None
 
         self._connection = None
         self._ext_connection = False
@@ -104,7 +104,7 @@ class SendClient:
             outgoing_window=self._outgoing_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session)
+            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
 
     def close(self):
         if not self._session:
@@ -215,9 +215,11 @@ class ReceiveClient:
         self._source = source if isinstance(source, address.AddressMixin) else address.Source(source)
         self._hostname = self._source.parsed_address.hostname
         if not auth:
-            username = self._target.parsed_address.username
-            password = self._target.parsed_address.password
+            username = self._source.parsed_address.username
+            password = self._source.parsed_address.password
             if username and password:
+                username = unquote_plus(username)
+                password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth or authentication.SASLAnonymous(self._hostname)
@@ -266,7 +268,7 @@ class ReceiveClient:
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
-            self._message_received_callback(wrapped_message)
+            wrapped_message = self._message_received_callback(wrapped_message)
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
@@ -282,7 +284,7 @@ class ReceiveClient:
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
-        while len(batch) < batch_size:  # TODO: Add receive timeout
+        while receiving and len(batch) < batch_size:  # TODO: Add receive timeout
             while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
                 receiving = self.do_work()
             while not self._received_messages.empty() and len(batch) < batch_size:
@@ -325,7 +327,8 @@ class ReceiveClient:
             incoming_window=self._incoming_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session)
+            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
+
 
     def close(self):
         if not self._session:

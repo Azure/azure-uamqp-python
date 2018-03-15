@@ -58,13 +58,15 @@ class SendClientAsync(client.SendClient):
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            debug=self._debug_trace)
+            debug=self._debug_trace,
+            loop=self.loop)
         self._session = SessionAsync(
             self._connection,
             outgoing_window=self._outgoing_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, CBSAsyncAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(self._session)
+            self._cbs_handle = await self._auth.create_authenticator_async(
+                self._session, debug=self._debug_trace, loop=self.loop)
         elif isinstance(self._auth, authentication.CBSAuthMixin):
             raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
 
@@ -76,7 +78,7 @@ class SendClientAsync(client.SendClient):
                 await self._message_sender._destroy_async()
                 self._message_sender = None
             if self._cbs_handle:
-                await self._auth.close_authenticator_async()
+                await self._auth.close_authenticator_async(loop=self.loop)
                 self._cbs_handle = None
             await self._session.destroy_async()
             self._session = None
@@ -116,7 +118,7 @@ class SendClientAsync(client.SendClient):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
-            timeout, auth_in_progress = await self._auth.handle_token_async()
+            timeout, auth_in_progress = await self._auth.handle_token_async(loop=self.loop)
 
         if timeout:
             raise TimeoutError("Authorization timeout.")
@@ -289,13 +291,15 @@ class ReceiveClientAsync(client.ReceiveClient):
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            debug=self._debug_trace)
+            debug=self._debug_trace,
+            loop=self.loop)
         self._session = SessionAsync(
             self._connection,
             incoming_window=self._incoming_window,
             handle_max=self._handle_max)
         if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(self._session)
+            self._cbs_handle = await self._auth.create_authenticator_async(
+                self._session, debug=self._debug_trace, loop=self.loop)
         elif isinstance(self._auth, authentication.CBSAuthMixin):
             raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
 
@@ -309,7 +313,7 @@ class ReceiveClientAsync(client.ReceiveClient):
                 await self._message_receiver._destroy_async()
                 self._message_receiver = None
             if self._cbs_handle:
-                await self._auth.close_authenticator_async()
+                await self._auth.close_authenticator_async(loop=self.loop)
                 self._cbs_handle = None
             await self._session.destroy_async()
             self._session = None
@@ -324,7 +328,7 @@ class ReceiveClientAsync(client.ReceiveClient):
         timeout = False
         auth_in_progress = False
         if self._cbs_handle:
-            timeout, auth_in_progress = await self._auth.handle_token_async()
+            timeout, auth_in_progress = await self._auth.handle_token_async(loop=self.loop)
 
         if self._shutdown:
             await self.close_async()

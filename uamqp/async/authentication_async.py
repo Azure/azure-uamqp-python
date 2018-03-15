@@ -18,23 +18,29 @@ _logger = logging.getLogger(__name__)
 
 class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
 
-    async def create_authenticator_async(self, session):
-        loop = asyncio.get_event_loop()
-        self._cbs_auth  = await loop.run_in_executor(None, functools.partial(self.create_authenticator, session))
+    async def create_authenticator_async(self, session, debug=False, loop=None):
+        loop = loop or asyncio.get_event_loop()
+        self._cbs_auth  = await loop.run_in_executor(None, functools.partial(self.create_authenticator, session, debug))
         return self._cbs_auth
 
-    async def close_authenticator_async(self):
-        loop = asyncio.get_event_loop()
+    async def close_authenticator_async(self, loop=None):
+        loop = loop or asyncio.get_event_loop()
         await loop.run_in_executor(None, functools.partial(self.close_authenticator))
 
-    async def handle_token_async(self):
-        loop = asyncio.get_event_loop()
+    async def handle_token_async(self, loop=None):
+        loop = loop or asyncio.get_event_loop()
         timeout = False
         in_progress = False
         auth_status = await loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
         auth_status = constants.CBSAuthStatus(auth_status)
         if auth_status == constants.CBSAuthStatus.Failure:
-            raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
+            if self.retries >= self._retry_policy.retries:
+                raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
+            else:
+                self.retries += 1
+                await asyncio.sleep(self._retry_policy.backoff)
+                await loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
+                in_progress = True
         elif auth_status == constants.CBSAuthStatus.Expired:
             raise errors.TokenExpired("CBS Authentication Expired.")
         elif auth_status == constants.CBSAuthStatus.Timeout:
