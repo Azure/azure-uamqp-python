@@ -9,6 +9,8 @@ Release History
 - Added support for asynchronous message receive by iterator or batch.
 - Removed synchronous receive iterator, and replaced with synchronous batch receive.
 - Added sync and async context managers for Send and Receive Clients.
+- Fixed token instability and added put token retry policy.
+- Exposed Link ATTACH properties.
 
 
 0.1.0a2 (2018-03-12)

@@ -24,6 +24,7 @@ class MessageSender():
                  send_settle_mode=None,
                  max_message_size=None,
                  link_credit=None,
+                 properties=None,
                  debug=False):
         name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
         source = source.encode('utf-8') if isinstance(source, str) else source
@@ -38,6 +39,8 @@ class MessageSender():
 
         if link_credit:
             self._link.set_prefetch_count(link_credit)
+        if properties:
+            self._link.set_attach_properties(utils.data_factory(properties))
         if send_settle_mode:
             self.send_settle_mode = send_settle_mode
         if max_message_size:
