@@ -60,16 +60,20 @@ class SendClientAsync(client.SendClient):
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace,
             loop=self.loop)
-        self._session = SessionAsync(
-            self._connection,
-            outgoing_window=self._outgoing_window,
-            handle_max=self._handle_max,
-            loop=self.loop)
-        if isinstance(self._auth, CBSAsyncAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(
-                self._session, debug=self._debug_trace, loop=self.loop)
-        elif isinstance(self._auth, authentication.CBSAuthMixin):
-            raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
+        if not self._connection.cbs and isinstance(self._auth, CBSAsyncAuthMixin):
+            self._connection.cbs = await self._auth.create_authenticator_async(
+                self._connection,
+                debug=self._debug_trace,
+                loop=self.loop)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = SessionAsync(
+                self._connection,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                loop=self.loop)
 
     async def close_async(self):
         if not self._session:
@@ -78,14 +82,15 @@ class SendClientAsync(client.SendClient):
             if self._message_sender:
                 await self._message_sender._destroy_async()
                 self._message_sender = None
-            if self._cbs_handle:
+            if self._connection.cbs and not self._ext_connection:
                 await self._auth.close_authenticator_async()
-                self._cbs_handle = None
-            await self._session.destroy_async()
+                self._connection.cbs = None
+            elif not self._connection.cbs:
+                await self._session.destroy_async()
             self._session = None
             if not self._ext_connection:
                 await self._connection.destroy_async()
-                self._connection = None
+            self._connection = None
             self._pending_messages = []
 
     async def wait_async(self):
@@ -118,7 +123,7 @@ class SendClientAsync(client.SendClient):
     async def do_work_async(self):
         timeout = False
         auth_in_progress = False
-        if self._cbs_handle:
+        if self._connection.cbs:
             timeout, auth_in_progress = await self._auth.handle_token_async()
 
         if timeout:
@@ -130,10 +135,11 @@ class SendClientAsync(client.SendClient):
         elif not self._message_sender:
             self._message_sender = MessageSenderAsync(
                 self._session, self._name, self._target,
-                name='sender-link',
+                name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
+                properties=self._link_properties,
                 loop=self.loop)
             await self._message_sender.open_async()
             await self._connection.work_async()
@@ -193,15 +199,10 @@ class ReceiveClientAsync(client.ReceiveClient):
                     receiving = await self.do_work_async()
                 while not self._received_messages.empty():
                     message, on_complete = await self._received_messages.get()
-                    try:
-                        yield message
-                    except Exception as e:
-                        on_complete.set_exception(e)
-                    else:
-                        if not on_complete.cancelled():
-                            on_complete.set_result(None)
-                    finally:
-                        self._received_messages.task_done()
+                    yield message
+                    if not on_complete.cancelled():
+                        on_complete.set_result(None)
+                    self._received_messages.task_done()
         except:
             raise
         finally:
@@ -248,9 +249,12 @@ class ReceiveClientAsync(client.ReceiveClient):
             if close_on_done:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, batch_size=None, on_message_received=None):
+    async def receive_message_batch_async(self, batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
         batch_size = batch_size or self._prefetch
+        timeout = self._counter.get_current_ms() + timeout if timeout else 0
+        expired = False
+
         self._received_messages = self._received_messages or asyncio.Queue(batch_size)
         await self.open_async()
         receiving = True
@@ -264,13 +268,16 @@ class ReceiveClientAsync(client.ReceiveClient):
         if len(batch) >= batch_size:
             return batch
 
-        while receiving and not self._received_messages.full():
+        while receiving and not expired and not self._received_messages.full():
+            if timeout > 0 and self._counter.get_current_ms() > timeout:
+                    expired = True
+                    break
             receiving = await self.do_work_async()
         while not self._received_messages.empty() and len(batch) < batch_size:
             message, on_complete = await self._received_messages.get()
-            batch.append(message)
             if not on_complete.cancelled():
                 on_complete.set_result(None)
+                batch.append(message)
             self._received_messages.task_done()
         return batch
 
@@ -295,16 +302,20 @@ class ReceiveClientAsync(client.ReceiveClient):
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace,
             loop=self.loop)
-        self._session = SessionAsync(
-            self._connection,
-            incoming_window=self._incoming_window,
-            handle_max=self._handle_max,
-            loop=self.loop)
-        if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = await self._auth.create_authenticator_async(
-                self._session, debug=self._debug_trace, loop=self.loop)
-        elif isinstance(self._auth, authentication.CBSAuthMixin):
-            raise ValueError("Token authentication must use asynchrnous base with an asynchronous client.")
+        if not self._connection.cbs and isinstance(self._auth, CBSAsyncAuthMixin):
+            self._connection.cbs = await self._auth.create_authenticator_async(
+                self._connection,
+                debug=self._debug_trace,
+                loop=self.loop)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = SessionAsync(
+                self._connection,
+                incoming_window=self._incoming_window,
+                handle_max=self._handle_max,
+                loop=self.loop)
 
     async def close_async(self):
         if not self._session:
@@ -315,14 +326,15 @@ class ReceiveClientAsync(client.ReceiveClient):
             if self._message_receiver:
                 await self._message_receiver._destroy_async()
                 self._message_receiver = None
-            if self._cbs_handle:
+            if self._connection.cbs and not self._ext_connection:
                 await self._auth.close_authenticator_async()
-                self._cbs_handle = None
-            await self._session.destroy_async()
+                self._connection.cbs = None
+            elif not self._connection.cbs:
+                await self._session.destroy_async()
             self._session = None
             if not self._ext_connection:
                 await self._connection.destroy_async()
-                self._connection = None
+            self._connection = None
             self._shutdown = False
             self._last_activity_timestamp = None
             self._was_message_received = False
@@ -330,7 +342,7 @@ class ReceiveClientAsync(client.ReceiveClient):
     async def do_work_async(self):
         timeout = False
         auth_in_progress = False
-        if self._cbs_handle:
+        if self._connection.cbs:
             timeout, auth_in_progress = await self._auth.handle_token_async()
 
         if self._shutdown:
@@ -345,11 +357,13 @@ class ReceiveClientAsync(client.ReceiveClient):
 
         elif not self._message_receiver:
             self._message_receiver = MessageReceiverAsync(
-                self._session, self._source, self._name,name='receiver-link',
+                self._session, self._source, self._name,
+                name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
+                properties=self._link_properties,
                 loop=self.loop)
             await self._message_receiver.open_async(self)
             await self._connection.work_async()

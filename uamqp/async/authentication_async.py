@@ -8,6 +8,7 @@ import asyncio
 import logging
 import functools
 
+from uamqp.async import SessionAsync
 from uamqp import constants
 from uamqp import authentication
 from uamqp import errors
@@ -18,13 +19,26 @@ _logger = logging.getLogger(__name__)
 
 class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
 
-    async def create_authenticator_async(self, session, debug=False, loop=None):
+    async def create_authenticator_async(self, connection, debug=False, loop=None):
         self.loop = loop or asyncio.get_event_loop()
-        self._cbs_auth  = await self.loop.run_in_executor(None, functools.partial(self.create_authenticator, session, debug))
+        self._session = SessionAsync(
+            connection,
+            incoming_window=constants.MAX_FRAME_SIZE_BYTES,
+            outgoing_window=constants.MAX_FRAME_SIZE_BYTES,
+            loop=self.loop)
+        self._cbs_auth = c_uamqp.CBSTokenAuth(
+            self.audience,
+            self.token_type,
+            self.token,
+            self.expiry,
+            self._session._session,
+            self.timeout)
+        self._cbs_auth.set_trace(debug)
         return self._cbs_auth
 
     async def close_authenticator_async(self):
         await self.loop.run_in_executor(None, functools.partial(self.close_authenticator))
+        await self._session.destroy_async()
 
     async def handle_token_async(self):
         timeout = False
