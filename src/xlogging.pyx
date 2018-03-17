@@ -14,7 +14,7 @@ from libc.stdlib cimport malloc, free
 cimport c_xlogging
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger('uamqp.c_uamqp')
 _ERROR_CODES = [
     SESSION_ERROR_WINDOW_VIOLATION,
     SESSION_ERROR_ERRANT_LINK,
@@ -45,8 +45,8 @@ _ERROR_CODES = [
 
 
 class LogCategory(Enum):
-    Info = c_xlogging.LOG_CATEGORY_TAG.AZ_LOG_ERROR
-    Error = c_xlogging.LOG_CATEGORY_TAG.AZ_LOG_INFO
+    Error = c_xlogging.LOG_CATEGORY_TAG.AZ_LOG_ERROR
+    Info = c_xlogging.LOG_CATEGORY_TAG.AZ_LOG_INFO
     Debug = c_xlogging.LOG_CATEGORY_TAG.AZ_LOG_TRACE
 
 
@@ -69,21 +69,25 @@ cdef void custom_logging_function(c_xlogging.LOG_CATEGORY_TAG log_category, cons
     log_level = LogCategory(log_category)
     cdef c_xlogging.va_list args
     cdef char* text
-
     c_xlogging.va_start(args, format)
     text = vprintf_alloc(format, args)
     if <void*>text != NULL:
-        py_text = text.decode('utf-8')
-        if log_level == LogCategory.Debug:
-            _logger.debug(py_text)
-        elif log_level == LogCategory.Info:
-            _logger.info(py_text)
-        else:
-            _logger.error("Error: file: {}, func: {}, line: {}, {}".format(
-                file, func, line, py_text))
-
+        _python_log(log_level, text, bool(options), file=file, func=func, line=line)
     c_xlogging.va_end(args)
 
-
-cpdef set_custom_logger():
+cpdef set_python_logger():
     c_xlogging.xlogging_set_log_function(<c_xlogging.LOGGER_LOG>custom_logging_function)
+
+def _python_log(category, text, end, text_bldr=[], file=None, func=None, line=None):
+    text_bldr.append(text)
+    if not end:
+        return
+
+    log_line = b''
+    while text_bldr:
+        log_line += text_bldr.pop(0)
+    if category == LogCategory.Debug or category == LogCategory.Info:
+        _logger.info(log_line)
+    else:
+        _logger.error("Error: file: {}, func: {}, line: {}, {}".format(
+            file, func, line, log_line))
