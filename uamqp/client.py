@@ -8,6 +8,7 @@ import logging
 import uuid
 import queue
 import functools
+import time
 try:
     from urllib import unquote_plus
 except Exception:
@@ -48,7 +49,6 @@ class SendClient:
         self._counter = c_uamqp.TickCounter()
         self._pending_messages = []
         self._message_sent_callback = None
-        self._cbs_handle = None
 
         self._connection = None
         self._ext_connection = False
@@ -70,6 +70,7 @@ class SendClient:
         # Sender and Link settings
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
+        self._link_properties = kwargs.pop('link_properties', None)
 
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
@@ -99,12 +100,18 @@ class SendClient:
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace)
-        self._session = Session(
-            self._connection,
-            outgoing_window=self._outgoing_window,
-            handle_max=self._handle_max)
-        if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection.cbs = self._auth.create_authenticator(
+                self._connection,
+                debug=self._debug_trace)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = Session(
+                self._connection,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max)
 
     def close(self):
         if not self._session:
@@ -113,14 +120,15 @@ class SendClient:
             if self._message_sender:
                 self._message_sender._destroy()
                 self._message_sender = None
-            if self._cbs_handle:
+            if self._connection.cbs and not self._ext_connection:
                 self._auth.close_authenticator()
-                self._cbs_handle = None
-            self._session.destroy()
+                self._connection.cbs = None
+            elif not self._connection.cbs:
+                self._session.destroy()
             self._session = None
             if not self._ext_connection:
                 self._connection.destroy()
-                self._connection = None
+            self._connection = None
             self._pending_messages = []
 
     def queue_message(self, message):
@@ -160,7 +168,7 @@ class SendClient:
     def do_work(self):
         timeout = False
         auth_in_progress = False
-        if self._cbs_handle:
+        if self._connection.cbs:
             timeout, auth_in_progress = self._auth.handle_token()
 
         if timeout:
@@ -171,10 +179,11 @@ class SendClient:
         elif not self._message_sender:
             self._message_sender = sender.MessageSender(
                 self._session, self._name, self._target,
-                name='sender-link',
+                name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                properties=self._link_properties)
             self._message_sender.open()
             self._connection.work()
 
@@ -227,7 +236,6 @@ class ReceiveClient:
         self._debug_trace = debug
         self._timeout = timeout
         self._counter = c_uamqp.TickCounter()
-        self._cbs_handle = None
 
         self._connection = None
         self._ext_connection = False
@@ -254,6 +262,7 @@ class ReceiveClient:
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
+        self._link_properties = kwargs.pop('link_properties', None)
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
@@ -272,9 +281,11 @@ class ReceiveClient:
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
-    def receive_message_batch(self, batch_size=None, on_message_received=None):
+    def receive_message_batch(self, batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
         batch_size = batch_size or self._prefetch
+        timeout = self._counter.get_current_ms() + timeout if timeout else 0
+        expired = False
         self._received_messages = self._received_messages or queue.Queue(self._prefetch)
         self.open()
         receiving = True
@@ -284,8 +295,11 @@ class ReceiveClient:
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
-        while receiving and len(batch) < batch_size:  # TODO: Add receive timeout
+        while receiving and not expired and len(batch) < batch_size:
             while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+                if timeout > 0 and self._counter.get_current_ms() > timeout:
+                    expired = True
+                    break
                 receiving = self.do_work()
             while not self._received_messages.empty() and len(batch) < batch_size:
                 batch.append(self._received_messages.get())
@@ -322,12 +336,18 @@ class ReceiveClient:
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace)
-        self._session = Session(
-            self._connection,
-            incoming_window=self._incoming_window,
-            handle_max=self._handle_max)
-        if isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs_handle = self._auth.create_authenticator(self._session, debug=self._debug_trace)
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection.cbs = self._auth.create_authenticator(
+                self._connection,
+                debug=self._debug_trace)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = Session(
+                self._connection,
+                incoming_window=self._incoming_window,
+                handle_max=self._handle_max)
 
 
     def close(self):
@@ -337,14 +357,15 @@ class ReceiveClient:
             if self._message_receiver:
                 self._message_receiver._destroy()
                 self._message_receiver = None
-            if self._cbs_handle:
+            if self._connection.cbs and not self._ext_connection:
                 self._auth.close_authenticator()
-                self._cbs_handle = None
-            self._session.destroy()
+                self._connection.cbs = None
+            elif not self._connection.cbs:
+                self._session.destroy()
             self._session = None
             if not self._ext_connection:
                 self._connection.destroy()
-                self._connection = None
+            self._connection = None
             self._shutdown = False
             self._last_activity_timestamp = None
             self._was_message_received = False
@@ -352,7 +373,7 @@ class ReceiveClient:
     def do_work(self):
         timeout = False
         auth_in_progress = False
-        if self._cbs_handle:
+        if self._connection.cbs:
             timeout, auth_in_progress = self._auth.handle_token()
 
         if self._shutdown:
@@ -371,7 +392,8 @@ class ReceiveClient:
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
-                max_message_size=self._max_message_size)
+                max_message_size=self._max_message_size,
+                properties=self._link_properties)
             self._message_receiver.open(self)
             self._connection.work()
 

@@ -49,4 +49,6 @@ class ConnectionAsync(connection.Connection):
         await self.loop.run_in_executor(None, functools.partial(self._conn.open))
 
     async def destroy_async(self):
+        if self.cbs:
+            await self.auth.close_authenticator_async()
         await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))

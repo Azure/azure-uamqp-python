@@ -3,12 +3,16 @@
 Release History
 ===============
 
-0.1.0a3 (unreleased)
+0.1.0a3 (2018-03-19)
 ++++++++++++++++++++
 
 - Added support for asynchronous message receive by iterator or batch.
 - Removed synchronous receive iterator, and replaced with synchronous batch receive.
 - Added sync and async context managers for Send and Receive Clients.
+- Fixed token instability and added put token retry policy.
+- Exposed Link ATTACH properties.
+- A connection now has a single $cbs session that can be reused between clients.
+- Added C debug trace logging to the Python logger ('uamqp.c_uamqp')
 
 
 0.1.0a2 (2018-03-12)

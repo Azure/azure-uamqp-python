@@ -83,7 +83,9 @@ cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE
     wrapped_message = message_factory(cloned)
     try:
         if hasattr(context_obj, "_message_received_async"):
-            asyncio.ensure_future(context_obj._message_received_async(wrapped_message), loop=context_obj.loop)
+            asyncio.ensure_future(
+                context_obj._message_received_async(wrapped_message),
+                loop=context_obj.loop)
         else:
             context_obj._message_received(wrapped_message)
 

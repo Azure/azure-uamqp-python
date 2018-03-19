@@ -29,6 +29,7 @@ class Connection:
         container_id = container_id if container_id else str(uuid.uuid4())
         self.hostname = hostname
         self.auth = sasl
+        self.cbs = None
         self._conn = c_uamqp.create_connection(sasl.sasl_client.get_client(), hostname.encode('utf-8'), container_id.encode('utf-8'), self)
         self._conn.set_trace(debug)
         self._sessions = []
@@ -62,6 +63,8 @@ class Connection:
         _logger.debug("Connection state changed from {} to {}".format(_previous_state, _new_state))
 
     def destroy(self):
+        if self.cbs:
+            self.auth.close_authenticator()
         self._conn.destroy()
         self.auth.close()
         uamqp.deinitialize_platform()

@@ -22,6 +22,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  receive_settle_mode=None,
                  max_message_size=None,
                  prefetch=None,
+                 properties=None,
                  debug=False,
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
@@ -31,6 +32,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
             receive_settle_mode=receive_settle_mode,
             max_message_size=max_message_size,
             prefetch=prefetch,
+            properties=properties,
             debug=debug)
 
     async def __aenter__(self):

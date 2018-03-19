@@ -27,12 +27,12 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.1.0a2"
+__version__ = "0.1.0a3"
 
 
 _logger = logging.getLogger(__name__)
 _is_win = sys.platform.startswith('win')
-#c_uamqp.set_custom_logger()
+c_uamqp.set_python_logger()
 
 
 def send_message(target, data, auth=None, debug=False):

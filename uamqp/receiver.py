@@ -26,6 +26,7 @@ class MessageReceiver():
                  receive_settle_mode=None,
                  max_message_size=None,
                  prefetch=None,
+                 properties=None,
                  debug=False):
         name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
         target = target.encode('utf-8') if isinstance(target, str) else target
@@ -39,6 +40,8 @@ class MessageReceiver():
 
         if prefetch:
             self._link.set_prefetch_count(prefetch)
+        if properties:
+            self._link.set_attach_properties(utils.data_factory(properties))
         if receive_settle_mode:
             self.receive_settle_mode = receive_settle_mode
         if max_message_size:

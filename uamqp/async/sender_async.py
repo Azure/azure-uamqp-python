@@ -21,6 +21,7 @@ class MessageSenderAsync(sender.MessageSender):
                  send_settle_mode=None,
                  max_message_size=None,
                  link_credit=None,
+                 properties=None,
                  debug=False,
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
@@ -30,6 +31,7 @@ class MessageSenderAsync(sender.MessageSender):
             send_settle_mode=send_settle_mode,
             max_message_size=max_message_size,
             link_credit=link_credit,
+            properties=properties,
             debug=debug)
 
     async def __aenter__(self):

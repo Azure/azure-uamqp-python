@@ -15,6 +15,7 @@ except Exception:
     from urllib.parse import quote_plus
     from urllib.parse import urlparse
 
+from uamqp import Session
 from uamqp import utils
 from uamqp import sasl
 from uamqp import constants
@@ -86,19 +87,24 @@ class CBSAuthMixin:
             "Token auth must implement configuration."
         )
 
-    def create_authenticator(self, session, debug=False):
+    def create_authenticator(self, connection, debug=False):
+        self._session = Session(
+            connection,
+            incoming_window=constants.MAX_FRAME_SIZE_BYTES,
+            outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
         self._cbs_auth = c_uamqp.CBSTokenAuth(
             self.audience,
             self.token_type,
             self.token,
             self.expiry,
-            session._session,
+            self._session._session,
             self.timeout)
         self._cbs_auth.set_trace(debug)
         return self._cbs_auth
 
     def close_authenticator(self):
         self._cbs_auth.destroy()
+        self._session.destroy()
 
     def refresh_token_async(self, token):
         self._refresh_token = token
