@@ -47,8 +47,10 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
         auth_status = constants.CBSAuthStatus(auth_status)
         if auth_status == constants.CBSAuthStatus.Failure:
             if self.retries >= self._retry_policy.retries:
+                _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                 raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
             else:
+                _logger.info("Authentication Put-Token failed. Retrying.")
                 self.retries += 1
                 await asyncio.sleep(self._retry_policy.backoff)
                 await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))

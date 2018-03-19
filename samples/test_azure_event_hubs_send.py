@@ -66,7 +66,7 @@ def test_event_hubs_batch_send(live_eventhub_config):
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
 
     send_client.queue_message(message_batch)
