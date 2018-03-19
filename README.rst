@@ -35,7 +35,7 @@ In order to run the code directly, the Cython extension will need to be build fi
 Pre-requisites
 ++++++++++++++
 
-- Windows: None
+- Windows: Setup a `build environment <https://packaging.python.org/guides/packaging-binary-extensions/#building-binary-extensions>`__.
 - Linux: Install dependencies as descriped above in the installation instructions.
 - MacOS: Install OpenSSL and UUID using Homebrew:
 
