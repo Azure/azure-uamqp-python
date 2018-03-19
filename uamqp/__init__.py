@@ -27,7 +27,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.1.0a2"
+__version__ = "0.1.0a3"
 
 
 _logger = logging.getLogger(__name__)
