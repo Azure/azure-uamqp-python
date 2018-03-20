@@ -3,6 +3,13 @@
 Release History
 ===============
 
+0.1.0b1 (unreleased)
+++++++++++++++++++++
+
+- Added management request support.
+- Fixed message-less C operation ValueError
+
+
 0.1.0a3 (2018-03-19)
 ++++++++++++++++++++
 
