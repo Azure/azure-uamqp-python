@@ -15,6 +15,10 @@ AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS
 
 STRING_FILTER = b"apache.org:selector-filter:string"
+OPERATION = b"operation"
+READ_OPERATION = b"READ"
+MGMT_TARGET = b"$management"
+
 
 BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT
 MAX_FRAME_SIZE_BYTES = c_uamqp.MAX_FRAME_SIZE_BYTES
@@ -109,3 +113,17 @@ class CBSAuthStatus(Enum):
     RefreshRequired = c_uamqp.AUTH_STATUS_REFRESH_REQUIRED
     Expired = c_uamqp.AUTH_STATUS_EXPIRED
     Failure = c_uamqp.AUTH_STATUS_FAILURE
+
+
+class MgmtExecuteResult(Enum):
+    Ok = c_uamqp.AMQP_MANAGEMENT_EXECUTE_OPERATION_OK
+    Error = c_uamqp.AMQP_MANAGEMENT_EXECUTE_OPERATION_ERROR
+    Failed = c_uamqp.AMQP_MANAGEMENT_EXECUTE_OPERATION_FAILED_BAD_STATUS
+    Closed = c_uamqp.AMQP_MANAGEMENT_EXECUTE_OPERATION_INSTANCE_CLOSED
+
+
+class MgmtOpenStatus(Enum):
+    Ok = c_uamqp.AMQP_MANAGEMENT_OPEN_OK
+    Error = c_uamqp.AMQP_MANAGEMENT_OPEN_ERROR
+    Cancelled = c_uamqp.AMQP_MANAGEMENT_OPEN_CANCELLED
+

@@ -236,6 +236,9 @@ class ReceiveClientAsync(client.ReceiveClient):
             else:
                 self._pending_futures.remove(on_receive_complete)
 
+    #async def management_request():
+    #    self._mgmt_links
+
     async def receive_messages_async(self, on_message_received, close_on_done=True):
         await self.open_async()
         self._message_received_callback = on_message_received

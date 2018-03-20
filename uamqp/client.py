@@ -236,6 +236,7 @@ class ReceiveClient:
         self._debug_trace = debug
         self._timeout = timeout
         self._counter = c_uamqp.TickCounter()
+        self._mgmt_links = []
 
         self._connection = None
         self._ext_connection = False
