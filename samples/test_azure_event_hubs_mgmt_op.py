@@ -34,9 +34,8 @@ def test_event_hubs_mgmt_op(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    with uamqp.SendClient(target, auth=sas_auth, debug=True) as send_client:
+    with uamqp.AMQPClient(target, auth=sas_auth, debug=True) as send_client:
         mgmt_msg = uamqp.Message(application_properties={'name': live_eventhub_config['event_hub']})
         response = send_client.mgmt_request(mgmt_msg, b'READ', op_type=b'com.microsoft:eventhub', status_code_field=b'status-code', description_fields=b'status-description')
         output = response.get_data()
-        print("Got response", output)
-        print("Partition IDs: {}".format(output['partition_ids']))
+        assert output['partition_ids'] == ["0", "1"]

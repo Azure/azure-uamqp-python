@@ -30,15 +30,15 @@ class Message:
         self._message = message if message else c_uamqp.create_message()
         self._body = None
 
-        if body and (isinstance(body, str) or isinstance(body, bytes)):
+        if isinstance(body, str) or isinstance(body, bytes):
             self._body = DataBody(self._message)
-            self._body.append(body)
-        elif body and isinstance(body, list):
+            if body:
+                self._body.append(body)
+        elif isinstance(body, list):
             self._body = SequenceBody(self._message)
             for value in body:
                 self._body.append(value)
         elif body:
-            print("using value body")
             self._body = ValueBody(self._message)
             self._body.set(body)
         elif message:
@@ -52,7 +52,6 @@ class Message:
             else:
                 self._body = ValueBody(self._message)
         else:
-            print("using null value body")
             self._body = ValueBody(self._message)
             self._body.set(None)
 
@@ -214,7 +213,7 @@ class BatchMessage(Message):
             self.state = constants.MessageState.PartiallySent
 
     def _create_batch_message(self):
-        return Message(properties=self._properties, annotations=self._annotations, msg_format=self.batch_format)
+        return Message(body="", properties=self._properties, annotations=self._annotations, msg_format=self.batch_format)
 
     def _multi_message_generator(self):
         while True:
@@ -252,7 +251,6 @@ class BatchMessage(Message):
             return self._multi_message_generator()
 
         new_message = self._create_batch_message()
-        new_message._body = DataBody(new_message._message)
         message_size = new_message.get_message_encoded_size() + self._size_buffer
         body_size = 0
 
@@ -547,7 +545,6 @@ class ValueBody(MessageBody):
 
     def set(self, value):
         value = utils.data_factory(value)
-        print("settings body value as", value)
         self._message.set_body_value(value)
 
     @property
