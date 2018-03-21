@@ -26,136 +26,71 @@ class Message:
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.on_send_complete = None
+        self.properties = None
+        self.application_properties = None
+        self.annotations = None
+        self.header = None
+        self.footer = None
+        self.delivery_annotations = None
 
-        self._message = message if message else c_uamqp.create_message()
-        self._body = None
-
-        if isinstance(body, str) or isinstance(body, bytes):
-            self._body = DataBody(self._message)
-            if body:
-                self._body.append(body)
-        elif isinstance(body, list):
-            self._body = SequenceBody(self._message)
-            for value in body:
-                self._body.append(value)
-        elif body:
-            self._body = ValueBody(self._message)
-            self._body.set(body)
-        elif message:
-            body_type = message.body_type
-            if message.body_type == c_uamqp.MessageBodyType.NoneType:
-                self._body = None
-            elif message.body_type == c_uamqp.MessageBodyType.DataType:
+        if message:
+            self._parse_message(message)
+        else:
+            self._message = c_uamqp.create_message()
+            if isinstance(body, str) or isinstance(body, bytes):
                 self._body = DataBody(self._message)
-            elif message.body_type == c_uamqp.MessageBodyType.SequenceType:
+                if body:
+                    self._body.append(body)
+            elif isinstance(body, list):
                 self._body = SequenceBody(self._message)
+                for value in body:
+                    self._body.append(value)
+            elif body:
+                self._body = ValueBody(self._message)
+                self._body.set(body)
             else:
                 self._body = ValueBody(self._message)
-        else:
-            self._body = ValueBody(self._message)
-            self._body.set(None)
-
-        if msg_format:
-            self._message.message_format = msg_format
-        if properties:
-            self._message.properties = properties._properties
-        if application_properties and isinstance(application_properties, dict):
-            amqp_props = utils.data_factory(application_properties)
-            #wrapped_props = c_uamqp.create_application_properties(amqp_props)
-            self._message.application_properties = amqp_props
-        if annotations and isinstance(annotations, dict):
-            amqp_props = utils.data_factory(annotations)
-            wrapped_props = c_uamqp.create_message_annotations(amqp_props)
-            self._message.message_annotations = wrapped_props
+                self._body.set(None)
+            if msg_format:
+                self._message.message_format = msg_format
+            self.properties = properties
+            self.application_properties = application_properties
+            self.annotations = annotations
 
     def __str__(self):
         if not self._message:
             return ""
         return str(self._body)
 
-    @property
-    def properties(self):
-        if not self._message:
-            return None
+    def _parse_message(self, message):
+        self._message = message
+        body_type = message.body_type
+        if message.body_type == c_uamqp.MessageBodyType.NoneType:
+            self._body = None
+        elif message.body_type == c_uamqp.MessageBodyType.DataType:
+            self._body = DataBody(self._message)
+        elif message.body_type == c_uamqp.MessageBodyType.SequenceType:
+            self._body = SequenceBody(self._message)
+        else:
+            self._body = ValueBody(self._message)
         _props = self._message.properties
-        if _props is None:
-            return None
-        return MessageProperties(properties=_props)
-
-    @property
-    def header(self):
-        if not self._message:
-            return None
+        if _props:
+            self.properties = MessageProperties(properties=_props)
         _header = self._message.header
-        if _header is None:
-            return None
-        return MessageHeader(header=_header)
-
-    @property
-    def footer(self):
-        if not self._message:
-            return None
+        if _header:
+            self.header = MessageHeader(header=_header)
         _footer = self._message.footer
-        if _footer is None:
-            return None
-        return _footer.map.value
-
-    @property
-    def application_properties(self):
-        if not self._message:
-            return None
+        if _footer:
+            self.footer = _footer.map
         _app_props = self._message.application_properties
-        if _app_props is None:
-            return None
-        return _app_props.map.value
-
-    @application_properties.setter
-    def application_properties(self, value):
-        if not self._message:
-            raise ValueError("No underlying message.")
-        if not isinstance(value, dict):
-            raise TypeError("Application properties must be a dictionary.")
-        app_props = self.application_properties
-        if app_props:
-            app_props.update(value)
-        else:
-            app_props = dict(value)
-        amqp_props = utils.data_factory(app_props)
-        wrapped_props = c_uamqp.create_application_properties(amqp_props)
-        self._message.application_properties = wrapped_props
-
-    @property
-    def message_annotations(self):
-        if not self._message:
-            return None
+        if _app_props:
+            self.application_properties = _app_props.map
         _ann = self._message.message_annotations
-        if _ann is None:
-            return None
-        return _ann.map.value
-
-    @message_annotations.setter
-    def message_annotations(self, value):
-        if not self._message:
-            raise ValueError("No underlying message.")
-        if not isinstance(value, dict):
-            raise TypeError("Message annotations must be a dictionary.")
-        annotations = self.message_annotations
-        if annotations:
-            annotations.update(value)
-        else:
-            annotations = dict(value)
-        amqp_props = utils.data_factory(annotations)
-        wrapped_props = c_uamqp.create_message_annotations(amqp_props)
-        self._message.message_annotations = wrapped_props
-
-    @property
-    def delivery_annotations(self):
-        if not self._message:
-            return None
+        if _ann:
+            self.message_annotations = _ann.map
         _delivery_ann = self._message.delivery_annotations
-        if _delivery_ann is None:
-            return None
-        return _delivery_ann.map.value
+        if _delivery_ann:
+            self.delivery_annotations = _delivery_ann.map
 
     def __str__(self):
         return str(self._body)
@@ -168,6 +103,7 @@ class Message:
             self.on_send_complete(result, error)
 
     def get_message_encoded_size(self):
+        # TODO: This no longer calculates the metadata accurately.
         return c_uamqp.get_encoded_message_size(self._message)
 
     def get_data(self):
@@ -178,7 +114,18 @@ class Message:
     def get_message(self):
         if not self._message:
             return None
-        _logger.debug("Message length: {}".format(len(self._body)))
+        if self.properties:
+            self._message.properties = self.properties._properties
+        if self.application_properties:
+            if not isinstance(self.application_properties, dict):
+                raise TypeError("Application properties must be a dictionary.")
+            amqp_props = utils.data_factory(self.application_properties)
+            self._message.application_properties = amqp_props
+        if self.annotations:
+            if not isinstance(self.annotations, dict):
+                raise TypeError("Message annotations must be a dictionary.")
+            amqp_props = utils.data_factory(self.annotations)
+            self._message.message_annotations = amqp_props
         return self._message
 
 
@@ -190,15 +137,15 @@ class BatchMessage(Message):
 
     def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):
         self._multi_messages = multi_messages
-        self._properties = properties
-        self._application_properties = application_properties
-        self._annotations = annotations
         self._body_gen = data
         self._total_messages = 0
         self._sent_messages = 0
         self._batch_complete = False
         self.state = constants.MessageState.WaitingToBeSent
         self.on_send_complete = None
+        self.properties = properties
+        self.application_properties = application_properties
+        self.annotations = annotations
 
     def _on_message_sent(self, result, error=None):
         self._sent_messages += 1
@@ -213,12 +160,11 @@ class BatchMessage(Message):
             self.state = constants.MessageState.PartiallySent
 
     def _create_batch_message(self):
-        return Message(body="", properties=self._properties, annotations=self._annotations, msg_format=self.batch_format)
+        return Message(body="", properties=self.properties, annotations=self.annotations, msg_format=self.batch_format)
 
     def _multi_message_generator(self):
         while True:
             new_message = self._create_batch_message()
-            new_message._body = DataBody(new_message._message)
             message_size = new_message.get_message_encoded_size() + self._size_buffer
             body_size = 0
             try:

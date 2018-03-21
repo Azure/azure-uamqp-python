@@ -50,7 +50,7 @@ class MgmtOperationAsync(MgmtOperation):
                     status_code, description))
             response_message = wrapped_message
 
-        self._mgmt_op.execute(operation, op_type, None, message._message, _on_complete)
+        self._mgmt_op.execute(operation, op_type, None, message.get_message(), _on_complete)
         while not response_message:
             await self.connection.work_async()
         return response_message
