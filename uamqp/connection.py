@@ -8,6 +8,7 @@ import logging
 import uuid
 
 import uamqp
+from uamqp import constants
 from uamqp import c_uamqp
 from uamqp import utils
 

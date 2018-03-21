@@ -50,7 +50,6 @@ cpdef create_delivery_annotations(AMQPValue value):
 
 
 cpdef create_message_annotations(AMQPValue value):
-    _logger.debug("creating ann")
     annotations = cMessageAnnotations()
     annotations.create(value)
     return annotations

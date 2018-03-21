@@ -120,6 +120,28 @@ class SendClientAsync(client.SendClient):
             if close_on_done:
                 await self.close_async()
 
+    async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
+        timeout = False
+        auth_in_progress = False
+        while True:
+            if self._connection.cbs:
+                timeout, auth_in_progress = await self._auth.handle_token_async()
+            if timeout:
+                raise TimeoutError("Authorization timeout.")
+            elif auth_in_progress:
+                await self._connection.work_async()
+            else:
+                break
+        if not self._session:
+            raise ValueError("Session not yet open")
+        response = await self._session.mgmt_request_async(
+            message,
+            operation,
+            op_type=op_type,
+            node=node,
+            **kwargs)
+        return uamqp.Message(message=response)
+
     async def do_work_async(self):
         timeout = False
         auth_in_progress = False
@@ -341,6 +363,28 @@ class ReceiveClientAsync(client.ReceiveClient):
             self._shutdown = False
             self._last_activity_timestamp = None
             self._was_message_received = False
+
+    async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
+        timeout = False
+        auth_in_progress = False
+        while True:
+            if self._connection.cbs:
+                timeout, auth_in_progress = await self._auth.handle_token_async()
+            if timeout:
+                raise TimeoutError("Authorization timeout.")
+            elif auth_in_progress:
+                await self._connection.work_async()
+            else:
+                break
+        if not self._session:
+            raise ValueError("Session not yet open")
+        response = await self._session.mgmt_request_async(
+            message,
+            operation,
+            op_type=op_type,
+            node=node,
+            **kwargs)
+        return uamqp.Message(message=response)
 
     async def do_work_async(self):
         timeout = False

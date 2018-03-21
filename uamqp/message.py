@@ -38,6 +38,7 @@ class Message:
             for value in body:
                 self._body.append(value)
         elif body:
+            print("using value body")
             self._body = ValueBody(self._message)
             self._body.set(body)
         elif message:
@@ -50,6 +51,10 @@ class Message:
                 self._body = SequenceBody(self._message)
             else:
                 self._body = ValueBody(self._message)
+        else:
+            print("using null value body")
+            self._body = ValueBody(self._message)
+            self._body.set(None)
 
         if msg_format:
             self._message.message_format = msg_format
@@ -57,8 +62,8 @@ class Message:
             self._message.properties = properties._properties
         if application_properties and isinstance(application_properties, dict):
             amqp_props = utils.data_factory(application_properties)
-            wrapped_props = c_uamqp.create_application_properties(amqp_props)
-            self._message.application_properties = wrapped_props
+            #wrapped_props = c_uamqp.create_application_properties(amqp_props)
+            self._message.application_properties = amqp_props
         if annotations and isinstance(annotations, dict):
             amqp_props = utils.data_factory(annotations)
             wrapped_props = c_uamqp.create_message_annotations(amqp_props)
@@ -542,6 +547,7 @@ class ValueBody(MessageBody):
 
     def set(self, value):
         value = utils.data_factory(value)
+        print("settings body value as", value)
         self._message.set_body_value(value)
 
     @property
