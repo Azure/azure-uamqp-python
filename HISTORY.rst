@@ -7,7 +7,9 @@ Release History
 ++++++++++++++++++++
 
 - Added management request support.
-- Fixed message-less C operation ValueError
+- Fixed message-less C operation ValueError.
+- Store message metadata in Python rather than C.
+- Refactored Send and Receive clients to create a generic parent AMQPClient.
 
 
 0.1.0a3 (2018-03-19)

@@ -20,7 +20,7 @@ def get_logger(level):
     azure_logger.addHandler(handler)
 
     uamqp_logger = logging.getLogger("uamqp")
-    uamqp_logger.setLevel(logging.DEBUG)
+    uamqp_logger.setLevel(logging.INFO)
     uamqp_logger.addHandler(handler)
     return azure_logger
 
