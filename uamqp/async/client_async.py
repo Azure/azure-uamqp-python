@@ -166,8 +166,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                     pass
             elif message.state == constants.MessageState.WaitingToBeSent:
                 message.state = constants.MessageState.WaitingForAck
-                if not message.on_send_complete:
-                    message.on_send_complete = self._message_sent_callback
                 try:
                     current_time = self._counter.get_current_ms()
                     elapsed_time = (current_time - message.idle_time)/1000
@@ -282,8 +280,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         expiry = None
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
-        if self._message_received_callback:
-            wrapped_message = await self._message_received_callback(wrapped_message)
+        if self._message_received_callback and asyncio.iscoroutinefunction(self._message_received_callback):
+            wrapped_message = await self._message_received_callback(wrapped_message) or wrapped_message
+        elif self._message_received_callback:
+            wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
 
         if self._received_messages:
             try:

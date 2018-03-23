@@ -173,7 +173,6 @@ class SendClient(AMQPClient):
         target = target if isinstance(target, address.Address) else address.Target(target)
         self._msg_timeout = msg_timeout
         self._pending_messages = []
-        self._message_sent_callback = None
         self._message_sender = None
         self._shutdown = None
 
@@ -209,8 +208,6 @@ class SendClient(AMQPClient):
                     pass
             elif message.state == constants.MessageState.WaitingToBeSent:
                 message.state = constants.MessageState.WaitingForAck
-                if not message.on_send_complete:
-                    message.on_send_complete = self._message_sent_callback
                 try:
                     current_time = self._counter.get_current_ms()
                     elapsed_time = (current_time - message.idle_time)/1000
@@ -321,7 +318,7 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
-            wrapped_message = self._message_received_callback(wrapped_message)
+            wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
         if self._received_messages:
              self._received_messages.put(wrapped_message)
 
