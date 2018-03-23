@@ -265,45 +265,26 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 while receiving and self._received_messages.empty():
                     receiving = await self.do_work_async()
                 while not self._received_messages.empty():
-                    message, on_complete = await self._received_messages.get()
-                    yield message
-                    if not on_complete.cancelled():
-                        on_complete.set_result(None)
+                    message = await self._received_messages.get()
                     self._received_messages.task_done()
+                    yield message
         except:
             raise
         finally:
             if close_on_done:
                 await self.close_async()
 
-    async def _message_received_async(self, message):
+    def _message_received(self, message):
         expiry = None
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
-        if self._message_received_callback and asyncio.iscoroutinefunction(self._message_received_callback):
-            wrapped_message = await self._message_received_callback(wrapped_message) or wrapped_message
-        elif self._message_received_callback:
+        if self._message_received_callback:
             wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
-
         if self._received_messages:
-            try:
-                on_receive_complete = asyncio.Future()
-                self._pending_futures.append(on_receive_complete)
-                message_future = asyncio.Task(self._received_messages.put((wrapped_message, on_receive_complete)), loop=self.loop)
-                self._pending_futures.append(message_future)
-                await asyncio.wait_for(message_future, timeout=expiry)
-
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                raise errors.AbandonMessage()
-            else:
-                self._pending_futures.remove(message_future)
-            try:
-                await asyncio.wait_for(on_receive_complete, timeout=expiry)
-                on_receive_complete.result()
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                raise errors.AbandonMessage()
-            else:
-                self._pending_futures.remove(on_receive_complete)
+            future = asyncio.ensure_future(
+                self._received_messages.put(wrapped_message),
+                loop=self.loop)
+            self._pending_futures.append(future)
 
     async def receive_messages_async(self, on_message_received, close_on_done=True):
         await self.open_async()
@@ -321,34 +302,29 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     async def receive_message_batch_async(self, batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
         batch_size = batch_size or self._prefetch
-        timeout = self._counter.get_current_ms() + timeout if timeout else 0
+        timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
-
-        self._received_messages = self._received_messages or asyncio.Queue(batch_size)
+        self._received_messages = self._received_messages or asyncio.Queue(self._prefetch)
         await self.open_async()
         receiving = True
         batch = []
         while not self._received_messages.empty() and len(batch) < batch_size:
-            message, on_complete = await self._received_messages.get()
-            batch.append(message)
-            if not on_complete.cancelled():
-                on_complete.set_result(None)
+            batch.append(await self._received_messages.get())
             self._received_messages.task_done()
         if len(batch) >= batch_size:
             return batch
 
-        while receiving and not expired and not self._received_messages.full():
-            if timeout > 0 and self._counter.get_current_ms() > timeout:
+        while receiving and not expired and len(batch) < batch_size:
+            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+                if timeout > 0 and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
-            receiving = await self.do_work_async()
-        while not self._received_messages.empty() and len(batch) < batch_size:
-            message, on_complete = await self._received_messages.get()
-            if not on_complete.cancelled():
-                on_complete.set_result(None)
-                batch.append(message)
-            self._received_messages.task_done()
-        return batch
+                receiving = await self.do_work_async()
+            while not self._received_messages.empty() and len(batch) < batch_size:
+                batch.append(await self._received_messages.get())
+                self._received_messages.task_done()
+        else:
+            return batch
 
     def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
         self._message_received_callback = on_message_received

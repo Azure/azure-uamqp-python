@@ -18,7 +18,7 @@ from uamqp import async as a_uamqp
 log = logging.getLogger(__name__)
 
 
-async def on_message_received(message):
+def on_message_received(message):
     annotations = message.message_annotations
     log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
     log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))

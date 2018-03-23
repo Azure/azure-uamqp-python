@@ -165,7 +165,7 @@ class BatchMessage(Message):
     def _multi_message_generator(self):
         while True:
             new_message = self._create_batch_message()
-            message_size = new_message.get_message_encoded_size() + self._size_buffer
+            message_size = self._size_buffer  # new_message.get_message_encoded_size() + 
             body_size = 0
             try:
                 for data in self._body_gen:
