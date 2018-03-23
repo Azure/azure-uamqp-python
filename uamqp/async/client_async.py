@@ -249,7 +249,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         await self._connection.work_async()
         if self._timeout > 0:
             now = self._counter.get_current_ms()
-            if not self._was_message_received:
+            if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
                     _logger.debug("Timeout reached, closing receiver.")
