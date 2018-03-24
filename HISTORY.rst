@@ -3,7 +3,7 @@
 Release History
 ===============
 
-0.1.0b1 (unreleased)
+0.1.0b1 (2018-03-24)
 ++++++++++++++++++++
 
 - Added management request support.
