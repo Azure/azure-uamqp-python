@@ -13,7 +13,7 @@ from uamqp.address import Source, Target
 
 from uamqp.connection import Connection
 from uamqp.session import Session
-from uamqp.client import SendClient, ReceiveClient
+from uamqp.client import AMQPClient, SendClient, ReceiveClient
 from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
 
@@ -22,12 +22,12 @@ try:
     from uamqp.async import SessionAsync
     from uamqp.async import MessageSenderAsync
     from uamqp.async import MessageReceiverAsync
-    from uamqp.async import SendClientAsync, ReceiveClientAsync
+    from uamqp.async import AMQPClientAsync, SendClientAsync, ReceiveClientAsync
 except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.1.0a3"
+__version__ = "0.1.0b1"
 
 
 _logger = logging.getLogger(__name__)

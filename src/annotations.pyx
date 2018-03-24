@@ -50,7 +50,6 @@ cpdef create_delivery_annotations(AMQPValue value):
 
 
 cpdef create_message_annotations(AMQPValue value):
-    _logger.debug("creating ann")
     annotations = cMessageAnnotations()
     annotations.create(value)
     return annotations
@@ -123,9 +122,10 @@ cdef class cAnnotations(StructBase):
         if c_amqpvalue.amqpvalue_get_map(self._c_value, &value) == 0:
             if <void*>value == NULL:
                 return None
-            return value_factory(value)
+            return value_factory(value).value
         else:
-            self._value_error("Failed to get map.")
+            #self._value_error("Failed to get map.")
+            return None
 
 
 cdef class cApplicationProperties(cAnnotations):

@@ -23,15 +23,12 @@ cdef class StructBase:
         raise MemoryError(message.format(self.__class__.__name__))
 
     def _value_error(self, error_message=None, error_code=None):
-        message = (
-            "{} operation returned error status.\n"
-            "This is either because of NULL inputs or incorrect data type.")
-        message = message.format(self.__class__.__name__)
+        message = "Operation failed."
         if error_message:
             message += "\nError: {}".format(error_message)
         if error_code:
             message += "\nErrorCode: {}".format(error_code)
-        raise ValueError()
+        raise ValueError(message)
 
     def _null_error(self, error_message=None):
         message = "NULL error occurred in {}.".format(self.__class__.__name__)

@@ -3,6 +3,17 @@
 Release History
 ===============
 
+0.1.0b1 (unreleased)
+++++++++++++++++++++
+
+- Added management request support.
+- Fixed message-less C operation ValueError.
+- Store message metadata in Python rather than C.
+- Refactored Send and Receive clients to create a generic parent AMQPClient.
+- Fixed None receive timestamp bug.
+- Removed async iterator queue due to instabilities - all callbacks are now synchronous.
+
+
 0.1.0a3 (2018-03-19)
 ++++++++++++++++++++
 

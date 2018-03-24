@@ -165,7 +165,7 @@ cdef class cMessage(StructBase):
             self._value_error()
 
     @application_properties.setter
-    def application_properties(self, cApplicationProperties value):
+    def application_properties(self, AMQPValue value):
         if c_message.message_set_application_properties(
             self._c_value, <c_amqpvalue.AMQP_VALUE>value._c_value) != 0:
                 self._value_error()

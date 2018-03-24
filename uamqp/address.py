@@ -17,7 +17,12 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class AddressMixin:
+class Address:
+
+    def __init__(self, address):
+        self.parsed_address = self._validate_address(address)
+        self._c_address = c_uamqp.string_value(
+            address.encode('utf-8') if isinstance(address, str) else address)
 
     @property
     def address(self):
@@ -74,15 +79,13 @@ class AddressMixin:
         return parsed
 
 
-class Source(AddressMixin):
+class Source(Address):
 
     def __init__(self, address):
-        self.parsed_address = self._validate_address(address)
-        self._address = c_uamqp.create_source()
-        amqp_address = c_uamqp.string_value(
-            address.encode('utf-8') if isinstance(address, str) else address)
-        self._address.address = amqp_address
+        super(Source, self).__init__(address)
         self._filters = []
+        self._address = c_uamqp.create_source()
+        self._address.address = self._c_address
 
     def set_filter(self, filter):
         value = filter.encode('utf-8') if isinstance(filter, str) else filter
@@ -96,11 +99,9 @@ class Source(AddressMixin):
         self._address.filter_set = filter_set
 
 
-class Target(AddressMixin):
+class Target(Address):
 
     def __init__(self, address):
-        self.parsed_address = self._validate_address(address)
+        super(Target, self).__init__(address)
         self._address = c_uamqp.create_target()
-        amqp_address = c_uamqp.string_value(
-            address.encode('utf-8') if isinstance(address, str) else address)
-        self._address.address = amqp_address
+        self._address.address = self._c_address

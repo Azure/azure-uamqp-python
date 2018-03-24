@@ -7,6 +7,8 @@
 import logging
 
 from uamqp import c_uamqp
+from uamqp import mgmt_operation
+from uamqp import constants
 
 
 _logger = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ class Session:
         self._connection = connection
         self._conn = connection._conn
         self._session = c_uamqp.create_session(self._conn)
+        self._mgmt_links = {}
 
         if incoming_window:
             self.incoming_window = incoming_window
@@ -35,7 +38,23 @@ class Session:
     def __exit__(self, *args):
         self._session.destroy()
 
+    def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+        try:
+            mgmt_link = self._mgmt_links[node]
+        except KeyError:
+            mgmt_link = mgmt_operation.MgmtOperation(self, target=node, **kwargs)
+            while not mgmt_link.open:
+                self._connection.work()
+            if mgmt_link.open != constants.MgmtOpenStatus.Ok:
+                raise ValueError("Failed to open mgmt link: {}".format(mgmt_link.open))
+            self._mgmt_links[node] = mgmt_link
+        op_type = op_type or b'empty'
+        response = mgmt_link.execute(operation, op_type, message)
+        return response
+
     def destroy(self):
+        for node, link in self._mgmt_links.items():
+           link.destroy()
         self._session.destroy()
 
     @property

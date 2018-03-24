@@ -68,6 +68,5 @@ def test_event_hubs_batch_send(live_eventhub_config):
 
     target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
-
     send_client.queue_message(message_batch)
     send_client.send_all_messages()

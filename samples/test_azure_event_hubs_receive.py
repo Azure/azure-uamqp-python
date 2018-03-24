@@ -8,6 +8,7 @@ import logging
 import os
 import pytest
 import time
+import sys
 try:
     from urllib import quote_plus #Py2
 except Exception:
@@ -18,7 +19,20 @@ from uamqp import address
 from uamqp import authentication
 
 
-log = logging.getLogger(__name__)
+def get_logger(level):
+    azure_logger = logging.getLogger("azure")
+    azure_logger.setLevel(level)
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+    azure_logger.addHandler(handler)
+
+    uamqp_logger = logging.getLogger("uamqp")
+    uamqp_logger.setLevel(logging.INFO)
+    uamqp_logger.addHandler(handler)
+    return azure_logger
+
+
+log = get_logger(logging.INFO)
 
 
 def test_event_hubs_simple_receive(live_eventhub_config):
@@ -33,7 +47,7 @@ def test_event_hubs_simple_receive(live_eventhub_config):
         live_eventhub_config['partition'])
 
     message = uamqp.receive_message(source, auth=plain_auth)
-    log.info("Received: {}".format(message))
+    log.info("Received: {}".format(message.get_data()))
 
 
 def test_event_hubs_simple_batch_receive(live_eventhub_config):
