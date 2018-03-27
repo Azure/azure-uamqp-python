@@ -38,6 +38,12 @@ async def test_event_hubs_mgmt_op_async(live_eventhub_config):
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     async with uamqp.AMQPClientAsync(target, auth=plain_auth, debug=True) as send_client:
         mgmt_msg = uamqp.Message(application_properties={'name': live_eventhub_config['event_hub']})
-        response = await send_client.mgmt_request_async(mgmt_msg, b'READ', op_type=b'com.microsoft:eventhub', status_code_field=b'status-code', description_fields=b'status-description')
+        response = await send_client.mgmt_request_async(
+            mgmt_msg,
+            b'READ',
+            op_type=b'com.microsoft:eventhub',
+            status_code_field=b'status-code',
+            description_fields=b'status-description',
+            timeout=3000)
         output = response.get_data()
         assert output['partition_ids'] == ["0", "1"]

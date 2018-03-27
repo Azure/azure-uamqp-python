@@ -37,17 +37,20 @@ class SessionAsync(session.Session):
         await self.destroy_async()
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
+        timeout = kwargs.pop('timeout', None) or 0
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
             mgmt_link = MgmtOperationAsync(self, target=node, loop=self.loop, **kwargs)
-            while not mgmt_link.open:
+            while not mgmt_link.open and not mgmt_link.mgmt_error:
                 await self._connection.work_async()
             if mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise ValueError("Failed to open mgmt link: {}".format(mgmt_link.open))
+            elif mgmt_link.mgmt_error:
+                raise mgmt_link.mgmt_error
             self._mgmt_links[node] = mgmt_link
         op_type = op_type or b'empty'
-        response = await mgmt_link.execute_async(operation, op_type, message)
+        response = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)
         return response
 
     async def destroy_async(self):
