@@ -63,7 +63,12 @@ class MessageReceiver():
         self._link.destroy()
 
     def open(self, on_message_received):
-        self._receiver.open(on_message_received)
+        try:
+            self._receiver.open(on_message_received)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Receiver. "
+                "Please confirm credentials and target URI.")
 
     def close(self):
         self._receiver.close()

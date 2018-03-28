@@ -62,7 +62,12 @@ class MessageSender():
         self._link.destroy()
 
     def open(self):
-        self._sender.open()
+        try:
+            self._sender.open()
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Sender. "
+                "Please confirm credentials and target URI.")
 
     def close(self):
         self._sender.close()

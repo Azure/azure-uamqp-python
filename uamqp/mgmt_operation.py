@@ -9,6 +9,7 @@ import uuid
 
 #from uamqp.session import Session
 from uamqp import constants
+from uamqp import errors
 from uamqp import c_uamqp
 
 
@@ -28,9 +29,15 @@ class MgmtOperation:
         self._counter = c_uamqp.TickCounter()
         self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
-        self._mgmt_op.open(self)
         self.open = None
-        self.mgmt_error = None
+        try:
+            self._mgmt_op.open(self)
+        except ValueError:
+            self.mgmt_error = errors.AMQPConnectionError(
+                "Unable to open management session. "
+                "Please confirm URI namespace exists.")
+        else:
+            self.mgmt_error = None
 
     def _management_open_complete(self, result):
         self.open = constants.MgmtOpenStatus(result)

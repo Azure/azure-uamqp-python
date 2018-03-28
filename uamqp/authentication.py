@@ -92,14 +92,19 @@ class CBSAuthMixin:
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
             outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
-        self._cbs_auth = c_uamqp.CBSTokenAuth(
-            self.audience,
-            self.token_type,
-            self.token,
-            self.expiry,
-            self._session._session,
-            self.timeout)
-        self._cbs_auth.set_trace(debug)
+        try:
+            self._cbs_auth = c_uamqp.CBSTokenAuth(
+                self.audience,
+                self.token_type,
+                self.token,
+                self.expiry,
+                self._session._session,
+                self.timeout)
+            self._cbs_auth.set_trace(debug)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Unable to open authentication session. "
+                "Please confirm target URI exists.")
         return self._cbs_auth
 
     def close_authenticator(self):
@@ -116,8 +121,10 @@ class CBSAuthMixin:
         auth_status = constants.CBSAuthStatus(auth_status)
         if auth_status == constants.CBSAuthStatus.Failure:
             if self.retries >= self._retry_policy.retries:
+                _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                 raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
             else:
+                _logger.info("Authentication Put-Token failed. Retrying.")
                 self.retries += 1
                 time.sleep(self._retry_policy.backoff)
                 self._cbs_auth.authenticate()

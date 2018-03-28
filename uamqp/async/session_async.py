@@ -10,6 +10,7 @@ import functools
 
 from uamqp import session
 from uamqp import constants
+from uamqp import errors
 from uamqp.async.mgmt_operation_async import MgmtOperationAsync
 
 
@@ -44,10 +45,10 @@ class SessionAsync(session.Session):
             mgmt_link = MgmtOperationAsync(self, target=node, loop=self.loop, **kwargs)
             while not mgmt_link.open and not mgmt_link.mgmt_error:
                 await self._connection.work_async()
-            if mgmt_link.open != constants.MgmtOpenStatus.Ok:
-                raise ValueError("Failed to open mgmt link: {}".format(mgmt_link.open))
-            elif mgmt_link.mgmt_error:
+            if mgmt_link.mgmt_error:
                 raise mgmt_link.mgmt_error
+            elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
+                raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
             self._mgmt_links[node] = mgmt_link
         op_type = op_type or b'empty'
         response = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)

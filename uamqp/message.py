@@ -98,13 +98,13 @@ class Message:
 
     def _on_message_sent(self, result, error=None):
         result = constants.MessageSendResult(result)
-        if result == constants.MessageSendResult.Error and self._retries < constants.MESSAGE_SEND_RETRIES:
+        if not error and result == constants.MessageSendResult.Error and self._retries < constants.MESSAGE_SEND_RETRIES:
             self._retries += 1
             _logger.debug("Message error, retrying. Attempts: {}".format(self._retries))
             self.state = constants.MessageState.WaitingToBeSent
         elif result == constants.MessageSendResult.Error:
-            _logger.error("Message error, {} retries exhausted".format(constants.MESSAGE_SEND_RETRIES))
-            self.state = constants.MessageState.Complete
+            _logger.error("Message error, {} retries exhausted ({})".format(constants.MESSAGE_SEND_RETRIES, error))
+            self.state = constants.MessageState.Failed
             if self.on_send_complete:
                 self.on_send_complete(result, error)
         else:
@@ -138,8 +138,8 @@ class Message:
         if self.annotations:
             if not isinstance(self.annotations, dict):
                 raise TypeError("Message annotations must be a dictionary.")
-            amqp_props = utils.data_factory(self.annotations)
-            self._message.message_annotations = amqp_props
+            ann_props = c_uamqp.create_message_annotations(utils.data_factory(self.annotations))
+            self._message.message_annotations = ann_props
         return self._message
 
 

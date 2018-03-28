@@ -194,14 +194,14 @@ class SendClient(AMQPClient):
             self._message_sender.open()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
-            raise ValueError("Message sender in error state.")
+            raise errors.AMQPConnectionError("Message sender in error state.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
 
     def _client_run(self):
         for message in self._pending_messages[:]:
-            if message.state == constants.MessageState.Complete:
+            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
@@ -238,10 +238,13 @@ class SendClient(AMQPClient):
         self._pending_messages.append(message)
         self.open()
         try:
-            while message.state != constants.MessageState.Complete:
+            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 self.do_work()
         except:
             raise
+        else:
+            if message.state == constants.MessageState.Failed:
+                raise errors.MessageSendFailed("Failed to send message.")
         finally:
             if close_on_done:
                 self.close()
@@ -256,9 +259,13 @@ class SendClient(AMQPClient):
     def send_all_messages(self, close_on_done=True):
         self.open()
         try:
+            messages = self._pending_messages[:]
             self.wait()
         except:
             raise
+        else:
+            results = [m.state for m in messages]
+            return results
         finally:
             if close_on_done:
                 self.close()
@@ -295,7 +302,7 @@ class ReceiveClient(AMQPClient):
             self._message_receiver.open(self)
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
-            raise ValueError("Message receiver in error state.")
+            raise errors.AMQPConnectionError("Message receiver in error state.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False

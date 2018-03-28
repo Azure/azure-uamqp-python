@@ -152,14 +152,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             await self._message_sender.open_async()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
-            raise ValueError("Message sender in error state.")
+            raise errors.AMQPConnectionError("Message sender in error state.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
 
     async def _client_run(self):
         for message in self._pending_messages[:]:
-            if message.state == constants.MessageState.Complete:
+            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
@@ -196,20 +196,27 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._pending_messages.append(message)
         await self.open_async()
         try:
-            while message.state != constants.MessageState.Complete:
+            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 await self.do_work_async()
         except:
             raise
         else:
+            if message.state == constants.MessageState.Failed:
+                raise errors.MessageSendFailed("Failed to send message.")
+        finally:
             if close_on_done:
                 await self.close_async()
 
     async def send_all_messages_async(self, close_on_done=True):
         await self.open_async()
         try:
+            messages = self._pending_messages[:]
             await self.wait_async()
         except:
             raise
+        else:
+            results = [m.state for m in messages]
+            return results
         finally:
             if close_on_done:
                 await self.close_async()
@@ -237,7 +244,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             await self._message_receiver.open_async(self)
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
-            raise ValueError("Message receiver in error state.")
+            raise errors.AMQPConnectionError("Message receiver in error state.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False

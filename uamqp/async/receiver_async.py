@@ -46,7 +46,12 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         await self.loop.run_in_executor(None, functools.partial(self._destroy))
 
     async def open_async(self, on_message_received):
-        await self.loop.run_in_executor(None, functools.partial(self.open, on_message_received))
+        try:
+            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, on_message_received))
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Receiver. "
+                "Please confirm credentials and target URI.")
 
     async def close_async(self):
         await self.loop.run_in_executor(None, functools.partial(self.close))

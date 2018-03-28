@@ -30,7 +30,7 @@ class MessageState(Enum):
     WaitingToBeSent = 0
     WaitingForAck = 1
     Complete = 2
-    PartiallySent = 3
+    Failed = 3
 
 
 class MessageReceiverState(Enum):

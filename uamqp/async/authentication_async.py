@@ -26,14 +26,19 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
             outgoing_window=constants.MAX_FRAME_SIZE_BYTES,
             loop=self.loop)
-        self._cbs_auth = c_uamqp.CBSTokenAuth(
-            self.audience,
-            self.token_type,
-            self.token,
-            self.expiry,
-            self._session._session,
-            self.timeout)
-        self._cbs_auth.set_trace(debug)
+        try:
+            self._cbs_auth = c_uamqp.CBSTokenAuth(
+                self.audience,
+                self.token_type,
+                self.token,
+                self.expiry,
+                self._session._session,
+                self.timeout)
+            self._cbs_auth.set_trace(debug)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Unable to open authentication session. "
+                "Please confirm target URI exists.") from None
         return self._cbs_auth
 
     async def close_authenticator_async(self):

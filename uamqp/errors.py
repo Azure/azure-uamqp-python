@@ -7,6 +7,18 @@
 from uamqp import utils
 
 
+class AMQPConnectionError(Exception):
+    pass
+
+
+class MessageException(Exception):
+    pass
+
+
+class MessageSendFailed(MessageException):
+    pass
+
+
 class AuthenticationException(Exception):
     pass
 
@@ -24,6 +36,7 @@ class TokenAuthFailure(AuthenticationException):
                    "\nStatus code: {}"
                    "\nDescription: {}").format(self.status_code, self.description)
         super(TokenAuthFailure, self).__init__(message)
+
 
 class MessageResponse(Exception):
     pass
