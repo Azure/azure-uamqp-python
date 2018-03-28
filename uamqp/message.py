@@ -25,6 +25,7 @@ class Message:
                  message=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
+        self._retries = 0
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -97,10 +98,20 @@ class Message:
 
     def _on_message_sent(self, result, error=None):
         result = constants.MessageSendResult(result)
-        _logger.debug("Message sent: {}, {}".format(result, error))
-        self.state = constants.MessageState.Complete
-        if self.on_send_complete:
-            self.on_send_complete(result, error)
+        if result == constants.MessageSendResult.Error and self._retries < constants.MESSAGE_SEND_RETRIES:
+            self._retries += 1
+            _logger.debug("Message error, retrying. Attempts: {}".format(self._retries))
+            self.state = constants.MessageState.WaitingToBeSent
+        elif result == constants.MessageSendResult.Error:
+            _logger.error("Message error, {} retries exhausted".format(constants.MESSAGE_SEND_RETRIES))
+            self.state = constants.MessageState.Complete
+            if self.on_send_complete:
+                self.on_send_complete(result, error)
+        else:
+            _logger.debug("Message sent: {}, {}".format(result, error))
+            self.state = constants.MessageState.Complete
+            if self.on_send_complete:
+                self.on_send_complete(result, error)
 
     def get_message_encoded_size(self):
         # TODO: This no longer calculates the metadata accurately.
@@ -110,6 +121,9 @@ class Message:
         if not self._message:
             return None
         return self._body.data
+
+    def gather(self):
+        return [self]
 
     def get_message(self):
         if not self._message:
@@ -138,26 +152,10 @@ class BatchMessage(Message):
     def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):
         self._multi_messages = multi_messages
         self._body_gen = data
-        self._total_messages = 0
-        self._sent_messages = 0
-        self._batch_complete = False
-        self.state = constants.MessageState.WaitingToBeSent
         self.on_send_complete = None
         self.properties = properties
         self.application_properties = application_properties
         self.annotations = annotations
-
-    def _on_message_sent(self, result, error=None):
-        self._sent_messages += 1
-        result = constants.MessageSendResult(result)
-        _logger.debug("Message sent: {}, {}".format(result, error))
-        _logger.debug("Sent {} of {} batched messages.".format(self._sent_messages, self._total_messages))
-        if self._batch_complete and self._sent_messages >= self._total_messages:
-            self.state = constants.MessageState.Complete
-            if self.on_send_complete:
-                self.on_send_complete(result, error)
-        else:
-            self.state = constants.MessageState.PartiallySent
 
     def _create_batch_message(self):
         return Message(body="", properties=self.properties, annotations=self.annotations, msg_format=self.batch_format)
@@ -165,7 +163,7 @@ class BatchMessage(Message):
     def _multi_message_generator(self):
         while True:
             new_message = self._create_batch_message()
-            message_size = self._size_buffer  # new_message.get_message_encoded_size() + 
+            message_size = new_message.get_message_encoded_size() + self._size_buffer
             body_size = 0
             try:
                 for data in self._body_gen:
@@ -177,8 +175,8 @@ class BatchMessage(Message):
                     combined = b"".join(message_segment)
                     body_size += len(combined)
                     if (body_size + message_size) > self.max_message_length:
-                        self._total_messages += 1
-                        yield new_message.get_message()
+                        new_message.on_send_complete = self.on_send_complete
+                        yield new_message
                         raise StopIteration()
                     else:
                         new_message._body.append(combined)
@@ -186,13 +184,12 @@ class BatchMessage(Message):
                 _logger.debug("Sent partial message.")
                 continue
             else:
-                self._total_messages += 1
-                self._batch_complete = True
-                yield new_message.get_message()
+                new_message.on_send_complete = self.on_send_complete
+                yield new_message
                 _logger.debug("Sent all batched data.")
                 break
 
-    def get_message(self):
+    def gather(self):
         if self._multi_messages:
             return self._multi_message_generator()
 
@@ -213,10 +210,8 @@ class BatchMessage(Message):
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
             new_message._body.append(combined)
-
-        self._total_messages = 1
-        self._batch_complete = True
-        return new_message.get_message()
+        new_message.on_send_complete = self.on_send_complete
+        return [new_message]
 
 
 class MessageProperties:

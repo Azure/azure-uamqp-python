@@ -228,9 +228,10 @@ class SendClient(AMQPClient):
         super(SendClient, self).close()
         self._pending_messages = []
 
-    def queue_message(self, message):
-        message.idle_time = self._counter.get_current_ms()
-        self._pending_messages.append(message)
+    def queue_message(self, messages):
+        for message in messages.gather():
+            message.idle_time = self._counter.get_current_ms()
+            self._pending_messages.append(message)
 
     def send_message(self, message, close_on_done=False):
         message.idle_time = self._counter.get_current_ms()

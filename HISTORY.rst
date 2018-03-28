@@ -3,6 +3,13 @@
 Release History
 ===============
 
+0.1.0b2 (unreleased)
+++++++++++++++++++++
+
+- Added message send retry.
+- Added timeouts and better error handling for management requests.
+
+
 0.1.0b1 (2018-03-24)
 ++++++++++++++++++++
 
