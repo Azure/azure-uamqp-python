@@ -27,7 +27,7 @@ class Connection:
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  debug=False):
-        uamqp.initialize_platform()
+        uamqp._Platform.initialize()
         container_id = container_id if container_id else str(uuid.uuid4())
         self.hostname = hostname
         self.auth = sasl
@@ -70,7 +70,7 @@ class Connection:
             self.auth.close_authenticator()
         self._conn.destroy()
         self.auth.close()
-        uamqp.deinitialize_platform()
+        uamqp._Platform.deinitialize()
 
     def work(self):
         self._lock.acquire()

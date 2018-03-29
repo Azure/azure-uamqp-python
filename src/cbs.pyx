@@ -105,10 +105,11 @@ cdef class CBSTokenAuth:
     cpdef get_failure_info(self):
         return self.token_status_code, self.token_status_description
 
-    cpdef refresh(self):
+    cpdef refresh(self, const char* refresh_token):
         self._update_status()
         if self.state == AUTH_STATUS_REFRESH_REQUIRED:
-            self.authenticate
+            self.token = refresh_token
+            self.authenticate()
 
     cpdef _update_status(self):
         error_code = 0
@@ -142,6 +143,8 @@ cdef class CBSTokenAuth:
 
     cpdef on_cbs_open_complete(self, result):
         _logger.debug("CBS completed opening with status: {}".format(result))
+        if result == c_cbs.CBS_OPEN_COMPLETE_RESULT_TAG.CBS_OPEN_ERROR:
+            self.state = AUTH_STATUS_FAILURE
 
     cpdef _cbs_error(self):
         self.on_cbs_error()
@@ -153,7 +156,7 @@ cdef class CBSTokenAuth:
         if result == CBS_OPERATION_RESULT_OK:
             self.state = AUTH_STATUS_OK
         else:
-            self.state = AUTH_STATUS_FAILURE
+            self.state = AUTH_STATUS_ERROR
         self.token_status_code = status_code
         self.token_status_description = status_description
         self.on_cbs_put_token_complete(result, status_code, status_description)

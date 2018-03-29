@@ -88,7 +88,8 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
 
 cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):
     context_obj = <object>context
-    context_obj._state_changed(previous_state, new_state)
+    if hasattr(context_obj, '_state_changed'):
+        context_obj._state_changed(previous_state, new_state)
 
 
 cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):

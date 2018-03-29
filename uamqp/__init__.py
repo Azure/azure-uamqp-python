@@ -57,18 +57,35 @@ def receive_messages(source, auth=None, batch_size=None, timeout=0, debug=False,
         return receive_client.receive_message_batch(batch_size=batch_size or receive_client._prefetch)
 
 
-def initialize_platform():
-    if _is_win:
-        c_uamqp.platform_init()
-    else:
-        c_uamqp.tlsio_openssl_init()
+class _Platform:
 
+    initialized = False
 
-def deinitialize_platform():
-    if _is_win:
-        c_uamqp.platform_deinit()
-    else:
-        c_uamqp.tlsio_openssl_deinit()
+    @classmethod
+    def initialize(cls):
+        if cls.initialized:
+            _logger.debug("Platform already initialized.")
+        elif _is_win:
+            _logger.debug("Initializing Windows platform.")
+            c_uamqp.platform_init()
+            cls.initialized = True
+        else:
+            _logger.debug("Initializing OpenSSL platform.")
+            c_uamqp.tlsio_openssl_init()
+            cls.initialized = True
+
+    @classmethod
+    def deinitialize(cls):
+        if not cls.initialized:
+           _logger.debug("Platform already deinitialized.")
+        elif _is_win:
+            cls.initialized = False
+            _logger.debug("Deinitializing Windows platform.")
+            c_uamqp.platform_deinit()
+        else:
+            cls.initialized = False
+            _logger.debug("Deinitializing OpenSSL platform.")
+            c_uamqp.tlsio_openssl_deinit()
 
 
 def get_platform_info(self):

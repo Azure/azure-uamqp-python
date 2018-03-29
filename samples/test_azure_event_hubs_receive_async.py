@@ -8,6 +8,7 @@ import logging
 import os
 import pytest
 import asyncio
+import sys
 
 import uamqp
 from uamqp import address
@@ -15,7 +16,16 @@ from uamqp import authentication
 from uamqp import async as a_uamqp
 
 
-log = logging.getLogger(__name__)
+def get_logger(level):
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+    uamqp_logger = logging.getLogger("uamqp")
+    uamqp_logger.setLevel(level)
+    uamqp_logger.addHandler(handler)
+    return uamqp_logger
+
+
+log = get_logger(logging.INFO)
 
 
 def on_message_received(message):
@@ -90,7 +100,7 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    async with a_uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=100, prefetch=10) as receive_client:
+    async with a_uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=1000, prefetch=10) as receive_client:
         message_batch = await receive_client.receive_message_batch_async(10)
         log.info("got batch: {}".format(len(message_batch)))
         for message in message_batch:
@@ -106,3 +116,60 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
         for message in next_batch:
             annotations = message.message_annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_shared_connection_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    with a_uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=True) as conn:
+        partition_0 = a_uamqp.ReceiveClientAsync(source + "0", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
+        partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=100, prefetch=1)
+        await partition_0.open_async(connection=conn)
+        await partition_1.open_async(connection=conn)
+        tasks = [
+            partition_0.receive_message_batch_async(1),
+            partition_1.receive_message_batch_async(1)
+        ]
+        try:
+            messages = await asyncio.gather(*tasks)
+            assert len(messages[0]) == 1 and len(messages[1]) == 1
+        except:
+            raise
+        finally:
+            await partition_0.close_async()
+            await partition_1.close_async()
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    partition_0 = a_uamqp.ReceiveClientAsync(source + "0", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
+    partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=100, prefetch=1)
+    try:
+        await partition_0.open_async()
+        await partition_1.open_async()
+        tasks = [
+            partition_0.receive_message_batch_async(1),
+            partition_1.receive_message_batch_async(1)
+        ]
+        messages = await asyncio.gather(*tasks)
+        assert False
+    except Exception as e:
+        assert isinstance(e, uamqp.errors.AMQPConnectionError)
+    finally:
+        await partition_0.close_async()
+        await partition_1.close_async()

@@ -11,6 +11,7 @@ Release History
 - Improved connection and auth error handling.
 - Fixed message annotations type.
 - SendClient.send_all_messages() now returns a list of message send statuses.
+- Fixed OpenSSL platform being initialized multiple times.
 
 
 0.1.0b1 (2018-03-24)

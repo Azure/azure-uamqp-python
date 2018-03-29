@@ -113,6 +113,7 @@ class CBSAuthStatus(Enum):
     Timeout = c_uamqp.AUTH_STATUS_TIMEOUT
     RefreshRequired = c_uamqp.AUTH_STATUS_REFRESH_REQUIRED
     Expired = c_uamqp.AUTH_STATUS_EXPIRED
+    Error = c_uamqp.AUTH_STATUS_ERROR
     Failure = c_uamqp.AUTH_STATUS_FAILURE
 
 

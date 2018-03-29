@@ -119,7 +119,7 @@ class CBSAuthMixin:
         in_progress = False
         auth_status = self._cbs_auth.get_status()
         auth_status = constants.CBSAuthStatus(auth_status)
-        if auth_status == constants.CBSAuthStatus.Failure:
+        if auth_status == constants.CBSAuthStatus.Error:
             if self.retries >= self._retry_policy.retries:
                 _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                 raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
@@ -129,6 +129,8 @@ class CBSAuthMixin:
                 time.sleep(self._retry_policy.backoff)
                 self._cbs_auth.authenticate()
                 in_progress = True
+        elif auth_status == constants.CBSAuthStatus.Failure:
+            errors.AuthenticationException("Failed to open CBS authentication link.")
         elif auth_status == constants.CBSAuthStatus.Expired:
             raise errors.TokenExpired("CBS Authentication Expired.")
         elif auth_status == constants.CBSAuthStatus.Timeout:

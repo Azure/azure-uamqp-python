@@ -169,7 +169,8 @@ cdef class Connection(StructBase):
 cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STATE_TAG new_connection_state, c_connection.CONNECTION_STATE_TAG previous_connection_state):
     if <void*>context != NULL:
         context_obj = <object>context
-        context_obj._state_changed(previous_connection_state, new_connection_state)
+        if hasattr(context_obj, '_state_changed'):
+            context_obj._state_changed(previous_connection_state, new_connection_state)
 
 
 cdef void on_io_error(void* context):
