@@ -35,6 +35,7 @@ class ConnectionAsync(connection.Connection):
             properties=properties,
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
             debug=debug)
+        self._lock = asyncio.Lock(loop=self.loop)
 
     async def __aenter__(self):
         return self
@@ -43,7 +44,9 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
 
     async def work_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self.work))
+        await self._lock.acquire()
+        await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
+        self._lock.release()
 
     async def open_async(self):
         await self.loop.run_in_executor(None, functools.partial(self._conn.open))

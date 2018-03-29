@@ -17,11 +17,12 @@ from uamqp import async as a_uamqp
 
 
 def get_logger(level):
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
     uamqp_logger = logging.getLogger("uamqp")
+    if not uamqp_logger.handlers:
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        uamqp_logger.addHandler(handler)
     uamqp_logger.setLevel(level)
-    uamqp_logger.addHandler(handler)
     return uamqp_logger
 
 
@@ -30,17 +31,12 @@ log = get_logger(logging.INFO)
 
 def on_message_received(message):
     annotations = message.message_annotations
-    log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
     log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-    log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-    log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-    log.info("Message format: {}".format(message._message.message_format))
-    log.info("{}".format(list(message.get_data())))
     return message
 
 
 @pytest.mark.asyncio
-async def test_event_hubs_callback_receive_async(live_eventhub_config):
+async def test_event_hubs_callback_async_receive(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -50,8 +46,10 @@ async def test_event_hubs_callback_receive_async(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = a_uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=50, prefetch=10)
+    receive_client = a_uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=10, prefetch=10)
+    log.info("Created client, receiving...")
     await receive_client.receive_messages_async(on_message_received)
+    log.info("Finished receiving")
 
 
 @pytest.mark.asyncio
@@ -158,7 +156,7 @@ async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
         live_eventhub_config['consumer_group'])
 
     partition_0 = a_uamqp.ReceiveClientAsync(source + "0", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
-    partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=100, prefetch=1)
+    partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
     try:
         await partition_0.open_async()
         await partition_1.open_async()

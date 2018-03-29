@@ -13,16 +13,13 @@ from uamqp import authentication
 
 
 def get_logger(level):
-    azure_logger = logging.getLogger("azure")
-    azure_logger.setLevel(level)
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
-    azure_logger.addHandler(handler)
-
     uamqp_logger = logging.getLogger("uamqp")
-    uamqp_logger.setLevel(logging.INFO)
-    uamqp_logger.addHandler(handler)
-    return azure_logger
+    if not uamqp_logger.handlers:
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        uamqp_logger.addHandler(handler)
+    uamqp_logger.setLevel(level)
+    return uamqp_logger
 
 
 log = get_logger(logging.INFO)
