@@ -152,7 +152,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             await self._message_sender.open_async()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
-            raise errors.AMQPConnectionError("Message sender in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Sender Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
@@ -244,7 +246,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             await self._message_receiver.open_async(self)
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
-            raise errors.AMQPConnectionError("Message receiver in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Receiver Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
