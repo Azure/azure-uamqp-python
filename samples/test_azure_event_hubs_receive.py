@@ -57,10 +57,10 @@ def test_event_hubs_simple_batch_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    messages = uamqp.receive_messages(source, batch_size=10)
+    messages = uamqp.receive_messages(source, max_batch_size=10, timeout=1000)
     assert len(messages) == 10
 
-    message = uamqp.receive_messages(source, batch_size=1)
+    message = uamqp.receive_messages(source, max_batch_size=1, timeout=1000)
     assert len(message) == 1
 
 
@@ -91,8 +91,11 @@ def test_event_hubs_client_receive(live_eventhub_config):
         live_eventhub_config['partition'])
     with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
-        batch = receive_client.receive_message_batch(batch_size=10)
+        with pytest.raises(ValueError):
+            batch = receive_client.receive_message_batch(max_batch_size=100)
+        batch = receive_client.receive_message_batch(max_batch_size=10)
         while batch:
+            assert len(batch) <= 10
             for message in batch:
                 annotations = message.message_annotations
                 log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
@@ -101,7 +104,7 @@ def test_event_hubs_client_receive(live_eventhub_config):
                 log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
                 log.info("Message format: {}".format(message._message.message_format))
                 log.info("{}".format(list(message.get_data())))
-            batch = receive_client.receive_message_batch(batch_size=10)
+            batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")
 
 
@@ -145,7 +148,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
 
     with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
-        batch = receive_client.receive_message_batch(batch_size=10)
+        batch = receive_client.receive_message_batch(max_batch_size=10)
         while batch:
             for message in batch:
                 annotations = message.message_annotations
@@ -155,5 +158,5 @@ def test_event_hubs_filter_receive(live_eventhub_config):
                 log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
                 log.info("Message format: {}".format(message._message.message_format))
                 log.info("{}".format(list(message.get_data())))
-            batch = receive_client.receive_message_batch(batch_size=10)
+            batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")

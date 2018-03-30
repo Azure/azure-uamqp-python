@@ -13,6 +13,8 @@ Release History
 - SendClient.send_all_messages() now returns a list of message send statuses.
 - Fixed OpenSSL platform being initialized multiple times.
 - Fixed auto-refresh of SAS tokens.
+- Altered `receive_batch behaviour` to return messages as soon as they're available when timeout=0.
+- Parameter `batch_size` in `receive_batch` renamed to `max_batch_size`.
 
 
 0.1.0b1 (2018-03-24)

@@ -310,30 +310,36 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if close_on_done:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, batch_size=None, on_message_received=None, timeout=0):
+    async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
-        batch_size = batch_size or self._prefetch
+        max_batch_size = max_batch_size or self._prefetch
+        if max_batch_size > self._prefetch:
+            raise ValueError(
+                'Maximum batch size {} cannot be greater than the '
+                'connection prefetch: {}'.format(max_batch_size, self._prefetch))
         timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
         self._received_messages = self._received_messages or asyncio.Queue(self._prefetch)
         await self.open_async()
         receiving = True
         batch = []
-        while not self._received_messages.empty() and len(batch) < batch_size:
+        while not self._received_messages.empty() and len(batch) < max_batch_size:
             batch.append(await self._received_messages.get())
             self._received_messages.task_done()
-        if len(batch) >= batch_size:
+        if len(batch) >= max_batch_size:
             return batch
 
-        while receiving and not expired and len(batch) < batch_size:
-            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+        while receiving and not expired and len(batch) < max_batch_size:
+            while receiving and self._received_messages.empty():
                 if timeout > 0 and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
                 receiving = await self.do_work_async()
-            while not self._received_messages.empty() and len(batch) < batch_size:
+            while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(await self._received_messages.get())
                 self._received_messages.task_done()
+            if batch and not timeout:
+                expired = True  # No timeout, so we return something as soon as we have it.
         else:
             return batch
 

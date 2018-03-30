@@ -109,7 +109,7 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
         for message in next_batch:
             annotations = message.message_annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        next_batch = await receive_client.receive_message_batch_async(20)
+        next_batch = await receive_client.receive_message_batch_async(10)
         log.info("got another batch: {}".format(len(next_batch)))
         for message in next_batch:
             annotations = message.message_annotations
