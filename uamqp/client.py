@@ -361,7 +361,7 @@ class ReceiveClient(AMQPClient):
                 before = self._received_messages.qsize()
                 receiving = self.do_work()
                 received = self._received_messages.qsize() - before
-                if batch and received == 0 and not timeout:
+                if batch and received == 0:
                     # No new messages arrived, but we have some - so return what we have.
                     expired = True
                     break

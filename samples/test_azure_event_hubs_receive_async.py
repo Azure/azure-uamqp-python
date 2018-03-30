@@ -128,7 +128,7 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
 
     with a_uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=True) as conn:
         partition_0 = a_uamqp.ReceiveClientAsync(source + "0", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
-        partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=100, prefetch=1)
+        partition_1 = a_uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
         await partition_0.open_async(connection=conn)
         await partition_1.open_async(connection=conn)
         tasks = [
