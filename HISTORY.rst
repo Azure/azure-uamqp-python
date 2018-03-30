@@ -3,7 +3,7 @@
 Release History
 ===============
 
-0.1.0b2 (unreleased)
+0.1.0b2 (2018-03-30)
 ++++++++++++++++++++
 
 - Added message send retry.

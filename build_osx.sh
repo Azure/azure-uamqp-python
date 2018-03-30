@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-export UAMQP_VERSION="0.1.0b1"
+export UAMQP_VERSION="0.1.0b2"
 export MACOSX_DEPLOYMENT_TARGET=10.6
 export UAMQP_SUPPRESS_LINK_FLAGS=True
 export CEF_CCFLAGS="-arch x86_64"
