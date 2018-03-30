@@ -57,10 +57,10 @@ def test_event_hubs_simple_batch_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    messages = uamqp.receive_messages(source, max_batch_size=10, timeout=1000)
+    messages = uamqp.receive_messages(source, max_batch_size=10)
     assert len(messages) == 10
 
-    message = uamqp.receive_messages(source, max_batch_size=1, timeout=1000)
+    message = uamqp.receive_messages(source, max_batch_size=1)
     assert len(message) == 1
 
 
@@ -95,15 +95,11 @@ def test_event_hubs_client_receive(live_eventhub_config):
             batch = receive_client.receive_message_batch(max_batch_size=100)
         batch = receive_client.receive_message_batch(max_batch_size=10)
         while batch:
+            log.info("Got batch: {}".format(len(batch)))
             assert len(batch) <= 10
             for message in batch:
                 annotations = message.message_annotations
-                log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
                 log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-                log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
-                log.info("Enqueued Time: {}".format(annotations.get(b'x-opt-enqueued-time')))
-                log.info("Message format: {}".format(message._message.message_format))
-                log.info("{}".format(list(message.get_data())))
             batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")
 

@@ -330,16 +330,21 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            while receiving and self._received_messages.empty():
+            while receiving and self._received_messages.qsize() < max_batch_size:
                 if timeout > 0 and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
+                before = self._received_messages.qsize()
                 receiving = await self.do_work_async()
+                received = self._received_messages.qsize() - before
+                if batch and received == 0 and not timeout:
+                    # No new messages arrived, but we have some - so return what we have.
+                    expired = True
+                    break
+
             while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(await self._received_messages.get())
                 self._received_messages.task_done()
-            if batch and not timeout:
-                expired = True  # No timeout, so we return something as soon as we have it.
         else:
             return batch
 
