@@ -337,7 +337,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 before = self._received_messages.qsize()
                 receiving = await self.do_work_async()
                 received = self._received_messages.qsize() - before
-                if batch and received == 0:
+                if self._received_messages.qsize() > 0 and received == 0:
                     # No new messages arrived, but we have some - so return what we have.
                     expired = True
                     break
