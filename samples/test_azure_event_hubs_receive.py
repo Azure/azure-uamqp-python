@@ -58,7 +58,7 @@ def test_event_hubs_simple_batch_receive(live_eventhub_config):
         live_eventhub_config['partition'])
 
     messages = uamqp.receive_messages(source, max_batch_size=10)
-    assert len(messages) == 10
+    assert len(messages) <= 10
 
     message = uamqp.receive_messages(source, max_batch_size=1)
     assert len(message) == 1
@@ -76,7 +76,7 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
         live_eventhub_config['partition'])
 
     message = uamqp.receive_messages(source, auth=plain_auth, timeout=5000)
-    assert len(message) == 300
+    assert len(message) <= 300
 
 
 def test_event_hubs_client_receive(live_eventhub_config):
