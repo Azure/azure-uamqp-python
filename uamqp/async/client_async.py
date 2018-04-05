@@ -81,13 +81,20 @@ class AMQPClientAsync(client.AMQPClient):
             return  # already closed.
         else:
             if self._connection.cbs and not self._ext_connection:
+                _logger.debug("Closing CBS session.")
                 await self._auth.close_authenticator_async()
                 self._connection.cbs = None
             elif not self._connection.cbs:
+                _logger.debug("Closing non-CBS session.")
                 await self._session.destroy_async()
+            else:
+                _logger.debug("Not closing CBS session.")
             self._session = None
             if not self._ext_connection:
+                _logger.debug("Closing unshared connection.")
                 await self._connection.destroy_async()
+            else:
+                _logger.debug("Shared connection remaining open.")
             self._connection = None
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):

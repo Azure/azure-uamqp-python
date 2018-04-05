@@ -136,6 +136,21 @@ cdef class cApplicationProperties(cAnnotations):
             <c_amqp_definitions.application_properties>value._c_value)
         self._validate()
 
+    @property
+    def map(self):
+        cdef c_amqpvalue.AMQP_VALUE extracted
+        cdef c_amqpvalue.AMQP_VALUE value
+        extracted = c_amqpvalue.amqpvalue_get_inplace_described_value(self._c_value)
+        if <void*>extracted == NULL:
+            return None
+
+        if c_amqpvalue.amqpvalue_get_map(extracted, &value) == 0:
+            if <void*>value == NULL:
+                return None
+            return value_factory(value).value
+        else:
+            return None
+
 
 cdef class cDeliveryAnnotations(cAnnotations):
 

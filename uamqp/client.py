@@ -117,13 +117,20 @@ class AMQPClient:
             return  # already closed.
         else:
             if self._connection.cbs and not self._ext_connection:
+                _logger.debug("Closing CBS session.")
                 self._auth.close_authenticator()
                 self._connection.cbs = None
             elif not self._connection.cbs:
+                _logger.debug("Closing non-CBS session.")
                 self._session.destroy()
+            else:
+                _logger.debug("Not closing CBS session.")
             self._session = None
             if not self._ext_connection:
+                _logger.debug("Closing unshared connection.")
                 self._connection.destroy()
+            else:
+                _logger.debug("Shared connection remaining open.")
             self._connection = None
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
