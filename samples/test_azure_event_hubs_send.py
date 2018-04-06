@@ -81,3 +81,15 @@ def test_event_hubs_batch_send(live_eventhub_config):
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     send_client.queue_message(message_batch)
     send_client.send_all_messages()
+
+
+if __name__ == '__main__':
+    config = {}
+    config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
+    config['event_hub'] = os.environ['EVENT_HUB_NAME']
+    config['key_name'] = os.environ['EVENT_HUB_SAS_POLICY']
+    config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
+
+    test_event_hubs_client_send(config)

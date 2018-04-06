@@ -37,12 +37,11 @@ Pre-requisites
 
 - Windows: Setup a `build environment <https://packaging.python.org/guides/packaging-binary-extensions/#building-binary-extensions>`__.
 - Linux: Install dependencies as descriped above in the installation instructions.
-- MacOS: Install OpenSSL and UUID using Homebrew:
+- MacOS: Install cmake using Homebrew:
 
 .. code:: shell
 
-    $ brew install openssl@1.1
-    $ brew install ossp-uuid
+    $ brew install cmake
 
 Building the extension
 ++++++++++++++++++++++
