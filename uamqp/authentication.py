@@ -29,10 +29,7 @@ _is_win = sys.platform.startswith('win')
 
 
 def _get_default_tlsio():
-    if _is_win:
-        return c_uamqp.get_default_tlsio()
-    else:
-        return c_uamqp.get_openssl_tlsio()
+    return c_uamqp.get_default_tlsio()
 
 
 class TokenRetryPolicy:

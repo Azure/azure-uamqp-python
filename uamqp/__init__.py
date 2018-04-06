@@ -67,27 +67,19 @@ class _Platform:
     def initialize(cls):
         if cls.initialized:
             _logger.debug("Platform already initialized.")
-        elif _is_win:
-            _logger.debug("Initializing Windows platform.")
-            c_uamqp.platform_init()
-            cls.initialized = True
         else:
-            _logger.debug("Initializing OpenSSL platform.")
-            c_uamqp.tlsio_openssl_init()
+            _logger.debug("Initializing platform.")
+            c_uamqp.platform_init()
             cls.initialized = True
 
     @classmethod
     def deinitialize(cls):
         if not cls.initialized:
            _logger.debug("Platform already deinitialized.")
-        elif _is_win:
-            cls.initialized = False
-            _logger.debug("Deinitializing Windows platform.")
-            c_uamqp.platform_deinit()
         else:
             cls.initialized = False
-            _logger.debug("Deinitializing OpenSSL platform.")
-            c_uamqp.tlsio_openssl_deinit()
+            _logger.debug("Deinitializing platform.")
+            c_uamqp.platform_deinit()
 
 
 def get_platform_info(self):

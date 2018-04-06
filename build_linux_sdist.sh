@@ -7,7 +7,7 @@ set -e
 export UAMQP_VERSION="0.1.0b2"
 
 apt-get update
-apt-get install -y build-essential libssl-dev uuid-dev cmake
+apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config
 
 cd /data
 pip3 install cython wheel
