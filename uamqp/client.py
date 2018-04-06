@@ -117,13 +117,20 @@ class AMQPClient:
             return  # already closed.
         else:
             if self._connection.cbs and not self._ext_connection:
+                _logger.debug("Closing CBS session.")
                 self._auth.close_authenticator()
                 self._connection.cbs = None
             elif not self._connection.cbs:
+                _logger.debug("Closing non-CBS session.")
                 self._session.destroy()
+            else:
+                _logger.debug("Not closing CBS session.")
             self._session = None
             if not self._ext_connection:
+                _logger.debug("Closing unshared connection.")
                 self._connection.destroy()
+            else:
+                _logger.debug("Shared connection remaining open.")
             self._connection = None
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
@@ -194,14 +201,16 @@ class SendClient(AMQPClient):
             self._message_sender.open()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
-            raise ValueError("Message sender in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Sender Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
 
     def _client_run(self):
         for message in self._pending_messages[:]:
-            if message.state == constants.MessageState.Complete:
+            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
@@ -228,19 +237,23 @@ class SendClient(AMQPClient):
         super(SendClient, self).close()
         self._pending_messages = []
 
-    def queue_message(self, message):
-        message.idle_time = self._counter.get_current_ms()
-        self._pending_messages.append(message)
+    def queue_message(self, messages):
+        for message in messages.gather():
+            message.idle_time = self._counter.get_current_ms()
+            self._pending_messages.append(message)
 
     def send_message(self, message, close_on_done=False):
         message.idle_time = self._counter.get_current_ms()
         self._pending_messages.append(message)
         self.open()
         try:
-            while message.state != constants.MessageState.Complete:
+            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 self.do_work()
         except:
             raise
+        else:
+            if message.state == constants.MessageState.Failed:
+                raise errors.MessageSendFailed("Failed to send message.")
         finally:
             if close_on_done:
                 self.close()
@@ -255,9 +268,13 @@ class SendClient(AMQPClient):
     def send_all_messages(self, close_on_done=True):
         self.open()
         try:
+            messages = self._pending_messages[:]
             self.wait()
         except:
             raise
+        else:
+            results = [m.state for m in messages]
+            return results
         finally:
             if close_on_done:
                 self.close()
@@ -294,7 +311,9 @@ class ReceiveClient(AMQPClient):
             self._message_receiver.open(self)
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
-            raise ValueError("Message receiver in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Receiver Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
@@ -307,7 +326,7 @@ class ReceiveClient(AMQPClient):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.debug("Timeout reached, closing receiver.")
+                    _logger.info("Timeout reached, closing receiver.")
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now
@@ -320,29 +339,40 @@ class ReceiveClient(AMQPClient):
         if self._message_received_callback:
             wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
         if self._received_messages:
-             self._received_messages.put(wrapped_message)
+            self._received_messages.put(wrapped_message)
 
-    def receive_message_batch(self, batch_size=None, on_message_received=None, timeout=0):
+    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
-        batch_size = batch_size or self._prefetch
+        max_batch_size = max_batch_size or self._prefetch
+        if max_batch_size > self._prefetch:
+            raise ValueError(
+                'Maximum batch size cannot be greater than the '
+                'connection prefetch: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
         self._received_messages = self._received_messages or queue.Queue(self._prefetch)
         self.open()
         receiving = True
         batch = []
-        while not self._received_messages.empty() and len(batch) < batch_size:
+        while not self._received_messages.empty() and len(batch) < max_batch_size:
             batch.append(self._received_messages.get())
             self._received_messages.task_done()
-        if len(batch) >= batch_size:
+        if len(batch) >= max_batch_size:
             return batch
-        while receiving and not expired and len(batch) < batch_size:
-            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+
+        while receiving and not expired and len(batch) < max_batch_size:
+            while receiving and self._received_messages.qsize() < max_batch_size:
                 if timeout > 0 and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
+                before = self._received_messages.qsize()
                 receiving = self.do_work()
-            while not self._received_messages.empty() and len(batch) < batch_size:
+                received = self._received_messages.qsize() - before
+                if self._received_messages.qsize() > 0 and received == 0:
+                    # No new messages arrived, but we have some - so return what we have.
+                    expired = True
+                    break
+            while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(self._received_messages.get())
                 self._received_messages.task_done()
         else:

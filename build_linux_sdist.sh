@@ -2,14 +2,13 @@
 set -e
 
 # To execute this script:
-# docker run --rm -v $PWD:/data ubuntu /data/build_linux_sdist.sh
+# docker run --rm -v %cd%:/data --entrypoint="/bin/bash" fnndsc/ubuntu-python3 /data/build_linux_sdist.sh
 
-export UAMQP_VERSION="0.1.0b1"
+export UAMQP_VERSION="0.1.0b2"
 
 apt-get update
-apt-get install -y build-essential libssl-dev python3-dev uuid-dev cmake python3-pip
+apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config
 
 cd /data
-pip3 install --upgrade pip
 pip3 install cython wheel
 python3 setup.py sdist

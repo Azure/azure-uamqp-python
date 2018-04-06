@@ -27,7 +27,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.1.0b1"
+__version__ = "0.1.0b2"
 
 
 _logger = logging.getLogger(__name__)
@@ -43,32 +43,43 @@ def send_message(target, data, auth=None, debug=False):
 
 
 def receive_message(source, auth=None, timeout=0, debug=False):
-    received = receive_messages(source, auth=auth, batch_size=1, timeout=timeout, debug=debug)
+    received = receive_messages(source, auth=auth, max_batch_size=1, timeout=timeout, debug=debug)
     if received:
         return received[0]
     else:
         return None
 
 
-def receive_messages(source, auth=None, batch_size=None, timeout=0, debug=False, **kwargs):
-    if batch_size:
-        kwargs['prefetch'] = batch_size
-    with ReceiveClient(source, auth=auth, timeout=timeout, debug=debug, **kwargs) as receive_client:
-        return receive_client.receive_message_batch(batch_size=batch_size or receive_client._prefetch)
+def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=False, **kwargs):
+    if max_batch_size:
+        kwargs['prefetch'] = max_batch_size
+    with ReceiveClient(source, auth=auth, debug=debug, **kwargs) as receive_client:
+        print("receiving batch", max_batch_size)
+        return receive_client.receive_message_batch(
+            max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)
 
 
-def initialize_platform():
-    if _is_win:
-        c_uamqp.platform_init()
-    else:
-        c_uamqp.tlsio_openssl_init()
+class _Platform:
 
+    initialized = False
 
-def deinitialize_platform():
-    if _is_win:
-        c_uamqp.platform_deinit()
-    else:
-        c_uamqp.tlsio_openssl_deinit()
+    @classmethod
+    def initialize(cls):
+        if cls.initialized:
+            _logger.debug("Platform already initialized.")
+        else:
+            _logger.debug("Initializing platform.")
+            c_uamqp.platform_init()
+            cls.initialized = True
+
+    @classmethod
+    def deinitialize(cls):
+        if not cls.initialized:
+           _logger.debug("Platform already deinitialized.")
+        else:
+            cls.initialized = False
+            _logger.debug("Deinitializing platform.")
+            c_uamqp.platform_deinit()
 
 
 def get_platform_info(self):

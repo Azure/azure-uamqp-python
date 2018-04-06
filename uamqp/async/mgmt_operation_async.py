@@ -7,6 +7,7 @@
 import logging
 import asyncio
 import functools
+import uuid
 
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
@@ -19,41 +20,37 @@ _logger = logging.getLogger(__name__)
 
 class MgmtOperationAsync(MgmtOperation):
 
-    def __init__(self, session, target=None, loop=None, status_code_field=b'statusCode', description_fields=b'statusDescription'):
+    def __init__(self, session, target=None, status_code_field=b'statusCode', description_fields=b'statusDescription', loop=None):
         self.loop = loop or asyncio.get_event_loop()
-        self.connection = session._connection
-        # self.session = Session(
-        #     connection,
-        #     incoming_window=constants.MAX_FRAME_SIZE_BYTES,
-        #     outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
-        self.target = target or constants.MGMT_TARGET
-        self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)
-        self._mgmt_op.set_response_field_names(status_code_field, description_fields)
-        self._mgmt_op.open(self)
-        self._pending_ops = []
-        self.open = None
+        super(MgmtOperationAsync, self).__init__(
+            session,
+            target=target,
+            status_code_field=status_code_field,
+            description_fields=description_fields)
 
-    def _management_open_complete(self, result):
-        self.open = constants.MgmtOpenStatus(result)
-    
-    def _management_operation_error(self):
-        pass
+    async def execute_async(self, operation, op_type, message, timeout=0):
+        start_time = self._counter.get_current_ms()
+        operation_id = str(uuid.uuid4())
+        self._responses[operation_id] = None
 
-    async def execute_async(self, operation, op_type, message):
-        global response_message
-        response_message = None
-        def _on_complete(operation_result, status_code, description, wrapped_message):
-            global response_message
+        def on_complete(operation_result, status_code, description, wrapped_message):
             result = constants.MgmtExecuteResult(operation_result)
             if result != constants.MgmtExecuteResult.Ok:
                 _logger.error("Failed to complete mgmt operation.\nStatus code: {}\nMessage: {}".format(
                     status_code, description))
-            response_message = wrapped_message
+            self._responses[operation_id] = wrapped_message
 
-        self._mgmt_op.execute(operation, op_type, None, message.get_message(), _on_complete)
-        while not response_message:
+        self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)
+        while not self._responses[operation_id] and not self.mgmt_error:
+            if timeout > 0:
+                now = self._counter.get_current_ms()
+                if (now - start_time) >= timeout:
+                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
             await self.connection.work_async()
-        return response_message
+        if self.mgmt_error:
+            raise self.mgmt_error
+        response = self._responses.pop(operation_id)
+        return response
 
     async def destroy_async(self):
         await self.loop.run_in_executor(None, functools.partial(self._mgmt_op.destroy))

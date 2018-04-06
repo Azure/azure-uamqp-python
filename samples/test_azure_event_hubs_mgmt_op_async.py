@@ -16,16 +16,13 @@ from uamqp import authentication
 
 
 def get_logger(level):
-    azure_logger = logging.getLogger("azure")
-    azure_logger.setLevel(level)
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
-    azure_logger.addHandler(handler)
-
     uamqp_logger = logging.getLogger("uamqp")
-    uamqp_logger.setLevel(logging.DEBUG)
-    uamqp_logger.addHandler(handler)
-    return azure_logger
+    if not uamqp_logger.handlers:
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        uamqp_logger.addHandler(handler)
+    uamqp_logger.setLevel(level)
+    return uamqp_logger
 
 
 log = get_logger(logging.INFO)
@@ -38,6 +35,12 @@ async def test_event_hubs_mgmt_op_async(live_eventhub_config):
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     async with uamqp.AMQPClientAsync(target, auth=plain_auth, debug=True) as send_client:
         mgmt_msg = uamqp.Message(application_properties={'name': live_eventhub_config['event_hub']})
-        response = await send_client.mgmt_request_async(mgmt_msg, b'READ', op_type=b'com.microsoft:eventhub', status_code_field=b'status-code', description_fields=b'status-description')
+        response = await send_client.mgmt_request_async(
+            mgmt_msg,
+            b'READ',
+            op_type=b'com.microsoft:eventhub',
+            status_code_field=b'status-code',
+            description_fields=b'status-description',
+            timeout=3000)
         output = response.get_data()
         assert output['partition_ids'] == ["0", "1"]

@@ -3,7 +3,23 @@
 Release History
 ===============
 
-0.1.0b1 (unreleased)
+0.1.0b2 (2018-04-06)
+++++++++++++++++++++
+
+- Added message send retry.
+- Added timeouts and better error handling for management requests.
+- Improved connection and auth error handling and error messages.
+- Fixed message annotations type.
+- SendClient.send_all_messages() now returns a list of message send statuses.
+- Fixed OpenSSL platform being initialized multiple times.
+- Fixed auto-refresh of SAS tokens.
+- Altered `receive_batch` behaviour to return messages as soon as they're available.
+- Parameter `batch_size` in `receive_batch` renamed to `max_batch_size`.
+- Fixed message `application_properties` decode error.
+- Removed MacOS dependency on OpenSSL and libuuid.
+
+
+0.1.0b1 (2018-03-24)
 ++++++++++++++++++++
 
 - Added management request support.

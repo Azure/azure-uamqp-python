@@ -69,7 +69,8 @@ cdef class cMessageReceiver(StructBase):
 
 cdef void on_message_receiver_state_changed(void* context, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG new_state, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG previous_state):
     context_obj = <object>context
-    context_obj._state_changed(previous_state, new_state)
+    if hasattr(context_obj, '_state_changed'):
+        context_obj._state_changed(previous_state, new_state)
 
 
 cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE_HANDLE message):

@@ -39,7 +39,7 @@ cdef class CBSTokenAuth:
     cdef const char* audience
     cdef const char* token_type
     cdef const char* token
-    cdef stdint.uint64_t expiry
+    cdef stdint.uint64_t expires_at
     cdef stdint.uint64_t _refresh_window
     cdef c_cbs.CBS_HANDLE _cbs_handle
     cdef c_cbs.AUTH_STATUS state
@@ -48,19 +48,17 @@ cdef class CBSTokenAuth:
     cdef unsigned int token_status_code
     cdef const char* token_status_description
 
-    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expiry, cSession session, stdint.uint64_t timeout):
+    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout):
         self.state = AUTH_STATUS_IDLE
         self.audience = audience
         self.token_type = token_type
         self.token = token
-        self.expiry = expiry
+        self.expires_at = expires_at
         self.auth_timeout = timeout
         self._token_put_time = 0
         current_time = int(time.time())
-        remaining_time = expiry - current_time
-        if remaining_time <= 0:
-            raise ValueError("Token already expired.")
-        self._refresh_window = int(float(remaining_time) * 0.8)
+        remaining_time = expires_at - current_time
+        self._refresh_window = int(float(remaining_time) * 0.1)
         self._cbs_handle = c_cbs.cbs_create(<c_session.SESSION_HANDLE>session._c_value)
         if <void*>self._cbs_handle == NULL:
             raise MemoryError("Unable to create CBS Handle.")
@@ -84,7 +82,7 @@ cdef class CBSTokenAuth:
         if self.state == AUTH_STATUS_IN_PROGRESS:
             return
         current_time = int(time.time())
-        if current_time >= self.expiry:
+        if current_time >= self.expires_at:
             raise ValueError("Token has expired")
         self._token_put_time = current_time
         if c_cbs.cbs_put_token_async(
@@ -105,10 +103,12 @@ cdef class CBSTokenAuth:
     cpdef get_failure_info(self):
         return self.token_status_code, self.token_status_description
 
-    cpdef refresh(self):
+    cpdef refresh(self, const char* refresh_token, stdint.uint64_t expires_at):
         self._update_status()
         if self.state == AUTH_STATUS_REFRESH_REQUIRED:
-            self.authenticate
+            self.token = refresh_token
+            self.authenticate()
+            self.expires_at = expires_at
 
     cpdef _update_status(self):
         error_code = 0
@@ -133,8 +133,8 @@ cdef class CBSTokenAuth:
 
     cpdef _check_expiration_and_refresh_status(self):
         seconds_since_epoc = int(time.time())
-        is_expired = seconds_since_epoc >= self.expiry
-        is_refresh_required = (self.expiry - seconds_since_epoc) <= self._refresh_window
+        is_expired = seconds_since_epoc >= self.expires_at
+        is_refresh_required = (self.expires_at - seconds_since_epoc) <= self._refresh_window
         return is_expired, is_refresh_required
 
     cpdef _cbs_open_complete(self, result):
@@ -142,6 +142,8 @@ cdef class CBSTokenAuth:
 
     cpdef on_cbs_open_complete(self, result):
         _logger.debug("CBS completed opening with status: {}".format(result))
+        if result == c_cbs.CBS_OPEN_COMPLETE_RESULT_TAG.CBS_OPEN_ERROR:
+            self.state = AUTH_STATUS_FAILURE
 
     cpdef _cbs_error(self):
         self.on_cbs_error()
@@ -153,7 +155,7 @@ cdef class CBSTokenAuth:
         if result == CBS_OPERATION_RESULT_OK:
             self.state = AUTH_STATUS_OK
         else:
-            self.state = AUTH_STATUS_FAILURE
+            self.state = AUTH_STATUS_ERROR
         self.token_status_code = status_code
         self.token_status_description = status_description
         self.on_cbs_put_token_complete(result, status_code, status_description)

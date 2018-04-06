@@ -6,7 +6,6 @@
 
 # Python imports
 import logging
-import asyncio
 
 # C imports
 cimport c_amqp_management
@@ -114,11 +113,7 @@ cdef void on_execute_operation_complete(void* context, c_amqp_management.AMQP_MA
         cloned = c_message.message_clone(message)
         wrapped_message = message_factory(cloned)
         context_obj = <object>context
-        if hasattr(context_obj, "_management_operation_complete_async"):
-            asyncio.ensure_future(
-                context_obj._management_operation_complete_async(execute_operation_result, status_code, description, wrapped_message),
-                loop=context_obj.loop)
-        elif hasattr(context_obj, "_management_operation_complete"):
+        if hasattr(context_obj, "_management_operation_complete"):
             context_obj._management_operation_complete(execute_operation_result, status_code, description, wrapped_message)
-        else:
+        elif callable(context_obj):
             context_obj(execute_operation_result, status_code, description, wrapped_message)

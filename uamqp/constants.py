@@ -10,7 +10,7 @@ from uamqp import utils
 from uamqp import c_uamqp
 
 
-DEFAULT_AMQPS_PORT = c_uamqp.AMQPS_PORT
+DEFAULT_AMQPS_PORT = 5671
 AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS
 
@@ -18,6 +18,7 @@ STRING_FILTER = b"apache.org:selector-filter:string"
 OPERATION = b"operation"
 READ_OPERATION = b"READ"
 MGMT_TARGET = b"$management"
+MESSAGE_SEND_RETRIES = 3
 
 
 BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT
@@ -29,7 +30,7 @@ class MessageState(Enum):
     WaitingToBeSent = 0
     WaitingForAck = 1
     Complete = 2
-    PartiallySent = 3
+    Failed = 3
 
 
 class MessageReceiverState(Enum):
@@ -112,6 +113,7 @@ class CBSAuthStatus(Enum):
     Timeout = c_uamqp.AUTH_STATUS_TIMEOUT
     RefreshRequired = c_uamqp.AUTH_STATUS_REFRESH_REQUIRED
     Expired = c_uamqp.AUTH_STATUS_EXPIRED
+    Error = c_uamqp.AUTH_STATUS_ERROR
     Failure = c_uamqp.AUTH_STATUS_FAILURE
 
 

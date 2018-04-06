@@ -9,6 +9,7 @@ import logging
 import functools
 
 from uamqp import sender
+from uamqp import errors
 
 
 _logger = logging.getLogger(__name__)
@@ -45,7 +46,12 @@ class MessageSenderAsync(sender.MessageSender):
         await self.loop.run_in_executor(None, functools.partial(self._destroy))
 
     async def open_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self.open))
+        try:
+            await self.loop.run_in_executor(None, functools.partial(self._sender.open))
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Sender. "
+                "Please confirm credentials and target URI.")
 
     async def close_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self.close))
+        await self.loop.run_in_executor(None, functools.partial(self._sender.close))

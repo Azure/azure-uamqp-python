@@ -8,25 +8,38 @@ import os
 import logging
 import asyncio
 import pytest
+import sys
 
 import uamqp
 from uamqp import async as a_uamqp
 from uamqp import authentication
 
 
-log = logging.getLogger(__name__)
+def get_logger(level):
+    uamqp_logger = logging.getLogger("uamqp")
+    if not uamqp_logger.handlers:
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        uamqp_logger.addHandler(handler)
+    uamqp_logger.setLevel(level)
+    return uamqp_logger
+
+
+log = get_logger(logging.INFO)
 
 
 @pytest.mark.asyncio
 async def test_event_hubs_client_send_async(live_eventhub_config):
-    properties = {b"SendData", b"Property_String_Value_1"}
+    properties = {b"SendData": b"Property_String_Value_1"}
     msg_content = b"hello world"
 
     message = uamqp.Message(msg_content, application_properties=properties)
     plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=plain_auth, debug=False)
-    await send_client.send_all_messages_async()
+    send_client = a_uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
+    send_client.queue_message(message)
+    results = await send_client.send_all_messages_async()
+    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]
 
 
 @pytest.mark.asyncio
@@ -46,7 +59,7 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
 @pytest.mark.asyncio
 async def test_event_hubs_batch_send_async(live_eventhub_config):
     def data_generator():
-        for i in range(500):
+        for i in range(5):
             msg_content = "Hello world {}".format(i).encode('utf-8')
             yield msg_content
 
@@ -59,4 +72,5 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
     send_client = a_uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
 
     send_client.queue_message(message_batch)
-    await send_client.send_all_messages_async()
+    results = await send_client.send_all_messages_async()
+    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]

@@ -81,13 +81,20 @@ class AMQPClientAsync(client.AMQPClient):
             return  # already closed.
         else:
             if self._connection.cbs and not self._ext_connection:
+                _logger.debug("Closing CBS session.")
                 await self._auth.close_authenticator_async()
                 self._connection.cbs = None
             elif not self._connection.cbs:
+                _logger.debug("Closing non-CBS session.")
                 await self._session.destroy_async()
+            else:
+                _logger.debug("Not closing CBS session.")
             self._session = None
             if not self._ext_connection:
+                _logger.debug("Closing unshared connection.")
                 await self._connection.destroy_async()
+            else:
+                _logger.debug("Shared connection remaining open.")
             self._connection = None
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
@@ -152,14 +159,16 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             await self._message_sender.open_async()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
-            raise ValueError("Message sender in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Sender Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
 
     async def _client_run(self):
         for message in self._pending_messages[:]:
-            if message.state == constants.MessageState.Complete:
+            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
@@ -196,20 +205,27 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._pending_messages.append(message)
         await self.open_async()
         try:
-            while message.state != constants.MessageState.Complete:
+            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 await self.do_work_async()
         except:
             raise
         else:
+            if message.state == constants.MessageState.Failed:
+                raise errors.MessageSendFailed("Failed to send message.")
+        finally:
             if close_on_done:
                 await self.close_async()
 
     async def send_all_messages_async(self, close_on_done=True):
         await self.open_async()
         try:
+            messages = self._pending_messages[:]
             await self.wait_async()
         except:
             raise
+        else:
+            results = [m.state for m in messages]
+            return results
         finally:
             if close_on_done:
                 await self.close_async()
@@ -237,7 +253,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             await self._message_receiver.open_async(self)
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
-            raise ValueError("Message receiver in error state.")
+            raise errors.AMQPConnectionError(
+                "Message Receiver Client was unable to open. "
+                "Please confirm credentials and access permissions.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
@@ -299,28 +317,39 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if close_on_done:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, batch_size=None, on_message_received=None, timeout=0):
+    async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
-        batch_size = batch_size or self._prefetch
+        max_batch_size = max_batch_size or self._prefetch
+        if max_batch_size > self._prefetch:
+            raise ValueError(
+                'Maximum batch size {} cannot be greater than the '
+                'connection prefetch: {}'.format(max_batch_size, self._prefetch))
         timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
         self._received_messages = self._received_messages or asyncio.Queue(self._prefetch)
         await self.open_async()
         receiving = True
         batch = []
-        while not self._received_messages.empty() and len(batch) < batch_size:
+        while not self._received_messages.empty() and len(batch) < max_batch_size:
             batch.append(await self._received_messages.get())
             self._received_messages.task_done()
-        if len(batch) >= batch_size:
+        if len(batch) >= max_batch_size:
             return batch
 
-        while receiving and not expired and len(batch) < batch_size:
-            while receiving and self._received_messages.qsize() < min(batch_size, self._prefetch):
+        while receiving and not expired and len(batch) < max_batch_size:
+            while receiving and self._received_messages.qsize() < max_batch_size:
                 if timeout > 0 and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
+                before = self._received_messages.qsize()
                 receiving = await self.do_work_async()
-            while not self._received_messages.empty() and len(batch) < batch_size:
+                received = self._received_messages.qsize() - before
+                if self._received_messages.qsize() > 0 and received == 0:
+                    # No new messages arrived, but we have some - so return what we have.
+                    expired = True
+                    break
+
+            while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(await self._received_messages.get())
                 self._received_messages.task_done()
         else:

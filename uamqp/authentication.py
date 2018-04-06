@@ -8,11 +8,12 @@ import sys
 import logging
 import time
 import datetime
+import threading
 try:
-    from urllib import quote_plus #Py2
+    from urllib import quote_plus, unquote_plus #Py2
     from urllib import urlparse
 except Exception:
-    from urllib.parse import quote_plus
+    from urllib.parse import quote_plus, unquote_plus
     from urllib.parse import urlparse
 
 from uamqp import Session
@@ -28,10 +29,7 @@ _is_win = sys.platform.startswith('win')
 
 
 def _get_default_tlsio():
-    if _is_win:
-        return c_uamqp.get_default_tlsio()
-    else:
-        return c_uamqp.get_openssl_tlsio()
+    return c_uamqp.get_default_tlsio()
 
 
 class TokenRetryPolicy:
@@ -82,85 +80,114 @@ class SASLAnonymous(AMQPAuth):
 
 class CBSAuthMixin:
 
-    def configure(self):
-        raise NotImplementedError(
-            "Token auth must implement configuration."
-        )
+    def update_token(self):
+        raise errors.TokenExpired(
+            "Unable to refresh token - no refresh logic implemented.")
 
     def create_authenticator(self, connection, debug=False):
+        self._lock = threading.Lock()
         self._session = Session(
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
             outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
-        self._cbs_auth = c_uamqp.CBSTokenAuth(
-            self.audience,
-            self.token_type,
-            self.token,
-            self.expiry,
-            self._session._session,
-            self.timeout)
-        self._cbs_auth.set_trace(debug)
+        try:
+            self._cbs_auth = c_uamqp.CBSTokenAuth(
+                self.audience,
+                self.token_type,
+                self.token,
+                int(self.expires_at),
+                self._session._session,
+                self.timeout)
+            self._cbs_auth.set_trace(debug)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Unable to open authentication session. "
+                "Please confirm target URI exists.")
         return self._cbs_auth
 
     def close_authenticator(self):
         self._cbs_auth.destroy()
         self._session.destroy()
 
-    def refresh_token_async(self, token):
-        self._refresh_token = token
-
     def handle_token(self):
         timeout = False
         in_progress = False
-        auth_status = self._cbs_auth.get_status()
-        auth_status = constants.CBSAuthStatus(auth_status)
-        if auth_status == constants.CBSAuthStatus.Failure:
-            if self.retries >= self._retry_policy.retries:
-                raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
-            else:
-                self.retries += 1
-                time.sleep(self._retry_policy.backoff)
+        self._lock.acquire()
+        try:
+            auth_status = self._cbs_auth.get_status()
+            auth_status = constants.CBSAuthStatus(auth_status)
+            if auth_status == constants.CBSAuthStatus.Error:
+                if self.retries >= self._retry_policy.retries:
+                    _logger.warning("Authentication Put-Token failed. Retries exhausted.")
+                    raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
+                else:
+                    _logger.info("Authentication Put-Token failed. Retrying.")
+                    self.retries += 1
+                    time.sleep(self._retry_policy.backoff)
+                    self._cbs_auth.authenticate()
+                    in_progress = True
+            elif auth_status == constants.CBSAuthStatus.Failure:
+                errors.AuthenticationException("Failed to open CBS authentication link.")
+            elif auth_status == constants.CBSAuthStatus.Expired:
+                raise errors.TokenExpired("CBS Authentication Expired.")
+            elif auth_status == constants.CBSAuthStatus.Timeout:
+                timeout = True
+            elif auth_status == constants.CBSAuthStatus.InProgress:
+                in_progress = True
+            elif auth_status == constants.CBSAuthStatus.RefreshRequired:
+                _logger.info("Token will expire soon - attempting to refresh.")
+                self.update_token()
+                self._cbs_auth.refresh(self.token, int(self.expires_at))
+            elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
-        elif auth_status == constants.CBSAuthStatus.Expired:
-            raise errors.TokenExpired("CBS Authentication Expired.")
-        elif auth_status == constants.CBSAuthStatus.Timeout:
-            timeout = True
-        elif auth_status == constants.CBSAuthStatus.InProgress:
-            in_progress = True
-        elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-            self._cbs_auth.refresh(None)
-        elif auth_status == constants.CBSAuthStatus.Idle:
-            self._cbs_auth.authenticate()
-            in_progress = True
-        elif auth_status == constants.CBSAuthStatus.Ok:
-            if self._refresh_token:
-                try:
-                    self._cbs_auth.refresh(self._refresh_token)
-                finally:
-                    self._refresh_token = None
-        else:
-            raise ValueError("Invalid auth state.")
+            elif auth_status != constants.CBSAuthStatus.Ok:
+                raise errors.AuthenticationException("Invalid auth state.")
+        except ValueError as e:
+            raise errors.AuthenticationException(
+                "Token authentication failed: {}".format(e))
+        except:
+            raise
+        finally:
+            self._lock.release()
         return timeout, in_progress
 
 
 class SASTokenAuth(AMQPAuth, CBSAuthMixin):
 
-    def __init__(self, audience, uri, token, expiry,
-                 port=constants.DEFAULT_AMQPS_PORT, timeout=10,
+    def __init__(self, audience, uri, token,
+                 expires_in=None,
+                 expires_at=None,
+                 username=None,
+                 password=None,
+                 port=constants.DEFAULT_AMQPS_PORT,
+                 timeout=10,
                  retry_policy=TokenRetryPolicy(),
                  token_type=b"servicebus.windows.net:sastoken"):
-        self._refresh_token = None
         self._retry_policy = retry_policy
         parsed = urlparse(uri)
+        self.uri = uri
         self.hostname = parsed.hostname
+        self.username = unquote_plus(parsed.username) if parsed.username else None
+        self.username = username or self.username
+        self.password = unquote_plus(parsed.password) if parsed.password else None
+        self.password = password or self.password
         self.audience = audience if isinstance(audience, bytes) else audience.encode('utf-8')
         self.token_type = token_type if isinstance(token_type, bytes) else token_type.encode('utf-8')
         self.token = token if isinstance(token, bytes) else token.encode('utf-8')
-        self.expiry = expiry
+        if not expires_at and not expires_in:
+            raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
+        elif not expires_at:
+            self.expires_in = expires_in
+            self.expires_at = time.time() + expires_in.seconds
+        else:
+            self.expires_at = expires_at
+            expires_in = expires_at - time.time()
+            if expires_in < 1:
+                raise ValueError("Token has already expired.")
+            self.expires_in = datetime.timedelta(seconds=expires_in)
         self.timeout = timeout
         self.retries = 0
-
         self.sasl = sasl.SASL()
         self.set_tlsio(self.hostname, port)
 
@@ -175,6 +202,14 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     def from_sas_token(cls, sas_token):
         raise NotImplementedError()
 
+    def update_token(self):
+        if not self.username or not self.password:
+            raise errors.TokenExpired("Unable to refresh token - no username or password.")
+        encoded_uri = quote_plus(self.uri)
+        encoded_key = quote_plus(self.username)
+        self.expires_at = time.time() + self.expires_in.seconds
+        self.token = utils.create_sas_token(encoded_key, self.password, encoded_uri, self.expires_in)
+
     @classmethod
     def from_shared_access_key(
             cls,
@@ -183,9 +218,15 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             shared_access_key,
             expiry=None,
             timeout=10):
-        expiry = expiry or constants.AUTH_EXPIRATION_SECS
-        expiry = int(time.time()) + expiry
+        expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
         encoded_uri = quote_plus(uri)
         encoded_key = quote_plus(key_name)
-        token = utils.create_sas_token(encoded_key, shared_access_key, encoded_uri)
-        return cls(uri, uri, token, expiry, timeout=timeout)
+        expires_at = time.time() + expires_in.seconds
+        token = utils.create_sas_token(encoded_key, shared_access_key, encoded_uri, expires_in)
+        return cls(
+            uri, uri, token,
+            expires_in=expires_in,
+            expires_at=expires_at,
+            timeout=timeout,
+            username=key_name,
+            password=shared_access_key)

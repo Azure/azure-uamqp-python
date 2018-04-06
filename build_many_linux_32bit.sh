@@ -4,14 +4,14 @@ set -e
 # To execute this script:
 # docker run --rm -v $PWD:/data pyca/cryptography-manylinux1:i686 /data/build_many_linux_32bit.sh
 
-export UAMQP_VERSION="0.1.0b1"
+export UAMQP_VERSION="0.1.0b2"
 
 export CPATH="/opt/pyca/cryptography/openssl/include"
 export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"
 
 # Build libuuid
 pushd /tmp
-wget https://www.kernel.org/pub/linux/utils/util-linux/v2.27/util-linux-2.27.1.tar.gz --no-check-certificate
+curl -O https://cdn.kernel.org/pub/linux/utils/util-linux/v2.27/util-linux-2.27.1.tar.gz
 tar xvf util-linux-2.27.1.tar.gz
 cd util-linux-2.27.1
 ./configure --disable-shared --disable-all-programs --enable-libuuid CFLAGS=-fPIC

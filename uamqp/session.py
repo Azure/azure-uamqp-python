@@ -9,6 +9,7 @@ import logging
 from uamqp import c_uamqp
 from uamqp import mgmt_operation
 from uamqp import constants
+from uamqp import errors
 
 
 _logger = logging.getLogger(__name__)
@@ -39,17 +40,21 @@ class Session:
         self._session.destroy()
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+        timeout = kwargs.pop('timeout', None) or 0
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
             mgmt_link = mgmt_operation.MgmtOperation(self, target=node, **kwargs)
-            while not mgmt_link.open:
+            while not mgmt_link.open and not mgmt_link.mgmt_error:
                 self._connection.work()
-            if mgmt_link.open != constants.MgmtOpenStatus.Ok:
-                raise ValueError("Failed to open mgmt link: {}".format(mgmt_link.open))
+            if mgmt_link.mgmt_error:
+                raise mgmt_link.mgmt_error
+            elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
+                raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
+            
             self._mgmt_links[node] = mgmt_link
         op_type = op_type or b'empty'
-        response = mgmt_link.execute(operation, op_type, message)
+        response = mgmt_link.execute(operation, op_type, message, timeout=timeout)
         return response
 
     def destroy(self):

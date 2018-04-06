@@ -7,19 +7,19 @@ An AMQP 1.0 client library for Python.
 Installation
 ============
 
-Wheels are provided for all major operating systems, so you can install directly with pip:
+Wheels are provided for Windows and MacOSX, so you can install directly with pip:
 
 .. code:: shell
 
     $ pip install uamqp
 
 
-If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__, you can install from source:
+If you are using Linux, you can install from source:
 
 .. code:: shell
 
     $ apt-get update
-    $ apt-get install -y build-essential libssl-dev python3-dev uuid-dev cmake python3-pip
+    $ apt-get install -y build-essential libssl-dev python3-dev uuid-dev cmake python3-pip libcurl4-openssl-dev pkg-config
     $ pip3 install uamqp --no-binary
 
 
@@ -37,12 +37,11 @@ Pre-requisites
 
 - Windows: Setup a `build environment <https://packaging.python.org/guides/packaging-binary-extensions/#building-binary-extensions>`__.
 - Linux: Install dependencies as descriped above in the installation instructions.
-- MacOS: Install OpenSSL and UUID using Homebrew:
+- MacOS: Install cmake using Homebrew:
 
 .. code:: shell
 
-    $ brew install openssl@1.1
-    $ brew install ossp-uuid
+    $ brew install cmake
 
 Building the extension
 ++++++++++++++++++++++
