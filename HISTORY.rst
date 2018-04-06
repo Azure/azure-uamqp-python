@@ -17,7 +17,6 @@ Release History
 - Parameter `batch_size` in `receive_batch` renamed to `max_batch_size`.
 - Fixed message `application_properties` decode error.
 - Removed MacOS dependency on OpenSSL and libuuid.
-- Fixed setup.py to run cmake on vendored C dependencies.
 
 
 0.1.0b1 (2018-03-24)
