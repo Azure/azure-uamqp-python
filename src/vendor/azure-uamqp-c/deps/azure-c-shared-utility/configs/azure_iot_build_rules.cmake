@@ -17,7 +17,9 @@ option(compileOption_C "passes a string to the command line of the C compiler" O
 option(compileOption_CXX "passes a string to the command line of the C++ compiler" OFF)
 
 # These are the include folders. (assumes that this file is in a subdirectory of c-utility)
-get_filename_component(SHARED_UTIL_FOLDER ${CMAKE_CURRENT_LIST_DIR} DIRECTORY)
+# annatisch lmazuel change DIRETORY to PATH
+# https://github.com/google/flatbuffers/issues/94
+get_filename_component(SHARED_UTIL_FOLDER ${CMAKE_CURRENT_LIST_DIR} PATH)
 set(SHARED_UTIL_FOLDER "${SHARED_UTIL_FOLDER}" CACHE INTERNAL "this is the sharedLib directory" FORCE)
 set(SHARED_UTIL_INC_FOLDER ${SHARED_UTIL_FOLDER}/inc CACHE INTERNAL "this is what needs to be included if using sharedLib lib" FORCE)
 set(SHARED_UTIL_SRC_FOLDER ${SHARED_UTIL_FOLDER}/src CACHE INTERNAL "this is what needs to be included when doing include sources" FORCE)

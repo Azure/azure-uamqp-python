@@ -6,10 +6,6 @@ __pycache__/
 # C extensions
 *.so
 
-# C dependencies
-azure-uamqp-c/
-azure-c-shared-utility/
-
 # Distribution / packaging
 .Python
 env/
