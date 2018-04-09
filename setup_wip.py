@@ -118,20 +118,24 @@ class build_ext(build_ext_orig):
         configure_command = [
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
-            "-Duse_openssl:bool={}".format("OFF" if is_win or is_mac else "ON"), 
-            # -Duse_default_uuid:bool=ON \ # Should we use libuuid in the system or light one?
+            "-Duse_openssl:bool={}".format("OFF" if (is_win or is_mac) else "ON"), 
+            "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
             # -Duse_builtin_httpapi:bool=ON \ # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE" # ask for -fPIC
         ]
+        build_env = os.environ.copy()
+        build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
+        build_env['CMAKE_OSX_DEPLOYMENT_TARGET'] = "10.6"
+        build_env['CMAKE_OSX_ARCHITECTURES'] = "i386;x86_64"
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
-        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True)
+        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
 
         compile_command  = ["cmake", "--build", "."]
         joined_cmd = " ".join(compile_command)
         logger.info("calling %s", joined_cmd)
-        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True)
+        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
 
         os.chdir(cwd)
 
@@ -154,6 +158,10 @@ if is_win:
         'RpcRT4',
         'WSock32',
         'WS2_32']
+elif is_mac:
+    kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
+    kwargs['extra_link_args'] = ['-framework', 'Foundation', '-framework', 'CFNetwork']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
