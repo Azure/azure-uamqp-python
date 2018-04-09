@@ -24,8 +24,6 @@ except ImportError:
 if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
     raise ValueError("You need to install cython==0.27.3 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
 
-
-supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 
@@ -57,10 +55,6 @@ include_dirs = [
 def create_cython_file():
     content_includes = ""
     for f in os.listdir("./src"):
-        if is_win and 'openssl' in f:
-            continue
-        elif not is_win and 'schannel' in f:
-            continue
         if f.endswith(".pyx"):
             print("Adding {}".format(f))
             content_includes += "include \"src/" + f + "\"\n"
@@ -68,6 +62,16 @@ def create_cython_file():
     with open(c_uamqp_src, 'w') as lib_file:
         lib_file.write(content_includes)
     return c_uamqp_src
+
+
+def get_build_env(self):
+    build_env = os.environ.copy()
+    if is_mac:
+        build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
+        build_env['CMAKE_OSX_DEPLOYMENT_TARGET'] = "10.6"
+        build_env['CMAKE_OSX_ARCHITECTURES'] = "i386;x86_64"
+    return build_env
+
 
 # Compile uamqp
 # Inspired by https://stackoverflow.com/a/48015772/4074838
@@ -124,10 +128,7 @@ class build_ext(build_ext_orig):
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE" # ask for -fPIC
         ]
-        build_env = os.environ.copy()
-        build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
-        build_env['CMAKE_OSX_DEPLOYMENT_TARGET'] = "10.6"
-        build_env['CMAKE_OSX_ARCHITECTURES'] = "i386;x86_64"
+        build_env = get_build_env()
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
         subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
@@ -165,25 +166,8 @@ elif is_mac:
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    if not supress_link_flags:
-        kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto', 'uuid']
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto', 'uuid']
 
-        # FIXME Do some clean up here
-        kwargs['library_dirs'] = [
-            # '/tmp/cmakebuild',
-            # '/tmp/cmakebuild/deps/azure-c-shared-utility/'
-        ]
-
-        # FIXME Do some clean up here
-        kwargs['extra_link_args'] = [
-        #     "/data/azure-uamqp-c/cmake/libuamqp.a",
-        #     "/data/azure-uamqp-c/cmake/deps/azure-c-shared-utility/libaziotsharedutil.a",
-        #  "/usr/lib/x86_64-linux-gnu/libssl.a",
-        #  "/usr/lib/x86_64-linux-gnu/libcrypto.a",
-        #     "/tmp/openssl/openssl-1.0.2o/libssl.a",
-        #     "/tmp/openssl/openssl-1.0.2o/libcrypto.a",
-        #     "/usr/lib/x86_64-linux-gnu/libuuid.so"
-        ]
 
 # If the C file doesn't exist, build the "c_uamqp.c" file
 # That's not perfect, since we build it on a "--help", but should be if cloned from source only.
