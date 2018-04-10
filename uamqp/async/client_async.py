@@ -161,7 +161,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         elif self._message_sender._state == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
                 "Message Sender Client was unable to open. "
-                "Please confirm credentials and access permissions.")
+                "Please confirm credentials and access permissions."
+                "\nSee debug trace for more details.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
@@ -200,17 +201,22 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         while self.messages_pending():
             await self.do_work_async()
 
-    async def send_message_async(self, message, close_on_done=False):
-        message.idle_time = self._counter.get_current_ms()
-        self._pending_messages.append(message)
+    async def send_message_async(self, messages, close_on_done=False):
+        batch = messages.gather()
+        pending_batch = []
+        for message in batch:
+            message.idle_time = self._counter.get_current_ms()
+            self._pending_messages.append(message)
+            pending_batch.append(message)
         await self.open_async()
         try:
-            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
+            while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
                 await self.do_work_async()
         except:
             raise
         else:
-            if message.state == constants.MessageState.Failed:
+            failed = [m for m in pending_batch if m.state == constants.MessageState.Failed]
+            if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
             if close_on_done:
@@ -255,7 +261,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
                 "Message Receiver Client was unable to open. "
-                "Please confirm credentials and access permissions.")
+                "Please confirm credentials and access permissions."
+                "\nSee debug trace for more details.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False

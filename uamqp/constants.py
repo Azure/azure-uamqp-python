@@ -33,6 +33,9 @@ class MessageState(Enum):
     Failed = 3
 
 
+DONE_STATES = (MessageState.Complete, MessageState.Failed)
+
+
 class MessageReceiverState(Enum):
     Idle = c_uamqp.MESSAGE_RECEIVER_STATE_IDLE
     Opening = c_uamqp.MESSAGE_RECEIVER_STATE_OPENING

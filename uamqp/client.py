@@ -171,7 +171,8 @@ class AMQPClient:
             self._connection.work()
             return True
         else:
-            return self._client_run()
+            result = self._client_run()
+            return result
 
 
 class SendClient(AMQPClient):
@@ -203,7 +204,8 @@ class SendClient(AMQPClient):
         elif self._message_sender._state == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
                 "Message Sender Client was unable to open. "
-                "Please confirm credentials and access permissions.")
+                "Please confirm credentials and access permissions."
+                "\nSee debug trace for more details.")
         elif self._message_sender._state != constants.MessageSenderState.Open:
             return False
         return True
@@ -242,17 +244,22 @@ class SendClient(AMQPClient):
             message.idle_time = self._counter.get_current_ms()
             self._pending_messages.append(message)
 
-    def send_message(self, message, close_on_done=False):
-        message.idle_time = self._counter.get_current_ms()
-        self._pending_messages.append(message)
+    def send_message(self, messages, close_on_done=False):
+        batch = messages.gather()
+        pending_batch = []
+        for message in batch:
+            message.idle_time = self._counter.get_current_ms()
+            self._pending_messages.append(message)
+            pending_batch.append(message)
         self.open()
         try:
-            while message.state not in [constants.MessageState.Complete, constants.MessageState.Failed]:
+            while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
                 self.do_work()
         except:
             raise
         else:
-            if message.state == constants.MessageState.Failed:
+            failed = [m for m in pending_batch if m.state == constants.MessageState.Failed]
+            if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
             if close_on_done:
@@ -302,7 +309,7 @@ class ReceiveClient(AMQPClient):
         if not self._message_receiver:
             self._message_receiver = receiver.MessageReceiver(
                 self._session, self._remote_address, self._name,
-                name='receiver-link',
+                name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
@@ -313,7 +320,8 @@ class ReceiveClient(AMQPClient):
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
                 "Message Receiver Client was unable to open. "
-                "Please confirm credentials and access permissions.")
+                "Please confirm credentials and access permissions."
+                "\nSee debug trace for more details.")
         elif self._message_receiver._state != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
@@ -350,7 +358,7 @@ class ReceiveClient(AMQPClient):
                 'connection prefetch: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or queue.Queue(self._prefetch)
+        self._received_messages = self._received_messages or queue.Queue()
         self.open()
         receiving = True
         batch = []

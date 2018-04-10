@@ -64,7 +64,7 @@ def create_cython_file():
     return c_uamqp_src
 
 
-def get_build_env(self):
+def get_build_env():
     build_env = os.environ.copy()
     if is_mac:
         build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
@@ -113,6 +113,7 @@ class build_ext(build_ext_orig):
         create_folder_no_exception(self.cmake_build_dir)
 
         extdir = self.get_ext_fullpath(ext.name)
+        print("extdir", extdir, ext.name, dir(ext))
         create_folder_no_exception(extdir)
 
         logger.info("will build uamqp in %s", self.cmake_build_dir)

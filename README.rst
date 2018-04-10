@@ -19,7 +19,7 @@ If you are using Linux, you can install from source:
 .. code:: shell
 
     $ apt-get update
-    $ apt-get install -y build-essential libssl-dev python3-dev uuid-dev cmake python3-pip libcurl4-openssl-dev pkg-config
+    $ apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config python3-dev python3-pip
     $ pip3 install uamqp --no-binary
 
 

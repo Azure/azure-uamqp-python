@@ -88,7 +88,7 @@ class Message:
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
-            self.message_annotations = _ann.map
+            self.annotations = _ann.map
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
             self.delivery_annotations = _delivery_ann.map
