@@ -40,13 +40,12 @@ class Message:
             self._message = c_uamqp.create_message()
             if isinstance(body, str) or isinstance(body, bytes):
                 self._body = DataBody(self._message)
-                if body:
-                    self._body.append(body)
+                self._body.append(body)
             elif isinstance(body, list):
-                self._body = SequenceBody(self._message)
+                self._body = DataBody(self._message)
                 for value in body:
                     self._body.append(value)
-            elif body:
+            elif body is not None:
                 self._body = ValueBody(self._message)
                 self._body.set(body)
             else:
@@ -158,7 +157,7 @@ class BatchMessage(Message):
         self.annotations = annotations
 
     def _create_batch_message(self):
-        return Message(body="", properties=self.properties, annotations=self.annotations, msg_format=self.batch_format)
+        return Message(body=[], properties=self.properties, annotations=self.annotations, msg_format=self.batch_format)
 
     def _multi_message_generator(self):
         while True:
