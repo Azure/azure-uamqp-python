@@ -10,6 +10,7 @@ import logging
 # C imports
 cimport c_xio
 cimport c_sasl_mechanism
+cimport c_utils
 
 
 _logger = logging.getLogger(__name__)
@@ -18,6 +19,14 @@ _logger = logging.getLogger(__name__)
 cpdef xio_from_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
     xio = XIO()
     xio.create(io_desc._c_value, &io_config._c_value)
+    return xio
+
+
+cpdef xio_from_openssl_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
+    xio = XIO()
+    xio.create(io_desc._c_value, &io_config._c_value)
+    print("setting TLS version")
+    xio.set_option(b"tls_version", 2)
     return xio
 
 
@@ -61,6 +70,12 @@ cdef class XIO(StructBase):
         self.destroy()
         self._c_value = c_xio.xio_create(io_desc, io_params)
         self._create()
+
+    cpdef set_option(self, const char* option_name, value):
+        cdef const void* option_value
+        option_value = <const void*>value
+        if c_xio.xio_setoption(self._c_value, option_name, option_value) != 0:
+            raise self._value_error("Failed to set option {}".format(option_name))
 
 
 cdef class IOInterfaceDescription:

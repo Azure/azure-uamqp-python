@@ -45,12 +45,9 @@ class Message:
                 self._body = DataBody(self._message)
                 for value in body:
                     self._body.append(value)
-            elif body is not None:
-                self._body = ValueBody(self._message)
-                self._body.set(body)
             else:
                 self._body = ValueBody(self._message)
-                self._body.set(None)
+                self._body.set(body)
             if msg_format:
                 self._message.message_format = msg_format
             self.properties = properties
