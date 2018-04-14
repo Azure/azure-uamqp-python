@@ -149,7 +149,7 @@ if(${use_openssl})
 
     # lmazuel annatisch : comment this here, then we're responsible to set all the OPENSSL_XXXXX variables
     # But seems CMake 2.6.4 is not able to deal with recent OpenSSL
-    # find_package(OpenSSL REQUIRED)
+    find_package(OpenSSL REQUIRED)
     include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
 
