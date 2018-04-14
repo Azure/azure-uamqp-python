@@ -51,10 +51,7 @@ class AMQPAuth:
         self._tlsio_config = c_uamqp.TLSIOConfig()
         self._tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
         self._tlsio_config.port = int(port)
-        if _is_win:
-            self._underlying_xio = c_uamqp.xio_from_tlsioconfig(self._default_tlsio, self._tlsio_config)
-        else:
-            self._underlying_xio = c_uamqp.xio_from_openssl_tlsioconfig(self._default_tlsio, self._tlsio_config)
+        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(self._default_tlsio, self._tlsio_config)
         self.sasl_client = sasl.SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):

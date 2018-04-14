@@ -10,7 +10,6 @@ import logging
 # C imports
 cimport c_xio
 cimport c_sasl_mechanism
-cimport c_utils
 
 
 _logger = logging.getLogger(__name__)
@@ -19,14 +18,6 @@ _logger = logging.getLogger(__name__)
 cpdef xio_from_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
     xio = XIO()
     xio.create(io_desc._c_value, &io_config._c_value)
-    return xio
-
-
-cpdef xio_from_openssl_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
-    xio = XIO()
-    xio.create(io_desc._c_value, &io_config._c_value)
-    print("setting TLS version")
-    xio.set_option(b"tls_version", 2)
     return xio
 
 

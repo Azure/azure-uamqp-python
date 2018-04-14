@@ -113,7 +113,6 @@ class build_ext(build_ext_orig):
         create_folder_no_exception(self.cmake_build_dir)
 
         extdir = self.get_ext_fullpath(ext.name)
-        print("extdir", extdir, ext.name, dir(ext))
         create_folder_no_exception(extdir)
 
         logger.info("will build uamqp in %s", self.cmake_build_dir)
@@ -125,7 +124,7 @@ class build_ext(build_ext_orig):
             cwd + "/src/vendor/azure-uamqp-c/",
             "-Duse_openssl:bool={}".format("OFF" if (is_win or is_mac) else "ON"), 
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
-            # -Duse_builtin_httpapi:bool=ON \ # Should we use libcurl in the system or light one?
+            "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE" # ask for -fPIC
         ]
@@ -163,7 +162,7 @@ if is_win:
 elif is_mac:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
-    kwargs['extra_link_args'] = ['-framework', 'Foundation', '-framework', 'CFNetwork']
+    kwargs['extra_link_args'] = ['-framework', 'CoreFoundation', '-framework', 'CFNetwork', '-framework', 'Security']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
