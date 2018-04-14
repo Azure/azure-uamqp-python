@@ -62,6 +62,12 @@ cdef class XIO(StructBase):
         self._c_value = c_xio.xio_create(io_desc, io_params)
         self._create()
 
+    cpdef set_option(self, const char* option_name, value):
+        cdef const void* option_value
+        option_value = <const void*>value
+        if c_xio.xio_setoption(self._c_value, option_name, option_value) != 0:
+            raise self._value_error("Failed to set option {}".format(option_name))
+
 
 cdef class IOInterfaceDescription:
 

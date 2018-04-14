@@ -30,7 +30,7 @@ log = get_logger(logging.INFO)
 
 
 def on_message_received(message):
-    annotations = message.message_annotations
+    annotations = message.annotations
     log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
     return message
 
@@ -83,7 +83,7 @@ async def test_event_hubs_iter_receive_async(live_eventhub_config):
 
     receive_client = a_uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=100, prefetch=10)
     async for message in receive_client.receive_messages_iter_async():
-        annotations = message.message_annotations
+        annotations = message.annotations
         log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
 
 
@@ -102,17 +102,17 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
         message_batch = await receive_client.receive_message_batch_async(10)
         log.info("got batch: {}".format(len(message_batch)))
         for message in message_batch:
-            annotations = message.message_annotations
+            annotations = message.annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
         next_batch = await receive_client.receive_message_batch_async(10)
         log.info("got another batch: {}".format(len(next_batch)))
         for message in next_batch:
-            annotations = message.message_annotations
+            annotations = message.annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
         next_batch = await receive_client.receive_message_batch_async(10)
         log.info("got another batch: {}".format(len(next_batch)))
         for message in next_batch:
-            annotations = message.message_annotations
+            annotations = message.annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
 
 
