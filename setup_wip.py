@@ -26,6 +26,8 @@ if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
 
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
+bypass_openssl = os.environ.get('UAMQP_NO_OPENSSL', (is_win or is_mac))
+supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 
 # Version extraction inspired from 'requests'
 with open(os.path.join('uamqp', '__init__.py'), 'r') as fd:
@@ -66,10 +68,10 @@ def create_cython_file():
 
 def get_build_env():
     build_env = os.environ.copy()
-    if is_mac:
-        build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
-        build_env['CMAKE_OSX_DEPLOYMENT_TARGET'] = "10.6"
-        build_env['CMAKE_OSX_ARCHITECTURES'] = "i386;x86_64"
+    #if is_mac:
+    #    build_env['MACOSX_DEPLOYMENT_TARGET'] = "10.6"
+    #    build_env['CMAKE_OSX_DEPLOYMENT_TARGET'] = "10.6"
+    #    build_env['CMAKE_OSX_ARCHITECTURES'] = "i386;x86_64"
     return build_env
 
 
@@ -122,7 +124,7 @@ class build_ext(build_ext_orig):
         configure_command = [
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
-            "-Duse_openssl:bool={}".format("OFF" if (is_win or is_mac) else "ON"), 
+            "-Duse_openssl:bool={}".format("OFF" if bypass_openssl else "ON"), 
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
             "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
@@ -162,7 +164,13 @@ if is_win:
 elif is_mac:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
-    kwargs['extra_link_args'] = ['-framework', 'CoreFoundation', '-framework', 'CFNetwork', '-framework', 'Security']
+    if not bypass_openssl and not supress_link_flags:
+        kwargs['libraries'].extend(['ssl', 'crypto'])
+    elif bypass_openssl:
+        kwargs['extra_link_args'] = [
+            '-framework', 'CoreFoundation',
+            '-framework', 'CFNetwork',
+            '-framework', 'Security']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692

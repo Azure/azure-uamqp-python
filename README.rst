@@ -7,14 +7,19 @@ An AMQP 1.0 client library for Python.
 Installation
 ============
 
-Wheels are provided for Windows and MacOSX, so you can install directly with pip:
+Wheels are provided for most major operating systems, so you can install directly with pip:
 
 .. code:: shell
 
     $ pip install uamqp
 
+Note that if you're running Linux, you will need to install the CA Certificate bundle as well:
 
-If you are using Linux, you can install from source:
+.. code:: shell
+
+    $ apt-get install ca-certificates
+
+If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__, you can install from source:
 
 .. code:: shell
 

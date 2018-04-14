@@ -3,6 +3,17 @@
 Release History
 ===============
 
+0.1.0b3 (2018-04-14)
+++++++++++++++++++++
+
+- Fixed SSL errors in manylinux wheels.
+- Fixed message annoations attribute.
+- Fixed bugs in batched messages and sending batched messages.
+- Fixed conflicting receiver link ID.
+- Fixed hanging receiver by removing queue max size in sync clients.
+- Added support for sending messages with None and empty bodies.
+
+
 0.1.0b2 (2018-04-06)
 ++++++++++++++++++++
 
