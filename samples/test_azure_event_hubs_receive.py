@@ -98,7 +98,7 @@ def test_event_hubs_client_receive(live_eventhub_config):
             log.info("Got batch: {}".format(len(batch)))
             assert len(batch) <= 10
             for message in batch:
-                annotations = message.message_annotations
+                annotations = message.annotations
                 log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
             batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")
@@ -106,7 +106,7 @@ def test_event_hubs_client_receive(live_eventhub_config):
 
 def test_event_hubs_callback_receive(live_eventhub_config):
     def on_message_received(message):
-        annotations = message.message_annotations
+        annotations = message.annotations
         log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
         return message
 
@@ -147,7 +147,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
         batch = receive_client.receive_message_batch(max_batch_size=10)
         while batch:
             for message in batch:
-                annotations = message.message_annotations
+                annotations = message.annotations
                 log.info("Partition Key: {}".format(annotations.get(b'x-opt-partition-key')))
                 log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
                 log.info("Offset: {}".format(annotations.get(b'x-opt-offset')))
