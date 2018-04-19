@@ -47,9 +47,12 @@ cdef void custom_logging_function(c_xlogging.LOG_CATEGORY_TAG log_category, cons
     if <void*>text != NULL:
         _python_log(log_level, text, bool(options), file=file, func=func, line=line)
     c_xlogging.va_end(args)
+    free(text)
+
 
 cpdef set_python_logger():
     c_xlogging.xlogging_set_log_function(<c_xlogging.LOGGER_LOG>custom_logging_function)
+
 
 def _python_log(category, text, end, text_bldr=[], file=None, func=None, line=None):
     text_bldr.append(text)
