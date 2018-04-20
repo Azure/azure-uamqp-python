@@ -79,7 +79,7 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
     assert len(message) <= 300
 
 
-def test_event_hubs_client_receive(live_eventhub_config):
+def test_event_hubs_client_receive_sync(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -127,9 +127,23 @@ def test_event_hubs_callback_receive(live_eventhub_config):
     log.info("Finished receiving")
 
 
+def test_event_hubs_iter_receive_sync(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=10, debug=False, prefetch=10)
+    for message in receive_client.receive_messages_iter():
+        annotations = message.annotations
+        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+
+
 def test_event_hubs_filter_receive(live_eventhub_config):
-    if not live_eventhub_config['hostname']:
-        pytest.skip("No live endpoint configured.")
     plain_auth = authentication.SASLPlain(
         live_eventhub_config['hostname'],
         live_eventhub_config['key_name'],
@@ -156,3 +170,14 @@ def test_event_hubs_filter_receive(live_eventhub_config):
                 log.info("{}".format(list(message.get_data())))
             batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")
+
+
+if __name__ == '__main__':
+    config = {}
+    config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
+    config['event_hub'] = os.environ['EVENT_HUB_NAME']
+    config['key_name'] = os.environ['EVENT_HUB_SAS_POLICY']
+    config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
+    test_event_hubs_client_receive_sync(config)

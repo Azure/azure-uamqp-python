@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import asyncio
+import collections.abc
 import logging
 import functools
 import uuid
@@ -241,7 +242,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
     def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
-        self._pending_futures = []
         client.ReceiveClient.__init__(
             self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
 
@@ -275,29 +275,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.debug("Timeout reached, closing receiver.")
+                    _logger.debug("Timeout reached, closing receiver: {}".format(self._remote_address))
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now
         self._was_message_received = False
         return True
-
-    async def _message_generator_async(self, close_on_done):
-        await self.open_async()
-        receiving = True
-        try:
-            while receiving:
-                while receiving and self._received_messages.empty():
-                    receiving = await self.do_work_async()
-                while not self._received_messages.empty():
-                    message = await self._received_messages.get()
-                    self._received_messages.task_done()
-                    yield message
-        except:
-            raise
-        finally:
-            if close_on_done:
-                await self.close_async()
 
     def _message_received(self, message):
         expiry = None
@@ -306,12 +289,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         if self._message_received_callback:
             wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
         if self._received_messages:
-            future = asyncio.ensure_future(
-                self._received_messages.put(wrapped_message),
-                loop=self.loop)
-            self._pending_futures.append(future)
+            self._received_messages.put(wrapped_message)
 
-    async def receive_messages_async(self, on_message_received, close_on_done=True):
+    async def receive_messages_async(self, on_message_received):
         await self.open_async()
         self._message_received_callback = on_message_received
         receiving = True
@@ -319,9 +299,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             while receiving:
                 receiving = await self.do_work_async()
         except:
+            receiving = False
             raise
         finally:
-            if close_on_done:
+            if not receiving:
                 await self.close_async()
 
     async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
@@ -333,12 +314,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 'connection prefetch: {}'.format(max_batch_size, self._prefetch))
         timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or asyncio.Queue(self._prefetch)
+        self._received_messages = self._received_messages or queue.Queue()
         await self.open_async()
         receiving = True
         batch = []
         while not self._received_messages.empty() and len(batch) < max_batch_size:
-            batch.append(await self._received_messages.get())
+            batch.append(self._received_messages.get())
             self._received_messages.task_done()
         if len(batch) >= max_batch_size:
             return batch
@@ -357,19 +338,17 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                     break
 
             while not self._received_messages.empty() and len(batch) < max_batch_size:
-                batch.append(await self._received_messages.get())
+                batch.append(self._received_messages.get())
                 self._received_messages.task_done()
         else:
             return batch
 
-    def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
+    def receive_messages_iter_async(self, on_message_received=None):
         self._message_received_callback = on_message_received
-        self._received_messages = asyncio.Queue(self._prefetch)
-        return self._message_generator_async(close_on_done)
+        self._received_messages = queue.Queue()
+        return AsyncMessageIter(self)
 
     async def close_async(self):
-        for future in self._pending_futures:
-            future.cancel()
         if self._message_receiver:
             await self._message_receiver._destroy_async()
             self._message_receiver = None
@@ -377,3 +356,28 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
+
+
+class AsyncMessageIter(collections.abc.AsyncIterator):
+
+    def __init__(self, client):
+        self._client = client
+        self.receiving = True
+
+    async def __anext__(self):
+        await self._client.open_async()
+        try:
+            while self.receiving and self._client._received_messages.empty():
+                self.receiving = await self._client.do_work_async()
+            if not self._client._received_messages.empty():
+                message = self._client._received_messages.get()
+                self._client._received_messages.task_done()
+                return message
+            else:
+                raise StopAsyncIteration("Message receive closing.")
+        except:
+            self.receiving = False
+            raise
+        finally:
+            if not self.receiving:
+                await self._client.close_async()

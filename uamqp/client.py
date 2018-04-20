@@ -341,6 +341,22 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = False
         return True
 
+    def _message_generator(self):
+        self.open()
+        receiving = True
+        try:
+            while receiving:
+                while receiving and self._received_messages.empty():
+                    receiving = self.do_work()
+                while not self._received_messages.empty():
+                    message = self._received_messages.get()
+                    self._received_messages.task_done()
+                    yield message
+        except:
+            raise
+        finally:
+            self.close()
+
     def _message_received(self, message):
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
@@ -386,7 +402,7 @@ class ReceiveClient(AMQPClient):
         else:
             return batch
 
-    def receive_messages(self, on_message_received, close_on_done=True):
+    def receive_messages(self, on_message_received):
         self.open()
         self._message_received_callback = on_message_received
         receiving = True
@@ -394,10 +410,16 @@ class ReceiveClient(AMQPClient):
             while receiving:
                 receiving = self.do_work()
         except:
+            receiving = False
             raise
         finally:
-            if close_on_done:
+            if not receiving:
                 self.close()
+
+    def receive_messages_iter(self, on_message_received=None):
+        self._message_received_callback = on_message_received
+        self._received_messages = queue.Queue()
+        return self._message_generator()
 
     def close(self):
         if self._message_receiver:
