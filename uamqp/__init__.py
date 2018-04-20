@@ -27,7 +27,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.1.0b3"
+__version__ = "0.1.0b4"
 
 
 _logger = logging.getLogger(__name__)
@@ -54,7 +54,6 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     if max_batch_size:
         kwargs['prefetch'] = max_batch_size
     with ReceiveClient(source, auth=auth, debug=debug, **kwargs) as receive_client:
-        print("receiving batch", max_batch_size)
         return receive_client.receive_message_batch(
             max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)
 

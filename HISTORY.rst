@@ -3,6 +3,15 @@
 Release History
 ===============
 
+0.1.0b4 (2018-04-19)
+++++++++++++++++++++
+
+- Fixed memory leak in async receive.
+- Removed close_on_done argument from client receive functions.
+- Added receive iterator to synchronous client.
+- Made async iter receive compatible with Python 3.5.
+
+
 0.1.0b3 (2018-04-14)
 ++++++++++++++++++++
 
