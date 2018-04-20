@@ -368,7 +368,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
         await self._client.open_async()
         try:
             while self.receiving and self._client._received_messages.empty():
-                receiving = await self._client.do_work_async()
+                self.receiving = await self._client.do_work_async()
             if not self._client._received_messages.empty():
                 message = self._client._received_messages.get()
                 self._client._received_messages.task_done()

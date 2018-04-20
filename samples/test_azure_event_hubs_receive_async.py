@@ -81,7 +81,7 @@ async def test_event_hubs_iter_receive_async(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = a_uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=100, prefetch=10)
+    receive_client = a_uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=10, prefetch=10)
     async for message in receive_client.receive_messages_iter_async():
         annotations = message.annotations
         log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
