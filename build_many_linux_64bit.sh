@@ -2,13 +2,13 @@
 set -e
 
 # To execute this script:
-# docker run --rm -v %cd%:/data local/manylinux64 /data/build_many_linux_64bit.sh
+# docker run --rm -v $PWD:/data pyca/cryptography-manylinux1:x86_64 /data/build_many_linux_64bit.sh
 
 export UAMQP_VERSION="0.1.0b4"
 
-export CPATH="/etc/ssl/include"
-export LIBRARY_PATH="/etc/ssl/lib"
-export OPENSSL_ROOT_DIR="/etc/ssl"
+export CPATH="/opt/pyca/cryptography/openssl/include"
+export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"
+export OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl"
 
 # Build libuuid
 #pushd /tmp
@@ -19,17 +19,6 @@ export OPENSSL_ROOT_DIR="/etc/ssl"
 #make
 #make install
 #popd
-
-# Build OpenSSL
-pushd /tmp
-cd openssl-1.0.2n
-./config shared --openssldir=/etc/ssl
-make depend
-make
-make install
-cp /etc/ssl/lib/*.a /usr/local/lib64/
-cp /etc/ssl/lib/*.so.* /usr/local/lib64/
-popd
 
 # Make sure Cython and Wheel are available in all env
 /opt/python/cp34-cp34m/bin/python -m pip install cython==0.27.3 wheel

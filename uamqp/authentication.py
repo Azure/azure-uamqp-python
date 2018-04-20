@@ -9,6 +9,7 @@ import logging
 import time
 import datetime
 import threading
+import certifi
 try:
     from urllib import quote_plus, unquote_plus #Py2
     from urllib import urlparse
@@ -41,8 +42,9 @@ class TokenRetryPolicy:
 
 class AMQPAuth:
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, cert_file=None):
         self.hostname = hostname.encode('utf-8')
+        self.cert_file = cert_file
         self.sasl = sasl.SASL()
         self.set_tlsio(hostname, port)
 
@@ -52,6 +54,8 @@ class AMQPAuth:
         self._tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
         self._tlsio_config.port = int(port)
         self._underlying_xio = c_uamqp.xio_from_tlsioconfig(self._default_tlsio, self._tlsio_config)
+        cert = self.cert_file or certifi.where()
+        self._underlying_xio.set_option(b"TrustedCerts", cert.encode('utf-8'))
         self.sasl_client = sasl.SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):
@@ -62,18 +66,20 @@ class AMQPAuth:
 
 class SASLPlain(AMQPAuth):
 
-    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT):
+    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, cert_file=None):
         self.hostname = hostname.encode('utf-8')
         self.username = username.encode('utf-8') if isinstance(username, str) else username
         self.password = password.encode('utf-8') if isinstance(password, str) else password
+        self.cert_file = cert_file
         self.sasl = sasl.SASLPlain(self.username, self.password)
         self.set_tlsio(hostname, port)
 
 
 class SASLAnonymous(AMQPAuth):
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, cert_file=None):
         self.hostname = hostname.encode('utf-8')
+        self.cert_file = cert_file
         self.sasl = sasl.SASLAnonymous()
         self.set_tlsio(hostname, port)
 
@@ -163,10 +169,12 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  port=constants.DEFAULT_AMQPS_PORT,
                  timeout=10,
                  retry_policy=TokenRetryPolicy(),
+                 cert_file=None,
                  token_type=b"servicebus.windows.net:sastoken"):
         self._retry_policy = retry_policy
         parsed = urlparse(uri)
         self.uri = uri
+        self.cert_file = cert_file
         self.hostname = parsed.hostname
         self.username = unquote_plus(parsed.username) if parsed.username else None
         self.username = username or self.username
