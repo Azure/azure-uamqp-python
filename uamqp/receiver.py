@@ -28,7 +28,7 @@ class MessageReceiver():
                  prefetch=None,
                  properties=None,
                  debug=False):
-        name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
+        self.name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
         target = target.encode('utf-8') if isinstance(target, str) else target
         role = constants.Role.Receiver
         
@@ -36,7 +36,7 @@ class MessageReceiver():
         self.target = c_uamqp.Messaging.create_target(target)
         self._conn = session._conn
         self._session = session
-        self._link = c_uamqp.create_link(session._session, name, role.value, self.source, self.target)
+        self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
 
         if prefetch:
             self._link.set_prefetch_count(prefetch)

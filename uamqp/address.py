@@ -24,6 +24,9 @@ class Address:
         self._c_address = c_uamqp.string_value(
             address.encode('utf-8') if isinstance(address, str) else address)
 
+    def __repr__(self):
+        return self.parsed_address.geturl()
+
     @property
     def address(self):
         return self._address.address.decode('utf-8')

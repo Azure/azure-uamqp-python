@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import asyncio
+import collections.abc
 import logging
 import functools
 import uuid
@@ -274,29 +275,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.debug("Timeout reached, closing receiver.")
+                    _logger.debug("Timeout reached, closing receiver: {}".format(self._remote_address))
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now
         self._was_message_received = False
         return True
-
-    async def _message_generator_async(self, close_on_done):
-        await self.open_async()
-        receiving = True
-        try:
-            while receiving:
-                while receiving and self._received_messages.empty():
-                    receiving = await self.do_work_async()
-                while not self._received_messages.empty():
-                    message = self._received_messages.get()
-                    self._received_messages.task_done()
-                    yield message
-        except:
-            raise
-        finally:
-            if close_on_done:
-                await self.close_async()
 
     def _message_received(self, message):
         expiry = None
@@ -307,7 +291,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         if self._received_messages:
             self._received_messages.put(wrapped_message)
 
-    async def receive_messages_async(self, on_message_received, close_on_done=True):
+    async def receive_messages_async(self, on_message_received):
         await self.open_async()
         self._message_received_callback = on_message_received
         receiving = True
@@ -315,9 +299,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             while receiving:
                 receiving = await self.do_work_async()
         except:
+            receiving = False
             raise
         finally:
-            if close_on_done:
+            if not receiving:
                 await self.close_async()
 
     async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
@@ -358,10 +343,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         else:
             return batch
 
-    def receive_messages_iter_async(self, on_message_received=None, close_on_done=True):
+    def receive_messages_iter_async(self, on_message_received=None):
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
-        return self._message_generator_async(close_on_done)
+        return AsyncMessageIter(self)
 
     async def close_async(self):
         if self._message_receiver:
@@ -371,3 +356,28 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
+
+
+class AsyncMessageIter(collections.abc.AsyncIterator):
+
+    def __init__(self, client):
+        self._client = client
+        self.receiving = True
+
+    async def __anext__(self):
+        await self._client.open_async()
+        try:
+            while self.receiving and self._client._received_messages.empty():
+                receiving = await self._client.do_work_async()
+            if not self._client._received_messages.empty():
+                message = self._client._received_messages.get()
+                self._client._received_messages.task_done()
+                return message
+            else:
+                raise StopAsyncIteration("Message receive closing.")
+        except:
+            self.receiving = False
+            raise
+        finally:
+            if not self.receiving:
+                await self._client.close_async()
