@@ -8,8 +8,11 @@ import os
 import sys
 import re
 import distutils
-from setuptools import find_packages, setup
+import subprocess
+from setuptools import find_packages, setup, Extension
+from setuptools.command.build_ext import build_ext as build_ext_orig
 from distutils.extension import Extension
+from distutils import log as logger
 
 try:
     from Cython.Build import cythonize
@@ -17,9 +20,14 @@ try:
 except ImportError:
     USE_CYTHON = False
 
-supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
+# If the C file doesn't exist and no Cython is available, die
+if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
+    raise ValueError("You need to install cython==0.27.3 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
+
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
+use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
+supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 
 # Version extraction inspired from 'requests'
 with open(os.path.join('uamqp', '__init__.py'), 'r') as fd:
@@ -46,23 +54,92 @@ include_dirs = [
 
 # Build unique source pyx
 
-c_uamqp_src = None
-if USE_CYTHON:
+def create_cython_file():
     content_includes = ""
     for f in os.listdir("./src"):
-        if is_win and 'openssl' in f:
-            continue
-        elif not is_win and 'schannel' in f:
-            continue
         if f.endswith(".pyx"):
             print("Adding {}".format(f))
             content_includes += "include \"src/" + f + "\"\n"
     c_uamqp_src = os.path.join("uamqp", "c_uamqp.pyx")
     with open(c_uamqp_src, 'w') as lib_file:
         lib_file.write(content_includes)
-else:
-    c_uamqp_src = "uamqp/c_uamqp.c"
+    return c_uamqp_src
 
+
+def get_build_env():
+    build_env = os.environ.copy()
+    return build_env
+
+
+# Compile uamqp
+# Inspired by https://stackoverflow.com/a/48015772/4074838
+
+class UAMQPExtension(Extension):
+
+    def __init__(self, name):
+        # don't invoke the original build_ext for this special extension
+        super(UAMQPExtension, self).__init__(name, sources=[])
+
+def create_folder_no_exception(foldername):
+    try:
+        os.makedirs(foldername)
+    except Exception: # Assume it's already there, and not impossible to create
+        pass
+
+class build_ext(build_ext_orig):
+
+    def run(self):
+        cmake_build_dir = None
+        for ext in self.extensions:
+            if isinstance(ext, UAMQPExtension):
+                self.build_cmake(ext)
+                # Now I have built in ext.cmake_build_dir
+                cmake_build_dir = self.cmake_build_dir
+            else:
+                ext.library_dirs += [
+                    cmake_build_dir,
+                    cmake_build_dir + "/deps/azure-c-shared-utility/"
+                ]
+        super(build_ext, self).run()
+
+    def build_cmake(self, ext):
+        cwd = os.getcwd()
+
+        # these dirs will be created in build_py, so if you don't have
+        # any python sources to bundle, the dirs will be missing
+        self.cmake_build_dir = self.build_temp + "/cmake"
+        create_folder_no_exception(self.cmake_build_dir)
+
+        extdir = self.get_ext_fullpath(ext.name)
+        create_folder_no_exception(extdir)
+
+        logger.info("will build uamqp in %s", self.cmake_build_dir)
+        os.chdir(cwd + "/" + self.cmake_build_dir)
+
+        # Configure
+        configure_command = [
+            "cmake",
+            cwd + "/src/vendor/azure-uamqp-c/",
+            "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"), 
+            "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
+            "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
+            "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
+            "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE" # ask for -fPIC
+        ]
+        build_env = get_build_env()
+        joined_cmd = " ".join(configure_command)
+        logger.info("calling %s", joined_cmd)
+        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
+
+        compile_command  = ["cmake", "--build", "."]
+        joined_cmd = " ".join(compile_command)
+        logger.info("calling %s", joined_cmd)
+        subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
+
+        os.chdir(cwd)
+
+        if USE_CYTHON:
+            create_cython_file()
 
 # Libraries and extra compile args
 
@@ -70,6 +147,8 @@ kwargs = {}
 if is_win:
     kwargs['extra_compile_args'] = ['/openmp']
     kwargs['libraries'] = [
+        'uamqp',
+        'aziotsharedutil',
         'AdvAPI32',
         'Crypt32',
         'ncrypt',
@@ -78,93 +157,43 @@ if is_win:
         'RpcRT4',
         'WSock32',
         'WS2_32']
+elif is_mac:
+    kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
+    if use_openssl and not supress_link_flags:
+        kwargs['libraries'].extend(['ssl', 'crypto'])
+    elif not use_openssl:
+        kwargs['extra_link_args'] = [
+            '-framework', 'CoreFoundation',
+            '-framework', 'CFNetwork',
+            '-framework', 'Security']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    if not supress_link_flags:
-        kwargs['libraries'] = ['ssl', 'crypto', 'uuid']
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto', 'uuid']
 
-# Sources
+
+# If the C file doesn't exist, build the "c_uamqp.c" file
+# That's not perfect, since we build it on a "--help", but should be if cloned from source only.
+c_uamqp_src = "uamqp/c_uamqp.c"
+if not os.path.exists(c_uamqp_src):
+    c_uamqp_src = create_cython_file()
 
 sources = [
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/xlogging.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/optionhandler.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/consolelogger.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/gballoc.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/vector.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/crt_abstractions.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/uuid.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/xio.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/strings.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/string_tokenizer.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/doublylinkedlist.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/map.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/sastoken.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/urlencode.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/hmacsha256.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/base64.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/buffer.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/hmac.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/usha.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/sha1.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/sha224.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/sha384-512.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/singlylinkedlist.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/connection_string_parser.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/agenttime.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/tlsio_schannel.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/tlsio_openssl.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/platform_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/platform_linux.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/tickcounter_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/tickcounter_linux.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/socketio_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/socketio_berkeley.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/uniqueid_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/uniqueid_linux.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/lock_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/lock_pthreads.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/threadapi_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/threadapi_pthreads.c",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/condition_win32.c" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/condition_pthreads.c",
-    "./src/vendor/azure-uamqp-c/src/amqpvalue.c",
-    "./src/vendor/azure-uamqp-c/src/amqp_management.c",
-    "./src/vendor/azure-uamqp-c/src/frame_codec.c",
-    "./src/vendor/azure-uamqp-c/src/amqp_frame_codec.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_frame_codec.c",
-    "./src/vendor/azure-uamqp-c/src/link.c",
-    "./src/vendor/azure-uamqp-c/src/cbs.c",
-    "./src/vendor/azure-uamqp-c/src/connection.c",
-    "./src/vendor/azure-uamqp-c/src/async_operation.c",
-    "./src/vendor/azure-uamqp-c/src/message.c",
-    "./src/vendor/azure-uamqp-c/src/messaging.c",
-    "./src/vendor/azure-uamqp-c/src/message_sender.c",
-    "./src/vendor/azure-uamqp-c/src/message_receiver.c",
-    "./src/vendor/azure-uamqp-c/src/amqp_definitions.c",
-    "./src/vendor/azure-uamqp-c/src/amqpvalue_to_string.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_mechanism.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_server_mechanism.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_mssbcbs.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_plain.c",
-    "./src/vendor/azure-uamqp-c/src/saslclientio.c",
-    "./src/vendor/azure-uamqp-c/src/sasl_anonymous.c",
-    "./src/vendor/azure-uamqp-c/src/session.c",
-    "./src/vendor/azure-uamqp-c/src/socket_listener_win32.c" if is_win else "./src/vendor/azure-uamqp-c/src/socket_listener_berkeley.c",
-    c_uamqp_src,
+    c_uamqp_src
 ]
-
-if is_win:
-    sources.extend([
-        "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/socketio_win32.c",
-        "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/x509_schannel.c",
-    ])
-else:
-    sources.extend([
-        "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/linux_time.c",
-        "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/src/x509_openssl.c",
-    ])
 
 # Configure the extension
 
-extensions = [Extension(
+extensions = [
+    UAMQPExtension("cmake_uamqp"),
+    Extension(
         "uamqp.c_uamqp",
         sources=sources,
         include_dirs=include_dirs,
-        **kwargs)
-    ]
+        **kwargs
+    )
+]
 
 with open('README.rst', encoding='utf-8') as f:
     readme = f.read()
@@ -196,5 +225,8 @@ setup(
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=["tests"]),
-    ext_modules = extensions
+    ext_modules = extensions,
+    cmdclass={
+        'build_ext': build_ext,
+    }    
 )
