@@ -54,8 +54,11 @@ class AMQPAuth:
         self._tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
         self._tlsio_config.port = int(port)
         self._underlying_xio = c_uamqp.xio_from_tlsioconfig(self._default_tlsio, self._tlsio_config)
+        
         cert = self.cert_file or certifi.where()
-        self._underlying_xio.set_option(b"TrustedCerts", cert.encode('utf-8'))
+        with open(cert, 'rb') as cert_handle:
+            cert_data = cert_handle.read()
+            self._underlying_xio.set_certificates(cert_data)
         self.sasl_client = sasl.SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):
