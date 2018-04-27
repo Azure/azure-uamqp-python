@@ -120,7 +120,7 @@ class build_ext(build_ext_orig):
         configure_command = [
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
-            "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"), 
+            "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"),
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
             "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
@@ -170,7 +170,7 @@ elif is_mac:
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto', 'uuid']
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto']  # 'uuid'
 
 
 # If the C file doesn't exist, build the "c_uamqp.c" file
@@ -226,6 +226,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=["tests"]),
     ext_modules = extensions,
+    install_requires=[
+        "certifi>=2017.4.17",
+    ],
     cmdclass={
         'build_ext': build_ext,
     }    
