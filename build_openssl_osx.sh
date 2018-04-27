@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export OPENSSL_VERSION="1.0.2n"
+export OPENSSL_VERSION="1.1.0g"
 export MACOSX_DEPLOYMENT_TARGET=10.6
 
 # Modified from https://gist.github.com/tmiz/1441111

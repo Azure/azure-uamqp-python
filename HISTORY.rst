@@ -3,6 +3,13 @@
 Release History
 ===============
 
+0.1.0b5 (2018-04-27)
+++++++++++++++++++++
+
+- Added Certifi as a depedency to make OpenSSL certs dynamic.
+- Added `verify` option to authentication classes to allow setting custom certificate path (for Linux and OSX).
+
+
 0.1.0b4 (2018-04-19)
 ++++++++++++++++++++
 

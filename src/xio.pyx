@@ -68,6 +68,11 @@ cdef class XIO(StructBase):
         if c_xio.xio_setoption(self._c_value, option_name, option_value) != 0:
             raise self._value_error("Failed to set option {}".format(option_name))
 
+    cpdef set_certificates(self, bytes value):
+        cdef char *certificate = value
+        if c_xio.xio_setoption(self._c_value, b'TrustedCerts', <void*>certificate) != 0:
+            raise self._value_error("Failed to set certificates")
+
 
 cdef class IOInterfaceDescription:
 
