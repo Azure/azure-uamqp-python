@@ -196,5 +196,8 @@ setup(
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=["tests"]),
+    install_requires=[
+        "certifi>=2017.4.17",
+    ],
     ext_modules = extensions
 )
