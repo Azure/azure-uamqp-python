@@ -5,7 +5,7 @@ export MACOSX_DEPLOYMENT_TARGET=10.6
 
 # Modified from https://gist.github.com/tmiz/1441111
 
-curl -O http://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
+curl -O https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
 tar -xvzf openssl-$OPENSSL_VERSION.tar.gz
 mv openssl-$OPENSSL_VERSION openssl_i386_src
 tar -xvzf openssl-$OPENSSL_VERSION.tar.gz

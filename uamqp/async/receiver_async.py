@@ -9,6 +9,7 @@ import logging
 import functools
 
 from uamqp import receiver
+from uamqp import errors
 
 
 
