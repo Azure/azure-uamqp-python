@@ -13,11 +13,6 @@ Wheels are provided for most major operating systems, so you can install directl
 
     $ pip install uamqp
 
-Note that if you're running Linux, you will need to install the CA Certificate bundle as well:
-
-.. code:: shell
-
-    $ apt-get install ca-certificates
 
 If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__, you can install from source:
 
