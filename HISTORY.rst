@@ -9,6 +9,7 @@ Release History
 - Fixed import error in async receiver.
 - Exposed sender/receiver destroy function.
 - Moved receiver.open on_message_received argument to constructor.
+- Removed sasl module and moved internal classes into authentication module.
 
 
 0.1.0b5 (2018-04-27)

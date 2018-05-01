@@ -4,7 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-# pylint: disable=super-init-not-called
+# pylint: disable=super-init-not-called,no-self-use
 
 import logging
 import time
@@ -18,7 +18,6 @@ except ImportError:
 
 from uamqp import Session
 from uamqp import utils
-from uamqp import sasl
 from uamqp import constants
 from uamqp import errors
 from uamqp import c_uamqp
@@ -63,7 +62,7 @@ class AMQPAuth:
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
-        self.sasl = sasl.SASL()
+        self.sasl = _SASL()
         self.set_tlsio(self.hostname, port)
 
     def set_tlsio(self, hostname, port):
@@ -85,7 +84,7 @@ class AMQPAuth:
         with open(cert, 'rb') as cert_handle:
             cert_data = cert_handle.read()
             self._underlying_xio.set_certificates(cert_data)
-        self.sasl_client = sasl.SASLClient(self._underlying_xio, self.sasl)
+        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):
         """Close the authentication layer and cleanup
@@ -121,7 +120,7 @@ class SASLPlain(AMQPAuth):
         self.username = username.encode(self._encoding) if isinstance(username, str) else username
         self.password = password.encode(self._encoding) if isinstance(password, str) else password
         self.cert_file = verify
-        self.sasl = sasl.SASLPlain(self.username, self.password)
+        self.sasl = _SASLPlain(self.username, self.password, encoding=self._encoding)
         self.set_tlsio(self.hostname, port)
 
 
@@ -146,14 +145,14 @@ class SASLAnonymous(AMQPAuth):
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
-        self.sasl = sasl.SASLAnonymous()
+        self.sasl = _SASLAnonymous()
         self.set_tlsio(self.hostname, port)
 
 
 class CBSAuthMixin:
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
-    def update_token(self):  # pylint: disable=no-self-use
+    def update_token(self):
         """Update a token that is about to expire. This is specific
         to a particular token type, and therefore must be implemented
         in a child class.
@@ -336,7 +335,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             self.expires_in = datetime.timedelta(seconds=expires_in)
         self.timeout = timeout
         self.retries = 0
-        self.sasl = sasl.SASL()
+        self.sasl = _SASL()
         self.set_tlsio(self.hostname, port)
 
     def update_token(self):
@@ -413,3 +412,56 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=retry_policy,
             verify=verify,
             encoding=encoding)
+
+
+class _SASLClient:
+
+    def __init__(self, tls_io, sasl):
+        self._tls_io = tls_io
+        self._sasl_mechanism = sasl.mechanism
+        self._io_config = c_uamqp.SASLClientIOConfig()
+        self._io_config.underlying_io = self._tls_io
+        self._io_config.sasl_mechanism = self._sasl_mechanism
+        self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
+
+    def get_client(self):
+        return self._xio
+
+
+class _SASL:
+
+    def __init__(self):
+        self._interface = self._get_interface()
+        self.mechanism = self._get_mechanism()
+
+    def _get_interface(self):
+        return None
+
+    def _get_mechanism(self):
+        return c_uamqp.get_sasl_mechanism()
+
+
+class _SASLAnonymous(_SASL):
+
+    def _get_interface(self):
+        return c_uamqp.saslanonymous_get_interface()
+
+    def _get_mechanism(self):
+        return c_uamqp.get_sasl_mechanism(self._interface)
+
+
+class _SASLPlain(_SASL):
+
+    def __init__(self, authcid, passwd, authzid=None, encoding='UTF-8'):
+        self._sasl_config = c_uamqp.SASLPlainConfig()
+        self._sasl_config.authcid = authcid
+        self._sasl_config.passwd = passwd
+        if authzid:
+            self._sasl_config.authzid = authzid.encode(encoding) if isinstance(authzid, str) else authzid
+        super(_SASLPlain, self).__init__()
+
+    def _get_interface(self):
+        return c_uamqp.saslplain_get_interface()
+
+    def _get_mechanism(self):
+        return c_uamqp.get_plain_sasl_mechanism(self._interface, self._sasl_config)
