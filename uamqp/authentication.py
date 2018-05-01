@@ -6,7 +6,6 @@
 
 # pylint: disable=super-init-not-called
 
-import sys
 import logging
 import time
 import datetime
@@ -26,11 +25,6 @@ from uamqp import c_uamqp
 
 
 _logger = logging.getLogger(__name__)
-_is_win = sys.platform.startswith('win')
-
-
-def _get_default_tlsio():
-    return c_uamqp.get_default_tlsio()
 
 
 class TokenRetryPolicy:
@@ -56,6 +50,13 @@ class AMQPAuth:
 
     :param hostname: The AMQP endpoint hostname.
     :type hostname: str or bytes
+    :param port: The TLS port - default for AMQP is 5671.
+    :type port: int
+    :param verify: The path to a user-defined certificate.
+    :type verify: str
+    :param encoding: The encoding to use if hostname is provided as a str.
+     Default is 'UTF-8'.
+    :type encoding: str
     """
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
@@ -63,12 +64,20 @@ class AMQPAuth:
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
         self.sasl = sasl.SASL()
-        self.set_tlsio(hostname, port)
+        self.set_tlsio(self.hostname, port)
 
     def set_tlsio(self, hostname, port):
-        _default_tlsio = _get_default_tlsio()
+        """Setup the default underlying TLS IO layer. On Windows this is
+        Schannel, on Linux and MacOS this is OpenSSL.
+
+        :param hostname: The endpoint hostname.
+        :type hostname: bytes
+        :param port: The TLS port.
+        :type port: int
+        """
+        _default_tlsio = c_uamqp.get_default_tlsio()
         _tlsio_config = c_uamqp.TLSIOConfig()
-        _tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
+        _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
         self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
 
@@ -79,38 +88,91 @@ class AMQPAuth:
         self.sasl_client = sasl.SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):
+        """Close the authentication layer and cleanup
+        all the authentication wrapper objects.
+        """
         self.sasl.mechanism.destroy()
         self.sasl_client.get_client().destroy()
         self._underlying_xio.destroy()
 
 
 class SASLPlain(AMQPAuth):
+    """SASL Plain AMQP authentication.
+    This is SASL authentication using a basic username and password.
 
-    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, verify=None):
-        self.hostname = hostname.encode('utf-8')
-        self.username = username.encode('utf-8') if isinstance(username, str) else username
-        self.password = password.encode('utf-8') if isinstance(password, str) else password
+    :param hostname: The AMQP endpoint hostname.
+    :type hostname: str or bytes
+    :param username: The authentication username.
+    :type username: bytes or str
+    :param password: The authentication password.
+    :type password: bytes or str
+    :param port: The TLS port - default for AMQP is 5671.
+    :type port: int
+    :param verify: The path to a user-defined certificate.
+    :type verify: str
+    :param encoding: The encoding to use if hostname and credentials
+     are provided as a str. Default is 'UTF-8'.
+    :type encoding: str
+    """
+
+    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+        self._encoding = encoding
+        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
+        self.username = username.encode(self._encoding) if isinstance(username, str) else username
+        self.password = password.encode(self._encoding) if isinstance(password, str) else password
         self.cert_file = verify
         self.sasl = sasl.SASLPlain(self.username, self.password)
-        self.set_tlsio(hostname, port)
+        self.set_tlsio(self.hostname, port)
 
 
 class SASLAnonymous(AMQPAuth):
+    """SASL Annoymous AMQP authentication mixin.
+    SASL connection with no credentials. If intending to use annoymous
+    auth to set up a CBS session once connected, use SASTokenAuth
+    or the CBSAuthMixin instead.
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None):
-        self.hostname = hostname.encode('utf-8')
+    :param hostname: The AMQP endpoint hostname.
+    :type hostname: str or bytes
+    :param port: The TLS port - default for AMQP is 5671.
+    :type port: int
+    :param verify: The path to a user-defined certificate.
+    :type verify: str
+    :param encoding: The encoding to use if hostname is provided as a str.
+     Default is 'UTF-8'.
+    :type encoding: str
+    """
+
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+        self._encoding = encoding
+        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
         self.sasl = sasl.SASLAnonymous()
-        self.set_tlsio(hostname, port)
+        self.set_tlsio(self.hostname, port)
 
 
 class CBSAuthMixin:
+    """Mixin to handle sending and refreshing CBS auth tokens."""
 
     def update_token(self):  # pylint: disable=no-self-use
+        """Update a token that is about to expire. This is specific
+        to a particular token type, and therefore must be implemented
+        in a child class.
+        """
         raise errors.TokenExpired(
             "Unable to refresh token - no refresh logic implemented.")
 
     def create_authenticator(self, connection, debug=False):
+        """Create the AMQP session and the CBS channel with which
+        to negotiate the token.
+
+        :param connection: The underlying AMQP connection on which
+         to create the session.
+        :type connection: ~uamqp.Connection
+        :param debug: Whether to emit network trace logging events for the
+         CBS session. Default is `False`. Logging events are set at INFO level.
+        :type debug: bool
+        :returns: ~uamqp.c_uamqp.CBSTokenAuth
+        """
         self._lock = threading.Lock()
         self._session = Session(
             connection,
@@ -132,10 +194,25 @@ class CBSAuthMixin:
         return self._cbs_auth
 
     def close_authenticator(self):
+        """Close the CBS auth channel and session."""
         self._cbs_auth.destroy()
         self._session.destroy()
 
     def handle_token(self):
+        """This function is called periodically to check the status of the current
+        token if there is one, and request a new one if needed.
+        If the token request fails, it will be retried according to the retry policy.
+        A token refresh will be attempted if the token will expire soon.
+
+        This function will return a tuple of two booleans. The first represents whether
+        the token authentication has not completed within it's given timeout window. The
+        second indicates whether the token negotiation is still in progress.
+
+        :raises: ~uamqp.errors.AuthenticationException if the token authentication fails.
+        :raises: ~uamqp.errors.TokenExpired if the token has expired and cannot be
+         refreshed.
+        :returns: tuple[bool, bool]
+        """
         timeout = False
         in_progress = False
         self._lock.acquire()
@@ -199,6 +276,25 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :param username: The SAS token username, also referred to as the key
      name or policy name. This can optionally be encoded into the URI.
     :type username: str
+    :param password: The SAS token password, also referred to as the key.
+     This can optionally be encoded into the URI.
+    :type password: str
+    :param port: The TLS port - default for AMQP is 5671.
+    :type port: int
+    :param timeout: The timeout in seconds in which to negotiate the token.
+     The default value is 10 seconds.
+    :type timeout: int
+    :param retry_policy: The retry policy for the PUT token request. The default
+     retry policy has 3 retries.
+    :type retry_policy: ~uamqp.authentication.TokenRetryPolicy
+    :param verify: The path to a user-defined certificate.
+    :type verify: str
+    :param token_type: The type field of the token request.
+     Default value is `b"servicebus.windows.net:sastoken"`.
+    :type token_type: bytes
+    :param encoding: The encoding to use if hostname is provided as a str.
+     Default is 'UTF-8'.
+    :type encoding: str
     """
 
     def __init__(self, audience, uri, token,
@@ -218,7 +314,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         parsed = urllib_parse.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = parsed.hostname
+        self.hostname = parsed.hostname.encode(self._encoding)
         self.username = urllib_parse.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
         self.password = urllib_parse.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
 
@@ -265,8 +361,38 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             key_name,
             shared_access_key,
             expiry=None,
+            port=constants.DEFAULT_AMQPS_PORT,
             timeout=10,
+            retry_policy=TokenRetryPolicy(),
+            verify=None,
             encoding='UTF-8'):
+        """Attempt to create a CBS token session using a Shared Access Key such
+        as is used to connect to Azure services.
+
+        :param uri: The AMQP endpoint URI. This must be provided as
+        a decoded string.
+        :type uri: str
+        :param key_name: The SAS token username, also referred to as the key
+        name or policy name.
+        :type key_name: str
+        :param shared_access_key: The SAS token password, also referred to as the key.
+        :type shared_access_key: str
+        :param expiry: The lifetime in seconds for the generated token. Default is 1 hour.
+        :type expiry: int
+        :param port: The TLS port - default for AMQP is 5671.
+        :type port: int
+        :param timeout: The timeout in seconds in which to negotiate the token.
+         The default value is 10 seconds.
+        :type timeout: int
+        :param retry_policy: The retry policy for the PUT token request. The default
+        retry policy has 3 retries.
+        :type retry_policy: ~uamqp.authentication.TokenRetryPolicy
+        :param verify: The path to a user-defined certificate.
+        :type verify: str
+        :param encoding: The encoding to use if hostname is provided as a str.
+        Default is 'UTF-8'.
+        :type encoding: str
+        """
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
         encoded_uri = urllib_parse.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
         encoded_key = urllib_parse.quote_plus(key_name).encode(encoding)  # pylint: disable=no-member
@@ -280,6 +406,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             uri, uri, token,
             expires_in=expires_in,
             expires_at=expires_at,
-            timeout=timeout,
             username=key_name,
-            password=shared_access_key)
+            password=shared_access_key,
+            port=port,
+            timeout=timeout,
+            retry_policy=retry_policy,
+            verify=verify,
+            encoding=encoding)
