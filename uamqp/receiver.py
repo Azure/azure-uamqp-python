@@ -5,11 +5,8 @@
 #--------------------------------------------------------------------------
 
 import logging
-import datetime
-import queue
 import uuid
 
-import uamqp
 from uamqp import utils
 from uamqp import errors
 from uamqp import constants
@@ -22,18 +19,21 @@ _logger = logging.getLogger(__name__)
 class MessageReceiver():
 
     def __init__(self, session, source, target,
+                 on_message_received,
                  name=None,
                  receive_settle_mode=None,
                  max_message_size=None,
                  prefetch=None,
                  properties=None,
                  debug=False):
+        # pylint: disable=protected-access
         self.name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
         target = target.encode('utf-8') if isinstance(target, str) else target
         role = constants.Role.Receiver
-        
+
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
+        self.on_message_received = on_message_received
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
@@ -56,15 +56,15 @@ class MessageReceiver():
         return self
 
     def __exit__(self, *args):
-        self._destroy()
+        self.destroy()
 
-    def _destroy(self):
+    def destroy(self):
         self._receiver.destroy()
         self._link.destroy()
 
-    def open(self, on_message_received):
+    def open(self):
         try:
-            self._receiver.open(on_message_received)
+            self._receiver.open(self.on_message_received)
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
@@ -104,4 +104,3 @@ class MessageReceiver():
     @max_message_size.setter
     def max_message_size(self, value):
         self._link.max_message_size = int(value)
-

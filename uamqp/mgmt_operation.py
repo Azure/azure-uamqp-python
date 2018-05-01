@@ -7,7 +7,7 @@
 import logging
 import uuid
 
-#from uamqp.session import Session
+# from uamqp.session import Session
 from uamqp import constants
 from uamqp import errors
 from uamqp import c_uamqp
@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 class MgmtOperation:
 
     def __init__(self, session, target=None, status_code_field=b'statusCode', description_fields=b'statusDescription'):
-        self.connection = session._connection
+        self.connection = session._connection  # pylint: disable=protected-access
         # self.session = Session(
         #     connection,
         #     incoming_window=constants.MAX_FRAME_SIZE_BYTES,
@@ -27,7 +27,7 @@ class MgmtOperation:
         self.target = target or constants.MGMT_TARGET
         self._responses = {}
         self._counter = c_uamqp.TickCounter()
-        self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)
+        self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
         self.open = None
         try:
@@ -41,7 +41,7 @@ class MgmtOperation:
 
     def _management_open_complete(self, result):
         self.open = constants.MgmtOpenStatus(result)
-    
+
     def _management_operation_error(self):
         self.mgmt_error = ValueError("Management Operation error ocurred.")
 

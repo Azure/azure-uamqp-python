@@ -12,7 +12,6 @@ import uuid
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
 from uamqp import constants
-from uamqp import c_uamqp
 
 
 _logger = logging.getLogger(__name__)
@@ -20,7 +19,12 @@ _logger = logging.getLogger(__name__)
 
 class MgmtOperationAsync(MgmtOperation):
 
-    def __init__(self, session, target=None, status_code_field=b'statusCode', description_fields=b'statusDescription', loop=None):
+    def __init__(self,
+                 session,
+                 target=None,
+                 status_code_field=b'statusCode',
+                 description_fields=b'statusDescription',
+                 loop=None):
         self.loop = loop or asyncio.get_event_loop()
         super(MgmtOperationAsync, self).__init__(
             session,

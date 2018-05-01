@@ -22,7 +22,7 @@ class Session:
                  outgoing_window=None,
                  handle_max=None):
         self._connection = connection
-        self._conn = connection._conn
+        self._conn = connection._conn  # pylint: disable=protected-access
         self._session = c_uamqp.create_session(self._conn)
         self._mgmt_links = {}
 
@@ -51,15 +51,15 @@ class Session:
                 raise mgmt_link.mgmt_error
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
-            
+
             self._mgmt_links[node] = mgmt_link
         op_type = op_type or b'empty'
         response = mgmt_link.execute(operation, op_type, message, timeout=timeout)
         return response
 
     def destroy(self):
-        for node, link in self._mgmt_links.items():
-           link.destroy()
+        for _, link in self._mgmt_links.items():
+            link.destroy()
         self._session.destroy()
 
     @property

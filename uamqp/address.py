@@ -6,7 +6,7 @@
 
 try:
     from urllib import urlparse
-except Exception:
+except ImportError:
     from urllib.parse import urlparse
 import logging
 
@@ -40,6 +40,7 @@ class Address:
     def __init__(self, address, encoding='UTF-8'):
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
+        self._address = None
         self._c_address = c_uamqp.string_value(
             address.encode(encoding) if isinstance(address, str) else address)
 
@@ -137,14 +138,14 @@ class Source(Address):
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
 
-    def set_filter(self, filter):
+    def set_filter(self, value):
         """Set a filter on the endpoint. Only one filter
         can be applied to an endpoint.
 
-        :param filter: The filter to apply to the endpoint.
-        :type fileter: bytes or str
+        :param value: The filter to apply to the endpoint.
+        :type value: bytes or str
         """
-        value = filter.encode(self._encoding) if isinstance(filter, str) else filter
+        value = value.encode(self._encoding) if isinstance(value, str) else value
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(constants.STRING_FILTER)
         descriptor = c_uamqp.symbol_value(constants.STRING_FILTER)

@@ -40,10 +40,10 @@ class MessageSenderAsync(sender.MessageSender):
         return self
 
     async def __aexit__(self, *args):
-        await self._destroy_async()
+        await self.destroy_async()
 
-    async def _destroy_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self._destroy))
+    async def destroy_async(self):
+        await self.loop.run_in_executor(None, functools.partial(self.destroy))
 
     async def open_async(self):
         try:

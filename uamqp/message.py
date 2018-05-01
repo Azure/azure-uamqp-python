@@ -38,7 +38,7 @@ class Message:
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
-            if isinstance(body, str) or isinstance(body, bytes):
+            if isinstance(body, (bytes, str)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
             elif isinstance(body, list):
@@ -62,11 +62,11 @@ class Message:
     def _parse_message(self, message):
         self._message = message
         body_type = message.body_type
-        if message.body_type == c_uamqp.MessageBodyType.NoneType:
+        if body_type == c_uamqp.MessageBodyType.NoneType:
             self._body = None
-        elif message.body_type == c_uamqp.MessageBodyType.DataType:
+        elif body_type == c_uamqp.MessageBodyType.DataType:
             self._body = DataBody(self._message)
-        elif message.body_type == c_uamqp.MessageBodyType.SequenceType:
+        elif body_type == c_uamqp.MessageBodyType.SequenceType:
             self._body = SequenceBody(self._message)
         else:
             self._body = ValueBody(self._message)
@@ -88,9 +88,6 @@ class Message:
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
             self.delivery_annotations = _delivery_ann.map
-
-    def __str__(self):
-        return str(self._body)
 
     def _on_message_sent(self, result, error=None):
         result = constants.MessageSendResult(result)
@@ -125,7 +122,7 @@ class Message:
         if not self._message:
             return None
         if self.properties:
-            self._message.properties = self.properties._properties
+            self._message.properties = self.properties._properties  # pylint: disable=protected-access
         if self.application_properties:
             if not isinstance(self.application_properties, dict):
                 raise TypeError("Application properties must be a dictionary.")
@@ -145,7 +142,7 @@ class BatchMessage(Message):
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
     _size_buffer = 65000
 
-    def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):
+    def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):  # pylint: disable=super-init-not-called
         self._multi_messages = multi_messages
         self._body_gen = data
         self.on_send_complete = None
@@ -175,7 +172,7 @@ class BatchMessage(Message):
                         yield new_message
                         raise StopIteration()
                     else:
-                        new_message._body.append(combined)
+                        new_message._body.append(combined)  # pylint: disable=protected-access
             except StopIteration:
                 _logger.debug("Sent partial message.")
                 continue
@@ -205,28 +202,28 @@ class BatchMessage(Message):
                 raise ValueError(
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
-            new_message._body.append(combined)
+            new_message._body.append(combined)  # pylint: disable=protected-access
         new_message.on_send_complete = self.on_send_complete
         return [new_message]
 
 
 class MessageProperties:
 
-    def __init__(self, 
-            message_id=None,
-            user_id=None,
-            to=None,
-            subject=None,
-            reply_to=None,
-            correlation_id=None,
-            content_type=None,
-            content_encoding=None,
-            absolute_expiry_time=None,
-            creation_time=None,
-            group_id=None,
-            group_sequence=None,
-            reply_to_group_id=None,
-            properties=None):
+    def __init__(self,
+                 message_id=None,
+                 user_id=None,
+                 to=None,
+                 subject=None,
+                 reply_to=None,
+                 correlation_id=None,
+                 content_type=None,
+                 content_encoding=None,
+                 absolute_expiry_time=None,
+                 creation_time=None,
+                 group_id=None,
+                 group_sequence=None,
+                 reply_to_group_id=None,
+                 properties=None):
         self._properties = properties if properties else c_uamqp.cProperties()
         if message_id:
             self.message_id = message_id
@@ -423,12 +420,15 @@ class MessageBody:
     def __str__(self):
         if self.type == c_uamqp.MessageBodyType.NoneType:
             return ""
-        else:
-            return str(self.data)
+        return str(self.data)
 
     @property
     def type(self):
         return self._message.body_type
+
+    @property
+    def data(self):
+        raise NotImplementedError("Only MessageBody subclasses have data.")
 
 
 class DataBody(MessageBody):
@@ -474,7 +474,7 @@ class SequenceBody(MessageBody):
 
     @property
     def data(self):
-        for i in range(len(self)):
+        for i in range(len(self)):  # pylint: disable=consider-using-enumerate
             yield self[i]
 
 

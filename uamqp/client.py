@@ -7,11 +7,9 @@
 import logging
 import uuid
 import queue
-import functools
-import time
 try:
     from urllib import unquote_plus
-except Exception:
+except ImportError:
     from urllib.parse import unquote_plus
 
 import uamqp
@@ -57,7 +55,8 @@ class AMQPClient:
         self._channel_max = kwargs.pop('channel_max', None)
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
-        self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop('remote_idle_timeout_empty_frame_send_ratio', None)
+        self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop(
+            'remote_idle_timeout_empty_frame_send_ratio', None)
 
         # Session settings
         self._outgoing_window = kwargs.pop('outgoing_window', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -74,13 +73,14 @@ class AMQPClient:
     def __exit__(self, *args):
         self.close()
 
-    def _client_ready(self):
+    def _client_ready(self):  # pylint: disable=no-self-use
         return True
 
     def _client_run(self):
         self._connection.work()
 
     def open(self, connection=None):
+        # pylint: disable=protected-access
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
@@ -191,6 +191,7 @@ class SendClient(AMQPClient):
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
+        # pylint: disable=protected-access
         if not self._message_sender:
             self._message_sender = sender.MessageSender(
                 self._session, self._name, self._remote_address,
@@ -211,6 +212,7 @@ class SendClient(AMQPClient):
         return True
 
     def _client_run(self):
+        # pylint: disable=protected-access
         for message in self._pending_messages[:]:
             if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
@@ -227,14 +229,14 @@ class SendClient(AMQPClient):
                     else:
                         timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
                         self._message_sender.send_async(message, timeout=timeout)
-                except Exception as exp:
+                except Exception as exp:  # pylint: disable=broad-except
                     message._on_message_sent(constants.MessageSendResult.Error, error=exp)
         self._connection.work()
         return True
 
     def close(self):
         if self._message_sender:
-            self._message_sender._destroy()
+            self._message_sender.destroy()
             self._message_sender = None
         super(SendClient, self).close()
         self._pending_messages = []
@@ -306,16 +308,18 @@ class ReceiveClient(AMQPClient):
         super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
+        # pylint: disable=protected-access
         if not self._message_receiver:
             self._message_receiver = receiver.MessageReceiver(
                 self._session, self._remote_address, self._name,
+                on_message_received=self,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties)
-            self._message_receiver.open(self)
+            self._message_receiver.open()
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
@@ -399,8 +403,7 @@ class ReceiveClient(AMQPClient):
             while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(self._received_messages.get())
                 self._received_messages.task_done()
-        else:
-            return batch
+        return batch
 
     def receive_messages(self, on_message_received):
         self.open()
@@ -423,7 +426,7 @@ class ReceiveClient(AMQPClient):
 
     def close(self):
         if self._message_receiver:
-            self._message_receiver._destroy()
+            self._message_receiver.destroy()
             self._message_receiver = None
         super(ReceiveClient, self).close()
         self._shutdown = False

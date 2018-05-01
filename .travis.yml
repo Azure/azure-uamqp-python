@@ -10,3 +10,4 @@ install:
 script: 
   - pytest
   - python ./setup.py check -r -s
+  - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp

@@ -4,6 +4,8 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=super-init-not-called
+
 import sys
 import logging
 import time
@@ -11,7 +13,7 @@ import datetime
 import threading
 import certifi
 try:
-    from urllib import parse as urlib_parse
+    from urllib import parse as urlib_parse  # pylint: disable=unused-import
 except ImportError:
     import urllib as urllib_parse  # Py2
 
@@ -64,11 +66,11 @@ class AMQPAuth:
         self.set_tlsio(hostname, port)
 
     def set_tlsio(self, hostname, port):
-        self._default_tlsio = _get_default_tlsio()
-        self._tlsio_config = c_uamqp.TLSIOConfig()
-        self._tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
-        self._tlsio_config.port = int(port)
-        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(self._default_tlsio, self._tlsio_config)
+        _default_tlsio = _get_default_tlsio()
+        _tlsio_config = c_uamqp.TLSIOConfig()
+        _tlsio_config.hostname = hostname.encode('utf-8') if isinstance(hostname, str) else hostname
+        _tlsio_config.port = int(port)
+        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
@@ -104,7 +106,7 @@ class SASLAnonymous(AMQPAuth):
 
 class CBSAuthMixin:
 
-    def update_token(self):
+    def update_token(self):  # pylint: disable=no-self-use
         raise errors.TokenExpired(
             "Unable to refresh token - no refresh logic implemented.")
 
@@ -120,7 +122,7 @@ class CBSAuthMixin:
                 self.token_type,
                 self.token,
                 int(self.expires_at),
-                self._session._session,
+                self._session._session,  # pylint: disable=protected-access
                 self.timeout)
             self._cbs_auth.set_trace(debug)
         except ValueError:
@@ -141,12 +143,12 @@ class CBSAuthMixin:
             auth_status = self._cbs_auth.get_status()
             auth_status = constants.CBSAuthStatus(auth_status)
             if auth_status == constants.CBSAuthStatus.Error:
-                if self.retries >= self._retry_policy.retries:
+                if self.retries >= self._retry_policy.retries:  # pylint: disable=no-member
                     _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     _logger.info("Authentication Put-Token failed. Retrying.")
-                    self.retries += 1
+                    self.retries += 1  # pylint: disable=no-member
                     time.sleep(self._retry_policy.backoff)
                     self._cbs_auth.authenticate()
                     in_progress = True
@@ -209,16 +211,16 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
-                 encoding='UTF-8'):
+                 encoding='UTF-8'):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
         self.uri = uri
-        parsed = urllib_parse.urlparse(uri)
-        
+        parsed = urllib_parse.urlparse(uri)  # pylint: disable=no-member
+
         self.cert_file = verify
         self.hostname = parsed.hostname
-        self.username = urllib_parse.unquote_plus(parsed.username) if parsed.username else None
-        self.password = urllib_parse.unquote_plus(parsed.password) if parsed.password else None
+        self.username = urllib_parse.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
+        self.password = urllib_parse.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
 
         self.username = username or self.username
         self.password = password or self.password
@@ -241,25 +243,14 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.sasl = sasl.SASL()
         self.set_tlsio(self.hostname, port)
 
-    def close(self):
-        super(SASTokenAuth, self).close()
-
-    @classmethod
-    def from_connection_string(cls, connection_str):
-        raise NotImplementedError()
-
-    @classmethod
-    def from_sas_token(cls, sas_token):
-        raise NotImplementedError()
-
     def update_token(self):
         """If a username and password are present - attempt to use them to
         request a fresh SAS token.
         """
         if not self.username or not self.password:
             raise errors.TokenExpired("Unable to refresh token - no username or password.")
-        encoded_uri = urllib_parse.quote_plus(self.uri).encode(self._encoding)
-        encoded_key = urllib_parse.quote_plus(self.username).encode(self._encoding)
+        encoded_uri = urllib_parse.quote_plus(self.uri).encode(self._encoding)  # pylint: disable=no-member
+        encoded_key = urllib_parse.quote_plus(self.username).encode(self._encoding)  # pylint: disable=no-member
         self.expires_at = time.time() + self.expires_in.seconds
         self.token = utils.create_sas_token(
             encoded_key,
@@ -277,8 +268,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             timeout=10,
             encoding='UTF-8'):
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
-        encoded_uri = urllib_parse.quote_plus(uri).encode(encoding)
-        encoded_key = urllib_parse.quote_plus(key_name).encode(encoding)
+        encoded_uri = urllib_parse.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
+        encoded_key = urllib_parse.quote_plus(key_name).encode(encoding)  # pylint: disable=no-member
         expires_at = time.time() + expires_in.seconds
         token = utils.create_sas_token(
             encoded_key,

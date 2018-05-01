@@ -4,11 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import uuid
-from datetime import timedelta
-import time
-import base64
-
+# pylint: disable=super-init-not-called,arguments-differ
 
 from uamqp import c_uamqp
 
@@ -35,7 +31,7 @@ class AMQPSymbol(AMQPType):
     def __init__(self, value, encoding='UTF-8'):
         self._c_type = self._c_wrapper(value, encoding)
 
-    def _c_wrapper(self, value, encoding):
+    def _c_wrapper(self, value, encoding='UTF-8'):
         value = value.encode(encoding) if isinstance(value, str) else value
         return c_uamqp.symbol_value(value)
 

@@ -44,7 +44,7 @@ def send_message(target, data, auth=None, debug=False):
     :type data: str, bytes or ~uamqp.Message
     :param auth: The authentication credentials for the endpoint.
      This should be one of the subclasses of ~uamqp.AMQPAuth. Currently
-     this includes: 
+     this includes:
         ~uamqp.authentication.SASLAnonymous
         ~uamqp.authentication.SASLPlain
         ~uamqp.authentication.SASTokenAuth
@@ -68,7 +68,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
     :type source: str, bytes or ~uamqp.Source
     :param auth: The authentication credentials for the endpoint.
      This should be one of the subclasses of ~uamqp.AMQPAuth. Currently
-     this includes: 
+     this includes:
         ~uamqp.authentication.SASLAnonymous
         ~uamqp.authentication.SASLPlain
         ~uamqp.authentication.SASTokenAuth
@@ -85,8 +85,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
     received = receive_messages(source, auth=auth, max_batch_size=1, timeout=timeout, debug=debug)
     if received:
         return received[0]
-    else:
-        return None
+    return None
 
 
 def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=False, **kwargs):
@@ -96,7 +95,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     :type source: str, bytes or ~uamqp.Source
     :param auth: The authentication credentials for the endpoint.
      This should be one of the subclasses of ~uamqp.AMQPAuth. Currently
-     this includes: 
+     this includes:
         ~uamqp.authentication.SASLAnonymous
         ~uamqp.authentication.SASLPlain
         ~uamqp.authentication.SASTokenAuth
@@ -118,7 +117,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
         kwargs['prefetch'] = max_batch_size
     with ReceiveClient(source, auth=auth, debug=debug, **kwargs) as receive_client:
         return receive_client.receive_message_batch(
-            max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)
+            max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)  # pylint: disable=protected-access
 
 
 class _Platform:
@@ -149,14 +148,14 @@ class _Platform:
         making AMQP requests. This only needs to happen once.
         """
         if not cls.initialized:
-           _logger.debug("Platform already deinitialized.")
+            _logger.debug("Platform already deinitialized.")
         else:
             cls.initialized = False
             _logger.debug("Deinitializing platform.")
             c_uamqp.platform_deinit()
 
 
-def get_platform_info(self):
+def get_platform_info():
     """Gets the current platform information.
     :returns: str
     """

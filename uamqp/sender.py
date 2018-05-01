@@ -5,7 +5,6 @@
 #--------------------------------------------------------------------------
 
 import logging
-import datetime
 import uuid
 
 from uamqp import utils
@@ -26,6 +25,7 @@ class MessageSender():
                  link_credit=None,
                  properties=None,
                  debug=False):
+        # pylint: disable=protected-access
         name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
         source = source.encode('utf-8') if isinstance(source, str) else source
         role = constants.Role.Sender
@@ -55,9 +55,9 @@ class MessageSender():
         return self
 
     def __exit__(self, *args):
-        self._destroy()
+        self.destroy()
 
-    def _destroy(self):
+    def destroy(self):
         self._sender.destroy()
         self._link.destroy()
 

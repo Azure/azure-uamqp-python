@@ -19,6 +19,7 @@ _logger = logging.getLogger(__name__)
 class MessageReceiverAsync(receiver.MessageReceiver):
 
     def __init__(self, session, source, target,
+                 on_message_received,
                  name=None,
                  receive_settle_mode=None,
                  max_message_size=None,
@@ -29,6 +30,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         self.loop = loop or asyncio.get_event_loop()
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
+            on_message_received,
             name=name,
             receive_settle_mode=receive_settle_mode,
             max_message_size=max_message_size,
@@ -41,14 +43,14 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         return self
 
     async def __aexit__(self, *args):
-        await self._destroy_async()
+        await self.destroy_async()
 
-    async def _destroy_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self._destroy))
+    async def destroy_async(self):
+        await self.loop.run_in_executor(None, functools.partial(self.destroy))
 
-    async def open_async(self, on_message_received):
+    async def open_async(self):
         try:
-            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, on_message_received))
+            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, self.on_message_received))
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "

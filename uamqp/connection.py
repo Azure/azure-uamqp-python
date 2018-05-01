@@ -9,7 +9,6 @@ import uuid
 import threading
 
 import uamqp
-from uamqp import constants
 from uamqp import c_uamqp
 from uamqp import utils
 
@@ -27,15 +26,19 @@ class Connection:
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  debug=False):
-        uamqp._Platform.initialize()
+        uamqp._Platform.initialize()  # pylint: disable=protected-access
         container_id = container_id if container_id else str(uuid.uuid4())
         self.hostname = hostname
         self.auth = sasl
         self.cbs = None
-        self._conn = c_uamqp.create_connection(sasl.sasl_client.get_client(), hostname.encode('utf-8'), container_id.encode('utf-8'), self)
+        self._conn = c_uamqp.create_connection(
+            sasl.sasl_client.get_client(),
+            hostname.encode('utf-8'),
+            container_id.encode('utf-8'), self)
         self._conn.set_trace(debug)
         self._sessions = []
         self._lock = threading.Lock()
+        self._state = c_uamqp.ConnectionState.UNKNOWN
 
         if max_frame_size:
             self.max_frame_size = max_frame_size
@@ -63,6 +66,7 @@ class Connection:
             _new_state = c_uamqp.ConnectionState(new_state)
         except ValueError:
             _new_state = c_uamqp.ConnectionState.UNKNOWN
+        self._state = _new_state
         _logger.debug("Connection state changed from {} to {}".format(_previous_state, _new_state))
 
     def destroy(self):
@@ -70,7 +74,7 @@ class Connection:
             self.auth.close_authenticator()
         self._conn.destroy()
         self.auth.close()
-        uamqp._Platform.deinitialize()
+        uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
     def work(self):
         self._lock.acquire()

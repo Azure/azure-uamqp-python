@@ -4,25 +4,24 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# TODO: check this
+# pylint: disable=super-init-not-called
+
 import asyncio
 import collections.abc
 import logging
-import functools
 import uuid
 import queue
 
 import uamqp
 from uamqp import client
-from uamqp import authentication
 from uamqp import constants
-from uamqp import address
 from uamqp import errors
 
 from uamqp.async.connection_async import ConnectionAsync
 from uamqp.async.session_async import SessionAsync
 from uamqp.async.sender_async import MessageSenderAsync
 from uamqp.async.receiver_async import MessageReceiverAsync
-from uamqp.authentication import CBSAuthMixin
 from uamqp.async.authentication_async import CBSAsyncAuthMixin
 
 
@@ -44,6 +43,7 @@ class AMQPClientAsync(client.AMQPClient):
         await self.close_async()
 
     async def open_async(self, connection=None):
+        # pylint: disable=protected-access
         if self._session:
             return  # already open
         if connection:
@@ -148,6 +148,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             self, target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
 
     async def _client_ready(self):
+        # pylint: disable=protected-access
         if not self._message_sender:
             self._message_sender = MessageSenderAsync(
                 self._session, self._name, self._remote_address,
@@ -169,6 +170,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         return True
 
     async def _client_run(self):
+        # pylint: disable=protected-access
         for message in self._pending_messages[:]:
             if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
                 try:
@@ -186,14 +188,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                         timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
                         self._message_sender.send_async(message, timeout=timeout)
 
-                except Exception as exp:
+                except Exception as exp:  # pylint: disable=broad-except
                     message._on_message_sent(constants.MessageSendResult.Error, error=exp)
         await self._connection.work_async()
         return True
 
     async def close_async(self):
         if self._message_sender:
-            await self._message_sender._destroy_async()
+            await self._message_sender.destroy_async()
             self._message_sender = None
         await super(SendClientAsync, self).close_async()
         self._pending_messages = []
@@ -246,9 +248,11 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
 
     async def _client_ready(self):
+        # pylint: disable=protected-access
         if not self._message_receiver:
             self._message_receiver = MessageReceiverAsync(
                 self._session, self._remote_address, self._name,
+                on_message_received=self,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -256,7 +260,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
                 loop=self.loop)
-            await self._message_receiver.open_async(self)
+            await self._message_receiver.open_async()
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
@@ -283,7 +287,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         return True
 
     def _message_received(self, message):
-        expiry = None
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
@@ -340,8 +343,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(self._received_messages.get())
                 self._received_messages.task_done()
-        else:
-            return batch
+        return batch
 
     def receive_messages_iter_async(self, on_message_received=None):
         self._message_received_callback = on_message_received
@@ -350,7 +352,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
     async def close_async(self):
         if self._message_receiver:
-            await self._message_receiver._destroy_async()
+            await self._message_receiver.destroy_async()
             self._message_receiver = None
         await super(ReceiveClientAsync, self).close_async()
         self._shutdown = False
@@ -360,11 +362,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
 class AsyncMessageIter(collections.abc.AsyncIterator):
 
-    def __init__(self, client):
-        self._client = client
+    def __init__(self, rcv_client):
+        self._client = rcv_client
         self.receiving = True
 
     async def __anext__(self):
+        # pylint: disable=protected-access
         await self._client.open_async()
         try:
             while self.receiving and self._client._received_messages.empty():

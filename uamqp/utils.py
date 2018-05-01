@@ -29,34 +29,36 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
 
 
 def data_factory(value):
+    result = None
     if value is None:
-        return c_uamqp.null_value()
+        result = c_uamqp.null_value()
     elif isinstance(value, types.AMQPType):
-        return value.c_data
+        result = value.c_data
     elif isinstance(value, c_uamqp.AMQPValue):
-        return value
+        result = value
     elif isinstance(value, bool):
-        return c_uamqp.bool_value(value)
+        result = c_uamqp.bool_value(value)
     elif isinstance(value, str) and len(value) == 1:
-        return c_uamqp.char_value(value.encode('utf-8'))
+        result = c_uamqp.char_value(value.encode('utf-8'))
     elif isinstance(value, str) and len(value) > 1:
-        return c_uamqp.string_value(value.encode('utf-8'))
+        result = c_uamqp.string_value(value.encode('utf-8'))
     elif isinstance(value, uuid.UUID):
-        return c_uamqp.uuid_value(value)
+        result = c_uamqp.uuid_value(value)
     elif isinstance(value, bytes):
-        return c_uamqp.binary_value(value)
+        result = c_uamqp.binary_value(value)
     elif isinstance(value, float):
-        return c_uamqp.double_value(value)
+        result = c_uamqp.double_value(value)
     elif isinstance(value, int):
-        return c_uamqp.int_value(value)
+        result = c_uamqp.int_value(value)
     elif isinstance(value, dict):
         wrapped_dict = c_uamqp.dict_value()
         for key, item in value.items():
             wrapped_dict[data_factory(key)] = data_factory(item)
-        return wrapped_dict
+        result = wrapped_dict
     elif isinstance(value, (list, set, tuple)):
         wrapped_list = c_uamqp.list_value()
         wrapped_list.size = len(value)
         for index, item in enumerate(value):
             wrapped_list[index] = data_factory(item)
-        return wrapped_list
+        result = wrapped_list
+    return result

@@ -55,6 +55,6 @@ class SessionAsync(session.Session):
         return response
 
     async def destroy_async(self):
-        for node, link in self._mgmt_links.items():
-           await link.destroy_async()
+        for _, link in self._mgmt_links.items():
+            await link.destroy_async()
         await self.loop.run_in_executor(None, functools.partial(self._session.destroy))

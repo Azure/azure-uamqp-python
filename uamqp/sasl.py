@@ -4,10 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-try:
-    from urllib import quote_plus #Py2
-except Exception:
-    from urllib.parse import quote_plus
+# pylint: disable=no-self-use
 
 from uamqp import c_uamqp
 

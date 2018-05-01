@@ -33,7 +33,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
                 self.token_type,
                 self.token,
                 int(self.expires_at),
-                self._session._session,
+                self._session._session,  # pylint: disable=protected-access
                 self.timeout)
             self._cbs_auth.set_trace(debug)
         except ValueError:
@@ -54,12 +54,12 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
             auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
             auth_status = constants.CBSAuthStatus(auth_status)
             if auth_status == constants.CBSAuthStatus.Error:
-                if self.retries >= self._retry_policy.retries:
+                if self.retries >= self._retry_policy.retries:  # pylint: disable=no-member
                     _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     _logger.info("Authentication Put-Token failed. Retrying.")
-                    self.retries += 1
+                    self.retries += 1  # pylint: disable=no-member
                     await asyncio.sleep(self._retry_policy.backoff)
                     await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
                     in_progress = True
@@ -74,7 +74,11 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
                 _logger.info("Token will expire soon - attempting to refresh.")
                 self.update_token()
-                await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.refresh, self.token, int(self.expires_at)))
+                await self.loop.run_in_executor(
+                    None, functools.partial(
+                        self._cbs_auth.refresh,
+                        self.token,
+                        int(self.expires_at)))
             elif auth_status == constants.CBSAuthStatus.Idle:
 
                 await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
