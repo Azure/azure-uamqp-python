@@ -23,9 +23,7 @@ def parse_connection_string(connect_str):
 
 
 def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=1)):
-    shared_access_key = base64.b64encode(shared_access_key.encode('utf-8'))
-    scope = scope.encode('utf-8')
-    key_name = key_name.encode('utf-8')
+    shared_access_key = base64.b64encode(shared_access_key)
     abs_expiry = int(time.time()) + expiry.seconds
     return c_uamqp.create_sas_token(shared_access_key, scope, key_name, abs_expiry)
 

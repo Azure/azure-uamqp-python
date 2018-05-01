@@ -18,18 +18,40 @@ _logger = logging.getLogger(__name__)
 
 
 class Address:
+    """Represents an AMQP endpoint.
 
-    def __init__(self, address):
+    :ivar address: The endpoint URL.
+    :vartype address: str
+    :ivar durable: Whether the endpoint is durable.
+    :vartype: bool
+    :ivar expiry_policy: The endpoint expiry policy
+    :ivar timeout: The endpoint timeout in seconds.
+    :vartype timeout: int
+    :ivar dynamic: Whether the endpoint is dynamic.
+    :vartype dynamic: bool
+    :ivar distribution_mode: The endpoint distribution mode.
+    :vartype distribution_mode: str
+    :param address: An AMQP endpoint URL.
+    :type address: str or bytes
+    :param encoding: The encoding used if address is supplied
+     as a str rather than bytes. Default is UTF-8.
+    """
+
+    def __init__(self, address, encoding='UTF-8'):
         self.parsed_address = self._validate_address(address)
+        self._encoding = encoding
         self._c_address = c_uamqp.string_value(
-            address.encode('utf-8') if isinstance(address, str) else address)
+            address.encode(encoding) if isinstance(address, str) else address)
 
     def __repr__(self):
+        """Get the Address as a URL.
+        :returns: str
+        """
         return self.parsed_address.geturl()
 
     @property
     def address(self):
-        return self._address.address.decode('utf-8')
+        return self._address.address.decode(self._encoding)
 
     @property
     def durable(self):
@@ -65,14 +87,21 @@ class Address:
 
     @property
     def distribution_mode(self):
-        return self._address.distribution_mode.decode('utf-8')
+        return self._address.distribution_mode.decode(self._encoding)
 
     @distribution_mode.setter
     def distribution_mode(self, value):
-        mode = value.encode('utf-8') if isinstance(value, str) else value
+        mode = value.encode(self._encoding) if isinstance(value, str) else value
         self._address.distribution_mode = mode
 
     def _validate_address(self, address):
+        """Confirm that supplied address is a valid URL and
+        has an `amqp` or `amqps` scheme.
+
+        :param address: The endpiont URL.
+        :type address: str
+        :returns: ~urllib.parse.ParseResult
+        """
         parsed = urlparse(address)
         if not parsed.scheme.startswith('amqp'):
             raise ValueError("Source scheme must be amqp or amqps.")
@@ -83,15 +112,39 @@ class Address:
 
 
 class Source(Address):
+    """Represents an AMQP Source endpoint.
 
-    def __init__(self, address):
-        super(Source, self).__init__(address)
+    :ivar address: The endpoint URL.
+    :vartype address: str
+    :ivar durable: Whether the endpoint is durable.
+    :vartype: bool
+    :ivar expiry_policy: The endpoint expiry policy
+    :ivar timeout: The endpoint timeout in seconds.
+    :vartype timeout: int
+    :ivar dynamic: Whether the endpoint is dynamic.
+    :vartype dynamic: bool
+    :ivar distribution_mode: The endpoint distribution mode.
+    :vartype distribution_mode: str
+    :param address: An AMQP endpoint URL.
+    :type address: str or bytes
+    :param encoding: The encoding used if address is supplied
+     as a str rather than bytes. Default is UTF-8.
+    """
+
+    def __init__(self, address, encoding='UTF-8'):
+        super(Source, self).__init__(address, encoding)
         self._filters = []
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
 
     def set_filter(self, filter):
-        value = filter.encode('utf-8') if isinstance(filter, str) else filter
+        """Set a filter on the endpoint. Only one filter
+        can be applied to an endpoint.
+
+        :param filter: The filter to apply to the endpoint.
+        :type fileter: bytes or str
+        """
+        value = filter.encode(self._encoding) if isinstance(filter, str) else filter
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(constants.STRING_FILTER)
         descriptor = c_uamqp.symbol_value(constants.STRING_FILTER)
@@ -103,8 +156,26 @@ class Source(Address):
 
 
 class Target(Address):
+    """Represents an AMQP Target endpoint.
 
-    def __init__(self, address):
-        super(Target, self).__init__(address)
+    :ivar address: The endpoint URL.
+    :vartype address: str
+    :ivar durable: Whether the endpoint is durable.
+    :vartype: bool
+    :ivar expiry_policy: The endpoint expiry policy
+    :ivar timeout: The endpoint timeout in seconds.
+    :vartype timeout: int
+    :ivar dynamic: Whether the endpoint is dynamic.
+    :vartype dynamic: bool
+    :ivar distribution_mode: The endpoint distribution mode.
+    :vartype distribution_mode: str
+    :param address: An AMQP endpoint URL.
+    :type address: str or bytes
+    :param encoding: The encoding used if address is supplied
+     as a str rather than bytes. Default is UTF-8.
+    """
+
+    def __init__(self, address, encoding='UTF-8'):
+        super(Target, self).__init__(address, encoding)
         self._address = c_uamqp.create_target()
         self._address.address = self._c_address

@@ -11,11 +11,9 @@ import datetime
 import threading
 import certifi
 try:
-    from urllib import quote_plus, unquote_plus #Py2
-    from urllib import urlparse
-except Exception:
-    from urllib.parse import quote_plus, unquote_plus
-    from urllib.parse import urlparse
+    from urllib import parse as urlib_parse
+except ImportError:
+    import urllib as urllib_parse  # Py2
 
 from uamqp import Session
 from uamqp import utils
@@ -34,16 +32,33 @@ def _get_default_tlsio():
 
 
 class TokenRetryPolicy:
+    """Retry policy for sending authentication tokens
+    for CBS authentication.
+
+    :param retries: The number of retry attempts for a failed
+     PUT token request. The default is 3. This is exclusive of
+     the initial attempt.
+    :type retries: int
+    :param backoff: The time in miliseconds to wait between
+     retry attempts.
+    :type backoff: int
+    """
 
     def __init__(self, retries=3, backoff=0):
         self.retries = retries
-        self.backoff = backoff
+        self.backoff = float(backoff)/1000
 
 
 class AMQPAuth:
+    """AMQP authentication mixin.
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None):
-        self.hostname = hostname.encode('utf-8')
+    :param hostname: The AMQP endpoint hostname.
+    :type hostname: str or bytes
+    """
+
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+        self._encoding = encoding
+        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
         self.sasl = sasl.SASL()
         self.set_tlsio(hostname, port)
@@ -163,6 +178,26 @@ class CBSAuthMixin:
 
 
 class SASTokenAuth(AMQPAuth, CBSAuthMixin):
+    """CBS authentication using SAS tokens.
+
+    :param audience: The token audience field. For SAS tokens
+     this is usually the URI.
+    :type audience: str or bytes
+    :param uri: The AMQP endpoint URI. This must be provided as
+     a decoded string.
+    :type uri: str
+    :param token: The SAS token.
+    :type token: str or bytes.
+    :param expires_in: The total remaining seconds until the token
+     expires.
+    :type expires_in: ~datetime.timedelta
+    :param expires_at: The timestamp at which the SAS token will expire
+     formatted as seconds since epoch.
+    :type expires_at: float
+    :param username: The SAS token username, also referred to as the key
+     name or policy name. This can optionally be encoded into the URI.
+    :type username: str
+    """
 
     def __init__(self, audience, uri, token,
                  expires_in=None,
@@ -173,19 +208,23 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  timeout=10,
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
-                 token_type=b"servicebus.windows.net:sastoken"):
+                 token_type=b"servicebus.windows.net:sastoken",
+                 encoding='UTF-8'):
         self._retry_policy = retry_policy
-        parsed = urlparse(uri)
+        self._encoding = encoding
         self.uri = uri
+        parsed = urllib_parse.urlparse(uri)
+        
         self.cert_file = verify
         self.hostname = parsed.hostname
-        self.username = unquote_plus(parsed.username) if parsed.username else None
+        self.username = urllib_parse.unquote_plus(parsed.username) if parsed.username else None
+        self.password = urllib_parse.unquote_plus(parsed.password) if parsed.password else None
+
         self.username = username or self.username
-        self.password = unquote_plus(parsed.password) if parsed.password else None
         self.password = password or self.password
-        self.audience = audience if isinstance(audience, bytes) else audience.encode('utf-8')
-        self.token_type = token_type if isinstance(token_type, bytes) else token_type.encode('utf-8')
-        self.token = token if isinstance(token, bytes) else token.encode('utf-8')
+        self.audience = audience if isinstance(audience, bytes) else audience.encode(self._encoding)
+        self.token_type = token_type if isinstance(token_type, bytes) else token_type.encode(self._encoding)
+        self.token = token if isinstance(token, bytes) else token.encode(self._encoding)
         if not expires_at and not expires_in:
             raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
         elif not expires_at:
@@ -214,12 +253,19 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         raise NotImplementedError()
 
     def update_token(self):
+        """If a username and password are present - attempt to use them to
+        request a fresh SAS token.
+        """
         if not self.username or not self.password:
             raise errors.TokenExpired("Unable to refresh token - no username or password.")
-        encoded_uri = quote_plus(self.uri)
-        encoded_key = quote_plus(self.username)
+        encoded_uri = urllib_parse.quote_plus(self.uri).encode(self._encoding)
+        encoded_key = urllib_parse.quote_plus(self.username).encode(self._encoding)
         self.expires_at = time.time() + self.expires_in.seconds
-        self.token = utils.create_sas_token(encoded_key, self.password, encoded_uri, self.expires_in)
+        self.token = utils.create_sas_token(
+            encoded_key,
+            self.password.encode(self._encoding),
+            encoded_uri,
+            self.expires_in)
 
     @classmethod
     def from_shared_access_key(
@@ -228,12 +274,17 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             key_name,
             shared_access_key,
             expiry=None,
-            timeout=10):
+            timeout=10,
+            encoding='UTF-8'):
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
-        encoded_uri = quote_plus(uri)
-        encoded_key = quote_plus(key_name)
+        encoded_uri = urllib_parse.quote_plus(uri).encode(encoding)
+        encoded_key = urllib_parse.quote_plus(key_name).encode(encoding)
         expires_at = time.time() + expires_in.seconds
-        token = utils.create_sas_token(encoded_key, shared_access_key, encoded_uri, expires_in)
+        token = utils.create_sas_token(
+            encoded_key,
+            shared_access_key.encode(encoding),
+            encoded_uri,
+            expires_in)
         return cls(
             uri, uri, token,
             expires_in=expires_in,
