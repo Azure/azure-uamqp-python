@@ -16,6 +16,25 @@ _logger = logging.getLogger(__name__)
 
 
 class Session:
+    """An AMQP Session. A Connection can have multiple Sessions, and each
+    Session can have multiple Links.
+
+    :ivar incoming_window: The size of the allowed window for incoming messages.
+    :vartype incoming_window: int
+    :ivar outgoing_window: The size of the allowed window for outgoing messages.
+    :vartype outgoing_window: int
+    :ivar handle_max: The maximum number of concurrent link handles.
+    :vartype handle_max: int
+
+    :param connection: The underlying Connection for the Session.
+    :type connection: ~uamqp.Connection
+    :param incoming_window: The size of the allowed window for incoming messages.
+    :type incoming_window: int
+    :param outgoing_window: The size of the allowed window for outgoing messages.
+    :type outgoing_window: int
+    :param handle_max: The maximum number of concurrent link handles.
+    :type handle_max: int
+    """
 
     def __init__(self, connection,
                  incoming_window=None,
@@ -34,12 +53,43 @@ class Session:
             self.handle_max = handle_max
 
     def __enter__(self):
+        """Run Session in a context manager."""
         return self
 
     def __exit__(self, *args):
+        """Close and destroy sesion on exiting context manager."""
         self._session.destroy()
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+        """Run a request/response operation. These are frequently used for management
+        tasks against a $management node, however any node name can be specified
+        and the available options will depend on the target service.
+
+        :param message: The message to send in the management request.
+        :type message: ~uamqp.Message
+        :param operation: The type of operation to be performed. This value will
+         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         This value will be added as an application property on the message.
+        :type operation: bytes
+        :param op_type: The type on which to carry out the operation. This will
+         be specific to the entities of the service. This value will be added as
+         an application property on the message.
+        :type op_type: bytes
+        :param node: The target node. Default is `b"$management"`.
+        :type node: bytes
+        :param timeout: Provide an optional timeout in milliseconds within which a response
+         to the management request must be received.
+        :type timeout: int
+        :param status_code_field: Provide an alternate name for the status code in the
+         response body which can vary between services due to the spec still being in draft.
+         The default is `b"statusCode"`.
+        :type status_code_field: bytes
+        :param description_fields: Provide an alternate name for the description in the
+         response body which can vary between services due to the spec still being in draft.
+         The default is `b"statusDescription"`.
+        :type description_fields: bytes
+        :returns: ~uamqp.Message
+        """
         timeout = kwargs.pop('timeout', None) or 0
         try:
             mgmt_link = self._mgmt_links[node]
@@ -58,6 +108,9 @@ class Session:
         return response
 
     def destroy(self):
+        """Close any open management Links and close the Session.
+        Cleans up and C objects for both mgmt Links and Session.
+        """
         for _, link in self._mgmt_links.items():
             link.destroy()
         self._session.destroy()
