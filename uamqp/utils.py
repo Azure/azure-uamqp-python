@@ -58,10 +58,10 @@ def data_factory(value):
     - str => c_uamqp.StringValue
     - bytes => c_uamqp.BinaryValue
     - str (char) => c_uamqp.CharValue
-    - uuid.UUID => c_uamqp.UUIDValue
     - list/set/tuple => c_uamqp.ListValue
     - dict => c_uamqp.DictValue (AMQP map)
     - float => c_uamqp.DoubleValue
+    - uuid.UUID => c_uamqp.UUIDValue
 
     :param value: The value to wrap.
     :returns: c_uamqp.AMQPValue

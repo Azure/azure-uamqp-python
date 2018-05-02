@@ -10,6 +10,11 @@ from uamqp import c_uamqp
 
 
 class AMQPType:
+    """Base type for specific AMQP encoded type definitions.
+
+    :ivar value: The Python value of the AMQP type.
+    :ivar c_data: The C AMQP encoded object.
+    """
 
     def __init__(self, value):
         self._c_type = self._c_wrapper(value)
@@ -27,6 +32,18 @@ class AMQPType:
 
 
 class AMQPSymbol(AMQPType):
+    """An AMQP symbol object.
+
+    :ivar value: The Python value of the AMQP type.
+    :vartype value: bytes
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: c_uamqp.SymbolValue
+    :param value: The value to encode as an AMQP symbol.
+    :type value: bytes or str
+    :param encoding: The encoding to be used if a str is provided.
+     The default is 'UTF-8'.
+    :type encoding: str
+    """
 
     def __init__(self, value, encoding='UTF-8'):
         self._c_type = self._c_wrapper(value, encoding)
@@ -37,6 +54,17 @@ class AMQPSymbol(AMQPType):
 
 
 class AMQPLong(AMQPType):
+    """An AMQP long object. The value of a long must be
+    between -2147483647 and 2147438647.
+
+    :ivar value: The Python value of the AMQP type.
+    :vartype value: int
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: c_uamqp.SymbolValue
+    :param value: The value to encode as an AMQP symbol.
+    :type value: int
+    :raises: ValueError if value is not within allowed range.
+    """
 
     _min_value = -2147483647
     _max_value = 2147438647
