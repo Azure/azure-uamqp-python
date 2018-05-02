@@ -28,6 +28,37 @@ _logger = logging.getLogger(__name__)
 
 
 class AMQPClient:
+    """An AMQP client.
+
+    :param remote_address: The AMQP endpoint to connect to. This could be a send target
+     or a receive source.
+    :type remote_address: str, bytes or ~uamqp.address.Address
+    :param auth: Authentication for the connection. If none is provided SASL Annoymous
+     authentication will be used.
+    :type auth: ~uamqp.authentication.AMQPAuth
+    :param client_name: The name for the client, also known as the Container ID.
+     If no name is provided, a random GUID will be used.
+    :type client_name: str or bytes
+    :param debug: Whether to turn on network trace logs. If `True`, trace logs
+     will be logged at INFO level. Default is `False`.
+    :type debug: bool
+    :param max_frame_size:
+    :type max_frame_size: int
+    :param channel_max:
+    :type channel_max: int
+    :param idle_timeout:
+    :type idle_timeout: int
+    :param properties:
+    :type properties: dict
+    :param remote_idle_timeout_empty_frame_send_ratio:
+    :type remote_idle_timeout_empty_frame_send_ratio:
+    :param incoming_window: The size of the allowed window for incoming messages.
+    :type incoming_window: int
+    :param outgoing_window: The size of the allowed window for outgoing messages.
+    :type outgoing_window: int
+    :param handle_max: The maximum number of concurrent link handles.
+    :type handle_max: int
+    """
 
     def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
@@ -134,6 +165,35 @@ class AMQPClient:
             self._connection = None
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+        """Run a request/response operation. These are frequently used for management
+        tasks against a $management node, however any node name can be specified
+        and the available options will depend on the target service.
+
+        :param message: The message to send in the management request.
+        :type message: ~uamqp.Message
+        :param operation: The type of operation to be performed. This value will
+         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         This value will be added as an application property on the message.
+        :type operation: bytes
+        :param op_type: The type on which to carry out the operation. This will
+         be specific to the entities of the service. This value will be added as
+         an application property on the message.
+        :type op_type: bytes
+        :param node: The target node. Default is `b"$management"`.
+        :type node: bytes
+        :param timeout: Provide an optional timeout in milliseconds within which a response
+         to the management request must be received.
+        :type timeout: int
+        :param status_code_field: Provide an alternate name for the status code in the
+         response body which can vary between services due to the spec still being in draft.
+         The default is `b"statusCode"`.
+        :type status_code_field: bytes
+        :param description_fields: Provide an alternate name for the description in the
+         response body which can vary between services due to the spec still being in draft.
+         The default is `b"statusDescription"`.
+        :type description_fields: bytes
+        :returns: ~uamqp.Message
+        """
         timeout = False
         auth_in_progress = False
         while True:
@@ -156,6 +216,14 @@ class AMQPClient:
         return uamqp.Message(message=response)
 
     def do_work(self):
+        """Run a single connection iteration.
+        This will return `True` if the connection is still open
+        and ready to be used for further work, or `False` if it needs
+        to be shut down.
+
+        :returns: bool
+        :raises: TimeoutError if CBS authentication timeout reached.
+        """
         timeout = False
         auth_in_progress = False
         if self._connection.cbs:
@@ -176,6 +244,35 @@ class AMQPClient:
 
 
 class SendClient(AMQPClient):
+    """An AMQP client for sending messages.
+
+    :param target: The target AMQP service endpoint. This can either be the URI as
+     a string or a ~uamqp.Target object.
+    :type target: str, bytes or ~uamqp.Target
+    :param auth: Authentication for the connection. If none is provided SASL Annoymous
+     authentication will be used.
+    :type auth: ~uamqp.authentication.AMQPAuth
+    :param client_name: The name for the client, also known as the Container ID.
+     If no name is provided, a random GUID will be used.
+    :type client_name: str or bytes
+    :param debug: Whether to turn on network trace logs. If `True`, trace logs
+     will be logged at INFO level. Default is `False`.
+    :type debug: bool
+    :param msg_timeout: A timeout in seconds for messages from when they have been
+     added to the send queue to when the message is actually sent. This prevents potentially
+     expired data from being sent. If set to 0, messages will not expire. Default is 0.
+    :type msg_timeout: int
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully send. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param max_message_size: The maximum allowed message size negotiated for the Link.
+    :type max_message_size: int
+    :param link_credit: The sender Link credit that determines how many
+     messages the Link will attempt to handle per connection iteration.
+    :type link_credit: int
+    """
 
     def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
         target = target if isinstance(target, address.Address) else address.Target(target)
@@ -191,6 +288,14 @@ class SendClient(AMQPClient):
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
+        """Determine whether the client is ready to start sending messages.
+        To be ready, the connection must be open and authentication complete,
+        The Session, Link and MessageSender must be open and in non-errored
+        states.
+        :returns: bool
+        :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
+         goes into an error state.
+        """
         # pylint: disable=protected-access
         if not self._message_sender:
             self._message_sender = sender.MessageSender(
@@ -212,6 +317,12 @@ class SendClient(AMQPClient):
         return True
 
     def _client_run(self):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+        :returns: bool
+        """
         # pylint: disable=protected-access
         for message in self._pending_messages[:]:
             if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
@@ -235,6 +346,11 @@ class SendClient(AMQPClient):
         return True
 
     def close(self):
+        """Close down the client. No further messages
+        can be sent and the client cannot be re-opened.
+
+        All pending, unsetn messages will be cleared.
+        """
         if self._message_sender:
             self._message_sender.destroy()
             self._message_sender = None
@@ -242,11 +358,33 @@ class SendClient(AMQPClient):
         self._pending_messages = []
 
     def queue_message(self, messages):
+        """Add a message to the send queue.
+        No further action will be taken until either SendClient.wait()
+        or SendClient.send_all_messages() has been called.
+        The client does not need to be open yet for messages to be added
+        to the queue.
+
+        :param messages: A message to send. This can either be a single instance
+         of ~uamqp.Message, or multiple messages wrapped in an instance
+         of ~uamqp.BatchMessage.
+        :type message: ~uamqp.Message
+        """
         for message in messages.gather():
             message.idle_time = self._counter.get_current_ms()
             self._pending_messages.append(message)
 
     def send_message(self, messages, close_on_done=False):
+        """Send a single message or batched message.
+
+        :param messages: A message to send. This can either be a single instance
+         of ~uamqp.Message, or multiple messages wrapped in an instance
+         of ~uamqp.BatchMessage.
+        :type message: ~uamqp.Message
+        :param close_on_done: Close the client once the message is sent. Default is `False`.
+        :type close_on_done: bool
+        :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
+         is exhausted.
+        """
         batch = messages.gather()
         pending_batch = []
         for message in batch:
@@ -268,13 +406,30 @@ class SendClient(AMQPClient):
                 self.close()
 
     def messages_pending(self):
+        """Check whether the client is holding any unsent
+        messages in the queue.
+        :returns: bool
+        """
         return bool(self._pending_messages)
 
     def wait(self):
+        """Run the client until all pending message in the queue
+        have been processed.
+        """
         while self.messages_pending():
             self.do_work()
 
     def send_all_messages(self, close_on_done=True):
+        """Send all pending messages in the queue. This will return a list
+        of the send result of all the pending messages so it can be
+        determined if any messages failed to send.
+        This function will open the client if it is not already open.
+
+        :param close_on_done: Close the client once the messages are sent.
+         Default is `True`.
+        :type close_on_done: bool
+        :returns: list[~uamqp.constants.MessageState]
+        """
         self.open()
         try:
             messages = self._pending_messages[:]

@@ -25,9 +25,13 @@ class MessageReceiver():
                  max_message_size=None,
                  prefetch=None,
                  properties=None,
-                 debug=False):
+                 debug=False,
+                 encoding='UTF-8'):
         # pylint: disable=protected-access
-        self.name = name.encode('utf-8') if name else str(uuid.uuid4()).encode('utf-8')
+        if name:
+            self.name = name.encode(encoding) if isinstance(name, str) else name
+        else:
+            self.name = str(uuid.uuid4()).encode(encoding)
         target = target.encode('utf-8') if isinstance(target, str) else target
         role = constants.Role.Receiver
 

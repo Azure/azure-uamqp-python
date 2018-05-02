@@ -51,7 +51,7 @@ def send_message(target, data, auth=None, debug=False):
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.AMQPAuth
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
-     will be logged at INFO level.
+     will be logged at INFO level. Default is `False`.
     :type debug: bool
     :returns: None
     """
@@ -78,7 +78,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
      are retrieved. If set to `0` (the default), the receiver will not timeout and
      will continue to wait for messages until interrupted.
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
-     will be logged at INFO level.
+     will be logged at INFO level. Default is `False`.
     :type debug: bool
     :returns: ~uamqp.Message or None
     """
@@ -109,7 +109,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
      are retrieved. If set to `0` (the default), the receiver will not timeout and
      will continue to wait for messages until interrupted.
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
-     will be logged at INFO level.
+     will be logged at INFO level. Default is `False`.
     :type debug: bool
     :returns: list[~uamqp.Message]
     """
