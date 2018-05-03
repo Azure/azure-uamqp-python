@@ -118,7 +118,7 @@ class AMQPClient:
         return True
 
     def _client_run(self):
-        """Perform single connection iteration."""
+        """Perform a single Connection iteration."""
         self._connection.work()
 
     def open(self, connection=None):
