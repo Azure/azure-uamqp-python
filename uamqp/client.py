@@ -42,16 +42,19 @@ class AMQPClient:
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :param max_frame_size:
+    :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
     :type max_frame_size: int
-    :param channel_max:
+    :param channel_max: Maximum number of Session channels in the Connection.
     :type channel_max: int
-    :param idle_timeout:
+    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+     if there is no further activity.
     :type idle_timeout: int
-    :param properties:
+    :param properties: Connection properties.
     :type properties: dict
-    :param remote_idle_timeout_empty_frame_send_ratio:
-    :type remote_idle_timeout_empty_frame_send_ratio:
+    :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
+     idle time for Connections with no activity. Value must be between
+     0.0 and 1.0 inclusive. Default is 0.5.
+    :type remote_idle_timeout_empty_frame_send_ratio: float
     :param incoming_window: The size of the allowed window for incoming messages.
     :type incoming_window: int
     :param outgoing_window: The size of the allowed window for outgoing messages.
@@ -98,19 +101,37 @@ class AMQPClient:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
     def __enter__(self):
+        """Run Client in a context manager."""
         self.open()
         return self
 
     def __exit__(self, *args):
+        """Close and destroy Client on exiting a context manager."""
         self.close()
 
     def _client_ready(self):  # pylint: disable=no-self-use
+        """Determine whether the client is ready to start sending and/or
+        receiving messages. To be ready, the connection must be open and
+        authentication complete.
+        :returns: bool
+        """
         return True
 
     def _client_run(self):
+        """Perform single connection iteration."""
         self._connection.work()
 
     def open(self, connection=None):
+        """Open the client. The client can create a new Connection
+        or an existing Connection can be passed in. This existing Connection
+        may have an existing CBS authentication Session, which will be
+        used for this client as well. Otherwise a new Session will be
+        created.
+
+        :param connection: An existing Connection that may be shared between
+         multiple clients.
+        :type connetion: ~uamqp.Connection
+        """
         # pylint: disable=protected-access
         if self._session:
             return  # already open.
@@ -144,6 +165,11 @@ class AMQPClient:
                 handle_max=self._handle_max)
 
     def close(self):
+        """Close the client. This includes closing the Session
+        and CBS authentication layer as well as the Connection.
+        If the client was opened using an external Connection,
+        this will be left intact.
+        """
         if not self._session:
             return  # already closed.
         else:
@@ -264,14 +290,35 @@ class SendClient(AMQPClient):
     :type msg_timeout: int
     :param send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
-     from the service that the message was successfully send. If set to 'Settled',
+     from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
+    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :type link_properties: dict
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :type link_credit: int
+    :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
+    :type max_frame_size: int
+    :param channel_max: Maximum number of Session channels in the Connection.
+    :type channel_max: int
+    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+     if there is no further activity.
+    :type idle_timeout: int
+    :param properties: Connection properties.
+    :type properties: dict
+    :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
+     idle time for Connections with no activity. Value must be between
+     0.0 and 1.0 inclusive. Default is 0.5.
+    :type remote_idle_timeout_empty_frame_send_ratio: float
+    :param incoming_window: The size of the allowed window for incoming messages.
+    :type incoming_window: int
+    :param outgoing_window: The size of the allowed window for outgoing messages.
+    :type outgoing_window: int
+    :param handle_max: The maximum number of concurrent link handles.
+    :type handle_max: int
     """
 
     def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
@@ -285,6 +332,7 @@ class SendClient(AMQPClient):
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
+        self._link_credit = kwargs.pop('link_credit', None)
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
@@ -304,6 +352,7 @@ class SendClient(AMQPClient):
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
+                link_credit=self._link_credit,
                 properties=self._link_properties)
             self._message_sender.open()
             return False
@@ -349,7 +398,7 @@ class SendClient(AMQPClient):
         """Close down the client. No further messages
         can be sent and the client cannot be re-opened.
 
-        All pending, unsetn messages will be cleared.
+        All pending, unsent messages will be cleared.
         """
         if self._message_sender:
             self._message_sender.destroy()
@@ -445,6 +494,58 @@ class SendClient(AMQPClient):
 
 
 class ReceiveClient(AMQPClient):
+    """An AMQP client for receiving messages.
+
+    :param target: The source AMQP service endpoint. This can either be the URI as
+     a string or a ~uamqp.Source object.
+    :type target: str, bytes or ~uamqp.Source
+    :param auth: Authentication for the connection. If none is provided SASL Annoymous
+     authentication will be used.
+    :type auth: ~uamqp.authentication.AMQPAuth
+    :param client_name: The name for the client, also known as the Container ID.
+     If no name is provided, a random GUID will be used.
+    :type client_name: str or bytes
+    :param debug: Whether to turn on network trace logs. If `True`, trace logs
+     will be logged at INFO level. Default is `False`.
+    :type debug: bool
+    :param timeout: A timeout in milliseconds. The receiver will shut down if no
+     new messages are received after the specified timeout. If set to 0, the receiver
+     will never timeout and will continue to listen. The default is 0.
+    :type timeout: int
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param max_message_size: The maximum allowed message size negotiated for the Link.
+    :type max_message_size: int
+    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :type link_properties: dict
+    :param prefetch: The receiver Link credit that determines how many
+     messages the Link will attempt to handle per connection iteration.
+     The default is 300.
+    :type prefetch: int
+    :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
+    :type max_frame_size: int
+    :param channel_max: Maximum number of Session channels in the Connection.
+    :type channel_max: int
+    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+     if there is no further activity.
+    :type idle_timeout: int
+    :param properties: Connection properties.
+    :type properties: dict
+    :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
+     idle time for Connections with no activity. Value must be between
+     0.0 and 1.0 inclusive. Default is 0.5.
+    :type remote_idle_timeout_empty_frame_send_ratio: float
+    :param incoming_window: The size of the allowed window for incoming messages.
+    :type incoming_window: int
+    :param outgoing_window: The size of the allowed window for outgoing messages.
+    :type outgoing_window: int
+    :param handle_max: The maximum number of concurrent link handles.
+    :type handle_max: int
+    """
 
     def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
@@ -463,6 +564,14 @@ class ReceiveClient(AMQPClient):
         super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
+        """Determine whether the client is ready to start receiving messages.
+        To be ready, the connection must be open and authentication complete,
+        The Session, Link and MessageReceiver must be open and in non-errored
+        states.
+        :returns: bool
+        :raises: ~uamqp.errors.AMQPConnectionError if the MessageReceiver
+         goes into an error state.
+        """
         # pylint: disable=protected-access
         if not self._message_receiver:
             self._message_receiver = receiver.MessageReceiver(
@@ -487,6 +596,11 @@ class ReceiveClient(AMQPClient):
         return True
 
     def _client_run(self):
+        """MessageReceiver Link is now open - start receiving messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+        :returns: bool
+        """
         self._connection.work()
         if self._timeout > 0:
             now = self._counter.get_current_ms()
@@ -501,6 +615,9 @@ class ReceiveClient(AMQPClient):
         return True
 
     def _message_generator(self):
+        """Iterate over processed messages in the receive queue.
+        :returns: generator[~uamqp.Message]
+        """
         self.open()
         receiving = True
         try:
@@ -517,6 +634,12 @@ class ReceiveClient(AMQPClient):
             self.close()
 
     def _message_received(self, message):
+        """Callback run on receipt of every message. If there is
+        a user-defined callback, this will be called.
+        Additionally if the client is retrieving messages for a batch
+        or iterator, the message will be added to an internal queue.
+        :param message: c_uamqp.Message
+        """
         self._was_message_received = True
         wrapped_message = uamqp.Message(message=message)
         if self._message_received_callback:
@@ -525,6 +648,28 @@ class ReceiveClient(AMQPClient):
             self._received_messages.put(wrapped_message)
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
+        """Receive a batch of messages. Messages returned in the batch have already been
+        accepted - if you wish to add logic to accept or reject messages based on custom
+        criteria, pass in a callback. This method will return as soon as some messages are
+        available rather than waiting to achieve a specific batch size, and therefore the
+        number of messages returned per call will vary up to the maximum allowed.
+
+        :param max_batch_size: The maximum number of messages that can be returned in
+         one call. This value cannot be larger than the prefetch value, and if not specified,
+         the prefetch value will be used.
+        :type max_batch_size: int
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object. The callback can also
+         optionally return an altered Message instance to replace that which will be returned
+         by this function. If the callback returns nothing, the original ~uamqp.Message object
+         will be returned in the batch.
+        :type on_message_received: callable[~uamqp.Message]
+        :param timeout: I timeout in milliseconds for which to wait to receive any messages.
+         If no messages are received in this time, an empty list will be returned. If set to
+         0, the client will continue to wait until at least one message is received. The
+         default is 0.
+        :type timeout: int
+        """
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch
         if max_batch_size > self._prefetch:
@@ -561,6 +706,13 @@ class ReceiveClient(AMQPClient):
         return batch
 
     def receive_messages(self, on_message_received):
+        """Receive messages. This function will run indefinitely, until the client
+        closes either via timeout, error or forced interruption (e.g. keyboard interrupt).
+
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object.
+        :type on_message_received: callable[~uamqp.Message]
+        """
         self.open()
         self._message_received_callback = on_message_received
         receiving = True
@@ -575,6 +727,17 @@ class ReceiveClient(AMQPClient):
                 self.close()
 
     def receive_messages_iter(self, on_message_received=None):
+        """Receive messages by generator. Messages returned in the generator have already been
+        accepted - if you wish to add logic to accept or reject messages based on custom
+        criteria, pass in a callback.
+
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object. The callback can also
+         optionally return an altered Message instance to replace that which will be returned
+         by this function. If the callback returns nothing, the original ~uamqp.Message object
+         will be returned in the batch.
+        :type on_message_received: callable[~uamqp.Message]
+        """
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
         return self._message_generator()

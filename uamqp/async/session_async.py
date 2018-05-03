@@ -37,6 +37,8 @@ class SessionAsync(session.Session):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param loop: A user specified event loop.
+    :type loop: ~asycnio.AbstractEventLoop
     """
 
     def __init__(self, connection,
