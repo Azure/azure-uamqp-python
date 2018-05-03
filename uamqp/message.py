@@ -15,6 +15,30 @@ _logger = logging.getLogger(__name__)
 
 
 class Message:
+    """An AMQP message. 
+    
+    When sending, depending on the nature of the data,
+    different body encoding will be used. If the data is str or bytes, 
+    a single part DataBody will be sent. If the data is a list or str/bytes,
+    a multipart DataBody will be sent. Any other type of list will be sent
+    as a SequenceBody, where as any other type of data will be sent as
+    a ValueBody. An empty payload will also be sent as a ValueBody.
+
+    :param body: The data to send in the message.
+    :type body: Any Python data type.
+    :param properties: Properties to add to the message.
+    :type properties: ~uamqp.message.MessageProperties
+    :param application_properties: Service specific application properties.
+    :type application_properties: dict
+    :param annotations: Service specific message annotations.
+    :type annotations: dict
+    :param msg_format: A custom message format. Default is 0.
+    :type msg_format: int
+    :param message: Internal only. This is used to wrap an existing message
+     that has been received from an AMQP service. If specified, all other
+     parameters will be ignored.
+    :type message: ~uamqp.c_uamqp.cMessage
+    """
 
     def __init__(self,
                  body=None,
@@ -41,8 +65,12 @@ class Message:
             if isinstance(body, (bytes, str)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list):
+            elif isinstance(body, list) and all([isinstance(b (bytes,str)) for b in body)]):
                 self._body = DataBody(self._message)
+                for value in body:
+                    self._body.append(value)
+            elif isinstance(body, list):
+                self._body = SequenceBody(self._message)
                 for value in body:
                     self._body.append(value)
             else:
