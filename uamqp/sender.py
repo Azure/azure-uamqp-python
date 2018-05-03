@@ -20,11 +20,6 @@ class MessageSender():
     """A Message Sender that opens its own exclsuive Link on an
     existing Session.
 
-    :ivar link_credit: The sender Link credit that determines how many
-     messages the Link will attempt to handle per connection iteration.
-    :vartype link_credit: int
-    :ivar properties: Data to be sent in the Link ATTACH frame.
-    :vartype properties: dict
     :ivar send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
      from the service that the message was successfully send. If set to 'Settled',
@@ -126,13 +121,30 @@ class MessageSender():
                 "Please confirm credentials and target URI.")
 
     def close(self):
+        """Close the sender, leaving the link intact."""
         self._sender.close()
 
     def send_async(self, message, timeout=0):
+        """Add a single message to the internal pending queue to be processed
+        by the Connection without waiting for it to be sent.
+        :param message: The message to send.
+        :type message: ~uamqp.Message
+        :param timeout: An expiry time for the message added to the queue. If the
+         message is not sent within this timeout it will be discarded with an error
+         state. If set to 0, the message will not expire. The default is 0.
+        """
         c_message = message.get_message()
         self._sender.send(c_message, timeout, message)
 
     def _state_changed(self, previous_state, new_state):
+        """Callback called whenever the underlying Sender undergoes a change
+        of state. This function wraps the states as Enums to prepare for
+        calling the public callback.
+        :param previous_state: The previous Sender state.
+        :type previous_state: int
+        :param new_state: The new Sender state.
+        :type new_state: int
+        """
         try:
             _previous_state = constants.MessageSenderState(previous_state)
         except ValueError:
@@ -144,6 +156,13 @@ class MessageSender():
         self.on_state_changed(_previous_state, _new_state)
 
     def on_state_changed(self, previous_state, new_state):
+        """Callback called whenever the underlying Sender undergoes a change
+        of state. This function can be overridden.
+        :param previous_state: The previous Sender state.
+        :type previous_state: ~uamqp.constants.MessageSenderState
+        :param new_state: The new Sender state.
+        :type new_state: ~uamqp.constants.MessageSenderState
+        """
         _logger.debug("Message sender state changed from {} to {}".format(previous_state, new_state))
         self._state = new_state
 
