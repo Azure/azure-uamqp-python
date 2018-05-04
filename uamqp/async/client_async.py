@@ -64,6 +64,9 @@ class AMQPClientAsync(client.AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, remote_address, auth=None, client_name=None, loop=None, debug=False, **kwargs):
@@ -161,24 +164,24 @@ class AMQPClientAsync(client.AMQPClient):
         :param operation: The type of operation to be performed. This value will
          be service-specific, but common values incluse READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
-        :type operation: bytes
+        :type operation: bytes or str
         :param op_type: The type on which to carry out the operation. This will
          be specific to the entities of the service. This value will be added as
          an application property on the message.
         :type op_type: bytes
         :param node: The target node. Default is `b"$management"`.
-        :type node: bytes
+        :type node: bytes or str
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
         :param status_code_field: Provide an alternate name for the status code in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusCode"`.
-        :type status_code_field: bytes
+        :type status_code_field: bytes or str
         :param description_fields: Provide an alternate name for the description in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
-        :type description_fields: bytes
+        :type description_fields: bytes or str
         :returns: ~uamqp.Message
         """
         timeout = False
@@ -199,6 +202,7 @@ class AMQPClientAsync(client.AMQPClient):
             operation,
             op_type=op_type,
             node=node,
+            encoding=self._encoding,
             **kwargs)
         return uamqp.Message(message=response)
 
@@ -282,6 +286,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, msg_timeout=0, **kwargs):
@@ -307,6 +314,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                encoding=self._encoding,
                 loop=self.loop)
             await self._message_sender.open_async()
             return False
@@ -479,6 +487,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, **kwargs):
@@ -506,6 +517,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                encoding=self._encoding,
                 loop=self.loop)
             await self._message_receiver.open_async()
             return False

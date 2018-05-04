@@ -49,7 +49,7 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
     return c_uamqp.create_sas_token(shared_access_key, scope, key_name, abs_expiry)
 
 
-def data_factory(value):
+def data_factory(value, encoding='UTF-8'):
     """Wrap a Python type in the equivalent C AMQP type.
     If the Python type has already been wrapped in a ~uamqp.types.AMQPType
     object - then this will be used to select the appropriate C type.
@@ -76,9 +76,9 @@ def data_factory(value):
     elif isinstance(value, bool):
         result = c_uamqp.bool_value(value)
     elif isinstance(value, str) and len(value) == 1:
-        result = c_uamqp.char_value(value.encode('utf-8'))
+        result = c_uamqp.char_value(value.encode(encoding))
     elif isinstance(value, str) and len(value) > 1:
-        result = c_uamqp.string_value(value.encode('utf-8'))
+        result = c_uamqp.string_value(value.encode(encoding))
     elif isinstance(value, uuid.UUID):
         result = c_uamqp.uuid_value(value)
     elif isinstance(value, bytes):
@@ -90,12 +90,12 @@ def data_factory(value):
     elif isinstance(value, dict):
         wrapped_dict = c_uamqp.dict_value()
         for key, item in value.items():
-            wrapped_dict[data_factory(key)] = data_factory(item)
+            wrapped_dict[data_factory(key, encoding=encoding)] = data_factory(item, encoding=encoding)
         result = wrapped_dict
     elif isinstance(value, (list, set, tuple)):
         wrapped_list = c_uamqp.list_value()
         wrapped_list.size = len(value)
         for index, item in enumerate(value):
-            wrapped_list[index] = data_factory(item)
+            wrapped_list[index] = data_factory(item, encoding=encoding)
         result = wrapped_list
     return result

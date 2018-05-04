@@ -83,6 +83,7 @@ class Connection:
         self._sessions = []
         self._lock = threading.Lock()
         self._state = c_uamqp.ConnectionState.UNKNOWN
+        self._encoding = encoding
 
         if max_frame_size:
             self.max_frame_size = max_frame_size
@@ -171,7 +172,7 @@ class Connection:
     def properties(self, value):
         if not isinstance(value, dict):
             raise TypeError("Connection properties must be a dictionary.")
-        self._conn.properties = utils.data_factory(value)
+        self._conn.properties = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def remote_max_frame_size(self):

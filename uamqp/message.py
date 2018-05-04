@@ -38,6 +38,9 @@ class Message:
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
     :type message: ~uamqp.c_uamqp.cMessage
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self,
@@ -46,10 +49,12 @@ class Message:
                  application_properties=None,
                  annotations=None,
                  msg_format=None,
-                 message=None):
+                 message=None,
+                 encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self._retries = 0
+        self._encoding = encoding
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -65,7 +70,7 @@ class Message:
             if isinstance(body, (bytes, str)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b (bytes,str)) for b in body)]):
+            elif isinstance(body, list) and all([isinstance(b, (bytes,str)) for b in body]):
                 self._body = DataBody(self._message)
                 for value in body:
                     self._body.append(value)
@@ -100,7 +105,7 @@ class Message:
             self._body = ValueBody(self._message)
         _props = self._message.properties
         if _props:
-            self.properties = MessageProperties(properties=_props)
+            self.properties = MessageProperties(properties=_props, encoding=self._encoding)
         _header = self._message.header
         if _header:
             self.header = MessageHeader(header=_header)
@@ -154,12 +159,13 @@ class Message:
         if self.application_properties:
             if not isinstance(self.application_properties, dict):
                 raise TypeError("Application properties must be a dictionary.")
-            amqp_props = utils.data_factory(self.application_properties)
+            amqp_props = utils.data_factory(self.application_properties, encoding=self._encoding)
             self._message.application_properties = amqp_props
         if self.annotations:
             if not isinstance(self.annotations, dict):
                 raise TypeError("Message annotations must be a dictionary.")
-            ann_props = c_uamqp.create_message_annotations(utils.data_factory(self.annotations))
+            ann_props = c_uamqp.create_message_annotations(
+                utils.data_factory(self.annotations, encoding=self._encoding))
             self._message.message_annotations = ann_props
         return self._message
 
@@ -170,16 +176,27 @@ class BatchMessage(Message):
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
     _size_buffer = 65000
 
-    def __init__(self, data=None, properties=None, application_properties=None, annotations=None, multi_messages=False):  # pylint: disable=super-init-not-called
+    def __init__(self,
+                 data=None,
+                 properties=None,
+                 application_properties=None,
+                 annotations=None,
+                 multi_messages=False,
+                 encoding='UTF-8'):  # pylint: disable=super-init-not-called
         self._multi_messages = multi_messages
         self._body_gen = data
+        self._encoding = encoding
         self.on_send_complete = None
         self.properties = properties
         self.application_properties = application_properties
         self.annotations = annotations
 
     def _create_batch_message(self):
-        return Message(body=[], properties=self.properties, annotations=self.annotations, msg_format=self.batch_format)
+        return Message(body=[],
+                       properties=self.properties,
+                       annotations=self.annotations,
+                       msg_format=self.batch_format,
+                       encoding=self._encoding)
 
     def _multi_message_generator(self):
         while True:
@@ -190,7 +207,7 @@ class BatchMessage(Message):
                 for data in self._body_gen:
                     message_segment = []
                     if isinstance(data, str):
-                        data = data.encode('utf-8')
+                        data = data.encode(self._encoding)
                     batch_data = c_uamqp.create_data(data)
                     c_uamqp.enocde_batch_value(batch_data, message_segment)
                     combined = b"".join(message_segment)
@@ -221,7 +238,7 @@ class BatchMessage(Message):
         for data in self._body_gen:
             message_segment = []
             if isinstance(data, str):
-                data = data.encode('utf-8')
+                data = data.encode(self._encoding)
             batch_data = c_uamqp.create_data(data)
             c_uamqp.enocde_batch_value(batch_data, message_segment)
             combined = b"".join(message_segment)
@@ -251,8 +268,10 @@ class MessageProperties:
                  group_id=None,
                  group_sequence=None,
                  reply_to_group_id=None,
-                 properties=None):
+                 properties=None,
+                 encoding='UTF-8'):
         self._properties = properties if properties else c_uamqp.cProperties()
+        self._encoding = encoding
         if message_id:
             self.message_id = message_id
         if user_id:
@@ -289,7 +308,7 @@ class MessageProperties:
 
     @message_id.setter
     def message_id(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.message_id = value
 
     @property
@@ -302,7 +321,7 @@ class MessageProperties:
     @user_id.setter
     def user_id(self, value):
         if isinstance(value, str):
-            value = value.encode('utf-8')
+            value = value.encode(self._encoding)
         elif not isinstance(value, bytes):
             raise TypeError("user_id must be bytes or str.")
         self._properties.user_id = value
@@ -316,7 +335,7 @@ class MessageProperties:
 
     @to.setter
     def to(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.to = value
 
     @property
@@ -328,7 +347,7 @@ class MessageProperties:
 
     @subject.setter
     def subject(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.subject = value
 
     @property
@@ -340,7 +359,7 @@ class MessageProperties:
 
     @reply_to.setter
     def reply_to(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.reply_to = value
 
     @property
@@ -352,7 +371,7 @@ class MessageProperties:
 
     @correlation_id.setter
     def correlation_id(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.correlation_id = value
 
     @property
@@ -364,7 +383,7 @@ class MessageProperties:
 
     @content_type.setter
     def content_type(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.content_type = value
 
     @property
@@ -376,7 +395,7 @@ class MessageProperties:
 
     @content_encoding.setter
     def content_encoding(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.content_encoding = value
 
     @property
@@ -388,7 +407,7 @@ class MessageProperties:
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.absolute_expiry_time = value
 
     @property
@@ -400,7 +419,7 @@ class MessageProperties:
 
     @creation_time.setter
     def creation_time(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.creation_time = value
 
     @property
@@ -424,7 +443,7 @@ class MessageProperties:
 
     @group_sequence.setter
     def group_sequence(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.group_sequence = value
 
     @property
@@ -436,14 +455,15 @@ class MessageProperties:
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._properties.reply_to_group_id = value
 
 
 class MessageBody:
 
-    def __init__(self, c_message):
+    def __init__(self, c_message, encoding='UTF-8'):
         self._message = c_message
+        self._encoding = encoding
 
     def __str__(self):
         if self.type == c_uamqp.MessageBodyType.NoneType:
@@ -462,7 +482,7 @@ class MessageBody:
 class DataBody(MessageBody):
 
     def __str__(self):
-        return str(b"".join(self.data))
+        return "".join(self.data.decode(self._encoding))
 
     def __len__(self):
         return self._message.count_body_data()
@@ -475,7 +495,7 @@ class DataBody(MessageBody):
 
     def append(self, other):
         if isinstance(other, str):
-            self._message.add_body_data(other.encode('utf-8'))
+            self._message.add_body_data(other.encode(self._encoding))
         elif isinstance(other, bytes):
             self._message.add_body_data(other)
 
@@ -497,7 +517,7 @@ class SequenceBody(MessageBody):
         return data.value
 
     def append(self, value):
-        value = utils.data_factory(value)
+        value = utils.data_factory(value, encoding=self._encoding)
         self._message.add_body_sequence(value)
 
     @property

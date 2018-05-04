@@ -88,6 +88,9 @@ class Session:
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
         :type description_fields: bytes
+        :param encoding: The encoding to use for parameters supplied as strings.
+         Default is 'UTF-8'
+        :type encoding: str
         :returns: ~uamqp.Message
         """
         timeout = kwargs.pop('timeout', None) or 0

@@ -82,7 +82,7 @@ class MessageSender():
         if link_credit:
             self._link.set_prefetch_count(link_credit)
         if properties:
-            self._link.set_attach_properties(utils.data_factory(properties))
+            self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if send_settle_mode:
             self.send_settle_mode = send_settle_mode
         if max_message_size:

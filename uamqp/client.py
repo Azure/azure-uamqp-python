@@ -61,6 +61,9 @@ class AMQPClient:
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
@@ -83,6 +86,7 @@ class AMQPClient:
         self._connection = None
         self._ext_connection = False
         self._session = None
+        self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -149,7 +153,8 @@ class AMQPClient:
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            debug=self._debug_trace)
+            debug=self._debug_trace,
+            encoding=self._encoding)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
             self._connection.cbs = self._auth.create_authenticator(
                 self._connection,
@@ -238,6 +243,7 @@ class AMQPClient:
             operation,
             op_type=op_type,
             node=node,
+            encoding=self._encoding,
             **kwargs)
         return uamqp.Message(message=response)
 
@@ -319,6 +325,9 @@ class SendClient(AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
@@ -353,7 +362,8 @@ class SendClient(AMQPClient):
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
                 link_credit=self._link_credit,
-                properties=self._link_properties)
+                properties=self._link_properties,
+                encoding=self._encoding)
             self._message_sender.open()
             return False
         elif self._message_sender._state == constants.MessageSenderState.Error:
@@ -545,6 +555,9 @@ class ReceiveClient(AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
     """
 
     def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, **kwargs):
@@ -582,7 +595,8 @@ class ReceiveClient(AMQPClient):
                 receive_settle_mode=self._receive_settle_mode,
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
-                properties=self._link_properties)
+                properties=self._link_properties,
+                encoding=self._encoding)
             self._message_receiver.open()
             return False
         elif self._message_receiver._state == constants.MessageReceiverState.Error:
@@ -641,7 +655,7 @@ class ReceiveClient(AMQPClient):
         :param message: c_uamqp.Message
         """
         self._was_message_received = True
-        wrapped_message = uamqp.Message(message=message)
+        wrapped_message = uamqp.Message(message=message, encoding=self._encoding)
         if self._message_received_callback:
             wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
         if self._received_messages:

@@ -85,7 +85,7 @@ class MessageReceiver():
         if prefetch:
             self._link.set_prefetch_count(prefetch)
         if properties:
-            self._link.set_attach_properties(utils.data_factory(properties))
+            self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if receive_settle_mode:
             self.receive_settle_mode = receive_settle_mode
         if max_message_size:

@@ -71,24 +71,27 @@ class SessionAsync(session.Session):
         :param operation: The type of operation to be performed. This value will
          be service-specific, but common values incluse READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
-        :type operation: bytes
+        :type operation: bytes or str
         :param op_type: The type on which to carry out the operation. This will
          be specific to the entities of the service. This value will be added as
          an application property on the message.
-        :type op_type: bytes
+        :type op_type: bytes or str
         :param node: The target node. Default is `b"$management"`.
-        :type node: bytes
+        :type node: bytes or str
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
         :param status_code_field: Provide an alternate name for the status code in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusCode"`.
-        :type status_code_field: bytes
+        :type status_code_field: bytes or str
         :param description_fields: Provide an alternate name for the description in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
-        :type description_fields: bytes
+        :type description_fields: bytes or str
+        :param encoding: The encoding to use for parameters supplied as strings.
+         Default is 'UTF-8'
+        :type encoding: str
         :returns: ~uamqp.Message
         """
         timeout = kwargs.pop('timeout', None) or 0

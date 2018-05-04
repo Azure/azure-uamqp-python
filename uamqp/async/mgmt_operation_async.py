@@ -27,15 +27,20 @@ class MgmtOperationAsync(MgmtOperation):
     :type session: ~uamqp.SessionAsync
     :param target: The AMQP node to send the request to.
      The default is `b"$management"`
-    :type target: bytes
+    :type target: bytes or str
     :param status_code_field: Provide an alternate name for the status code in the
      response body which can vary between services due to the spec still being in draft.
      The default is `b"statusCode"`.
-    :type status_code_field: bytes
+    :type status_code_field: bytes or str
     :param description_fields: Provide an alternate name for the description in the
      response body which can vary between services due to the spec still being in draft.
      The default is `b"statusDescription"`.
-    :type description_fields: bytes
+    :type description_fields: bytes or str
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
+    :param loop: A user specified event loop.
+    :type loop: ~asycnio.AbstractEventLoop
     """
 
     def __init__(self,
@@ -43,13 +48,15 @@ class MgmtOperationAsync(MgmtOperation):
                  target=None,
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
+                 encoding='UTF-8',
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,
             status_code_field=status_code_field,
-            description_fields=description_fields)
+            description_fields=description_fields,
+            encoding=encoding)
 
     async def execute_async(self, operation, op_type, message, timeout=0):
         """Execute a request and wait on a response asynchronously.

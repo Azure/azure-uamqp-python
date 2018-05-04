@@ -44,22 +44,22 @@ class MessageResponse(Exception):
 
 class RejectMessage(MessageResponse):
 
-    def __init__(self, message):
-        self.rejection_description = message.encode('utf-8')
+    def __init__(self, message, encoding='UTF-8'):
+        self.rejection_description = message.encode(encoding) if isinstance(message, str) else message
         super(RejectMessage, self).__init__(message)
 
 
 class AbandonMessage(MessageResponse):
 
-    def __init__(self, annotations=None):
+    def __init__(self, annotations=None, encoding='UTF-8'):
         self.abandoned = True
-        self.annotations = utils.data_factory(annotations) if annotations else None
+        self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
         super(AbandonMessage, self).__init__("Releasing message")
 
 
 class DeferMessage(MessageResponse):
 
-    def __init__(self, annotations=None):
+    def __init__(self, annotations=None, encoding='UTF-8'):
         self.deferred = True
-        self.annotations = utils.data_factory(annotations) if annotations else None
+        self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
         super(DeferMessage, self).__init__("Deferring message")
