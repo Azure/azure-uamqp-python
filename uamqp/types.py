@@ -60,7 +60,7 @@ class AMQPLong(AMQPType):
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: c_uamqp.SymbolValue
+    :vartype c_data: ~uamqp.c_uamqp.LongValue
     :param value: The value to encode as an AMQP symbol.
     :type value: int
     :raises: ValueError if value is not within allowed range.
@@ -78,3 +78,30 @@ class AMQPLong(AMQPType):
                 self._min_value, self._max_value)
             raise ValueError(error)
         return c_uamqp.long_value(int(value))
+
+
+class AMQPuLong(AMQPType):
+    """An AMQP unsigned long object. The value of a long must be
+    between 0 and 4294877294.
+
+    :ivar value: The Python value of the AMQP type.
+    :vartype value: int
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: ~uamqp.c_uamqp.ULongValue
+    :param value: The value to encode as an AMQP symbol.
+    :type value: int
+    :raises: ValueError if value is not within allowed range.
+    """
+
+    _min_value = 0
+    _max_value = 4294877294
+
+    def _c_wrapper(self, value):
+        try:
+            value = int(value)
+            assert value > self._min_value and value < self._max_value
+        except (TypeError, AssertionError):
+            error = "Value must be an integer between {} and {}".format(
+                self._min_value, self._max_value)
+            raise ValueError(error)
+        return c_uamqp.ulong_value(int(value))

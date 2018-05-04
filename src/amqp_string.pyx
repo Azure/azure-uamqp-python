@@ -19,9 +19,9 @@ cpdef create_empty_string():
     return new_string
 
 
-cpdef create_string_from_value(value):
+cpdef create_string_from_value(value, encoding='UTF-8'):
     if isinstance(value, str):
-        value = value.encode('utf-8')
+        value = value.encode(encoding)
     new_string = AMQPString()
     new_string.construct(<const char*>value)
     return new_string
@@ -40,7 +40,7 @@ cdef class AMQPString(StructBase):
         self.destroy()
 
     def __str__(self):
-        return bytes(self).decode('utf-8', 'strict')  # TODO: Not sure we should decode here?
+        return str(bytes(self))
 
     def __bytes__(self):
         return c_strings.STRING_c_str(self._c_value)

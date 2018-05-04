@@ -11,6 +11,7 @@ Release History
 - Moved receiver.open on_message_received argument to constructor.
 - Removed sasl module and moved internal classes into authentication module.
 - Added encoding parameter everywhere where strings are encoded.
+- Started documentation.
 
 
 0.1.0b5 (2018-04-27)

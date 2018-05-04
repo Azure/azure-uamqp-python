@@ -283,7 +283,7 @@ cdef class AMQPValue(StructBase):
         return c_amqpvalue.amqpvalue_to_string(self._c_value)
 
     def __str__(self):
-        return bytes(self).decode('utf-8', 'strict')
+        return str(bytes(self))
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:
@@ -640,7 +640,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return _value.decode('utf-8', 'strict')
+            return _value
         else:
             self._value_error()
 
