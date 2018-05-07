@@ -68,7 +68,7 @@ class ConnectionAsync(connection.Connection):
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  debug=False,
-                 encoding='UTF-8'
+                 encoding='UTF-8',
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
         super(ConnectionAsync, self).__init__(

@@ -61,7 +61,7 @@ class MgmtOperation:
         self._responses = {}
         self._encoding = encoding
         self._counter = c_uamqp.TickCounter()
-        self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target, encoding)  # pylint: disable=protected-access
+        self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
         self.open = None
         try:

@@ -101,7 +101,7 @@ class Connection:
         return self
 
     def __exit__(self, *args):
-         """Close the Connection when exiting a context manager."""
+        """Close the Connection when exiting a context manager."""
         self.destroy()
 
     def _state_changed(self, previous_state, new_state):

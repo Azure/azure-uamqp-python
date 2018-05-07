@@ -15,15 +15,15 @@ _logger = logging.getLogger(__name__)
 
 
 class Message:
-    """An AMQP message. 
-    
+    """An AMQP message.
+
     When sending, depending on the nature of the data,
-    different body encoding will be used. If the data is str or bytes, 
+    different body encoding will be used. If the data is str or bytes,
     a single part DataBody will be sent. If the data is a list or str/bytes,
     a multipart DataBody will be sent. Any other type of list will be sent
     as a SequenceBody, where as any other type of data will be sent as
     a ValueBody. An empty payload will also be sent as a ValueBody.
-    
+
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
      a result (of type ~uamqp.constants.MessageSendResult) and an error (of type
@@ -78,7 +78,7 @@ class Message:
             if isinstance(body, (bytes, str)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b, (bytes,str)) for b in body]):
+            elif isinstance(body, list) and all([isinstance(b, (bytes, str)) for b in body]):
                 self._body = DataBody(self._message)
                 for value in body:
                     self._body.append(value)
@@ -209,12 +209,12 @@ class Message:
 
 
 class BatchMessage(Message):
-    """A Batched AMQP message. 
-    
+    """A Batched AMQP message.
+
     This batch message encodes multiple message bodies into a single message
     to increase through-put over the wire. It requires server-side support
     to unpackage the batched messages and so will not be universally supported.
-    
+
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
      a result (of type ~uamqp.constants.MessageSendResult) and an error (of type
@@ -264,7 +264,8 @@ class BatchMessage(Message):
                  application_properties=None,
                  annotations=None,
                  multi_messages=False,
-                 encoding='UTF-8'):  # pylint: disable=super-init-not-called
+                 encoding='UTF-8'):
+        # pylint: disable=super-init-not-called
         self._multi_messages = multi_messages
         self._body_gen = data
         self._encoding = encoding
@@ -633,7 +634,7 @@ class DataBody(MessageBody):
     """
 
     def __str__(self):
-        return "".join(self.data.decode(self._encoding))
+        return "".join(d.decode(self._encoding) for d in self.data)
 
     def __len__(self):
         return self._message.count_body_data()

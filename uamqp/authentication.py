@@ -12,7 +12,7 @@ import datetime
 import threading
 import certifi
 try:
-    from urllib import parse as urlib_parse  # pylint: disable=unused-import
+    from urllib import parse as urllib_parse
 except ImportError:
     import urllib as urllib_parse  # Py2
 
