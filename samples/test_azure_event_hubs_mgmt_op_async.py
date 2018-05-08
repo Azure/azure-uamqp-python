@@ -43,4 +43,4 @@ async def test_event_hubs_mgmt_op_async(live_eventhub_config):
             description_fields=b'status-description',
             timeout=3000)
         output = response.get_data()
-        assert output['partition_ids'] == ["0", "1"]
+        assert output[b'partition_ids'] == [b"0", b"1"]

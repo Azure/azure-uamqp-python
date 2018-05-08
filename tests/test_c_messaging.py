@@ -20,7 +20,7 @@ def test_create_source():
     assert isinstance(addr_value, c_uamqp.AMQPValue)
     assert addr_value.type == c_uamqp.AMQPType.CompositeType
     assert addr_value.size == 1
-    assert addr_value[0].value == "Address"
+    assert addr_value[0].value == b"Address"
 
 
 def test_create_target():
@@ -30,7 +30,7 @@ def test_create_target():
     assert isinstance(addr_value, c_uamqp.AMQPValue)
     assert addr_value.type == c_uamqp.AMQPType.CompositeType
     assert addr_value.size == 1
-    assert addr_value[0].value == "Address"
+    assert addr_value[0].value == b"Address"
     assert str(addr_value[0]) == "Address"
 
 

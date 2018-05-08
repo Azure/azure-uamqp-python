@@ -29,7 +29,7 @@ _logger = logging.getLogger(__name__)
 
 
 class AMQPClientAsync(client.AMQPClient):
-"""An asynchronous AMQP client.
+    """An asynchronous AMQP client.
 
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
      or a receive source.

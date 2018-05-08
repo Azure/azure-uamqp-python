@@ -283,7 +283,10 @@ cdef class AMQPValue(StructBase):
         return c_amqpvalue.amqpvalue_to_string(self._c_value)
 
     def __str__(self):
-        return str(bytes(self))
+        try:
+            return bytes(self).decode('UTF-8')
+        except UnicodeDecodeError:
+            return str(bytes(self))
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:
