@@ -6,7 +6,6 @@
 
 from enum import Enum
 
-from uamqp import utils
 from uamqp import c_uamqp
 
 
@@ -57,14 +56,6 @@ class MessageSenderState(Enum):
     Open = c_uamqp.MESSAGE_SENDER_STATE_OPEN
     Closing = c_uamqp.MESSAGE_SENDER_STATE_CLOSING
     Error = c_uamqp.MESSAGE_SENDER_STATE_ERROR
-
-
-class MessageReceiverState(Enum):
-    Idle = c_uamqp.MESSAGE_RECEIVER_STATE_IDLE
-    Opening = c_uamqp.MESSAGE_RECEIVER_STATE_OPENING
-    Open = c_uamqp.MESSAGE_RECEIVER_STATE_OPEN
-    Closing = c_uamqp.MESSAGE_RECEIVER_STATE_CLOSING
-    Error = c_uamqp.MESSAGE_RECEIVER_STATE_ERROR
 
 
 class ManagementLinkState(Enum):
@@ -131,4 +122,3 @@ class MgmtOpenStatus(Enum):
     Ok = c_uamqp.AMQP_MANAGEMENT_OPEN_OK
     Error = c_uamqp.AMQP_MANAGEMENT_OPEN_ERROR
     Cancelled = c_uamqp.AMQP_MANAGEMENT_OPEN_CANCELLED
-

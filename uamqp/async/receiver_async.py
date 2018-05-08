@@ -9,49 +9,106 @@ import logging
 import functools
 
 from uamqp import receiver
-
+from uamqp import errors
 
 
 _logger = logging.getLogger(__name__)
 
 
 class MessageReceiverAsync(receiver.MessageReceiver):
+    """An asynchronous Message Receiver that opens its own exclsuive Link on an
+    existing Session.
+
+    :ivar receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :vartype receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :ivar max_message_size: The maximum allowed message size negotiated for the Link.
+    :vartype max_message_size: int
+
+    :param session: The underlying Session with which to receive.
+    :type session: ~uamqp.Session
+    :param source: The AMQP endpoint to receive from.
+    :type source: ~uamqp.Source
+    :param target: The name of target (i.e. the client).
+    :type target: str or bytes
+    :param name: A unique name for the receiver. If not specified a GUID will be used.
+    :type name: str or bytes
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param max_message_size: The maximum allowed message size negotiated for the Link.
+    :type max_message_size: int
+    :param prefetch: The receiver Link credit that determines how many
+     messages the Link will attempt to handle per connection iteration.
+    :type prefetch: int
+    :param properties: Data to be sent in the Link ATTACH frame.
+    :type properties: dict
+    :param debug: Whether to turn on network trace logs. If `True`, trace logs
+     will be logged at INFO level. Default is `False`.
+    :type debug: bool
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
+    :param loop: A user specified event loop.
+    :type loop: ~asycnio.AbstractEventLoop
+    """
 
     def __init__(self, session, source, target,
+                 on_message_received,
                  name=None,
                  receive_settle_mode=None,
                  max_message_size=None,
                  prefetch=None,
                  properties=None,
                  debug=False,
+                 encoding='UTF-8',
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
+            on_message_received,
             name=name,
             receive_settle_mode=receive_settle_mode,
             max_message_size=max_message_size,
             prefetch=prefetch,
             properties=properties,
-            debug=debug)
+            debug=debug,
+            encoding=encoding)
 
     async def __aenter__(self):
+        """Open the MessageReceiver in an async context manager."""
         await self.open_async()
         return self
 
     async def __aexit__(self, *args):
-        await self._destroy_async()
+        """Close the MessageReceiver when exiting an async context manager."""
+        await self.destroy_async()
 
-    async def _destroy_async(self):
-        await self.loop.run_in_executor(None, functools.partial(self._destroy))
+    async def destroy_async(self):
+        """Asynchronously close both the Receiver and the Link. Clean up any C objects."""
+        await self.loop.run_in_executor(None, functools.partial(self.destroy))
 
-    async def open_async(self, on_message_received):
+    async def open_async(self):
+        """Asynchronously open the MessageReceiver in order to start
+        processing messages.
+
+        :raises: ~uamqp.errors.AMQPConnectionError if the Receiver raises
+         an error on opening. This can happen if the source URI is invalid
+         or the credentials are rejected.
+        """
         try:
-            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, on_message_received))
+            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, self.on_message_received))
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
                 "Please confirm credentials and target URI.")
 
     async def close_async(self):
+        """Close the Receiver asynchronously, leaving the link intact."""
         await self.loop.run_in_executor(None, functools.partial(self.close))

@@ -15,11 +15,9 @@ cimport c_message
 _logger = logging.getLogger(__name__)
 
 
-cpdef create_management_operation(cSession session, management_node):
+cpdef create_management_operation(cSession session, const char* management_node):
     mgr_op = cManagementOperation()
-    if isinstance(management_node, str):
-        management_node = management_node.encode('utf-8')
-    mgr_op.create(session, <const char*>management_node)
+    mgr_op.create(session, management_node)
     return mgr_op
 
 

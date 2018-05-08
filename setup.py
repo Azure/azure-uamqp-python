@@ -9,6 +9,7 @@ import sys
 import re
 import distutils
 import subprocess
+import platform
 from setuptools import find_packages, setup, Extension
 from setuptools.command.build_ext import build_ext as build_ext_orig
 from distutils.extension import Extension
@@ -71,6 +72,16 @@ def get_build_env():
     return build_env
 
 
+def get_generator():
+    if is_win and platform.architecture()[0] == '64bit':
+        return "Visual Studio 14 2015 Win64"
+    elif is_win:
+        return "Visual Studio 14 2015"
+    else:
+        return "Unix Makefiles"
+
+
+
 # Compile uamqp
 # Inspired by https://stackoverflow.com/a/48015772/4074838
 
@@ -98,7 +109,11 @@ class build_ext(build_ext_orig):
             else:
                 ext.library_dirs += [
                     cmake_build_dir,
-                    cmake_build_dir + "/deps/azure-c-shared-utility/"
+                    cmake_build_dir + "/deps/azure-c-shared-utility/",
+                    cmake_build_dir + "/Debug/",
+                    cmake_build_dir + "/Release/",
+                    cmake_build_dir + "/deps/azure-c-shared-utility/Debug/",
+                    cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
         super(build_ext, self).run()
 
@@ -116,22 +131,26 @@ class build_ext(build_ext_orig):
         logger.info("will build uamqp in %s", self.cmake_build_dir)
         os.chdir(cwd + "/" + self.cmake_build_dir)
 
+        generator = get_generator()
+        logger.info("Building with generator: {}".format(generator))
         # Configure
         configure_command = [
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
+            "-G \"{}\"".format(generator),
             "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"),
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
             "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
-            "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE" # ask for -fPIC
+            "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
+            "-DCMAKE_BUILD_TYPE=Release"
         ]
         build_env = get_build_env()
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
         subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
 
-        compile_command  = ["cmake", "--build", "."]
+        compile_command  = ["cmake", "--build", ".", "--config", "Release"]
         joined_cmd = " ".join(compile_command)
         logger.info("calling %s", joined_cmd)
         subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
@@ -145,7 +164,6 @@ class build_ext(build_ext_orig):
 
 kwargs = {}
 if is_win:
-    kwargs['extra_compile_args'] = ['/openmp']
     kwargs['libraries'] = [
         'uamqp',
         'aziotsharedutil',

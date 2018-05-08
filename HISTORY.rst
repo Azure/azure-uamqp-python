@@ -3,6 +3,18 @@
 Release History
 ===============
 
+0.1.0rc1 (unreleased)
++++++++++++++++++++++
+
+- Fixed import error in async receiver.
+- Exposed sender/receiver destroy function.
+- Moved receiver.open on_message_received argument to constructor.
+- Removed sasl module and moved internal classes into authentication module.
+- Added encoding parameter everywhere where strings are encoded.
+- Started documentation.
+- Updated uAMQP-C to 1.2.4 and C Shared Utility to 1.1.4.
+
+
 0.1.0b5 (2018-04-27)
 ++++++++++++++++++++
 
