@@ -48,8 +48,8 @@ Building the extension
 
 This project has two C library dependencies. They are vendored in this repository in these versions:
 
-- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__ @ `1.2.0 <https://github.com/Azure/azure-uamqp-c/releases/tag/v1.2.0>`__
-- `Azure C Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__ @ `2018-03-07-temp-pod <https://github.com/Azure/azure-c-shared-utility/releases/tag/2018-03-07-temp-pod>`__
+- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__ @ `1.2.4 <https://github.com/Azure/azure-uamqp-c/releases/tag/1.2.4>`__
+- `Azure C Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__ @ `1.1.4 <https://github.com/Azure/azure-c-shared-utility/releases/tag/1.1.4>`__
 
 To build, start by creating a virtual environment and installing the required Python packages:
 
