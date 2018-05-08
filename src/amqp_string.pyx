@@ -40,7 +40,10 @@ cdef class AMQPString(StructBase):
         self.destroy()
 
     def __str__(self):
-        return str(bytes(self))
+        try:
+            return bytes(self).decode('UTF-8')
+        except UnicodeDecodeError:
+            return str(bytes(self))
 
     def __bytes__(self):
         return c_strings.STRING_c_str(self._c_value)
