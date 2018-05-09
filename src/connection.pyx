@@ -171,6 +171,8 @@ cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STA
         context_obj = <object>context
         if hasattr(context_obj, '_state_changed'):
             context_obj._state_changed(previous_connection_state, new_connection_state)
+        elif callable(context_obj):
+            context_obj(previous_connection_state, new_connection_state)
 
 
 cdef void on_io_error(void* context):

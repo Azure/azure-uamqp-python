@@ -50,11 +50,11 @@ def test_event_hubs_client_send(live_eventhub_config):
     send_client.send_all_messages()
 
 
-def test_event_hubs_single_send(live_eventhub_config):
+def test_event_hubs_single_send_sync(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
     msg_content = b"hello world"
 
-    message = uamqp.Message(msg_content, annotations=annotations)
+    message = uamqp.vcr.Message(msg_content) #, annotations=annotations)
 
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -62,6 +62,7 @@ def test_event_hubs_single_send(live_eventhub_config):
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    send_client.sender_type = uamqp.vcr.MessageSender
     send_client.send_message(message, close_on_done=True)
 
 
