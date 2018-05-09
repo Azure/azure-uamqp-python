@@ -83,7 +83,12 @@ class Message(uamqp.message.Message):
         :type error: ~Exception
         :rtype: None
         """
-        _record_event("MessageSendComplete", {"request_id": self._request_id})
+        event = {
+            "message_id": self._request_id,
+            "result": result,
+            "error": str(error)
+        }
+        _record_event("MessageSendComplete", event)
         return super(Message, self)._on_message_sent(result, error=error)
 
     def gather(self):
@@ -97,7 +102,7 @@ class Message(uamqp.message.Message):
         """Get the underlying C message from this object.
         :returns: ~uamqp.c_uamqp.cMessage
         """
-        _record_event("MessageSendPending", {"request_id": self._request_id})
+        _record_event("MessageSendPending", {"message_id": self._request_id})
         return super(Message, self).get_message()
 
 
@@ -182,13 +187,13 @@ class Connection(uamqp.connection.Connection):
         else:
             super(Connection, self).__init__(hostname, sasl,
                 container_id=container_id,
-                max_frame_size=max_frame_sizeNone,
+                max_frame_size=max_frame_size,
                 channel_max=channel_max,
                 idle_timeout=idle_timeout,
                 properties=properties,
                 remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
                 debug=debug,
-                encoding=encoding):
+                encoding=encoding)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes
@@ -231,7 +236,7 @@ class Connection(uamqp.connection.Connection):
         if self._playback:
             self._max_frame_size = int(value)
         else:
-            super(Connection, self).max_frame_size = value
+            self._conn.max_frame_size = int(value)
 
     @property
     def channel_max(self):
@@ -245,7 +250,7 @@ class Connection(uamqp.connection.Connection):
         if self._playback:
             self._channel_max = int(value)
         else:
-            super(Connection, self).channel_max = value
+            self._conn.channel_max = int(value)
 
     @property
     def idle_timeout(self):
@@ -259,7 +264,7 @@ class Connection(uamqp.connection.Connection):
         if self._playback:
             self._idle_timeout = int(value)
         else:
-            super(Connection, self).idle_timeout = value
+            self._conn.idle_timeout = int(value)
 
     @property
     def properties(self):
@@ -273,7 +278,7 @@ class Connection(uamqp.connection.Connection):
         if self._playback:
             self._properties = value
         else:
-            super(Connection, self).properties = value
+            self._conn.properties = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def remote_max_frame_size(self):
@@ -332,7 +337,7 @@ class MessageSender(uamqp.sender.MessageSender):
                  properties=None,
                  debug=False,
                  encoding='UTF-8',
-                 playback=False)
+                 playback=False):
         self._sender_id = str(uuid.uuid4())
         self._playback = playback
         if self._playback:
@@ -411,29 +416,29 @@ class MessageSender(uamqp.sender.MessageSender):
 
     @property
     def send_settle_mode(self):
-         if self._playback:
+        if self._playback:
             return self._send_settle_mode
         else:
-            return super(Connection, self).properties
+            return super(MessageSender, self).properties
 
     @send_settle_mode.setter
     def send_settle_mode(self, value):
         if self._playback:
             self._send_settle_mode = value.value
         else:
-            super(Connection, self).send_settle_mode = value
+            self._link.send_settle_mode = value.value
 
     @property
     def max_message_size(self):
-         if self._playback:
+        if self._playback:
             return self._max_message_size
         else:
-            return super(Connection, self).max_message_size
+            return super(MessageSender, self).max_message_size
 
     @max_message_size.setter
     def max_message_size(self, value):
         if self._playback:
             self._max_message_size = int(value)
         else:
-            super(Connection, self).max_message_size = value
+            self._link.max_message_size = int(value)
 

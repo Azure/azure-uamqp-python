@@ -62,6 +62,7 @@ def test_event_hubs_single_send_sync(live_eventhub_config):
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    send_client.connection_type = uamqp.vcr.Connection
     send_client.sender_type = uamqp.vcr.MessageSender
     send_client.send_message(message, close_on_done=True)
 
