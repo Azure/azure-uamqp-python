@@ -10,9 +10,10 @@ import json
 
 import uamqp
 
+directory = "C:\\Users\\antisch\\Documents\\GitHub\\azure-uamqp-python\\samples\\recordings"
+filename = "test_recording.txt"
+
 def _record_event(event_type, data):
-    directory = "C:\\Users\\antisch\\Documents\\GitHub\\azure-uamqp-python\\samples\\recordings"
-    filename = "test_recording.txt"
     if not os.path.isdir(directory):
         try:
             os.makedirs(directory)
@@ -100,6 +101,188 @@ class Message(uamqp.message.Message):
         return super(Message, self).get_message()
 
 
+class Connection(uamqp.connection.Connection):
+    """An AMQP Connection. A single Connection can have multiple Sessions, and
+    can be shared between multiple Clients. This Connection supports recording and playback
+    for test suites.
+
+    :ivar max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
+    :vartype max_frame_size: int
+    :ivar channel_max: Maximum number of Session channels in the Connection.
+    :vartype channel_max: int
+    :ivar idle_timeout: Timeout in milliseconds after which the Connection will close
+     if there is no further activity.
+    :vartype idle_timeout: int
+    :ivar properties: Connection properties.
+    :vartype properties: dict
+
+    :param hostname: The hostname of the AMQP service with which to establish
+     a connection.
+    :type hostname: bytes or str
+    :param sasl: Authentication for the connection. If none is provided SASL Annoymous
+     authentication will be used.
+    :type sasl: ~uamqp.authentication.AMQPAuth
+    :param container_id: The name for the client, also known as the Container ID.
+     If no name is provided, a random GUID will be used.
+    :type container_id: str or bytes
+    :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
+    :type max_frame_size: int
+    :param channel_max: Maximum number of Session channels in the Connection.
+    :type channel_max: int
+    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+     if there is no further activity.
+    :type idle_timeout: int
+    :param properties: Connection properties.
+    :type properties: dict
+    :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
+     idle time for Connections with no activity. Value must be between
+     0.0 and 1.0 inclusive. Default is 0.5.
+    :type remote_idle_timeout_empty_frame_send_ratio: float
+    :param debug: Whether to turn on network trace logs. If `True`, trace logs
+     will be logged at INFO level. Default is `False`.
+    :type debug: bool
+    :param encoding: The encoding to use for parameters supplied as strings.
+     Default is 'UTF-8'
+    :type encoding: str
+    """
+
+    def __init__(self, hostname, sasl,
+                 container_id=False,
+                 max_frame_size=None,
+                 channel_max=None,
+                 idle_timeout=None,
+                 properties=None,
+                 remote_idle_timeout_empty_frame_send_ratio=None,
+                 debug=False,
+                 encoding='UTF-8',
+                 playback=False):
+        self._line_offset = []
+        self._recording = os.path.join(directory, filename)
+        self._playback = playback
+        if self._playback:
+            offset = 0
+            with open(self._recording, 'r') as recording_data:
+                for line in recording_data:
+                    self._line_offset.append(offset)
+                    offset += len(line)
+
+            self.container_id = container_id if container_id else str(uuid.uuid4())
+            self.hostname = hostname
+            self.auth = sasl
+            self.cbs = None
+            self._conn = None
+            self._lock = threading.Lock()
+            self._state = c_uamqp.ConnectionState.UNKNOWN
+            self._encoding = encoding
+            self._max_frame_size = max_frame_size
+            self._channel_max = channel_max
+            self._idle_timeout = idle_timeout
+            self._properties = properties
+            self._remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
+        else:
+            super(Connection, self).__init__(hostname, sasl,
+                container_id=container_id,
+                max_frame_size=max_frame_sizeNone,
+                channel_max=channel_max,
+                idle_timeout=idle_timeout,
+                properties=properties,
+                remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
+                debug=debug,
+                encoding=encoding):
+
+    def _state_changed(self, previous_state, new_state):
+        """Callback called whenever the underlying Connection undergoes
+        a change of state. This function wraps the states as Enums for logging
+        purposes.
+        :param previous_state: The previous Connection state.
+        :type previous_state: int
+        :param new_state: The new Connection state.
+        :type new_state: int
+        """
+        event = {
+            "connection_id": self.container_id,
+            "previous_state": previous_state,
+            "new_state": new_state
+        }
+        _record_event("ConnectionState", event)
+        super(Connection, self)._state_changed(previous_state, new_state)
+
+    def destroy(self):
+        """Close the connection, and close any associated
+        CBS authentication session.
+        """
+        if not self._playback:
+            super(Connection, self).destroy()
+
+    def work(self):
+        """Perform a single Connection iteration."""
+        if not self._playback:
+            super(Connection, self).work()
+
+    @property
+    def max_frame_size(self):
+        if self._playback:
+            return self._max_frame_size
+        else:
+            return super(Connection, self).max_frame_size
+
+    @max_frame_size.setter
+    def max_frame_size(self, value):
+        if self._playback:
+            self._max_frame_size = int(value)
+        else:
+            super(Connection, self).max_frame_size = value
+
+    @property
+    def channel_max(self):
+        if self._playback:
+            return self._channel_max
+        else:
+            return super(Connection, self).channel_max
+
+    @channel_max.setter
+    def channel_max(self, value):
+        if self._playback:
+            self._channel_max = int(value)
+        else:
+            super(Connection, self).channel_max = value
+
+    @property
+    def idle_timeout(self):
+        if self._playback:
+            return self._idle_timeout
+        else:
+            return super(Connection, self).idle_timeout
+
+    @idle_timeout.setter
+    def idle_timeout(self, value):
+        if self._playback:
+            self._idle_timeout = int(value)
+        else:
+            super(Connection, self).idle_timeout = value
+
+    @property
+    def properties(self):
+        if self._playback:
+            return self._properties
+        else:
+            return super(Connection, self).properties
+
+    @properties.setter
+    def properties(self, value):
+        if self._playback:
+            self._properties = value
+        else:
+            super(Connection, self).properties = value
+
+    @property
+    def remote_max_frame_size(self):
+        if self._playback:
+            return self._max_frame_size
+        else:
+            return super(Connection, self).remote_max_frame_size
+
+
 class MessageSender(uamqp.sender.MessageSender):
     """A Message Sender that opens its own exclsuive Link on an
     existing Session. This message sender supports recording and playback
@@ -141,9 +324,73 @@ class MessageSender(uamqp.sender.MessageSender):
     :type encoding: str
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, session, source, target,
+                 name=None,
+                 send_settle_mode=None,
+                 max_message_size=None,
+                 link_credit=None,
+                 properties=None,
+                 debug=False,
+                 encoding='UTF-8',
+                 playback=False)
         self._sender_id = str(uuid.uuid4())
-        super(MessageSender, self).__init__(*args, **kwargs)
+        self._playback = playback
+        if self._playback:
+            if name:
+                self.name = name.encode(encoding) if isinstance(name, str) else name
+            else:
+                self.name = str(uuid.uuid4()).encode(encoding)
+            source = source.encode(encoding) if isinstance(source, str) else source
+            role = constants.Role.Sender
+
+            self.source = c_uamqp.Messaging.create_source(source)
+            self.target = target._address.value
+            self._conn = session._conn
+            self._session = session
+            self._link = None
+            self._link_credit = link_credit
+            self._properties = properties
+            self._send_settle_mode = send_settle_mode
+            self._max_message_size = max_message_size
+            self._sender = None
+            self._state = constants.MessageSenderState.Idle
+        else:
+            super(MessageSender, self).__init__(
+                session, source, target,
+                name=name,
+                send_settle_mode=send_settle_mode,
+                max_message_size=max_message_size,
+                link_credit=link_credit,
+                properties=properties,
+                debug=debug,
+                encoding=encoding)
+
+    def destroy(self):
+        """Close both the Sender and the Link. Clean up any C objects."""
+        if not self._playback:
+            super(MessageSender, self).destroy()
+
+    def open(self):
+        """Open the MessageSender in order to start processing messages.
+
+        :raises: ~uamqp.errors.AMQPConnectionError if the Sender raises
+         an error on opening. This can happen if the target URI is invalid
+         or the credentials are rejected.
+        """
+        if not self._playback:
+            super(MessageSender, self).open()
+
+    def send_async(self, message, timeout=0):
+        """Add a single message to the internal pending queue to be processed
+        by the Connection without waiting for it to be sent.
+        :param message: The message to send.
+        :type message: ~uamqp.Message
+        :param timeout: An expiry time for the message added to the queue. If the
+         message is not sent within this timeout it will be discarded with an error
+         state. If set to 0, the message will not expire. The default is 0.
+        """
+        if not self._playback:
+            super(MessageSender, self).send_async(message, timeout=timeout)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -161,4 +408,32 @@ class MessageSender(uamqp.sender.MessageSender):
         }
         _record_event("MessageSenderState", event)
         super(MessageSender, self)._state_changed(previous_state, new_state)
+
+    @property
+    def send_settle_mode(self):
+         if self._playback:
+            return self._send_settle_mode
+        else:
+            return super(Connection, self).properties
+
+    @send_settle_mode.setter
+    def send_settle_mode(self, value):
+        if self._playback:
+            self._send_settle_mode = value.value
+        else:
+            super(Connection, self).send_settle_mode = value
+
+    @property
+    def max_message_size(self):
+         if self._playback:
+            return self._max_message_size
+        else:
+            return super(Connection, self).max_message_size
+
+    @max_message_size.setter
+    def max_message_size(self, value):
+        if self._playback:
+            self._max_message_size = int(value)
+        else:
+            super(Connection, self).max_message_size = value
 
