@@ -305,7 +305,7 @@ TEST_FUNCTION(session_create_link_endpoint_creates_a_link_endpoint)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
-    session_destroy_link_endpoint(link_endpoint);
+    session_detach_link_endpoint(link_endpoint);
     session_destroy(session);
 }
 
@@ -413,21 +413,22 @@ TEST_FUNCTION(when_reallocating_the_endpoint_array_for_the_link_endpoint_fails_t
     session_destroy(session);
 }
 
-/* session_destroy_link_endpoint */
+#if 0
+/* session_detach_link_endpoint */
 
-/* Tests_SRS_SESSION_01_050: [If link_endpoint is NULL, session_destroy_link_endpoint shall do nothing.] */
-TEST_FUNCTION(session_destroy_link_endpoint_with_NULL_handle_does_nothing)
+/* Tests_SRS_SESSION_01_050: [If link_endpoint is NULL, session_detach_link_endpoint shall do nothing.] */
+TEST_FUNCTION(session_detach_link_endpoint_with_NULL_handle_does_nothing)
 {
     // arrange
 
     // act
-    session_destroy_link_endpoint(NULL);
+    session_detach_link_endpoint(NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_SESSION_01_049: [session_destroy_link_endpoint shall free all resources associated with the endpoint.] */
+/* Tests_SRS_SESSION_01_049: [session_detach_link_endpoint shall free all resources associated with the endpoint.] */
 TEST_FUNCTION(session_destroy_link_endpoint_frees_the_resources)
 {
     // arrange
@@ -475,7 +476,6 @@ TEST_FUNCTION(session_destroy_link_endpoint_when_2_endpoints_are_there_frees_the
 
 /* session_send_transfer */
 
-#if 0
 /* Tests_SRS_SESSION_01_051: [session_send_transfer shall send a transfer frame with the performative indicated in the transfer argument.] */
 /* Tests_SRS_SESSION_01_053: [On success, session_send_transfer shall return 0.] */
 /* Tests_SRS_SESSION_01_055: [The encoding of the frame shall be done by calling connection_encode_frame and passing as arguments: the connection handle associated with the session, the transfer performative and the payload chunks passed to session_send_transfer.] */
@@ -531,7 +531,7 @@ TEST_FUNCTION(session_transfer_with_NULL_transfer_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
-    session_destroy_link_endpoint(link_endpoint);
+    session_detach_link_endpoint(link_endpoint);
     session_destroy(session);
 }
 
@@ -663,7 +663,7 @@ TEST_FUNCTION(when_session_is_not_MAPPED_the_transfer_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
-    session_destroy_link_endpoint(link_endpoint);
+    session_detach_link_endpoint(link_endpoint);
     session_destroy(session);
 }
 

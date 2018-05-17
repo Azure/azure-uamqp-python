@@ -863,7 +863,7 @@ void link_destroy(LINK_HANDLE link)
 
         link->on_link_state_changed = NULL;
         (void)link_detach(link, true);
-        session_destroy_link_endpoint(link->link_endpoint);
+        session_detach_link_endpoint(link->link_endpoint);
         amqpvalue_destroy(link->source);
         amqpvalue_destroy(link->target);
 

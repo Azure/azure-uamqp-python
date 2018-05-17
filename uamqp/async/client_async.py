@@ -553,7 +553,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.debug("Timeout reached, closing receiver: {}".format(self._remote_address))
+                    _logger.info("Timeout reached, closing receiver: {}".format(self._remote_address))
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now

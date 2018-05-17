@@ -74,7 +74,7 @@ DEFINE_ENUM(SESSION_SEND_TRANSFER_RESULT, SESSION_SEND_TRANSFER_RESULT_VALUES)
     MOCKABLE_FUNCTION(, int, session_begin, SESSION_HANDLE, session);
     MOCKABLE_FUNCTION(, int, session_end, SESSION_HANDLE, session, const char*, condition_value, const char*, description);
     MOCKABLE_FUNCTION(, LINK_ENDPOINT_HANDLE, session_create_link_endpoint, SESSION_HANDLE, session, const char*, name);
-    MOCKABLE_FUNCTION(, void, session_destroy_link_endpoint, LINK_ENDPOINT_HANDLE, link_endpoint);
+    MOCKABLE_FUNCTION(, void, session_detach_link_endpoint, LINK_ENDPOINT_HANDLE, link_endpoint);
     MOCKABLE_FUNCTION(, int, session_start_link_endpoint, LINK_ENDPOINT_HANDLE, link_endpoint, ON_ENDPOINT_FRAME_RECEIVED, frame_received_callback, ON_SESSION_STATE_CHANGED, on_session_state_changed, ON_SESSION_FLOW_ON, on_session_flow_on, void*, context);
     MOCKABLE_FUNCTION(, int, session_send_flow, LINK_ENDPOINT_HANDLE, link_endpoint, FLOW_HANDLE, flow);
     MOCKABLE_FUNCTION(, int, session_send_attach, LINK_ENDPOINT_HANDLE, link_endpoint, ATTACH_HANDLE, attach);

@@ -108,8 +108,11 @@ cdef void on_execute_operation_complete(void* context, c_amqp_management.AMQP_MA
     description = "None" if <void*>status_description == NULL else status_description
     _logger.debug("Management op complete: {}, status code: {}, description: {}".format(execute_operation_result, status_code, description))
     if context != NULL:
-        cloned = c_message.message_clone(message)
-        wrapped_message = message_factory(cloned)
+        if <void*>message != NULL:
+            cloned = c_message.message_clone(message)
+            wrapped_message = message_factory(cloned)
+        else:
+            wrapped_message = None
         context_obj = <object>context
         if hasattr(context_obj, "_management_operation_complete"):
             context_obj._management_operation_complete(execute_operation_result, status_code, description, wrapped_message)
