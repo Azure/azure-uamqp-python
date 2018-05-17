@@ -15,6 +15,9 @@ Release History
 - Updated uAMQP-C to 1.2.4 and C Shared Utility to 1.1.4.
 - Fixed return type of MgmtOperation.execute - now returns ~uamqp.Message.
 - Made AMQP connection/session/sender/receiver types in a client overridable.
+- Added debug trace to management operations.
+- Fixed error in management callback on failed operation.
+- Default AMQP encoding of bytes is now a String type and a bytearray is a Binary type.
 
 
 0.1.0b5 (2018-04-27)

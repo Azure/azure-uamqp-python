@@ -248,6 +248,7 @@ class AMQPClient:
             op_type=op_type,
             node=node,
             encoding=self._encoding,
+            debug=self._debug_trace,
             **kwargs)
         return response
 

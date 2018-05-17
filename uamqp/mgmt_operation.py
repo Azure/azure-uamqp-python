@@ -44,6 +44,7 @@ class MgmtOperation:
     def __init__(self,
                  session,
                  target=None,
+                 debug=False,
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
                  encoding='UTF-8'):
@@ -64,6 +65,7 @@ class MgmtOperation:
         self._counter = c_uamqp.TickCounter()
         self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
+        self._mgmt_op.set_trace(debug)
         self.open = None
         try:
             self._mgmt_op.open(self)
