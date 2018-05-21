@@ -7,13 +7,19 @@
 import os
 import uuid
 import json
+import functools
+import linecache
 
 import uamqp
 
 directory = "C:\\Users\\antisch\\Documents\\GitHub\\azure-uamqp-python\\samples\\recordings"
 filename = "test_recording.txt"
+mode = 'PLAYBACK'
+index = 0
 
-def _record_event(event_type, data):
+
+def _process_event(event_type, data, call=None):
+    global index
     if not os.path.isdir(directory):
         try:
             os.makedirs(directory)
@@ -22,10 +28,25 @@ def _record_event(event_type, data):
                 raise
 
     recording = os.path.join(directory, filename)
-    with open(recording, 'a') as recording_data:
-        json_frame = {event_type: data}
-        json.dump(json_frame, recording_data)
-        recording_data.write("\n")
+    if mode == 'RECORD':
+        print("recording event")
+        with open(recording, 'a') as recording_data:
+            json_frame = {event_type: data}
+            json.dump(json_frame, recording_data)
+            recording_data.write("\n")
+        if call:
+            return call()
+
+
+def _read_event():
+    global index
+    recording = os.path.join(directory, filename)
+    recorded_line = linecache.getline(recording, index)
+    index += 1
+    if not recorded_line:
+        raise ValueError('Recording has run out')
+    recorded_event = json.load(recorded_line)
+    return recorded_event
 
 
 class Message(uamqp.message.Message):
@@ -88,8 +109,8 @@ class Message(uamqp.message.Message):
             "result": result,
             "error": str(error)
         }
-        _record_event("MessageSendComplete", event)
-        return super(Message, self)._on_message_sent(result, error=error)
+        call = functools.partial(super(Message, self)._on_message_sent, result, error=error)
+        return _process_event("MessageSendComplete", event, call)
 
     def gather(self):
         """Return all the messages represented by this object.
@@ -102,8 +123,8 @@ class Message(uamqp.message.Message):
         """Get the underlying C message from this object.
         :returns: ~uamqp.c_uamqp.cMessage
         """
-        _record_event("MessageSendPending", {"message_id": self._request_id})
-        return super(Message, self).get_message()
+        call = functools.partial(super(Message, self).get_message)
+        return _process_event("MessageSendPending", {"message_id": self._request_id}, call)
 
 
 class Connection(uamqp.connection.Connection):
@@ -159,19 +180,39 @@ class Connection(uamqp.connection.Connection):
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  debug=False,
-                 encoding='UTF-8',
-                 playback=False):
-        self._line_offset = []
-        self._recording = os.path.join(directory, filename)
-        self._playback = playback
-        if self._playback:
-            offset = 0
-            with open(self._recording, 'r') as recording_data:
-                for line in recording_data:
-                    self._line_offset.append(offset)
-                    offset += len(line)
+                 encoding='UTF-8'):
+            if mode == 'PLAYBACK':
+                container_ref = _read_event()['Container']
+                try:
+                    self.container_id = container_ref['container_id']
+                    self._max_frame_size = container_ref['max_frame_size']
+                    assert self._max_frame_size == max_frame_size
+                    self._channel_max = container_ref['channel_max']
+                     assert self._channel_max == channel_max
+                    self._idle_timeout = container_ref['idle_timeout']
+                     assert self._idle_timeout == idle_timeout
+                    self._properties = container_ref['properties']
+                     assert self._properties == properties
+                    self._remote_idle_timeout_empty_frame_send_ratio = container_ref['remote_idle_timeout_empty_frame_send_ratio']
+                     assert self._remote_idle_timeout_empty_frame_send_ratio == remote_idle_timeout_empty_frame_send_ratio
+                except KeyError:
+                    raise ValueError("Malformed recording")
+            else:
+                self.container_id = container_id if container_id else str(uuid.uuid4())
+                self._max_frame_size = max_frame_size
+                self._channel_max = channel_max
+                self._idle_timeout = idle_timeout
+                self._properties = properties
+                self._remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
+                _process_event('Container', {
+                    'container_id', self.container_id,
+                    'max_frame_size': self._max_frame_size,
+                    'channel_max': self._channel_max,
+                    'idle_timeout': self._idle_timeout,
+                    'properties': self._properties,
+                    'remote_idle_timeout_empty_frame_send_ratio': self._remote_idle_timeout_empty_frame_send_ratio
+                })
 
-            self.container_id = container_id if container_id else str(uuid.uuid4())
             self.hostname = hostname
             self.auth = sasl
             self.cbs = None
@@ -179,11 +220,7 @@ class Connection(uamqp.connection.Connection):
             self._lock = threading.Lock()
             self._state = c_uamqp.ConnectionState.UNKNOWN
             self._encoding = encoding
-            self._max_frame_size = max_frame_size
-            self._channel_max = channel_max
-            self._idle_timeout = idle_timeout
-            self._properties = properties
-            self._remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
+
         else:
             super(Connection, self).__init__(hostname, sasl,
                 container_id=container_id,
@@ -204,13 +241,26 @@ class Connection(uamqp.connection.Connection):
         :param new_state: The new Connection state.
         :type new_state: int
         """
-        event = {
-            "connection_id": self.container_id,
-            "previous_state": previous_state,
-            "new_state": new_state
-        }
-        _record_event("ConnectionState", event)
-        super(Connection, self)._state_changed(previous_state, new_state)
+        if mode == 'RECORD':
+            event = {
+                "connection_id": self.container_id,
+                "previous_state": previous_state,
+                "new_state": new_state
+            }
+            call = functools.partial(super(Connection, self)._state_changed, previous_state, new_state)
+            _process_event("ConnectionState", event, call)
+        else:
+            super(Connection, self)._state_changed(previous_state, new_state)
+
+    def work(self):
+        if mode == 'RECORD':
+            return super(Connection, self).work()
+        else:
+            label, event = _read_event().popitem()
+            if label == "ConnectionState":
+                assert event['connection_id'] == self.connection_id
+                self._state_changed(event["previous_state"], event["new_state"])
+            elif label == "MessageSenderState"
 
     def destroy(self):
         """Close the connection, and close any associated
