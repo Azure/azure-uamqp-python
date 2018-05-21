@@ -5,7 +5,6 @@
 #include <string.h>
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
-#include "azure_c_shared_utility/xlogging.h"
 #include "azure_uamqp_c/session.h"
 #include "azure_uamqp_c/connection.h"
 #include "azure_uamqp_c/amqp_definitions.h"
@@ -53,11 +52,11 @@ typedef struct SESSION_INSTANCE_TAG
     handle handle_max;
     uint32_t remote_incoming_window;
     uint32_t remote_outgoing_window;
-    int is_underlying_connection_open : 1;
+    unsigned int is_underlying_connection_open : 1;
 } SESSION_INSTANCE;
 
 #define UNDERLYING_CONNECTION_NOT_OPEN 0
-#define UNDERLYING_CONNECTION_OPEN -1
+#define UNDERLYING_CONNECTION_OPEN 1
 
 static void remove_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
 {
@@ -65,7 +64,7 @@ static void remove_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
     {
         LINK_ENDPOINT_INSTANCE* endpoint_instance = (LINK_ENDPOINT_INSTANCE*)link_endpoint;
         SESSION_INSTANCE* session_instance = endpoint_instance->session;
-        uint64_t i;
+        uint32_t i;
 
         for (i = 0; i < session_instance->link_endpoint_count; i++)
         {
@@ -103,7 +102,7 @@ static void remove_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
     }
 }
 
-static void destroy_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
+static void free_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
 {
     if (link_endpoint->name != NULL)
     {
@@ -115,7 +114,7 @@ static void destroy_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
 
 static void session_set_state(SESSION_INSTANCE* session_instance, SESSION_STATE session_state)
 {
-    uint64_t i;
+    uint32_t i;
 
     session_instance->previous_session_state = session_instance->session_state;
     session_instance->session_state = session_state;
@@ -480,7 +479,7 @@ static void on_frame_received(void* context, AMQP_VALUE performative, uint32_t p
                             if (!session_instance->on_link_attached(session_instance->on_link_attached_callback_context, new_link_endpoint, name, role, source, target))
                             {
                                 remove_link_endpoint(new_link_endpoint);
-                                destroy_link_endpoint(new_link_endpoint);
+                                free_link_endpoint(new_link_endpoint);
                                 new_link_endpoint = NULL;
                             }
                             else
@@ -544,6 +543,12 @@ static void on_frame_received(void* context, AMQP_VALUE performative, uint32_t p
                     {
                         link_endpoint->frame_received_callback(link_endpoint->callback_context, performative, payload_size, payload_bytes);
                     }
+                    else
+                    {
+                        /* remove the link endpoint */
+                        remove_link_endpoint(link_endpoint);
+                        free_link_endpoint(link_endpoint);
+                    }
                 }
             }
         }
@@ -565,8 +570,8 @@ static void on_frame_received(void* context, AMQP_VALUE performative, uint32_t p
             if (flow_get_next_incoming_id(flow_handle, &flow_next_incoming_id) != 0)
             {
                 /*
-                If the next-incoming-id field of the flow frame is not set, 
-                then remote-incomingwindow is computed as follows: 
+                If the next-incoming-id field of the flow frame is not set,
+                then remote-incomingwindow is computed as follows:
                 initial-outgoing-id(endpoint) + incoming-window(flow) - next-outgoing-id(endpoint)
                 */
                 flow_next_incoming_id = session_instance->next_outgoing_id;
@@ -922,8 +927,10 @@ int session_end(SESSION_HANDLE session, const char* condition_value, const char*
         // all link endpoints are destroyed when the session end happens
         for (i = 0; i < session_instance->link_endpoint_count; i++)
         {
-            
+            free_link_endpoint(session_instance->link_endpoints[i]);
         }
+
+        session_instance->link_endpoint_count = 0;
     }
 
     return result;
@@ -1135,7 +1142,7 @@ LINK_ENDPOINT_HANDLE session_create_link_endpoint(SESSION_HANDLE session, const 
     return result;
 }
 
-void session_detach_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
+void session_destroy_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
 {
     if (link_endpoint != NULL)
     {
@@ -1148,7 +1155,7 @@ void session_detach_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
         else
         {
             remove_link_endpoint(link_endpoint);
-            destroy_link_endpoint(link_endpoint);
+            free_link_endpoint(link_endpoint);
         }
     }
 }
