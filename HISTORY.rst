@@ -18,6 +18,7 @@ Release History
 - Added debug trace to management operations.
 - Fixed error in management callback on failed operation.
 - Default AMQP encoding of bytes is now a String type and a bytearray is a Binary type.
+- Added AMQP Array type and fixed Long type range validation.
 
 
 0.1.0b5 (2018-04-27)

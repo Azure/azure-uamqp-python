@@ -104,6 +104,11 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# uamqp
 uamqp/c_uamqp.c
 uamqp/c_uamqp.pyx
+src/vendor/azure-uamqp-c/deps/umock-c/
+src/vendor/azure-uamqp-c/deps/azure-ctest/
+src/vendor/azure-uamqp-c/deps/azure-c-testrunnerswitcher/
 tests/test_dont_merge.py
