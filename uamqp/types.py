@@ -7,6 +7,7 @@
 # pylint: disable=super-init-not-called,arguments-differ
 
 from uamqp import c_uamqp
+from uamqp import utils
 
 
 class AMQPType:
@@ -54,54 +55,66 @@ class AMQPSymbol(AMQPType):
 
 
 class AMQPLong(AMQPType):
-    """An AMQP long object. The value of a long must be
-    between -2147483647 and 2147438647.
+    """An AMQP long object.
 
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
     :vartype c_data: ~uamqp.c_uamqp.LongValue
-    :param value: The value to encode as an AMQP symbol.
+    :param value: The value to encode as an AMQP ulong.
     :type value: int
     :raises: ValueError if value is not within allowed range.
     """
 
-    _min_value = -2147483647
-    _max_value = 2147438647
-
     def _c_wrapper(self, value):
         try:
-            value = int(value)
-            assert value > self._min_value and value < self._max_value
-        except (TypeError, AssertionError):
-            error = "Value must be an integer between {} and {}".format(
-                self._min_value, self._max_value)
-            raise ValueError(error)
-        return c_uamqp.long_value(int(value))
+            return c_uamqp.long_value(int(value))
+        except TypeError:
+            raise ValueError("Value must be an integer")
+        except OverflowError:
+            raise ValueError("Value {} is too large for a Long value.".format(value))
 
 
 class AMQPuLong(AMQPType):
-    """An AMQP unsigned long object. The value of a long must be
-    between 0 and 4294877294.
+    """An AMQP unsigned long object.
 
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.ULongValue
-    :param value: The value to encode as an AMQP symbol.
-    :type value: int
+    :vartype c_data: ~uamqp.c_uamqp.ArrayValue
+    :param value: The value to encode as an AMQP Array.
+    :type value: list
     :raises: ValueError if value is not within allowed range.
     """
 
-    _min_value = 0
-    _max_value = 4294877294
-
     def _c_wrapper(self, value):
         try:
-            value = int(value)
-            assert value > self._min_value and value < self._max_value
-        except (TypeError, AssertionError):
-            error = "Value must be an integer between {} and {}".format(
-                self._min_value, self._max_value)
-            raise ValueError(error)
-        return c_uamqp.ulong_value(int(value))
+            return c_uamqp.ulong_value(int(value))
+        except TypeError:
+            raise ValueError("Value must be an integer")
+        except OverflowError:
+            raise ValueError("Value {} is too large for an unsigned Long value.".format(value))
+
+
+class AMQPArray(AMQPType):
+    """An AMQP Array object. All the values in the array
+    must be of the same type.
+
+    :ivar value: The Python values of the AMQP array.
+    :vartype value: list
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: ~uamqp.c_uamqp.ULongValue
+    :param value: The value to encode as an AMQP symbol.
+    :type value: int
+    :raises: ValueError if all values are not the same type.
+    """
+
+    def _c_wrapper(self, value_array):
+        value_type = type(value_array[0])
+        if not all(isinstance(x, value_type) for x in value_array):
+            raise ValueError("All Array values must be the same type.")
+
+        c_array = c_uamqp.array_value()
+        for value in value_array:
+            c_array.append(utils.data_factory(value))
+        return c_array

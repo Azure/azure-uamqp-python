@@ -13,7 +13,6 @@ import logging
 import uuid
 import queue
 
-import uamqp
 from uamqp import client
 from uamqp import constants
 from uamqp import errors
@@ -74,6 +73,10 @@ class AMQPClientAsync(client.AMQPClient):
         super(AMQPClientAsync, self).__init__(
             remote_address, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
+        # AMQP object settings
+        self.connection_type = ConnectionAsync
+        self.session_type = SessionAsync
+
     async def __aenter__(self):
         """Run Client in an async context manager."""
         await self.open_async()
@@ -101,7 +104,7 @@ class AMQPClientAsync(client.AMQPClient):
             _logger.debug("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
-        self._connection = connection or ConnectionAsync(
+        self._connection = connection or self.connection_type(
             self._hostname,
             self._auth,
             container_id=self._name,
@@ -121,7 +124,7 @@ class AMQPClientAsync(client.AMQPClient):
         elif self._connection.cbs:
             self._session = self._auth._session
         else:
-            self._session = SessionAsync(
+            self._session = self.session_type(
                 self._connection,
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
@@ -204,7 +207,7 @@ class AMQPClientAsync(client.AMQPClient):
             node=node,
             encoding=self._encoding,
             **kwargs)
-        return uamqp.Message(message=response)
+        return response
 
     async def do_work_async(self):
         """Run a single connection iteration asynchronously.
@@ -296,6 +299,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         client.SendClient.__init__(
             self, target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
 
+        # AMQP object settings
+        self.sender_type = MessageSenderAsync
+
     async def _client_ready(self):
         """Determine whether the client is ready to start sending messages.
         To be ready, the connection must be open and authentication complete,
@@ -307,7 +313,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         if not self._message_sender:
-            self._message_sender = MessageSenderAsync(
+            self._message_sender = self.sender_type(
                 self._session, self._name, self._remote_address,
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
@@ -497,6 +503,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         client.ReceiveClient.__init__(
             self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
 
+        # AMQP object settings
+        self.receiver_type = MessageReceiverAsync
+
     async def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
@@ -508,7 +517,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         if not self._message_receiver:
-            self._message_receiver = MessageReceiverAsync(
+            self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self,
                 name='receiver-link-{}'.format(uuid.uuid4()),
@@ -543,7 +552,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.debug("Timeout reached, closing receiver: {}".format(self._remote_address))
+                    _logger.info("Timeout reached, closing receiver: {}".format(self._remote_address))
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now

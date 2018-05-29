@@ -6,14 +6,16 @@ project(uamqp)
 
 FILE(READ ${CMAKE_CURRENT_LIST_DIR}/version.txt UAMQP_VERSION)
 
-# Include the common build rules for the C SDK
-include(deps/azure-c-shared-utility/configs/azure_iot_build_rules.cmake)
-
 option(run_e2e_tests "set run_e2e_tests to ON to run e2e tests (default is OFF) [if possible, they are always built]" OFF)
 option(run_unittests "set run_unittests to ON to run unittests (default is OFF)" OFF)
 option(skip_samples "set skip_samples to ON to skip building samples (default is OFF)[if possible, they are always built]" OFF)
 option(use_installed_dependencies "set use_installed_dependencies to ON to use installed packages instead of building dependencies from submodules" OFF)
 option(memory_trace "set memory_trace to ON if memory usage is to be used, set to OFF to not use it" OFF)
+option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
+
+if(${use_custom_heap})
+    add_definitions(-DGB_USE_CUSTOM_HEAP)
+endif()
 
 if(${no_logging})
     add_definitions(-DNO_LOGGING)
@@ -30,15 +32,26 @@ set(run_unittests OFF)
 
 if(NOT ${use_installed_dependencies})
     if(${original_run_e2e_tests} OR ${original_run_unittests})
-        add_subdirectory(deps/azure-c-testrunnerswitcher)
-        add_subdirectory(deps/azure-ctest)
-        add_subdirectory(deps/umock-c)
+        if (NOT TARGET testrunnerswitcher)
+            add_subdirectory(deps/azure-c-testrunnerswitcher)
+        endif()
+        if (NOT TARGET ctest)
+            add_subdirectory(deps/azure-ctest)
+        endif()
+        if (NOT TARGET umock_c)
+            add_subdirectory(deps/umock-c)
+        endif()
     endif()	
-    add_subdirectory(deps/azure-c-shared-utility)
+    if (NOT TARGET aziotsharedutil)
+        add_subdirectory(deps/azure-c-shared-utility)
+    endif()
 endif()
 include("dependencies.cmake")
 
-set_platform_files(${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-shared-utility)
+# Include the common build rules for C shared utility
+include(${SHARED_UTIL_FOLDER}/configs/azure_iot_build_rules.cmake)
+
+set_platform_files(${SHARED_UTIL_FOLDER})
 
 set(run_e2e_tests ${original_run_e2e_tests})
 set(run_int_tests ${original_run_int_tests})

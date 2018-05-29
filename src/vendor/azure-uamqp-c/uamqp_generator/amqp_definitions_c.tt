@@ -10,6 +10,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+// This file is generated. DO NOT EDIT it manually.
+// The generator that produces it is located at /uamqp_generator/uamqp_generator.sln
+
 #include <stdlib.h>
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
@@ -378,13 +381,14 @@ int <#= type_name #>_get_<#= field_name #>(<#= type_name.ToUpper() #>_HANDLE <#=
 <#                      } #>
 <#                      else #>
 <#                      { #>
-                    int get_single_value_result;
 <#                          if (field.multiple != "true") #>
 <#                          { #>
-                    if ((get_single_value_result = amqpvalue_get_<#= field.type.Replace('-', '_').Replace(':', '_') #>(item_value, <#= field_name #>_value)) != 0)
+                    int get_single_value_result = amqpvalue_get_<#= field.type.Replace('-', '_').Replace(':', '_') #>(item_value, <#= field_name #>_value);
+                    if (get_single_value_result != 0)
 <#                          } #>
 <#                          else #>
 <#                          { #>
+                    int get_single_value_result;
                     if (amqpvalue_get_type(item_value) != AMQP_TYPE_ARRAY)
                     {
                         get_single_value_result = amqpvalue_get_<#= field.type.ToLower().Replace('-', '_').Replace(':', '_') #>(item_value, &<#= field_name #>_single_value);

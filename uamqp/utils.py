@@ -79,9 +79,11 @@ def data_factory(value, encoding='UTF-8'):
         result = c_uamqp.char_value(value.encode(encoding))
     elif isinstance(value, str) and len(value) > 1:
         result = c_uamqp.string_value(value.encode(encoding))
+    elif isinstance(value, bytes):
+        result = c_uamqp.string_value(value)
     elif isinstance(value, uuid.UUID):
         result = c_uamqp.uuid_value(value)
-    elif isinstance(value, bytes):
+    elif isinstance(value, bytearray):
         result = c_uamqp.binary_value(value)
     elif isinstance(value, float):
         result = c_uamqp.double_value(value)

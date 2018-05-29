@@ -11,6 +11,7 @@ import uuid
 
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
+from uamqp import Message
 from uamqp import constants
 
 
@@ -85,7 +86,7 @@ class MgmtOperationAsync(MgmtOperation):
             if result != constants.MgmtExecuteResult.Ok:
                 _logger.error("Failed to complete mgmt operation.\nStatus code: {}\nMessage: {}".format(
                     status_code, description))
-            self._responses[operation_id] = wrapped_message
+            self._responses[operation_id] = Message(message=wrapped_message)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)
         while not self._responses[operation_id] and not self.mgmt_error:

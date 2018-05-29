@@ -82,14 +82,21 @@ cdef class cMessageSender(StructBase):
 #### Callbacks
 
 cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result):
-    context_obj = <object>context
-    context_obj._on_message_sent(send_result)
+    if context != NULL:
+        context_obj = <object>context
+        if hasattr(context_obj, "_on_message_sent"):
+            context_obj._on_message_sent(send_result)
+        elif callable(context_obj):
+            context_obj(send_result)
 
 
 cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):
-    context_obj = <object>context
-    if hasattr(context_obj, '_state_changed'):
-        context_obj._state_changed(previous_state, new_state)
+    if context != NULL:
+        context_obj = <object>context
+        if hasattr(context_obj, '_state_changed'):
+            context_obj._state_changed(previous_state, new_state)
+        elif callable(context_obj):
+            context_obj(previous_state, new_state)
 
 
 cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):

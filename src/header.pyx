@@ -68,7 +68,7 @@ cdef class cHeader(StructBase):
     @delivery_count.setter
     def delivery_count(self, stdint.uint32_t value):
         if c_amqp_definitions.header_set_delivery_count(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Couldn't set 'delivery_count'.")
 
     @property
@@ -81,7 +81,7 @@ cdef class cHeader(StructBase):
     @time_to_live.setter
     def time_to_live(self, c_amqp_definitions.milliseconds value):
         if c_amqp_definitions.header_set_ttl(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Couldn't set 'time_to_live'.")
 
     @property
@@ -94,7 +94,7 @@ cdef class cHeader(StructBase):
     @durable.setter
     def durable(self, bint value):
         if c_amqp_definitions.header_set_durable(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Couldn't set 'durable'.")
 
     @property
@@ -107,7 +107,7 @@ cdef class cHeader(StructBase):
     @first_acquirer.setter
     def first_acquirer(self, bint value):
         if c_amqp_definitions.header_set_first_acquirer(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Couldn't set 'first_acquirer'.")
 
     @property
@@ -120,5 +120,5 @@ cdef class cHeader(StructBase):
     @priority.setter
     def priority(self, stdint.uint8_t value):
         if c_amqp_definitions.header_set_priority(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Couldn't set 'priority'.")

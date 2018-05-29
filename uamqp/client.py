@@ -101,6 +101,10 @@ class AMQPClient:
         self._incoming_window = kwargs.pop('incoming_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
 
+        # AMQP object settings
+        self.connection_type = Connection
+        self.session_type = Session
+
         if kwargs:
             raise ValueError("Received unrecognized kwargs: {}".format(", ".join(kwargs.keys())))
 
@@ -144,7 +148,7 @@ class AMQPClient:
             _logger.debug("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
-        self._connection = connection or Connection(
+        self._connection = connection or self.connection_type(
             self._hostname,
             self._auth,
             container_id=self._name,
@@ -163,7 +167,7 @@ class AMQPClient:
         elif self._connection.cbs:
             self._session = self._auth._session
         else:
-            self._session = Session(
+            self._session = self.session_type(
                 self._connection,
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
@@ -244,8 +248,9 @@ class AMQPClient:
             op_type=op_type,
             node=node,
             encoding=self._encoding,
+            debug=self._debug_trace,
             **kwargs)
-        return uamqp.Message(message=response)
+        return response
 
     def do_work(self):
         """Run a single connection iteration.
@@ -342,6 +347,10 @@ class SendClient(AMQPClient):
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
         self._link_credit = kwargs.pop('link_credit', None)
+
+        # AMQP object settings
+        self.sender_type = sender.MessageSender
+
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
@@ -355,7 +364,7 @@ class SendClient(AMQPClient):
         """
         # pylint: disable=protected-access
         if not self._message_sender:
-            self._message_sender = sender.MessageSender(
+            self._message_sender = self.sender_type(
                 self._session, self._name, self._remote_address,
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
@@ -574,6 +583,10 @@ class ReceiveClient(AMQPClient):
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
         self._link_properties = kwargs.pop('link_properties', None)
+
+        # AMQP object settings
+        self.receiver_type = receiver.MessageReceiver
+
         super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
@@ -587,7 +600,7 @@ class ReceiveClient(AMQPClient):
         """
         # pylint: disable=protected-access
         if not self._message_receiver:
-            self._message_receiver = receiver.MessageReceiver(
+            self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self,
                 name='receiver-link-{}'.format(uuid.uuid4()),

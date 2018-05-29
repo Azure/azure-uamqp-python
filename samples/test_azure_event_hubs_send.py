@@ -50,7 +50,7 @@ def test_event_hubs_client_send(live_eventhub_config):
     send_client.send_all_messages()
 
 
-def test_event_hubs_single_send(live_eventhub_config):
+def test_event_hubs_single_send_sync(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
     msg_content = b"hello world"
 

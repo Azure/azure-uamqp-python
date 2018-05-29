@@ -70,14 +70,14 @@ class Connection:
                  debug=False,
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
-        container_id = container_id if container_id else str(uuid.uuid4())
+        self.container_id = container_id if container_id else str(uuid.uuid4())
         self.hostname = hostname
         self.auth = sasl
         self.cbs = None
         self._conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
             hostname.encode(encoding) if isinstance(hostname, str) else hostname,
-            container_id.encode(encoding) if isinstance(container_id, str) else container_id,
+            self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
             self)
         self._conn.set_trace(debug)
         self._sessions = []

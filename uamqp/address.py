@@ -138,17 +138,21 @@ class Source(Address):
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
 
-    def set_filter(self, value):
+    def set_filter(self, value, name=constants.STRING_FILTER):
         """Set a filter on the endpoint. Only one filter
         can be applied to an endpoint.
 
         :param value: The filter to apply to the endpoint.
         :type value: bytes or str
+        :param name: The name of the filter. This will be encoded as
+         an AMQP Symbol and will also be used as the filter descriptor.
+         By default this is set to b'apache.org:selector-filter:string'.
+        :type name: bytes
         """
         value = value.encode(self._encoding) if isinstance(value, str) else value
         filter_set = c_uamqp.dict_value()
-        filter_key = c_uamqp.symbol_value(constants.STRING_FILTER)
-        descriptor = c_uamqp.symbol_value(constants.STRING_FILTER)
+        filter_key = c_uamqp.symbol_value(name)
+        descriptor = c_uamqp.symbol_value(name)
         filter_value = c_uamqp.string_value(value)
         described_filter_value = c_uamqp.described_value(descriptor, filter_value)
         self._filters.append((descriptor, filter_value))

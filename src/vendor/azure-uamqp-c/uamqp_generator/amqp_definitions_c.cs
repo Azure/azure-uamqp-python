@@ -40,6 +40,9 @@ namespace amqplib_generator
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+// This file is generated. DO NOT EDIT it manually.
+// The generator that produces it is located at /uamqp_generator/uamqp_generator.sln
+
 #include <stdlib.h>
 #include ""azure_c_shared_utility/optimize_size.h""
 #include ""azure_c_shared_utility/gballoc.h""
@@ -1762,7 +1765,6 @@ namespace amqplib_generator
             
             #line default
             #line hidden
-            this.Write("                    int get_single_value_result;\r\n");
             
             #line 382 "E:\iot\azure-iot-sdk-c\uamqp\uamqp_generator\amqp_definitions_c.tt"
                           if (field.multiple != "true") 
@@ -1775,7 +1777,7 @@ namespace amqplib_generator
             
             #line default
             #line hidden
-            this.Write("                    if ((get_single_value_result = amqpvalue_get_");
+            this.Write("                    int get_single_value_result = amqpvalue_get_");
             
             #line 384 "E:\iot\azure-iot-sdk-c\uamqp\uamqp_generator\amqp_definitions_c.tt"
             this.Write(this.ToStringHelper.ToStringWithCulture(field.type.Replace('-', '_').Replace(':', '_')));
@@ -1789,7 +1791,7 @@ namespace amqplib_generator
             
             #line default
             #line hidden
-            this.Write("_value)) != 0)\r\n");
+            this.Write("_value);\r\n                    if (get_single_value_result != 0)\r\n");
             
             #line 385 "E:\iot\azure-iot-sdk-c\uamqp\uamqp_generator\amqp_definitions_c.tt"
                           } 
@@ -1808,9 +1810,9 @@ namespace amqplib_generator
             
             #line default
             #line hidden
-            this.Write("                    if (amqpvalue_get_type(item_value) != AMQP_TYPE_ARRAY)\r\n     " +
-                    "               {\r\n                        get_single_value_result = amqpvalue_ge" +
-                    "t_");
+            this.Write("                    int get_single_value_result;\r\n                    if (amqpval" +
+                    "ue_get_type(item_value) != AMQP_TYPE_ARRAY)\r\n                    {\r\n            " +
+                    "            get_single_value_result = amqpvalue_get_");
             
             #line 390 "E:\iot\azure-iot-sdk-c\uamqp\uamqp_generator\amqp_definitions_c.tt"
             this.Write(this.ToStringHelper.ToStringWithCulture(field.type.ToLower().Replace('-', '_').Replace(':', '_')));
