@@ -350,7 +350,7 @@ class SendClient(AMQPClient):
 
         # AMQP object settings
         self.sender_type = sender.MessageSender
-        
+
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):

@@ -13,7 +13,6 @@ import logging
 import uuid
 import queue
 
-import uamqp
 from uamqp import client
 from uamqp import constants
 from uamqp import errors
