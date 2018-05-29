@@ -3,7 +3,7 @@
 Release History
 ===============
 
-0.1.0rc1 (unreleased)
+0.1.0rc1 (2018-05-29)
 +++++++++++++++++++++
 
 - Fixed import error in async receiver.
@@ -12,7 +12,7 @@ Release History
 - Removed sasl module and moved internal classes into authentication module.
 - Added encoding parameter everywhere where strings are encoded.
 - Started documentation.
-- Updated uAMQP-C to 1.2.4 and C Shared Utility to 1.1.4.
+- Updated uAMQP-C to 1.2.4 and C Shared Utility to 1.1.4 (includes fix for issue #12).
 - Fixed return type of MgmtOperation.execute - now returns ~uamqp.Message.
 - Made AMQP connection/session/sender/receiver types in a client overridable.
 - Added debug trace to management operations.
@@ -20,6 +20,7 @@ Release History
 - Default AMQP encoding of bytes is now a String type and a bytearray is a Binary type.
 - Added AMQP Array type and fixed Long type range validation.
 - Added `header` argument to Message and BatchMessage for setting a MessageHeader.
+- Fixed MessageHeader attribute setters.
 
 
 0.1.0b5 (2018-04-27)

@@ -179,7 +179,7 @@ class Message:
         on the body type.
         :returns: generator
         """
-        if not self._message:
+        if not self._message or not self._body:
             return None
         return self._body.data
 
@@ -792,13 +792,21 @@ class MessageHeader:
         return self._header.time_to_live
 
     @property
-    def durable(self):
-        return self._header.durable
-
-    @property
     def first_acquirer(self):
         return self._header.first_acquirer
 
     @property
+    def durable(self):
+        return self._header.durable
+
+    @durable.setter
+    def durable(self, value):
+        self._header.durable = bool(value)
+
+    @property
     def priority(self):
         return self._header.priority
+
+    @priority.setter
+    def priority(self, value):
+        self._header.priority = int(value)

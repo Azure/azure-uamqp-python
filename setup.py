@@ -230,11 +230,6 @@ setup(
     author='Microsoft Corporation',
     author_email='azpysdkhelp@microsoft.com',
     url='https://github.com/Azure/azure-uamqp-python',
-    entry_points = {
-        'pytest11': [
-            'uamqp_vcr = uamqp.vcr',
-        ]
-    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Programming Language :: Cython',
