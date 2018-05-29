@@ -25,10 +25,8 @@ int platform_init(void)
     int result;
 
     WSADATA wsaData;
-    int error_code = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (error_code != 0)
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
-        LogError("WSAStartup failed: 0x%x", error_code);
         result = __FAILURE__;
     }
     else

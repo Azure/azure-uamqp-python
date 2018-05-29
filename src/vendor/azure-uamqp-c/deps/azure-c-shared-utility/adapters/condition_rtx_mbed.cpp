@@ -20,9 +20,9 @@ COND_RESULT Condition_Post(COND_HANDLE handle)
     }
     else
     {
-        result = COND_ERROR;
+
     }
-    return result;
+    return COND_ERROR;
 }
 
 COND_RESULT Condition_Wait(COND_HANDLE  handle, LOCK_HANDLE lock, int timeout_milliseconds)
