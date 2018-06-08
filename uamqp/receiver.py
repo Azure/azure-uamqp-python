@@ -6,7 +6,9 @@
 
 import logging
 import uuid
+import functools
 
+import uamqp
 from uamqp import utils
 from uamqp import errors
 from uamqp import constants
@@ -61,9 +63,9 @@ class MessageReceiver():
     def __init__(self, session, source, target,
                  on_message_received,
                  name=None,
-                 receive_settle_mode=None,
-                 max_message_size=None,
-                 prefetch=None,
+                 receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
+                 max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
+                 prefetch=300,
                  properties=None,
                  debug=False,
                  encoding='UTF-8'):
@@ -78,6 +80,8 @@ class MessageReceiver():
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
         self.on_message_received = on_message_received
+        self.encoding = encoding
+        self._settle_mode = receive_settle_mode
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
@@ -117,7 +121,7 @@ class MessageReceiver():
          or the credentials are rejected.
         """
         try:
-            self._receiver.open(self.on_message_received)
+            self._receiver.open(self._message_received)
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
@@ -145,6 +149,61 @@ class MessageReceiver():
         except ValueError:
             _new_state = new_state
         self.on_state_changed(_previous_state, _new_state)
+
+    def _settle_message(self, message_number, response):
+        """Send a settle dispostition for a received message.
+        :param message_number: The delivery number of the message
+         to settle.
+        :type message_number: int
+        :response: The type of disposition to respond with, e.g. whether
+         the message was accepted, rejected or abandoned.
+        :type response: ~uamqp.errors.MessageResponse
+        """
+        try:
+            raise response
+        except errors.AcceptMessage:
+            self._receiver.settle_accepted_message(message_number)
+        except errors.ReleaseMessage:
+            self._receiver.settle_released_message(message_number)
+        except errors.RejectMessage as rejection:
+            self._receiver.settle_rejected_message(
+                message_number,
+                rejection.error_condition,
+                rejection.error_description)
+        except errors.ModifyMessage as modify:
+            self._receiver.settled_modified_message(
+                message_number,
+                modify.failed,
+                modify.deliverable,
+                modify.annotations)
+        except errors.MessageAlreadySettled:
+            pass
+        except TypeError:
+            # If the response is None, we assume no disposition is needed. Otherwise error.
+            if response:
+                raise ValueError("Invalid message response type: {}".format(response))
+
+    def _message_received(self, message):
+        """Callback run on receipt of every message. If there is
+        a user-defined callback, this will be called.
+        Additionally if the client is retrieving messages for a batch
+        or iterator, the message will be added to an internal queue.
+        :param message: c_uamqp.Message
+        """
+        message_number = self._receiver.last_received_message_number()
+        if self._settle_mode == constants.ReceiverSettleMode.ReceiveAndDelete:
+            settler = None
+        else:
+            settler = functools.partial(self._settle_message, message_number)
+
+        wrapped_message = uamqp.Message(
+            message=message,
+            encoding=self.encoding,
+            settler=settler)
+        try:
+            self.on_message_received(wrapped_message)
+        except Exception:
+            self._receiver.settled_modified_message(message_number, True, True, None)
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change

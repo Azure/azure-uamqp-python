@@ -350,7 +350,7 @@ class SendClient(AMQPClient):
 
         # AMQP object settings
         self.sender_type = sender.MessageSender
-
+        
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
@@ -393,13 +393,13 @@ class SendClient(AMQPClient):
         """
         # pylint: disable=protected-access
         for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
+            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
                     pass
             elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForAck
+                message.state = constants.MessageState.WaitingForSendAck
                 try:
                     current_time = self._counter.get_current_ms()
                     elapsed_time = (current_time - message.idle_time)/1000
@@ -466,7 +466,7 @@ class SendClient(AMQPClient):
         except:
             raise
         else:
-            failed = [m for m in pending_batch if m.state == constants.MessageState.Failed]
+            failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
@@ -569,7 +569,7 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, **kwargs):
+    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._message_receiver = None
@@ -586,6 +586,7 @@ class ReceiveClient(AMQPClient):
 
         # AMQP object settings
         self.receiver_type = receiver.MessageReceiver
+        self.auto_complete = auto_complete
 
         super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
@@ -602,7 +603,7 @@ class ReceiveClient(AMQPClient):
         if not self._message_receiver:
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
-                on_message_received=self,
+                on_message_received=self._message_received,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -646,6 +647,8 @@ class ReceiveClient(AMQPClient):
         :returns: generator[~uamqp.Message]
         """
         self.open()
+        auto_complete = self.auto_complete
+        self.auto_complete = False
         receiving = True
         try:
             while receiving:
@@ -655,9 +658,16 @@ class ReceiveClient(AMQPClient):
                     message = self._received_messages.get()
                     self._received_messages.task_done()
                     yield message
+
+                    if auto_complete:
+                        try:
+                            message.accept()
+                        except errors.MessageResponse:
+                            pass
         except:
             raise
         finally:
+            self.auto_complete = auto_complete
             self.close()
 
     def _message_received(self, message):
@@ -665,39 +675,43 @@ class ReceiveClient(AMQPClient):
         a user-defined callback, this will be called.
         Additionally if the client is retrieving messages for a batch
         or iterator, the message will be added to an internal queue.
-        :param message: c_uamqp.Message
+        :param message: ~c_uamqp.Message
         """
         self._was_message_received = True
-        wrapped_message = uamqp.Message(message=message, encoding=self._encoding)
         if self._message_received_callback:
-            wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
+            self._message_received_callback(message)
+        if self.auto_complete:
+            try:
+                message.accept()
+            except errors.MessageResponse:
+                # MessageResponse will be raised if message is already settled, so we can ignore
+                pass
         if self._received_messages:
-            self._received_messages.put(wrapped_message)
+            self._received_messages.put(message)
 
-    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
+    def receive_message_batch(self, max_batch_size=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
         accepted - if you wish to add logic to accept or reject messages based on custom
         criteria, pass in a callback. This method will return as soon as some messages are
         available rather than waiting to achieve a specific batch size, and therefore the
         number of messages returned per call will vary up to the maximum allowed.
 
+        If the receive client is configured with `auto_complete=True` then the messages received
+        in the batch returned by this function will already be settled. Alternatively, if
+        `auto_complete=False`, then each message will need to be explicitly settled before
+        it expires and is released.
+
         :param max_batch_size: The maximum number of messages that can be returned in
          one call. This value cannot be larger than the prefetch value, and if not specified,
          the prefetch value will be used.
         :type max_batch_size: int
-        :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
-        :type on_message_received: callable[~uamqp.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
         :type timeout: int
         """
-        self._message_received_callback = on_message_received
+        self._message_received_callback = None
         max_batch_size = max_batch_size or self._prefetch
         if max_batch_size > self._prefetch:
             raise ValueError(
@@ -736,6 +750,12 @@ class ReceiveClient(AMQPClient):
         """Receive messages. This function will run indefinitely, until the client
         closes either via timeout, error or forced interruption (e.g. keyboard interrupt).
 
+        If the receive client is configured with `auto_complete=True` then the messages that
+        have not been settled on completion of the provided callback will automatically be
+        accepted provided it has not expired. If an error occurs or the message has expired
+        it will be released. Alternatively if `auto_complete=False`, each message will need
+        to be explicitly settled during the callback, otherwise it will be released.
+
         :param on_message_received: A callback to process messages as they arrive from the
          service. It takes a single argument, a ~uamqp.Message object.
         :type on_message_received: callable[~uamqp.Message]
@@ -750,22 +770,20 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
+            self._message_received_callback = None
             if not receiving:
                 self.close()
 
-    def receive_messages_iter(self, on_message_received=None):
+    def receive_messages_iter(self):
         """Receive messages by generator. Messages returned in the generator have already been
         accepted - if you wish to add logic to accept or reject messages based on custom
         criteria, pass in a callback.
 
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
+         service. It takes a single argument, a ~uamqp.Message object.
         :type on_message_received: callable[~uamqp.Message]
         """
-        self._message_received_callback = on_message_received
+        self._message_received_callback = None
         self._received_messages = queue.Queue()
         return self._message_generator()
 

@@ -39,27 +39,46 @@ class TokenAuthFailure(AuthenticationException):
 
 
 class MessageResponse(Exception):
+
+    def __init__(self, message=None):
+        response = message or "Sending {} disposition.".format(self.__class__.__name__)
+        super(MessageResponse, self).__init__(response)
+
+
+class MessageAlreadySettled(MessageResponse):
+
+    def __init__(self):
+        response = "Invalid operation: this message is already settled."
+        super(MessageAlreadySettled, self).__init__(response)
+
+
+class AcceptMessage(MessageResponse):
     pass
 
 
 class RejectMessage(MessageResponse):
 
-    def __init__(self, message, encoding='UTF-8'):
-        self.rejection_description = message.encode(encoding) if isinstance(message, str) else message
-        super(RejectMessage, self).__init__(message)
+    def __init__(self, condition=None, description=None, encoding='UTF-8'):
+        if condition:
+            self.error_condition = condition.encode(encoding) if isinstance(condition, str) else condition
+        else:
+            self.error_condition = b"amqp:internal-error"
+        self.error_description = None
+        if description:
+            self.error_description = description.encode(encoding) if isinstance(description, str) else description
+        super(RejectMessage, self).__init__()
 
 
-class AbandonMessage(MessageResponse):
+class ReleaseMessage(MessageResponse):
+    pass
 
-    def __init__(self, annotations=None, encoding='UTF-8'):
-        self.abandoned = True
+
+class ModifyMessage(MessageResponse):
+
+    def __init__(self, failed, deliverable, annotations=None, encoding='UTF-8'):
+        self.failed = failed
+        self.deliverable = deliverable
+        if not isinstance(annotations, dict):
+            raise TypeError("Disposition annotations must be a dictionary.")
         self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
-        super(AbandonMessage, self).__init__("Releasing message")
-
-
-class DeferMessage(MessageResponse):
-
-    def __init__(self, annotations=None, encoding='UTF-8'):
-        self.deferred = True
-        self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
-        super(DeferMessage, self).__init__("Deferring message")
+        super(ModifyMessage, self).__init__()

@@ -8,7 +8,7 @@ import logging
 
 from uamqp import c_uamqp
 from uamqp import utils
-from uamqp import constants
+from uamqp import constants, errors
 
 
 _logger = logging.getLogger(__name__)
@@ -40,14 +40,16 @@ class Message:
     :param annotations: Service specific message annotations. Keys in the dictionary
      must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
     :type annotations: dict
-    :param header: The message header.
-    :type header: ~uamqp.message.MessageHeader
     :param msg_format: A custom message format. Default is 0.
     :type msg_format: int
     :param message: Internal only. This is used to wrap an existing message
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
     :type message: ~uamqp.c_uamqp.cMessage
+    :param settled: Internal only. This is used when wrapping an existing message
+     that has been received from an AMQP service. Should only be specified together
+     with `message` and is to determine receive-settled mode of the client.
+    :type settled: int
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -58,13 +60,15 @@ class Message:
                  properties=None,
                  application_properties=None,
                  annotations=None,
-                 header=None,
                  msg_format=None,
                  message=None,
+                 settler=None,
                  encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self._retries = 0
+        self._response = None
+        self._settler = None
         self._encoding = encoding
         self.on_send_complete = None
         self.properties = None
@@ -75,6 +79,13 @@ class Message:
         self.delivery_annotations = None
 
         if message:
+            if settler:
+                self.state = constants.MessageState.ReceivedUnsettled
+                self._response = None
+            else:
+                self.state = constants.MessageState.ReceivedSettled
+                self._response = errors.MessageAlreadySettled()
+            self._settler = settler
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
@@ -97,7 +108,6 @@ class Message:
             self.properties = properties
             self.application_properties = application_properties
             self.annotations = annotations
-            self.header = header
 
     def __str__(self):
         if not self._message:
@@ -156,14 +166,37 @@ class Message:
             self.state = constants.MessageState.WaitingToBeSent
         elif result == constants.MessageSendResult.Error:
             _logger.error("Message error, {} retries exhausted ({})".format(constants.MESSAGE_SEND_RETRIES, error))
-            self.state = constants.MessageState.Failed
+            self.state = constants.MessageState.SendFailed
+            self._response = errors.MessageAlreadySettled()
             if self.on_send_complete:
                 self.on_send_complete(result, error)
         else:
             _logger.debug("Message sent: {}, {}".format(result, error))
-            self.state = constants.MessageState.Complete
+            self.state = constants.MessageState.SendComplete
+            self._response = errors.MessageAlreadySettled()
             if self.on_send_complete:
                 self.on_send_complete(result, error)
+
+    def _can_settle_message(self):
+        if self.state not in constants.RECEIVE_STATES:
+            raise TypeError("Only received messages can be settled.")
+        try:
+            raise self._response
+        except TypeError:
+            pass
+
+    @property
+    def settled(self):
+        """Whether the message transaction for this message has been completed.
+        If this message is to be sent, the message will be `settled=True` once a
+        disposition has been received from the service.
+        If this message has been received, the message will be `settled=True` once
+        a disposition has been sent to the service.
+        :rtype: bool
+        """
+        if self._response:
+            return True
+        return False
 
     def get_message_encoded_size(self):
         """Pre-emptively get the size of the message once it has been encoded
@@ -171,6 +204,9 @@ class Message:
         rejected for being to large.
         :returns: int
         """
+        if self.state in constants.RECEIVE_STATES:
+            # We only need this for messages being sent.
+            return None
         # TODO: This no longer calculates the metadata accurately.
         return c_uamqp.get_encoded_message_size(self._message)
 
@@ -179,7 +215,7 @@ class Message:
         on the body type.
         :returns: generator
         """
-        if not self._message or not self._body:
+        if not self._message:
             return None
         return self._body.data
 
@@ -188,6 +224,12 @@ class Message:
         This will always be a list of a single message.
         :returns: list[~uamqp.Message]
         """
+        if self.state in constants.RECEIVE_STATES:
+            raise TypeError("Only new messages can be gathered.")
+        try:
+            raise self._response
+        except TypeError:
+            pass
         return [self]
 
     def get_message(self):
@@ -209,9 +251,88 @@ class Message:
             ann_props = c_uamqp.create_message_annotations(
                 utils.data_factory(self.annotations, encoding=self._encoding))
             self._message.message_annotations = ann_props
-        if self.header:
-            self._message.header = self.header._header  # pylint: disable=protected-access
         return self._message
+
+    def accept(self):
+        """Send a response disposition to the service to indicate that
+        a received message has been accepted. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored.
+        :raises: ValueError if message has already been settled (e.g. if the client
+         is running in `ReceiveAndDelete` mode) or if a settlement response has
+         already been assigned.
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        self._can_settle_message()
+        self._response = errors.AcceptMessage()
+        self._settler(self._response)
+        self.state = constants.MessageState.ReceivedSettled
+
+    def reject(self, condition=None, description=None):
+        """Send a response disposition to the service to indicate that
+        a received message has been rejected. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. A rejected message will increment the messages delivery count.
+        :param condition: The AMQP rejection code. By default this is `amqp:internal-error`.
+        :type condition: bytes or str
+        :param description: A description/reason to accompany the rejection.
+        :type description: bytes or str
+        :raises: ValueError if message has already been settled (e.g. if the client
+         is running in `ReceiveAndDelete` mode) or if a settlement response has
+         already been assigned.
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        self._can_settle_message()
+        self._response = errors.RejectMessage(
+            condition=condition,
+            description=description,
+            encoding=self._encoding)
+        self._settler(self._response)
+        self.state = constants.MessageState.ReceivedSettled
+
+    def release(self):
+        """Send a response disposition to the service to indicate that
+        a received message has been released. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. A released message will not incremenet the messages
+        delivery count.
+        :raises: ValueError if message has already been settled (e.g. if the client
+         is running in `ReceiveAndDelete` mode) or if a settlement response has
+         already been assigned.
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        self._can_settle_message()
+        self._response = errors.ReleaseMessage()
+        self._settler(self._response)
+        self.state = constants.MessageState.ReceivedSettled
+
+    def modify(self, failed, deliverable, annotations=None):
+        """Send a response disposition to the service to indicate that
+        a received message has been modified. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored.
+        :param failed: Whether this delivery of this message failed. This does not
+         indicate whether subsequence deliveries of this message would also fail.
+        :type failed: bool
+        :param deliverable: Whether this message will be deliverable to this client
+         on subsequent deliveries - i.e. whether delivery is retryable.
+        :type deliverable: bool
+        :param annotations: Annotations to attach to response that will then be included
+         in the `delivery_annotations` of subsequent deliveries of this message.
+        :type annotations: dict
+        :raises: ValueError if message has already been settled (e.g. if the client
+         is running in `ReceiveAndDelete` mode) or if a settlement response has
+         already been assigned.
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        self._can_settle_message()
+        self._response = errors.ModifyMessage(
+            failed,
+            deliverable,
+            annotations=annotations,
+            encoding=self._encoding)
+        self._settler(self._response)
+        self.state = constants.MessageState.ReceivedSettled
 
 
 class BatchMessage(Message):
@@ -249,8 +370,6 @@ class BatchMessage(Message):
      these properties will be applied to each message. Keys in the dictionary
      must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
     :type annotations: dict
-    :param header: The message header. This header will be applied to each message in the batch.
-    :type header: ~uamqp.message.MessageHeader
     :param multi_messages: Whether to send the supplied data across multiple messages. If set to
      `False`, all the data will be sent in a single message, and an error raised if the message
      is too large. If set to `True`, the data will automatically be divided across multiple messages
@@ -271,7 +390,6 @@ class BatchMessage(Message):
                  properties=None,
                  application_properties=None,
                  annotations=None,
-                 header=None,
                  multi_messages=False,
                  encoding='UTF-8'):
         # pylint: disable=super-init-not-called
@@ -282,7 +400,6 @@ class BatchMessage(Message):
         self.properties = properties
         self.application_properties = application_properties
         self.annotations = annotations
-        self.header = header
 
     def _create_batch_message(self):
         """Create a ~uamqp.Message for a value supplied by the data
@@ -294,7 +411,6 @@ class BatchMessage(Message):
                        properties=self.properties,
                        annotations=self.annotations,
                        msg_format=self.batch_format,
-                       header=self.header,
                        encoding=self._encoding)
 
     def _multi_message_generator(self):
@@ -792,21 +908,13 @@ class MessageHeader:
         return self._header.time_to_live
 
     @property
+    def durable(self):
+        return self._header.durable
+
+    @property
     def first_acquirer(self):
         return self._header.first_acquirer
 
     @property
-    def durable(self):
-        return self._header.durable
-
-    @durable.setter
-    def durable(self, value):
-        self._header.durable = bool(value)
-
-    @property
     def priority(self):
         return self._header.priority
-
-    @priority.setter
-    def priority(self, value):
-        self._header.priority = int(value)

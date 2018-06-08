@@ -27,12 +27,15 @@ MAX_MESSAGE_LENGTH_BYTES = c_uamqp.MAX_MESSAGE_LENGTH_BYTES
 
 class MessageState(Enum):
     WaitingToBeSent = 0
-    WaitingForAck = 1
-    Complete = 2
-    Failed = 3
+    WaitingForSendAck = 1
+    SendComplete = 2
+    SendFailed = 3
+    ReceivedUnsettled = 4
+    ReceivedSettled = 5
 
 
-DONE_STATES = (MessageState.Complete, MessageState.Failed)
+DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
+RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 
 
 class MessageReceiverState(Enum):

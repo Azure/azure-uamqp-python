@@ -13,6 +13,7 @@ import logging
 import uuid
 import queue
 
+import uamqp
 from uamqp import client
 from uamqp import constants
 from uamqp import errors
@@ -342,13 +343,13 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
+            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
                     pass
             elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForAck
+                message.state = constants.MessageState.WaitingForSendAck
                 try:
                     current_time = self._counter.get_current_ms()
                     elapsed_time = (current_time - message.idle_time)/1000
@@ -407,7 +408,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         except:
             raise
         else:
-            failed = [m for m in pending_batch if m.state == constants.MessageState.Failed]
+            failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
@@ -498,10 +499,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, **kwargs):
+    def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, auto_complete=True, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.ReceiveClient.__init__(
-            self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, **kwargs)
+            self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, auto_complete=auto_complete, **kwargs)
 
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
@@ -519,7 +520,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         if not self._message_receiver:
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
-                on_message_received=self,
+                on_message_received=self._message_received,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -564,6 +565,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         until the client closes either via timeout, error or forced
         interruption (e.g. keyboard interrupt).
 
+        If the receive client is configured with `auto_complete=True` then the messages that
+        have not been settled on completion of the provided callback will automatically be
+        accepted provided it has not expired. If an error occurs or the message has expired
+        it will be released. Alternatively if `auto_complete=False`, each message will need
+        to be explicitly settled during the callback, otherwise it will be released.
+
         :param on_message_received: A callback to process messages as they arrive from the
          service. It takes a single argument, a ~uamqp.Message object.
         :type on_message_received: callable[~uamqp.Message]
@@ -578,33 +585,31 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             receiving = False
             raise
         finally:
+            self._message_received_callback = None
             if not receiving:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
-        """Receive a batch of messages asynchronously. Messages returned in the batch have
-        already been accepted - if you wish to add logic to accept or reject messages based
-        on custom criteria, pass in a callback. This method will return as soon as some
+    async def receive_message_batch_async(self, max_batch_size=None, timeout=0):
+        """Receive a batch of messages asynchronously. This method will return as soon as some
         messages are available rather than waiting to achieve a specific batch size, and
         therefore the number of messages returned per call will vary up to the maximum allowed.
+
+        If the receive client is configured with `auto_complete=True` then the messages received
+        in the batch returned by this function will already be settled. Alternatively, if
+        `auto_complete=False`, then each message will need to be explicitly settled before
+        it expires and is released.
 
         :param max_batch_size: The maximum number of messages that can be returned in
          one call. This value cannot be larger than the prefetch value, and if not specified,
          the prefetch value will be used.
         :type max_batch_size: int
-        :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
-        :type on_message_received: callable[~uamqp.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
         :type timeout: int
         """
-        self._message_received_callback = on_message_received
+        self._message_received_callback = None
         max_batch_size = max_batch_size or self._prefetch
         if max_batch_size > self._prefetch:
             raise ValueError(
@@ -640,23 +645,24 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 self._received_messages.task_done()
         return batch
 
-    def receive_messages_iter_async(self, on_message_received=None):
+    def receive_messages_iter_async(self):
         """Receive messages by asynchronous generator. Messages returned in the
         generator have already been accepted - if you wish to add logic to accept
         or reject messages based on custom criteria, pass in a callback.
 
-        :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
-        :type on_message_received: callable[~uamqp.Message]
+        If the receive client is configured with `auto_complete=True` then the messages received
+        from the iterator returned by this function will be automatically settled when the iterator
+        is incremented. Alternatively, if `auto_complete=False`, then each message will need to
+        be explicitly settled before it expires and is released.
+
+        :rtype: Generator[~uamqp.Message]
         """
-        self._message_received_callback = on_message_received
+        self._message_received_callback = None
         self._received_messages = queue.Queue()
-        return AsyncMessageIter(self)
+        return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
     async def close_async(self):
+        """Asynchonously close the receive client."""
         if self._message_receiver:
             await self._message_receiver.destroy_async()
             self._message_receiver = None
@@ -672,19 +678,28 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
     :type recv_client: ~uamqp.ReceiveClientAsync
     """
 
-    def __init__(self, rcv_client):
+    def __init__(self, rcv_client, auto_complete=True):
         self._client = rcv_client
+        self._client.auto_complete = False
         self.receiving = True
+        self.auto_complete = auto_complete
+        self.current_message = None
 
     async def __anext__(self):
         # pylint: disable=protected-access
         await self._client.open_async()
+        if self.current_message and self.auto_complete:
+            try:
+                self.current_message.accept()
+            except errors.MessageResponse:
+                pass
         try:
             while self.receiving and self._client._received_messages.empty():
                 self.receiving = await self._client.do_work_async()
             if not self._client._received_messages.empty():
                 message = self._client._received_messages.get()
                 self._client._received_messages.task_done()
+                self.current_message = message
                 return message
             else:
                 raise StopAsyncIteration("Message receive closing.")

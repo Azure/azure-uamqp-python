@@ -112,3 +112,4 @@ src/vendor/azure-uamqp-c/deps/umock-c/
 src/vendor/azure-uamqp-c/deps/azure-ctest/
 src/vendor/azure-uamqp-c/deps/azure-c-testrunnerswitcher/
 tests/test_dont_merge.py
+.vscode/settings.json
