@@ -42,7 +42,7 @@ cdef class cMessageReceiver(StructBase):
         self.destroy()
         self._c_value = c_message_receiver.messagereceiver_create(link, on_message_sender_state_changed, context)
         self._validate()
-        if c_message.messagereceiver_get_link_name(self._c_value, &self._link_name)!= 0:
+        if c_message_receiver.messagereceiver_get_link_name(self._c_value, &self._link_name)!= 0:
             self._value_error("Unable to retrieve message receiver link name.")
 
     cpdef open(self, callback_context):
@@ -61,35 +61,35 @@ cdef class cMessageReceiver(StructBase):
 
     cpdef last_received_message_number(self):
         cdef c_amqp_definitions.delivery_number message_number
-        if c_message.messagereceiver_get_received_message_id(self._c_value, &message_number) != 0:
+        if c_message_receiver.messagereceiver_get_received_message_id(self._c_value, &message_number) != 0:
             self._value_error("Unable to retrieve last received message number.")
-        return message_receiver
+        return message_number
 
     cpdef settle_accepted_message(self, c_amqp_definitions.delivery_number message_number):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_accepted()
-        if c_message.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
+        if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             self._value_error("Unable to send accepted message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settle_released_message(self, c_amqp_definitions.delivery_number message_number):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_released()
-        if c_message.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
+        if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             self._value_error("Unable to send released message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settle_rejected_message(self, c_amqp_definitions.delivery_number message_number, const char* error_condition, const char* error_description):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_rejected(error_condition, error_description)
-        if c_message.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
+        if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             self._value_error("Unable to send rejected message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settled_modified_message(self, c_amqp_definitions.delivery_number message_number, bint delivery_failed, bint undeliverable_here, AMQPValue annotations):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, <c_amqp_definitions.fields>annotations._c_value)
-        if c_message.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
+        if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             self._value_error("Unable to send delivery-modified message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
@@ -123,4 +123,4 @@ cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE
         context_obj._message_received(wrapped_message)
     elif callable(context_obj):
         context_obj(wrapped_message)
-    return NULL
+    return <c_amqpvalue.AMQP_VALUE>NULL

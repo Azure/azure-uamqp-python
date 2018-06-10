@@ -45,6 +45,7 @@ class ConnectionState(Enum):
 cdef class Connection(StructBase):
 
     cdef c_connection.CONNECTION_HANDLE _c_value
+    cdef c_connection.ON_CONNECTION_CLOSED_EVENT_SUBSCRIPTION_HANDLE _close_event
 
     def __cinit__(self):
         pass
@@ -84,7 +85,7 @@ cdef class Connection(StructBase):
             self._value_error()
 
     cpdef close(self, const char* condition_value, const char* description):
-        if c_connection.connection_close(self._c_value, condition_value, description) != 0:
+        if c_connection.connection_close(self._c_value, condition_value, description, <c_amqpvalue.AMQP_VALUE>NULL) != 0:
             self._value_error()
 
     cpdef set_trace(self, bint value):
@@ -92,6 +93,17 @@ cdef class Connection(StructBase):
 
     cpdef do_work(self):
         c_connection.connection_dowork(self._c_value)
+
+    cpdef subscribe_to_close_event(self, on_close_received):
+        self._close_event = c_connection.connection_subscribe_on_connection_close_received(
+            self._c_value,
+            <c_connection.ON_CONNECTION_CLOSE_RECEIVED>on_connection_close_received,
+            <void*>on_close_received)
+        if <void*>self._close_event == NULL:
+            self._value_error("Unable to register CLOSE event handler.")
+
+    cpdef unsubscribe_to_close_event(self):
+        c_connection.connection_unsubscribe_on_connection_close_received(self._close_event)
 
     @property
     def max_frame_size(self):
@@ -179,3 +191,12 @@ cdef void on_io_error(void* context):
     if <void*>context != NULL:
         context_obj = <object>context
         context_obj._io_error()
+
+
+cdef void on_connection_close_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
+    wrapped_error = error_factory(error)
+    context_obj = <object>context
+    if hasattr(context_obj, '_close_received'):
+        context_obj._close_received(wrapped_error)
+    elif callable(context_obj):
+        context_obj(wrapped_error)

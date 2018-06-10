@@ -16,6 +16,9 @@ cdef extern from "azure_uamqp_c/link.h":
     ctypedef struct LINK_HANDLE:
         pass
 
+    ctypedef struct ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE:
+        pass
+
     cdef enum LINK_STATE_TAG:
         LINK_STATE_DETACHED,
         LINK_STATE_HALF_ATTACHED_ATTACH_SENT,
@@ -34,6 +37,8 @@ cdef extern from "azure_uamqp_c/link.h":
         LINK_DELIVERY_SETTLE_REASON_TIMEOUT,
         LINK_DELIVERY_SETTLE_REASON_CANCELLED
 
+    ctypedef void (*ON_LINK_DETACH_RECEIVED)(void* context, c_amqp_definitions.ERROR_HANDLE error)
+
     LINK_HANDLE link_create(c_session.SESSION_HANDLE session, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target)
     void link_destroy(LINK_HANDLE handle)
     int link_set_snd_settle_mode(LINK_HANDLE link, c_amqp_definitions.sender_settle_mode snd_settle_mode)
@@ -49,3 +54,6 @@ cdef extern from "azure_uamqp_c/link.h":
     int link_set_attach_properties(LINK_HANDLE link, c_amqp_definitions.fields attach_properties)
     int link_get_name(LINK_HANDLE link, const char** link_name)
     int link_get_received_message_id(LINK_HANDLE link, c_amqp_definitions.delivery_number* message_id)
+
+    ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE link_subscribe_on_link_detach_received(LINK_HANDLE link, ON_LINK_DETACH_RECEIVED on_link_detach_received, void* context)
+    void link_unsubscribe_on_link_detach_received(ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE event_subscription)

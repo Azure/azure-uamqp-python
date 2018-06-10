@@ -16,6 +16,8 @@ cdef extern from "azure_uamqp_c/connection.h":
         pass
     ctypedef struct ENDPOINT_HANDLE:
         pass
+    ctypedef struct ON_CONNECTION_CLOSED_EVENT_SUBSCRIPTION_HANDLE:
+        pass
 
     cdef enum CONNECTION_STATE_TAG:
         CONNECTION_STATE_START,
@@ -38,13 +40,14 @@ cdef extern from "azure_uamqp_c/connection.h":
 
     ctypedef void (*ON_CONNECTION_STATE_CHANGED)(void* context, CONNECTION_STATE new_connection_state, CONNECTION_STATE previous_connection_state)
     ctypedef bint (*ON_NEW_ENDPOINT)(void* context, ENDPOINT_HANDLE new_endpoint)
+    ctypedef void (*ON_CONNECTION_CLOSE_RECEIVED)(void* context, c_amqp_definitions.ERROR_HANDLE error)
 
     CONNECTION_HANDLE connection_create(c_xio.XIO_HANDLE io, const char* hostname, const char* container_id, ON_NEW_ENDPOINT on_new_endpoint, void* callback_context)
     CONNECTION_HANDLE connection_create2(c_xio.XIO_HANDLE xio, const char* hostname, const char* container_id, ON_NEW_ENDPOINT on_new_endpoint, void* callback_context, ON_CONNECTION_STATE_CHANGED on_connection_state_changed, void* on_connection_state_changed_context, c_xio.ON_IO_ERROR on_io_error, void* on_io_error_context)
     void connection_destroy(CONNECTION_HANDLE connection)
     int connection_open(CONNECTION_HANDLE connection)
     int connection_listen(CONNECTION_HANDLE connection)
-    int connection_close(CONNECTION_HANDLE connection, const char* condition_value, const char* description)
+    int connection_close(CONNECTION_HANDLE connection, const char* condition_value, const char* description, c_amqpvalue.AMQP_VALUE info)
     int connection_set_max_frame_size(CONNECTION_HANDLE connection, stdint.uint32_t max_frame_size)
     int connection_get_max_frame_size(CONNECTION_HANDLE connection, stdint.uint32_t* max_frame_size)
     int connection_set_channel_max(CONNECTION_HANDLE connection, stdint.uint16_t channel_max)
@@ -58,3 +61,7 @@ cdef extern from "azure_uamqp_c/connection.h":
     stdint.uint64_t connection_handle_deadlines(CONNECTION_HANDLE connection)
     void connection_dowork(CONNECTION_HANDLE connection) nogil
     void connection_set_trace(CONNECTION_HANDLE connection, bint trace_on)
+
+    ON_CONNECTION_CLOSED_EVENT_SUBSCRIPTION_HANDLE connection_subscribe_on_connection_close_received(CONNECTION_HANDLE connection, ON_CONNECTION_CLOSE_RECEIVED on_connection_close_received, void* context)
+    void connection_unsubscribe_on_connection_close_received(ON_CONNECTION_CLOSED_EVENT_SUBSCRIPTION_HANDLE event_subscription)
+
