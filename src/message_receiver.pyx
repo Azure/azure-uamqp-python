@@ -111,9 +111,6 @@ cdef void on_message_receiver_state_changed(void* context, c_message_receiver.ME
 
 
 cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE_HANDLE message):
-    if context == NULL:
-        return c_message.messaging_delivery_accepted()
-
     context_obj = <object>context
     cdef c_message.MESSAGE_HANDLE cloned
     cloned = c_message.message_clone(message)

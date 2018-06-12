@@ -317,8 +317,7 @@ class Message:
         :param deliverable: Whether this message will be deliverable to this client
          on subsequent deliveries - i.e. whether delivery is retryable.
         :type deliverable: bool
-        :param annotations: Annotations to attach to response that will then be included
-         in the `delivery_annotations` of subsequent deliveries of this message.
+        :param annotations: Annotations to attach to response.
         :type annotations: dict
         :raises: ValueError if message has already been settled (e.g. if the client
          is running in `ReceiveAndDelete` mode) or if a settlement response has

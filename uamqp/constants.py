@@ -37,6 +37,10 @@ class MessageState(Enum):
 DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 
+# Error Codes
+ERROR_CONNECTION_REDIRECT = b"amqp:connection:redirect"
+ERROR_LINK_REDIRECT = b"amqp:link:redirect"
+
 
 class MessageReceiverState(Enum):
     Idle = c_uamqp.MESSAGE_RECEIVER_STATE_IDLE
@@ -44,6 +48,7 @@ class MessageReceiverState(Enum):
     Open = c_uamqp.MESSAGE_RECEIVER_STATE_OPEN
     Closing = c_uamqp.MESSAGE_RECEIVER_STATE_CLOSING
     Error = c_uamqp.MESSAGE_RECEIVER_STATE_ERROR
+    Redirecting = 999
 
 
 class MessageSendResult(Enum):
@@ -59,6 +64,7 @@ class MessageSenderState(Enum):
     Open = c_uamqp.MESSAGE_SENDER_STATE_OPEN
     Closing = c_uamqp.MESSAGE_SENDER_STATE_CLOSING
     Error = c_uamqp.MESSAGE_SENDER_STATE_ERROR
+    Redirecting = 999
 
 
 class ManagementLinkState(Enum):

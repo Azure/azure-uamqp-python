@@ -52,6 +52,10 @@ class MessageReceiver():
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param on_detach_received: A callback to be run if the client receives
+     a link DETACH frame from the service. The callback must take 3 arguments,
+     the `condition` string, the `description` string and an optional info dict.
+    :type on_detach_received: Callable[str, str, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -67,6 +71,7 @@ class MessageReceiver():
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  prefetch=300,
                  properties=None,
+                 on_detach_received=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -80,6 +85,7 @@ class MessageReceiver():
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
         self.on_message_received = on_message_received
+        self.on_detach_received = on_detach_received
         self.encoding = encoding
         self._settle_mode = receive_settle_mode
         self._conn = session._conn
@@ -121,7 +127,7 @@ class MessageReceiver():
          or the credentials are rejected.
         """
         try:
-            self._receiver.open(self._message_received)
+            self._receiver.open(self)
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
@@ -149,6 +155,22 @@ class MessageReceiver():
         except ValueError:
             _new_state = new_state
         self.on_state_changed(_previous_state, _new_state)
+
+    def _detach_received(self, error):
+        """Callback called when a link DETACH frame is received.
+        :param error: The error information from the detach
+         frame.
+        :type error: ~uamqp.errors.ErrorResponse
+        """
+        condidition = error.condition.decode(self.encoding)
+        _logger.warning('Link Detach received: {}'.format(condidition))
+        description = error.description.decode(self.encoding)
+        _logger.warning('Decription: {}'.format(description))
+        info = error.information
+        if condidition == constants.ERROR_LINK_REDIRECT:
+            self._state = constants.MessageReceiverState.Redirecting
+        if self.on_detach_received:
+            self.on_detach_received(condidition, description, info)
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -202,7 +224,8 @@ class MessageReceiver():
             settler=settler)
         try:
             self.on_message_received(wrapped_message)
-        except Exception:
+        except Exception as e:
+            _logger.error("Error processing message: {}\nRejecting message.")
             self._receiver.settled_modified_message(message_number, True, True, None)
 
     def on_state_changed(self, previous_state, new_state):
@@ -213,7 +236,9 @@ class MessageReceiver():
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
-        if new_state != previous_state:
+        if self._state == constants.MessageReceiverState.Redirecting:
+            pass
+        elif new_state != previous_state:
             _logger.debug("Message receiver state changed from {} to {}".format(previous_state, new_state))
             self._state = new_state
 

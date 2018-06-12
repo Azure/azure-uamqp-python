@@ -83,7 +83,10 @@ class AMQPAuth:
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
             cert_data = cert_handle.read()
-            self._underlying_xio.set_certificates(cert_data)
+            try:
+                self._underlying_xio.set_certificates(cert_data)
+            except ValueError:
+                _logger.warning('Unable to set external certificates.')
         self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
 
     def close(self):
@@ -223,6 +226,8 @@ class CBSAuthMixin:
                     _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
+                    error_code, error_description = self._cbs_auth.get_failure_info()
+                    _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     time.sleep(self._retry_policy.backoff)

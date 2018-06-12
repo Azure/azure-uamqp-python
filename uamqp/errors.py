@@ -4,6 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
+from uamqp import c_uamqp
 from uamqp import utils
 
 
@@ -82,3 +83,24 @@ class ModifyMessage(MessageResponse):
             raise TypeError("Disposition annotations must be a dictionary.")
         self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
         super(ModifyMessage, self).__init__()
+
+
+class ErrorResponse:
+
+    def __init__(self, error_info):
+        self._error = error_info
+
+    @property
+    def condition(self):
+        return self._error.condition
+
+    @property
+    def description(self):
+        return self._error.description
+
+    @property
+    def information(self):
+        info = self._error.info
+        if info:
+            return info.value
+        return None
