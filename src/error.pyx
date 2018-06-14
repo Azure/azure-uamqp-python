@@ -73,7 +73,7 @@ cdef class cError(StructBase):
     def description(self):
         cdef const char* description_value
         if  c_amqp_definitions.error_get_description(self._c_value, &description_value) != 0:
-            self._value_error()
+            return None
         return description_value
 
     @description.setter
@@ -85,8 +85,8 @@ cdef class cError(StructBase):
     def info(self):
         cdef c_amqp_definitions.fields info_value
         if  c_amqp_definitions.error_get_info(self._c_value, &info_value) != 0:
-            self._value_error()
-        return value_factory(info_value)
+            return None
+        return value_factory(info_value).value
 
     @info.setter
     def info(self, AMQPValue info_value):
