@@ -9,8 +9,10 @@ import uuid
 import queue
 try:
     from urllib import unquote_plus
+    from urllib import unquote
 except ImportError:
     from urllib.parse import unquote_plus
+    from urllib.parse import unquote
 
 import uamqp
 from uamqp import authentication
@@ -67,12 +69,13 @@ class AMQPClient:
     """
 
     def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
+        self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
-        self._hostname = self._remote_address.parsed_address.hostname
+        self._hostname = self._remote_address.hostname
         if not auth:
-            username = self._remote_address.parsed_address.username
-            password = self._remote_address.parsed_address.password
+            username = self._remote_address.username
+            password = self._remote_address.password
             if username and password:
                 username = unquote_plus(username)
                 password = unquote_plus(password)
@@ -86,7 +89,6 @@ class AMQPClient:
         self._connection = None
         self._ext_connection = False
         self._session = None
-        self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -116,6 +118,10 @@ class AMQPClient:
     def __exit__(self, *args):
         """Close and destroy Client on exiting a context manager."""
         self.close()
+
+    def _on_link_detack(self, *args):
+        print("DETACH RECEIVED. SHUTTING DOWN")
+        self._shutdown = True
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -375,12 +381,12 @@ class SendClient(AMQPClient):
                 encoding=self._encoding)
             self._message_sender.open()
             return False
-        elif self._message_sender._state == constants.MessageSenderState.Error:
+        elif self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
                 "Message Sender Client was unable to open. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_sender._state != constants.MessageSenderState.Open:
+        elif self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
@@ -604,6 +610,7 @@ class ReceiveClient(AMQPClient):
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
+                on_detach_received=self._on_link_detack,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -613,12 +620,12 @@ class ReceiveClient(AMQPClient):
                 encoding=self._encoding)
             self._message_receiver.open()
             return False
-        elif self._message_receiver._state == constants.MessageReceiverState.Error:
+        elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
                 "Message Receiver Client was unable to open. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_receiver._state != constants.MessageReceiverState.Open:
+        elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True

@@ -71,15 +71,16 @@ class Connection:
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        self.hostname = hostname
+        self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
         self.auth = sasl
         self.cbs = None
+        self._debug = debug
         self._conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
-            hostname.encode(encoding) if isinstance(hostname, str) else hostname,
+            self.hostname,
             self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
             self)
-        self._conn.set_trace(debug)
+        self._conn.set_trace(self._debug)
         self._sessions = []
         self._lock = threading.Lock()
         self._state = c_uamqp.ConnectionState.UNKNOWN
@@ -103,6 +104,12 @@ class Connection:
     def __exit__(self, *args):
         """Close the Connection when exiting a context manager."""
         self.destroy()
+
+    def _close(self):
+        if self.cbs:
+            self.auth.close_authenticator()
+        self._conn.destroy()
+        self.auth.close()
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes
@@ -128,11 +135,25 @@ class Connection:
         """Close the connection, and close any associated
         CBS authentication session.
         """
-        if self.cbs:
-            self.auth.close_authenticator()
-        self._conn.destroy()
-        self.auth.close()
+        self._close()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
+
+ #   def redirect(self, redirect_error, auth):
+ #       self._lock.acquire()
+ #       try:
+ #           if self.hostname == redirect_error.hostname:
+ #               return
+ #           self._close()
+ #           self.hostname = redirect_error.hostname
+ #           self.auth = auth
+ #           self._conn = c_uamqp.create_connection(
+ #           sasl.sasl_client.get_client(),
+ #           hostname.encode(encoding) if isinstance(hostname, str) else hostname,
+ #           self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
+ #           self)
+ #       self._conn.set_trace(self._debug)
+ #       finally:
+ #           self._lock.release()
 
     def work(self):
         """Perform a single Connection iteration."""

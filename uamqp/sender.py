@@ -107,6 +107,13 @@ class MessageSender():
         """Close the MessageSender when exiting a context manager."""
         self.destroy()
 
+    def get_state(self):
+        """Get the state of the MessageSender and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            return self._state
+
     def destroy(self):
         """Close both the Sender and the Link. Clean up any C objects."""
         self._sender.destroy()
@@ -155,7 +162,6 @@ class MessageSender():
         info = error.information
         if condidition == constants.ERROR_LINK_REDIRECT:
             self._state = constants.MessageReceiverState.Redirecting
-            print(info)
         if self.on_detach_received:
             self.on_detach_received(condidition, description, info)
 

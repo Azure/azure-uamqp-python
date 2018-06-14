@@ -91,7 +91,7 @@ class MessageReceiver():
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
-
+        self._link.subscribe_to_detach_event(self)
         if prefetch:
             self._link.set_prefetch_count(prefetch)
         if properties:
@@ -104,6 +104,7 @@ class MessageReceiver():
         self._receiver = c_uamqp.create_message_receiver(self._link, self)
         self._receiver.set_trace(debug)
         self._state = constants.MessageReceiverState.Idle
+        self._error = None
 
     def __enter__(self):
         """Open the MessageReceiver in a context manager."""
@@ -113,6 +114,13 @@ class MessageReceiver():
     def __exit__(self, *args):
         """Close the MessageReceiver when exiting a context manager."""
         self.destroy()
+
+    def get_state(self):
+        """Get the state of the MessageReceiver and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            return self._state
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
@@ -162,15 +170,15 @@ class MessageReceiver():
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        condidition = error.condition.decode(self.encoding)
-        _logger.warning('Link Detach received: {}'.format(condidition))
-        description = error.description.decode(self.encoding)
-        _logger.warning('Decription: {}'.format(description))
-        info = error.information
-        if condidition == constants.ERROR_LINK_REDIRECT:
-            self._state = constants.MessageReceiverState.Redirecting
+        condition = error.condition
+        description = error.description
+        info = error.info
+        if condition == constants.ERROR_LINK_REDIRECT:
+            self._error = errors.LinkRirect(condition, description, info)
+        else:
+            self._error = errors.LinkDetach(condition, description, info)
         if self.on_detach_received:
-            self.on_detach_received(condidition, description, info)
+            self.on_detach_received(condition, description, info)
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
