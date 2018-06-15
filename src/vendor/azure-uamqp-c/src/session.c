@@ -5,6 +5,7 @@
 #include <string.h>
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
+#include "azure_c_shared_utility/xlogging.h"
 #include "azure_uamqp_c/session.h"
 #include "azure_uamqp_c/connection.h"
 #include "azure_uamqp_c/amqp_definitions.h"
@@ -447,16 +448,18 @@ static void on_frame_received(void* context, AMQP_VALUE performative, uint32_t p
             {
                 end_session_with_error(session_instance, "amqp:decode-error", "Cannot get link role from ATTACH frame");
             }
-            else if (attach_get_source(attach_handle, &source) != 0)
+            else 
             {
-                end_session_with_error(session_instance, "amqp:decode-error", "Cannot get link source from ATTACH frame");
-            }
-            else if (attach_get_target(attach_handle, &target) != 0)
-            {
-                end_session_with_error(session_instance, "amqp:decode-error", "Cannot get link target from ATTACH frame");
-            }
-            else
-            {
+                if (attach_get_source(attach_handle, &source) != 0)
+                {
+                    source = NULL;
+                    //end_session_with_error(session_instance, "amqp:decode-error", "Cannot get link source from ATTACH frame");
+                }
+                else if (attach_get_target(attach_handle, &target) != 0)
+                {
+                    target = NULL;
+                    //end_session_with_error(session_instance, "amqp:decode-error", "Cannot get link target from ATTACH frame");
+                }
                 LINK_ENDPOINT_INSTANCE* link_endpoint = find_link_endpoint_by_name(session_instance, name);
                 if (link_endpoint == NULL)
                 {
