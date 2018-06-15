@@ -120,8 +120,7 @@ class AMQPClient:
         self.close()
 
     def _on_link_detack(self, *args):
-        print("DETACH RECEIVED. SHUTTING DOWN")
-        self._shutdown = True
+        _logger.info("Detach received. Closing client.")
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -134,6 +133,28 @@ class AMQPClient:
     def _client_run(self):
         """Perform a single Connection iteration."""
         self._connection.work()
+
+    def redirect(self, redirect, auth):
+        if not self._connection.cbs:
+            _logger.debug("Closing non-CBS session.")
+            self._session.destroy()
+        self._session = None
+        self._auth = auth
+        self._hostname = self._remote_address.hostname
+        self._connection.redirect(redirect, auth)
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection.cbs = self._auth.create_authenticator(
+                self._connection,
+                debug=self._debug_trace)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = self.session_type(
+                self._connection,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max)
 
     def open(self, connection=None):
         """Open the client. The client can create a new Connection
@@ -793,6 +814,15 @@ class ReceiveClient(AMQPClient):
         self._message_received_callback = None
         self._received_messages = queue.Queue()
         return self._message_generator()
+
+    def redirect(self, redirect, auth, redirect_address=None):
+        if self._message_receiver:
+            self._message_receiver.destroy()
+            self._message_receiver = None
+
+        remote_address = redirect_address or redirect.address
+        self._remote_address = address.Source(remote_address)
+        super(ReceiveClient, self).redirect(redirect, auth)
 
     def close(self):
         if self._message_receiver:

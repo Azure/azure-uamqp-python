@@ -121,6 +121,9 @@ class MessageReceiver():
             raise self._error
         except TypeError:
             return self._state
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
@@ -174,7 +177,7 @@ class MessageReceiver():
         description = error.description
         info = error.info
         if condition == constants.ERROR_LINK_REDIRECT:
-            self._error = errors.LinkRirect(condition, description, info)
+            self._error = errors.LinkRedirect(condition, description, info)
         else:
             self._error = errors.LinkDetach(condition, description, info)
         if self.on_detach_received:

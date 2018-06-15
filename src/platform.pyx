@@ -23,7 +23,7 @@ cpdef platform_init():
 
 
 cpdef platform_deinit():
-    _logger.debug("Deinitializing Windows platform")
+    _logger.debug("Deinitializing platform")
     c_platform.platform_deinit()
 
 

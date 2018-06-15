@@ -71,6 +71,7 @@ class Connection:
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
+        self.container_id = self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id
         self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
         self.auth = sasl
         self.cbs = None
@@ -78,24 +79,27 @@ class Connection:
         self._conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
             self.hostname,
-            self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
+            self.container_id,
             self)
         self._conn.set_trace(self._debug)
         self._sessions = []
         self._lock = threading.Lock()
         self._state = c_uamqp.ConnectionState.UNKNOWN
         self._encoding = encoding
+        self._settings = {}
 
         if max_frame_size:
+            self._settings['max_frame_size'] = max_frame_size
             self.max_frame_size = max_frame_size
         if channel_max:
+            self._settings['channel_max'] = channel_max
             self.channel_max = channel_max
         if idle_timeout:
+            self._settings['idle_timeout'] = idle_timeout
             self.idle_timeout = idle_timeout
         if properties:
+            self._settings['properties'] = properties
             self.properties = properties
-        if remote_idle_timeout_empty_frame_send_ratio:
-            self._conn.remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
 
     def __enter__(self):
         """Open the Connection in a context manager."""
@@ -108,6 +112,7 @@ class Connection:
     def _close(self):
         if self.cbs:
             self.auth.close_authenticator()
+            self.cbs = None
         self._conn.destroy()
         self.auth.close()
 
@@ -138,22 +143,25 @@ class Connection:
         self._close()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
- #   def redirect(self, redirect_error, auth):
- #       self._lock.acquire()
- #       try:
- #           if self.hostname == redirect_error.hostname:
- #               return
- #           self._close()
- #           self.hostname = redirect_error.hostname
- #           self.auth = auth
- #           self._conn = c_uamqp.create_connection(
- #           sasl.sasl_client.get_client(),
- #           hostname.encode(encoding) if isinstance(hostname, str) else hostname,
- #           self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
- #           self)
- #       self._conn.set_trace(self._debug)
- #       finally:
- #           self._lock.release()
+    def redirect(self, redirect_error, auth):
+        self._lock.acquire()
+        try:
+            if self.hostname == redirect_error.hostname:
+                return
+            if self._state != c_uamqp.ConnectionState.END:
+                self._close()
+            self.hostname = redirect_error.hostname
+            self.auth = auth
+            self._conn = c_uamqp.create_connection(
+                self.auth.sasl_client.get_client(),
+                self.hostname,
+                self.container_id,
+                self)
+            self._conn.set_trace(self._debug)
+            for setting, value in self._settings.items():
+                setattr(self, setting, value)
+        finally:
+            self._lock.release()
 
     def work(self):
         """Perform a single Connection iteration."""

@@ -25,7 +25,7 @@ class LinkDetach(AMQPConnectionError):
         super(LinkDetach, self).__init__(message)
 
 
-class LinkRirect(LinkDetach):
+class LinkRedirect(LinkDetach):
 
     def __init__(self, condition, description=None, info=None, encoding="UTF-8"):
         self.hostname = info.get(b'hostname')
@@ -34,7 +34,7 @@ class LinkRirect(LinkDetach):
         self.address = info.get(b'address')
         self.scheme = info.get(b'scheme')
         self.path = info.get(b'path')
-        super(LinkRirect, self).__init__(condition, description, info, encoding)
+        super(LinkRedirect, self).__init__(condition, description, info, encoding)
 
 
 class MessageException(Exception):
