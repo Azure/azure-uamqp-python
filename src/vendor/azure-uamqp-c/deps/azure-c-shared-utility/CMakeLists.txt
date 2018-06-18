@@ -27,6 +27,11 @@ option(run_e2e_tests "set run_e2e_tests to ON to run e2e tests (default is OFF).
 option(use_builtin_httpapi "set use_builtin_httpapi to ON to use the built-in httpapi_compact that comes with C shared utility (default is OFF)" OFF)
 option(use_cppunittest "set use_cppunittest to ON to build CppUnitTest tests on Windows (default is ON)" ON)
 option(suppress_header_searches "do not try to find headers - used when compiler check will fail" OFF)
+option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
+
+if(${use_custom_heap})
+    add_definitions(-DGB_USE_CUSTOM_HEAP)
+endif()
 
 if(WIN32)
     option(use_schannel "set use_schannel to ON if schannel is to be used, set to OFF to not use schannel" ON)
@@ -122,7 +127,23 @@ if(MSVC)
         endif()
 
     endif()
-elseif(UNIX) #LINUX OR APPLE
+elseif(LINUX) #LINUX OR APPLE
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat=2 -Wformat-security")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat=2 -Wformat-security")
+    if(${use_openssl})
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_OPENSSL")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_OPENSSL")
+    endif()
+    if(${use_wolfssl})
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_WOLFSSL")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_WOLFSSL")
+    endif()
+    # Turn off warning that can not be fixed right now
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-missing-braces -Wno-missing-field-initializers -Wno-format-nonliteral")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-variable -Wno-missing-braces -Wno-missing-field-initializers -Wno-format-nonliteral")
+elseif(APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat-security")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wformat-security")
     if(${use_openssl})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_OPENSSL")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_OPENSSL")
@@ -178,6 +199,7 @@ ${SOCKETIO_C_FILE}
 ${TICKCOUTER_C_FILE}
 ${THREAD_C_FILE}
 ${UNIQUEID_C_FILE}
+${ENVIRONMENT_VARIABLE_C_FILE}
 )
 
 if(UNIX) #LINUX OR APPLE
@@ -452,15 +474,29 @@ if(${build_as_dynamic})
     target_link_libraries(aziotsharedutil_dll ${aziotsharedutil_target_libs})
 endif()
 
-if (${run_unittests} OR ${run_e2e_tests})
+# do not add or build any tests of the dependencies
+set(original_run_e2e_tests ${run_e2e_tests})
+set(original_run_unittests ${run_unittests})
+
+set(run_e2e_tests OFF)
+set(run_unittests OFF)
+
+if (${original_run_unittests})
     include("dependencies-test.cmake")
     add_subdirectory(testtools)
+endif()
+
+if (${run_unittests} OR ${run_e2e_tests})
     setTargetBuildProperties(ctest)
     setTargetBuildProperties(testrunnerswitcher)
     setTargetBuildProperties(umock_c)
-    if (${run_unittests})
-        add_subdirectory(tests)
-    endif()
+endif()
+
+set(run_e2e_tests ${original_run_e2e_tests})
+set(run_unittests ${original_run_unittests})
+
+if (${run_unittests})
+    add_subdirectory(tests)
 endif()
 
 function(FindDllFromLib var libFile)
