@@ -11,6 +11,7 @@ from base64 import b64encode, b64decode
 from hashlib import sha256
 from hmac import HMAC
 from time import time
+from uuid import uuid4
 try:
     from urllib import quote, quote_plus, urlencode #Py2
 except Exception:
@@ -87,41 +88,23 @@ def _build_iothub_amqp_endpoint_from_target(target):
     return endpoint
 
 
-def _receive_message(receive_client, target):
-    try:
-        batch = receive_client.receive_message_batch(max_batch_size=10)
-    except errors.LinkRedirect as redirect:
-        new_auth = authentication.SASLPlain(redirect.hostname, target['key_name'], target['access_key'])
-        #new_auth = authentication.SASTokenAuth.from_shared_access_key(redirect.address.decode('utf-8'), target['key_name'], target['access_key'])
-        receive_client.redirect(redirect, new_auth)
-        batch = receive_client.receive_message_batch(max_batch_size=10)
+def test_iot_hub_send(live_iothub_config):
+    msg_content = b"hello world"
+    msg_props = uamqp.message.MessageProperties()
+    msg_props.to = '/devices/{}/messages/devicebound'.format(live_iothub_config['device'])
+    msg_props.message_id = str(uuid4())
+    message = uamqp.Message(msg_content, properties=msg_props)
 
-    while batch:
-        log.info("Got batch: {}".format(len(batch)))
-        assert len(batch) <= 10
-        for message in batch:
-            annotations = message.annotations
-            log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        batch = receive_client.receive_message_batch(max_batch_size=10)
-
-
-def test_iothub_client_receive_sync(live_iothub_config):
-    operation = '/messages/events/$management'
+    operation = '/messages/devicebound'
     endpoint = _build_iothub_amqp_endpoint_from_target(live_iothub_config)
 
-    source = 'amqps://' + endpoint + operation
-    log.info("Source: {}".format(source))
-    receive_client = uamqp.ReceiveClient(source, debug=True, timeout=5000, prefetch=50)
-    try:
-        log.info("Created client, receiving...")
-        _receive_message(receive_client, live_iothub_config)
-    except Exception as e:
-        print(e)
-        raise
-    finally:
-        receive_client.close()
-    log.info("Finished receiving")
+    target = 'amqps://' + endpoint + operation
+    log.info("Target: {}".format(target))
 
+    send_client = uamqp.SendClient(target, debug=True)
+    send_client.queue_message(message)
+    send_client.send_all_messages()
+    log.info("Message sent.")
 
 if __name__ == '__main__':
     config = {}
@@ -130,4 +113,6 @@ if __name__ == '__main__':
     config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
     config['access_key'] = os.environ['IOTHUB_SAS_KEY']
 
-    test_iothub_client_receive_sync(config)
+    test_iot_hub_send(config)
+
+

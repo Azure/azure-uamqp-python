@@ -39,7 +39,7 @@ async def test_event_hubs_client_send_async(live_eventhub_config):
     send_client = a_uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
     send_client.queue_message(message)
     results = await send_client.send_all_messages_async()
-    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
 @pytest.mark.asyncio
@@ -73,4 +73,4 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
 
     send_client.queue_message(message_batch)
     results = await send_client.send_all_messages_async()
-    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
