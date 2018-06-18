@@ -643,7 +643,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if not receiving:
                 await self.close_async()
 
-    async def receive_message_batch_async(self, max_batch_size=None, timeout=0):
+    async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages asynchronously. This method will return as soon as some
         messages are available rather than waiting to achieve a specific batch size, and
         therefore the number of messages returned per call will vary up to the maximum allowed.
@@ -657,13 +657,16 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          one call. This value cannot be larger than the prefetch value, and if not specified,
          the prefetch value will be used.
         :type max_batch_size: int
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object.
+        :type on_message_received: callable[~uamqp.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
         :type timeout: int
         """
-        self._message_received_callback = None
+        self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch
         if max_batch_size > self._prefetch:
             raise ValueError(
@@ -699,7 +702,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 self._received_messages.task_done()
         return batch
 
-    def receive_messages_iter_async(self):
+    def receive_messages_iter_async(self, on_message_received=None):
         """Receive messages by asynchronous generator. Messages returned in the
         generator have already been accepted - if you wish to add logic to accept
         or reject messages based on custom criteria, pass in a callback.
@@ -709,9 +712,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         is incremented. Alternatively, if `auto_complete=False`, then each message will need to
         be explicitly settled before it expires and is released.
 
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object.
+        :type on_message_received: callable[~uamqp.Message]
         :rtype: Generator[~uamqp.Message]
         """
-        self._message_received_callback = None
+        self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 

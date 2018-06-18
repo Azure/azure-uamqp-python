@@ -7,8 +7,6 @@ Release History
 +++++++++++++++++++++
 
 - ** Breaking change ** Anything returned by a callback supplied to receive messages will now be ignored.
-- ** Breaking change ** The methods `ReceiveClient.receive_message_batch` and `ReceiveClient.receive_messages_iter` no longer take a callback argument. Messages can now be settled explicitly.
-  This applies to the asynchronous receivers as well.
 - ** Breaking change ** Changed message state enum values:
     - `Complete -> SendComplete`
     - `Failed -> SendFailed`

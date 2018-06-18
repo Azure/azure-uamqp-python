@@ -745,7 +745,7 @@ class ReceiveClient(AMQPClient):
         if self._received_messages:
             self._received_messages.put(message)
 
-    def receive_message_batch(self, max_batch_size=None, timeout=0):
+    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
         accepted - if you wish to add logic to accept or reject messages based on custom
         criteria, pass in a callback. This method will return as soon as some messages are
@@ -761,13 +761,16 @@ class ReceiveClient(AMQPClient):
          one call. This value cannot be larger than the prefetch value, and if not specified,
          the prefetch value will be used.
         :type max_batch_size: int
+        :param on_message_received: A callback to process messages as they arrive from the
+         service. It takes a single argument, a ~uamqp.Message object.
+        :type on_message_received: callable[~uamqp.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
         :type timeout: int
         """
-        self._message_received_callback = None
+        self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch
         if max_batch_size > self._prefetch:
             raise ValueError(
@@ -826,11 +829,10 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
-            self._message_received_callback = None
             if not receiving:
                 self.close()
 
-    def receive_messages_iter(self):
+    def receive_messages_iter(self, on_message_received=None):
         """Receive messages by generator. Messages returned in the generator have already been
         accepted - if you wish to add logic to accept or reject messages based on custom
         criteria, pass in a callback.
@@ -839,7 +841,7 @@ class ReceiveClient(AMQPClient):
          service. It takes a single argument, a ~uamqp.Message object.
         :type on_message_received: callable[~uamqp.Message]
         """
-        self._message_received_callback = None
+        self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
         return self._message_generator()
 
