@@ -54,8 +54,8 @@ class MessageReceiver():
     :type properties: dict
     :param on_detach_received: A callback to be run if the client receives
      a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition` string, the `description` string and an optional info dict.
-    :type on_detach_received: Callable[str, str, dict]
+     the `condition`, the optional `description` and an optional info dict.
+    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -247,9 +247,7 @@ class MessageReceiver():
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
-        if self._state == constants.MessageReceiverState.Redirecting:
-            pass
-        elif new_state != previous_state:
+        if new_state != previous_state:
             _logger.debug("Message receiver state changed from {} to {}".format(previous_state, new_state))
             self._state = new_state
 

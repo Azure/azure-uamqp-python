@@ -87,6 +87,37 @@ class AMQPClientAsync(client.AMQPClient):
         """Close and destroy Client on exiting an async context manager."""
         await self.close_async()
 
+    async def redirect_async(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
+        if not self._connection.cbs:
+            _logger.debug("Closing non-CBS session.")
+            await self._session.destroy_async()
+        self._session = None
+        self._auth = auth
+        self._hostname = self._remote_address.hostname
+        await self._connection.redirect_async(redirect, auth)
+        if not self._connection.cbs and isinstance(self._auth, CBSAsyncAuthMixin):
+            self._connection.cbs = await self._auth.create_authenticator_async(
+                self._connection,
+                debug=self._debug_trace,
+                loop=self.loop)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = self.session_type(
+                self._connection,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                loop=self.loop)
+
     async def open_async(self, connection=None):
         """Asynchronously open the client. The client can create a new Connection
         or an existing Connection can be passed in. This existing Connection
@@ -364,6 +395,22 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         await self._connection.work_async()
         return True
 
+    async def redirect_async(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
+        if self._message_sender:
+            await self._message_sender.destroy_async()
+            self._message_sender = None
+        self._pending_messages = []
+
+        self._remote_address = address.Target(redirect.address)
+        await super(SendClientAsync, self).redirect_async(redirect, auth)
+
     async def close_async(self):
         """Close down the client asynchronously. No further
         messages can be sent and the client cannot be re-opened.
@@ -461,6 +508,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
     :type timeout: int
+    :param auto_complete: Whether to automatically settle message received via callback
+     or via iterator. If the message has not been explicitly settled after processing
+     the message will be accepted. Alternatively, when used with batch receive, this setting
+     will determine whether the messages are pre-emptively settled during batching, or otherwise
+     let to the user to be explicitly settled.
+    :type auto_complete: bool
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -521,6 +574,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
+                on_detach_received=self._on_link_detach,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -661,6 +715,24 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._received_messages = queue.Queue()
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
+    async def redirect_async(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
+        if self._message_receiver:
+            await self._message_receiver.destroy_async()
+            self._message_receiver = None
+        self._shutdown = False
+        self._last_activity_timestamp = None
+        self._was_message_received = False
+
+        self._remote_address = address.Source(redirect.address)
+        await super(ReceiveClientAsync, self).redirect_async(redirect, auth)
+
     async def close_async(self):
         """Asynchonously close the receive client."""
         if self._message_receiver:
@@ -691,7 +763,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
         if self.current_message and self.auto_complete:
             try:
                 self.current_message.accept()
-            except errors.MessageResponse:
+            except (errors.MessageResponse, AttributeError):
                 pass
         try:
             while self.receiving and self._client._received_messages.empty():

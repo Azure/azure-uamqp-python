@@ -194,8 +194,9 @@ cdef void on_io_error(void* context):
 
 
 cdef void on_connection_close_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
-    wrapped_error = error_factory(error)
     context_obj = <object>context
+    cloned = c_amqp_definitions.error_clone(error)
+    wrapped_error = error_factory(cloned)
     if hasattr(context_obj, '_close_received'):
         context_obj._close_received(wrapped_error)
     elif callable(context_obj):

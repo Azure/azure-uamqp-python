@@ -8,6 +8,7 @@ import asyncio
 import logging
 import functools
 
+import uamqp
 from uamqp import connection
 
 
@@ -91,16 +92,48 @@ class ConnectionAsync(connection.Connection):
         """Close the Connection when exiting an async context manager."""
         await self.destroy_async()
 
+    async def _close_async(self):
+        if self.cbs:
+            await self.auth.close_authenticator_async()
+            self.cbs = None
+        await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
+        self.auth.close()
+
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
         await self._lock.acquire()
         await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         self._lock.release()
 
+    async def redirect_async(self, redirect_error, auth):
+        """Redirect the connection to an alternative endpoint.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
+        await self._lock.acquire()
+        try:
+            if self.hostname == redirect_error.hostname:
+                return
+            if self._state != c_uamqp.ConnectionState.END:
+                await self._close_async()
+            self.hostname = redirect_error.hostname
+            self.auth = auth
+            self._conn = c_uamqp.create_connection(
+                self.auth.sasl_client.get_client(),
+                self.hostname,
+                self.container_id,
+                self)
+            self._conn.set_trace(self._debug)
+            for setting, value in self._settings.items():
+                setattr(self, setting, value)
+        finally:
+            self._lock.release()
+
     async def destroy_async(self):
         """Close the connection asynchronously, and close any associated
         CBS authentication session.
         """
-        if self.cbs:
-            await self.auth.close_authenticator_async()
-        await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
+        await self._close_async()
+        uamqp._Platform.deinitialize()

@@ -48,7 +48,6 @@ class MessageReceiverState(Enum):
     Open = c_uamqp.MESSAGE_RECEIVER_STATE_OPEN
     Closing = c_uamqp.MESSAGE_RECEIVER_STATE_CLOSING
     Error = c_uamqp.MESSAGE_RECEIVER_STATE_ERROR
-    Redirecting = 999
 
 
 class MessageSendResult(Enum):
@@ -64,7 +63,6 @@ class MessageSenderState(Enum):
     Open = c_uamqp.MESSAGE_SENDER_STATE_OPEN
     Closing = c_uamqp.MESSAGE_SENDER_STATE_CLOSING
     Error = c_uamqp.MESSAGE_SENDER_STATE_ERROR
-    Redirecting = 999
 
 
 class ManagementLinkState(Enum):

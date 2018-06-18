@@ -50,8 +50,8 @@ class MessageSender():
     :type properties: dict
     :param on_detach_received: A callback to be run if the client receives
      a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition` string, the `description` string and an optional info dict.
-    :type on_detach_received: Callable[str, str, dict]
+     the `condition`, the optional `description` and an optional info dict.
+    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -62,8 +62,8 @@ class MessageSender():
 
     def __init__(self, session, source, target,
                  name=None,
-                 send_settle_mode=None,
-                 max_message_size=None,
+                 send_settle_mode=constants.SenderSettleMode.Unsettled,
+                 max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
                  on_detach_received=None,
@@ -84,6 +84,7 @@ class MessageSender():
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
         self._link.max_message_size = max_message_size
+        self._link.subscribe_to_detach_event(self)
 
         if link_credit:
             self._link.set_prefetch_count(link_credit)
@@ -97,6 +98,7 @@ class MessageSender():
         self._sender = c_uamqp.create_message_sender(self._link, self)
         self._sender.set_trace(debug)
         self._state = constants.MessageSenderState.Idle
+        self._error = None
 
     def __enter__(self):
         """Open the MessageSender in a context manager."""
@@ -113,6 +115,9 @@ class MessageSender():
             raise self._error
         except TypeError:
             return self._state
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
 
     def destroy(self):
         """Close both the Sender and the Link. Clean up any C objects."""
@@ -155,15 +160,15 @@ class MessageSender():
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        condidition = error.condition.decode(self.encoding)
-        _logger.warning('Link Detach received: {}'.format(condidition))
-        description = error.description.decode(self.encoding)
-        _logger.warning('Decription: {}'.format(description))
-        info = error.information
-        if condidition == constants.ERROR_LINK_REDIRECT:
-            self._state = constants.MessageReceiverState.Redirecting
+        condition = error.condition
+        description = error.description
+        info = error.info
+        if condition == constants.ERROR_LINK_REDIRECT:
+            self._error = errors.LinkRedirect(condition, description, info)
+        else:
+            self._error = errors.LinkDetach(condition, description, info)
         if self.on_detach_received:
-            self.on_detach_received(condidition, description, info)
+            self.on_detach_received(condition, description, info)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -192,9 +197,7 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        if self._state == constants.MessageSenderState.Redirecting:
-            pass
-        elif new_state != previous_state:
+        if new_state != previous_state:
             _logger.debug("Message sender state changed from {} to {}".format(previous_state, new_state))
             self._state = new_state
 

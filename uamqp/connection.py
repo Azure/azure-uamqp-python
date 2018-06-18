@@ -100,6 +100,8 @@ class Connection:
         if properties:
             self._settings['properties'] = properties
             self.properties = properties
+        if remote_idle_timeout_empty_frame_send_ratio:
+            self._conn.remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
 
     def __enter__(self):
         """Open the Connection in a context manager."""
@@ -144,6 +146,12 @@ class Connection:
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
     def redirect(self, redirect_error, auth):
+        """Redirect the connection to an alternative endpoint.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
         self._lock.acquire()
         try:
             if self.hostname == redirect_error.hostname:

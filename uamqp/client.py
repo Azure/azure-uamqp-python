@@ -119,7 +119,7 @@ class AMQPClient:
         """Close and destroy Client on exiting a context manager."""
         self.close()
 
-    def _on_link_detack(self, *args):
+    def _on_link_detach(self, *args):
         _logger.info("Detach received. Closing client.")
 
     def _client_ready(self):  # pylint: disable=no-self-use
@@ -135,6 +135,13 @@ class AMQPClient:
         self._connection.work()
 
     def redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
         if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
@@ -440,6 +447,21 @@ class SendClient(AMQPClient):
         self._connection.work()
         return True
 
+    def redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
+        if self._message_sender:
+            self._message_sender.destroy()
+            self._message_sender = None
+        self._pending_messages = []
+        self._remote_address = address.Target(redirect.address)
+        super(ReceiveClient, self).redirect(redirect, auth)
+
     def close(self):
         """Close down the client. No further messages
         can be sent and the client cannot be re-opened.
@@ -558,6 +580,12 @@ class ReceiveClient(AMQPClient):
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
     :type timeout: int
+    :param auto_complete: Whether to automatically settle message received via callback
+     or via iterator. If the message has not been explicitly settled after processing
+     the message will be accepted. Alternatively, when used with batch receive, this setting
+     will determine whether the messages are pre-emptively settled during batching, or otherwise
+     let to the user to be explicitly settled.
+    :type auto_complete: bool
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -631,7 +659,7 @@ class ReceiveClient(AMQPClient):
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
-                on_detach_received=self._on_link_detack,
+                on_detach_received=self._on_link_detach,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -815,16 +843,29 @@ class ReceiveClient(AMQPClient):
         self._received_messages = queue.Queue()
         return self._message_generator()
 
-    def redirect(self, redirect, auth, redirect_address=None):
+    def redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.AMQPAuth
+        """
         if self._message_receiver:
             self._message_receiver.destroy()
             self._message_receiver = None
+        self._shutdown = False
+        self._last_activity_timestamp = None
+        self._was_message_received = False
 
-        remote_address = redirect_address or redirect.address
-        self._remote_address = address.Source(remote_address)
+        self._remote_address = address.Source(redirect.address)
         super(ReceiveClient, self).redirect(redirect, auth)
 
     def close(self):
+        """Close the ReceiverClient, shutting down the Link, Session and
+        Connection (unless an external Conneciton was supplied on opening, 
+        which will be left open).
+        """
         if self._message_receiver:
             self._message_receiver.destroy()
             self._message_receiver = None
