@@ -68,6 +68,7 @@ class MessageReceiver():
                  on_message_received,
                  name=None,
                  receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
+                 send_settle_mode=constants.SenderSettleMode.Unsettled,
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  prefetch=300,
                  properties=None,
@@ -98,6 +99,8 @@ class MessageReceiver():
             self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if receive_settle_mode:
             self.receive_settle_mode = receive_settle_mode
+        if send_settle_mode:
+            self.send_settle_mode = send_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
 
@@ -207,7 +210,7 @@ class MessageReceiver():
             self._receiver.settled_modified_message(
                 message_number,
                 modify.failed,
-                modify.deliverable,
+                modify.undeliverable,
                 modify.annotations)
         except errors.MessageAlreadySettled:
             pass
@@ -236,7 +239,7 @@ class MessageReceiver():
         try:
             self.on_message_received(wrapped_message)
         except Exception as e:
-            _logger.error("Error processing message: {}\nRejecting message.")
+            _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settled_modified_message(message_number, True, True, None)
 
     def on_state_changed(self, previous_state, new_state):
@@ -258,6 +261,14 @@ class MessageReceiver():
     @receive_settle_mode.setter
     def receive_settle_mode(self, value):
         self._link.receive_settle_mode = value.value
+
+    @property
+    def send_settle_mode(self):
+        return self._link.send_settle_mode
+
+    @send_settle_mode.setter
+    def send_settle_mode(self, value):
+        self._link.send_settle_mode = value.value
 
     @property
     def max_message_size(self):

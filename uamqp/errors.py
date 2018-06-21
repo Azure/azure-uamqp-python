@@ -92,6 +92,8 @@ class RejectMessage(MessageResponse):
         self.error_description = None
         if description:
             self.error_description = description.encode(encoding) if isinstance(description, str) else description
+        else:
+            self.error_description = b""
         super(RejectMessage, self).__init__()
 
 
@@ -101,10 +103,10 @@ class ReleaseMessage(MessageResponse):
 
 class ModifyMessage(MessageResponse):
 
-    def __init__(self, failed, deliverable, annotations=None, encoding='UTF-8'):
+    def __init__(self, failed, undeliverable, annotations=None, encoding='UTF-8'):
         self.failed = failed
-        self.deliverable = deliverable
-        if not isinstance(annotations, dict):
+        self.undeliverable = undeliverable
+        if annotations and not isinstance(annotations, dict):
             raise TypeError("Disposition annotations must be a dictionary.")
         self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
         super(ModifyMessage, self).__init__()

@@ -88,7 +88,12 @@ cdef class cMessageReceiver(StructBase):
 
     cpdef settled_modified_message(self, c_amqp_definitions.delivery_number message_number, bint delivery_failed, bint undeliverable_here, AMQPValue annotations):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
-        delivery_state = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, <c_amqp_definitions.fields>annotations._c_value)
+        cdef c_amqp_definitions.fields delivery_fields
+        if annotations is not None:
+            delivery_fields = <c_amqp_definitions.fields>annotations._c_value
+        else:
+            delivery_fields = <c_amqp_definitions.fields>NULL
+        delivery_state = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, delivery_fields)
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             self._value_error("Unable to send delivery-modified message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
