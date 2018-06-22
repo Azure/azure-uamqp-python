@@ -47,13 +47,15 @@ class Address:
 
     def __repr__(self):
         """Get the Address as a URL.
-        :returns: bytes
+
+        :rtype: bytes
         """
         return self.parsed_address.geturl()
 
     def __str__(self):
         """Get the Address as a URL.
-        :returns: str
+
+        :rtype: str
         """
         return self.parsed_address.geturl().decode(self._encoding)
 
@@ -122,7 +124,7 @@ class Address:
 
         :param address: The endpiont URL.
         :type address: str
-        :returns: ~urllib.parse.ParseResult
+        :rtype: ~urllib.parse.ParseResult
         """
         parsed = urlparse(address)
         if not parsed.scheme.startswith(b'amqp'):
@@ -147,6 +149,7 @@ class Source(Address):
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
     :vartype distribution_mode: str
+
     :param address: An AMQP endpoint URL.
     :type address: str or bytes
     :param encoding: The encoding used if address is supplied
@@ -195,6 +198,7 @@ class Target(Address):
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
     :vartype distribution_mode: str
+
     :param address: An AMQP endpoint URL.
     :type address: str or bytes
     :param encoding: The encoding used if address is supplied

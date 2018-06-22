@@ -116,6 +116,7 @@ class Message:
 
     def _parse_message(self, message):
         """Parse a message received from an AMQP service.
+
         :param message: The received C message.
         :type message: ~uamqp.c_uamqp.cMessage
         """
@@ -192,6 +193,7 @@ class Message:
         disposition has been received from the service.
         If this message has been received, the message will be `settled=True` once
         a disposition has been sent to the service.
+
         :rtype: bool
         """
         if self._response:
@@ -202,7 +204,8 @@ class Message:
         """Pre-emptively get the size of the message once it has been encoded
         to go over the wire so we can raise an error if the message will be
         rejected for being to large.
-        :returns: int
+
+        :rtype: int
         """
         if self.state in constants.RECEIVE_STATES:
             # We only need this for messages being sent.
@@ -213,7 +216,8 @@ class Message:
     def get_data(self):
         """Get the body data of the message. The format may vary depending
         on the body type.
-        :returns: generator
+
+        :rtype: generator
         """
         if not self._message:
             return None
@@ -222,7 +226,8 @@ class Message:
     def gather(self):
         """Return all the messages represented by this object.
         This will always be a list of a single message.
-        :returns: list[~uamqp.Message]
+
+        :rtype: list[~uamqp.Message]
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
@@ -234,7 +239,8 @@ class Message:
 
     def get_message(self):
         """Get the underlying C message from this object.
-        :returns: ~uamqp.c_uamqp.cMessage
+
+        :rtype: ~uamqp.c_uamqp.cMessage
         """
         if not self._message:
             return None
@@ -258,6 +264,7 @@ class Message:
         a received message has been accepted. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
         be ignored.
+
         :raises: ValueError if message has already been settled (e.g. if the client
          is running in `ReceiveAndDelete` mode) or if a settlement response has
          already been assigned.
@@ -273,6 +280,7 @@ class Message:
         a received message has been rejected. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
         be ignored. A rejected message will increment the messages delivery count.
+
         :param condition: The AMQP rejection code. By default this is `amqp:internal-error`.
         :type condition: bytes or str
         :param description: A description/reason to accompany the rejection.
@@ -296,6 +304,7 @@ class Message:
         mode, the service will wait on this disposition. Otherwise it will
         be ignored. A released message will not incremenet the messages
         delivery count.
+
         :raises: ValueError if message has already been settled (e.g. if the client
          is running in `ReceiveAndDelete` mode) or if a settlement response has
          already been assigned.
@@ -311,6 +320,7 @@ class Message:
         a received message has been modified. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
         be ignored.
+
         :param failed: Whether this delivery of this message failed. This does not
          indicate whether subsequence deliveries of this message would also fail.
         :type failed: bool
@@ -404,7 +414,7 @@ class BatchMessage(Message):
         """Create a ~uamqp.Message for a value supplied by the data
         generator. Applies all properties and annotations to the message.
 
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.Message
         """
         return Message(body=[],
                        properties=self.properties,
@@ -419,7 +429,7 @@ class BatchMessage(Message):
         reaches a max allowable size, at which point it will be yielded and
         a new message will be started.
 
-        :returns: generator[~uamqp.Message]
+        :rtype: generator[~uamqp.Message]
         """
         while True:
             new_message = self._create_batch_message()
@@ -454,7 +464,7 @@ class BatchMessage(Message):
         the batch data into individual ~uamqp.Message objects, which may be one
         or more if multi_messages is set to `True`.
 
-        :returns: list[~uamqp.Message]
+        :rtype: list[~uamqp.Message]
         """
         if self._multi_messages:
             return self._multi_message_generator()

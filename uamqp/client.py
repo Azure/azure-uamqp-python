@@ -126,7 +126,8 @@ class AMQPClient:
         """Determine whether the client is ready to start sending and/or
         receiving messages. To be ready, the connection must be open and
         authentication complete.
-        :returns: bool
+
+        :rtype: bool
         """
         return True
 
@@ -137,6 +138,7 @@ class AMQPClient:
     def redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
+
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
@@ -261,7 +263,7 @@ class AMQPClient:
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
         :type description_fields: bytes
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.Message
         """
         timeout = False
         auth_in_progress = False
@@ -292,7 +294,7 @@ class AMQPClient:
         and ready to be used for further work, or `False` if it needs
         to be shut down.
 
-        :returns: bool
+        :rtype: bool
         :raises: TimeoutError if CBS authentication timeout reached.
         """
         timeout = False
@@ -392,7 +394,8 @@ class SendClient(AMQPClient):
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
         states.
-        :returns: bool
+        
+        :rtype: bool
         :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
          goes into an error state.
         """
@@ -423,7 +426,8 @@ class SendClient(AMQPClient):
         on all pending messages.
         Will return True if operation successful and client can remain open for
         further work.
-        :returns: bool
+
+        :rtype: bool
         """
         # pylint: disable=protected-access
         for message in self._pending_messages[:]:
@@ -450,6 +454,7 @@ class SendClient(AMQPClient):
     def redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
+
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
@@ -525,7 +530,8 @@ class SendClient(AMQPClient):
     def messages_pending(self):
         """Check whether the client is holding any unsent
         messages in the queue.
-        :returns: bool
+
+        :rtype: bool
         """
         return bool(self._pending_messages)
 
@@ -545,7 +551,7 @@ class SendClient(AMQPClient):
         :param close_on_done: Close the client once the messages are sent.
          Default is `True`.
         :type close_on_done: bool
-        :returns: list[~uamqp.constants.MessageState]
+        :rtype: list[~uamqp.constants.MessageState]
         """
         self.open()
         try:
@@ -650,7 +656,8 @@ class ReceiveClient(AMQPClient):
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
         states.
-        :returns: bool
+
+        :rtype: bool
         :raises: ~uamqp.errors.AMQPConnectionError if the MessageReceiver
          goes into an error state.
         """
@@ -683,7 +690,8 @@ class ReceiveClient(AMQPClient):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.
-        :returns: bool
+
+        :rtype: bool
         """
         self._connection.work()
         if self._timeout > 0:
@@ -700,7 +708,8 @@ class ReceiveClient(AMQPClient):
 
     def _message_generator(self):
         """Iterate over processed messages in the receive queue.
-        :returns: generator[~uamqp.Message]
+
+        :rtype: generator[~uamqp.Message]
         """
         self.open()
         auto_complete = self.auto_complete
@@ -731,6 +740,7 @@ class ReceiveClient(AMQPClient):
         a user-defined callback, this will be called.
         Additionally if the client is retrieving messages for a batch
         or iterator, the message will be added to an internal queue.
+
         :param message: ~c_uamqp.Message
         """
         self._was_message_received = True
@@ -775,7 +785,7 @@ class ReceiveClient(AMQPClient):
         if max_batch_size > self._prefetch:
             raise ValueError(
                 'Maximum batch size cannot be greater than the '
-                'connection prefetch: {}'.format(self._prefetch))
+                'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
         self._received_messages = self._received_messages or queue.Queue()
@@ -848,6 +858,7 @@ class ReceiveClient(AMQPClient):
     def redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
+
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.

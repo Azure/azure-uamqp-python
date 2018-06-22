@@ -173,7 +173,7 @@ class CBSAuthMixin:
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
-        :returns: ~uamqp.c_uamqp.CBSTokenAuth
+        :rtype: ~uamqp.c_uamqp.CBSTokenAuth
         """
         self._lock = threading.Lock()
         self._session = Session(
@@ -213,7 +213,7 @@ class CBSAuthMixin:
         :raises: ~uamqp.errors.AuthenticationException if the token authentication fails.
         :raises: ~uamqp.errors.TokenExpired if the token has expired and cannot be
          refreshed.
-        :returns: tuple[bool, bool]
+        :rtype: tuple[bool, bool]
         """
         timeout = False
         in_progress = False

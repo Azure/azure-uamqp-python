@@ -92,7 +92,7 @@ class SessionAsync(session.Session):
         :param encoding: The encoding to use for parameters supplied as strings.
          Default is 'UTF-8'
         :type encoding: str
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
         try:

@@ -63,6 +63,7 @@ class MessageSender():
     def __init__(self, session, source, target,
                  name=None,
                  send_settle_mode=constants.SenderSettleMode.Unsettled,
+                 receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
@@ -92,6 +93,8 @@ class MessageSender():
             self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if send_settle_mode:
             self.send_settle_mode = send_settle_mode
+        if receive_settle_mode:
+            self.receive_settle_mode = receive_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
 
@@ -208,6 +211,14 @@ class MessageSender():
     @send_settle_mode.setter
     def send_settle_mode(self, value):
         self._link.send_settle_mode = value.value
+
+    @property
+    def receive_settle_mode(self):
+        return self._link.receive_settle_mode
+
+    @receive_settle_mode.setter
+    def receive_settle_mode(self, value):
+        self._link.receive_settle_mode = value.value
 
     @property
     def max_message_size(self):

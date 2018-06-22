@@ -21,7 +21,7 @@ def parse_connection_string(connect_str):
 
     :param connect_str: The connection string.
     :type connect_str: str
-    :returns: dict[str, str]
+    :rtype: dict[str, str]
     """
     connect_info = {}
     fields = connect_str.split(';')
@@ -42,7 +42,7 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
     :type scope: bytes
     :param expiry: The lifetime of the generated token. Default is 1 hour.
     :type expiry: ~datetime.timedelta
-    :returns: bytes
+    :rtype: bytes
     """
     shared_access_key = base64.b64encode(shared_access_key)
     abs_expiry = int(time.time()) + expiry.seconds
@@ -64,7 +64,7 @@ def data_factory(value, encoding='UTF-8'):
     - uuid.UUID => c_uamqp.UUIDValue
 
     :param value: The value to wrap.
-    :returns: c_uamqp.AMQPValue
+    :rtype: c_uamqp.AMQPValue
     """
     result = None
     if value is None:

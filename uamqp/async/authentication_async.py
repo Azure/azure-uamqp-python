@@ -32,7 +32,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
         :type debug: bool
         :param loop: A user specified event loop.
         :type loop: ~asycnio.AbstractEventLoop
-        :returns: ~uamqp.c_uamqp.CBSTokenAuth
+        :rtype: ~uamqp.c_uamqp.CBSTokenAuth
         """
         self.loop = loop or asyncio.get_event_loop()
         self._lock = asyncio.Lock(loop=self.loop)
@@ -74,7 +74,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
         :raises: ~uamqp.errors.AuthenticationException if the token authentication fails.
         :raises: ~uamqp.errors.TokenExpired if the token has expired and cannot be
          refreshed.
-        :returns: tuple[bool, bool]
+        :rtype: tuple[bool, bool]
         """
         timeout = False
         in_progress = False

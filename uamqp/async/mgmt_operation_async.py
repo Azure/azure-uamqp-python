@@ -75,7 +75,7 @@ class MgmtOperationAsync(MgmtOperation):
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.Message
         """
         start_time = self._counter.get_current_ms()
         operation_id = str(uuid.uuid4())

@@ -79,6 +79,7 @@ class MgmtOperation:
     def _management_open_complete(self, result):
         """Callback run when the send/receive links are open and ready
         to process messages.
+
         :param result: Whether the link opening was successful.
         :type result: int
         """
@@ -104,7 +105,7 @@ class MgmtOperation:
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.Message
         """
         start_time = self._counter.get_current_ms()
         operation_id = str(uuid.uuid4())

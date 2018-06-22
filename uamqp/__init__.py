@@ -53,7 +53,7 @@ def send_message(target, data, auth=None, debug=False):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :returns: None
+    :rtype: None
     """
     message = data if isinstance(data, Message) else Message(body=data)
     with SendClient(target, auth=auth, debug=debug) as send_client:
@@ -80,7 +80,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :returns: ~uamqp.Message or None
+    :rtype: ~uamqp.Message or None
     """
     received = receive_messages(source, auth=auth, max_batch_size=1, timeout=timeout, debug=debug)
     if received:
@@ -111,7 +111,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :returns: list[~uamqp.Message]
+    :rtype: list[~uamqp.Message]
     """
     if max_batch_size:
         kwargs['prefetch'] = max_batch_size
@@ -157,6 +157,6 @@ class _Platform:
 
 def get_platform_info():
     """Gets the current platform information.
-    :returns: str
+    :rtype: str
     """
     return str(c_uamqp.get_info())
