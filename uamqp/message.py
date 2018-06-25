@@ -40,6 +40,8 @@ class Message:
     :param annotations: Service specific message annotations. Keys in the dictionary
      must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
     :type annotations: dict
+    :param header: The message header.
+    :type header: ~uamqp.message.MessageHeader
     :param msg_format: A custom message format. Default is 0.
     :type msg_format: int
     :param message: Internal only. This is used to wrap an existing message
@@ -60,6 +62,7 @@ class Message:
                  properties=None,
                  application_properties=None,
                  annotations=None,
+                 header=None,
                  msg_format=None,
                  message=None,
                  settler=None,
@@ -108,6 +111,7 @@ class Message:
             self.properties = properties
             self.application_properties = application_properties
             self.annotations = annotations
+            self.header = header
 
     def __str__(self):
         if not self._message:
@@ -219,7 +223,7 @@ class Message:
 
         :rtype: generator
         """
-        if not self._message:
+        if not self._message or not self._body:
             return None
         return self._body.data
 
@@ -257,6 +261,8 @@ class Message:
             ann_props = c_uamqp.create_message_annotations(
                 utils.data_factory(self.annotations, encoding=self._encoding))
             self._message.message_annotations = ann_props
+        if self.header:
+            self._message.header = self.header._header  # pylint: disable=protected-access
         return self._message
 
     def accept(self):
@@ -379,6 +385,8 @@ class BatchMessage(Message):
      these properties will be applied to each message. Keys in the dictionary
      must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
     :type annotations: dict
+    :param header: The message header. This header will be applied to each message in the batch.
+    :type header: ~uamqp.message.MessageHeader
     :param multi_messages: Whether to send the supplied data across multiple messages. If set to
      `False`, all the data will be sent in a single message, and an error raised if the message
      is too large. If set to `True`, the data will automatically be divided across multiple messages
@@ -399,6 +407,7 @@ class BatchMessage(Message):
                  properties=None,
                  application_properties=None,
                  annotations=None,
+                 header=None,
                  multi_messages=False,
                  encoding='UTF-8'):
         # pylint: disable=super-init-not-called
@@ -409,6 +418,7 @@ class BatchMessage(Message):
         self.properties = properties
         self.application_properties = application_properties
         self.annotations = annotations
+        self.header = header
 
     def _create_batch_message(self):
         """Create a ~uamqp.message.Message for a value supplied by the data
@@ -420,6 +430,7 @@ class BatchMessage(Message):
                        properties=self.properties,
                        annotations=self.annotations,
                        msg_format=self.batch_format,
+                       header=self.header,
                        encoding=self._encoding)
 
     def _multi_message_generator(self):
@@ -917,13 +928,21 @@ class MessageHeader:
         return self._header.time_to_live
 
     @property
-    def durable(self):
-        return self._header.durable
-
-    @property
     def first_acquirer(self):
         return self._header.first_acquirer
 
     @property
+    def durable(self):
+        return self._header.durable
+
+    @durable.setter
+    def durable(self, value):
+        self._header.durable = bool(value)
+
+    @property
     def priority(self):
         return self._header.priority
+
+    @priority.setter
+    def priority(self, value):
+        self._header.priority = int(value)
