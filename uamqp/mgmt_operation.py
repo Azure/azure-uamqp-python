@@ -24,7 +24,7 @@ class MgmtOperation:
 
     :param session: The AMQP session to use for the operation. Both send and
      receive links will be created in this Session.
-    :type session: ~uamqp.Session
+    :type session: ~uamqp.session.Session
     :param target: The AMQP node to send the request to.
      The default is `b"$management"`
     :type target: bytes or str
@@ -101,11 +101,11 @@ class MgmtOperation:
          an application property on the message.
         :type op_type: bytes or str
         :param message: The message to send in the management request.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
-        :rtype: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         start_time = self._counter.get_current_ms()
         operation_id = str(uuid.uuid4())

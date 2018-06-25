@@ -60,7 +60,7 @@ class AMQPLong(AMQPType):
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.LongValue
+    :vartype c_data: uamqp.c_uamqp.LongValue
     :param value: The value to encode as an AMQP ulong.
     :type value: int
     :raises: ValueError if value is not within allowed range.
@@ -81,7 +81,7 @@ class AMQPuLong(AMQPType):
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.ArrayValue
+    :vartype c_data: uamqp.c_uamqp.ArrayValue
     :param value: The value to encode as an AMQP Array.
     :type value: list
     :raises: ValueError if value is not within allowed range.
@@ -103,7 +103,7 @@ class AMQPArray(AMQPType):
     :ivar value: The Python values of the AMQP array.
     :vartype value: list
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.ULongValue
+    :vartype c_data: uamqp.c_uamqp.ULongValue
     :param value: The value to encode as an AMQP symbol.
     :type value: int
     :raises: ValueError if all values are not the same type.

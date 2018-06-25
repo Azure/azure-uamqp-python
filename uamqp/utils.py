@@ -64,7 +64,8 @@ def data_factory(value, encoding='UTF-8'):
     - uuid.UUID => c_uamqp.UUIDValue
 
     :param value: The value to wrap.
-    :rtype: c_uamqp.AMQPValue
+    :type value: ~uamqp.types.AMQPType
+    :rtype: uamqp.c_uamqp.AMQPValue
     """
     result = None
     if value is None:

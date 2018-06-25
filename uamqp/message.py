@@ -45,7 +45,7 @@ class Message:
     :param message: Internal only. This is used to wrap an existing message
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
-    :type message: ~uamqp.c_uamqp.cMessage
+    :type message: uamqp.c_uamqp.cMessage
     :param settled: Internal only. This is used when wrapping an existing message
      that has been received from an AMQP service. Should only be specified together
      with `message` and is to determine receive-settled mode of the client.
@@ -118,7 +118,7 @@ class Message:
         """Parse a message received from an AMQP service.
 
         :param message: The received C message.
-        :type message: ~uamqp.c_uamqp.cMessage
+        :type message: uamqp.c_uamqp.cMessage
         """
         self._message = message
         body_type = message.body_type
@@ -227,7 +227,7 @@ class Message:
         """Return all the messages represented by this object.
         This will always be a list of a single message.
 
-        :rtype: list[~uamqp.Message]
+        :rtype: list[~uamqp.message.Message]
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
@@ -240,7 +240,7 @@ class Message:
     def get_message(self):
         """Get the underlying C message from this object.
 
-        :rtype: ~uamqp.c_uamqp.cMessage
+        :rtype: uamqp.c_uamqp.cMessage
         """
         if not self._message:
             return None
@@ -411,10 +411,10 @@ class BatchMessage(Message):
         self.annotations = annotations
 
     def _create_batch_message(self):
-        """Create a ~uamqp.Message for a value supplied by the data
+        """Create a ~uamqp.message.Message for a value supplied by the data
         generator. Applies all properties and annotations to the message.
 
-        :rtype: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         return Message(body=[],
                        properties=self.properties,
@@ -423,13 +423,13 @@ class BatchMessage(Message):
                        encoding=self._encoding)
 
     def _multi_message_generator(self):
-        """Generate multiple ~uamqp.Message objects from a single data
+        """Generate multiple ~uamqp.message.Message objects from a single data
         stream that in total may exceed the maximum individual message size.
         Data will be continuously added to a single message until that message
         reaches a max allowable size, at which point it will be yielded and
         a new message will be started.
 
-        :rtype: generator[~uamqp.Message]
+        :rtype: generator[~uamqp.message.Message]
         """
         while True:
             new_message = self._create_batch_message()
@@ -461,10 +461,10 @@ class BatchMessage(Message):
 
     def gather(self):
         """Return all the messages represented by this object. This will convert
-        the batch data into individual ~uamqp.Message objects, which may be one
+        the batch data into individual ~uamqp.message.Message objects, which may be one
         or more if multi_messages is set to `True`.
 
-        :rtype: list[~uamqp.Message]
+        :rtype: list[~uamqp.message.Message]
         """
         if self._multi_messages:
             return self._multi_message_generator()
@@ -500,7 +500,7 @@ class MessageProperties:
      The message producer is usually responsible for setting the message-id in such a way that it
      is assured to be globally unique. A broker MAY discard a message as a duplicate if the value
      of the message-id matches that of a previously received message sent to the same node.
-    :vartype message_id: str or bytes, ~uuid.UUID, ~uamqp.types.AMQPType
+    :vartype message_id: str or bytes, uuid.UUID, ~uamqp.types.AMQPType
     :ivar user_id: The identity of the user responsible for producing the message. The client sets
      this value, and it MAY be authenticated by intermediaries.
     :vartype user_id: str or bytes
@@ -762,7 +762,7 @@ class DataBody(MessageBody):
     a list of bytes sections.
 
     :ivar type: The body type. This should always be DataType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each section in the body, where
      each section will be a byte string.
@@ -803,7 +803,7 @@ class SequenceBody(MessageBody):
     a list of encoded objects.
 
     :ivar type: The body type. This should always be SequenceType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each item in the body.
     :vartype data: generator
@@ -841,7 +841,7 @@ class ValueBody(MessageBody):
     a single encoded object.
 
     :ivar type: The body type. This should always be ValueType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. The value
      of the encoded object
     :vartype data: object
@@ -902,7 +902,7 @@ class MessageHeader:
 
     :param header: Internal only. This is used to wrap an existing message header
      that has been received from an AMQP service.
-    :type header: ~uamqp.c_uamqp.cHeader
+    :type header: uamqp.c_uamqp.cHeader
     """
 
     def __init__(self, header=None):

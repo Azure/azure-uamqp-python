@@ -29,9 +29,9 @@ class MessageReceiverAsync(receiver.MessageReceiver):
     :vartype max_message_size: int
 
     :param session: The underlying Session with which to receive.
-    :type session: ~uamqp.Session
+    :type session: ~uamqp.session.Session
     :param source: The AMQP endpoint to receive from.
-    :type source: ~uamqp.Source
+    :type source: ~uamqp.address.Source
     :param target: The name of target (i.e. the client).
     :type target: str or bytes
     :param name: A unique name for the receiver. If not specified a GUID will be used.

@@ -26,13 +26,13 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
 
         :param connection: The underlying AMQP connection on which
          to create the session.
-        :type connection: ~uamqp.async.ConnectionAsync
+        :type connection: ~uamqp.async.connection_async.ConnectionAsync
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
         :param loop: A user specified event loop.
         :type loop: ~asycnio.AbstractEventLoop
-        :rtype: ~uamqp.c_uamqp.CBSTokenAuth
+        :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self.loop = loop or asyncio.get_event_loop()
         self._lock = asyncio.Lock(loop=self.loop)
@@ -88,7 +88,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     error_code, error_description = self._cbs_auth.get_failure_info()
-+                   _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
+                    _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     await asyncio.sleep(self._retry_policy.backoff)

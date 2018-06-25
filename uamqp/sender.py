@@ -29,11 +29,11 @@ class MessageSender():
     :vartype max_message_size: int
 
     :param session: The underlying Session with which to send.
-    :type session: ~uamqp.Session
+    :type session: ~uamqp.session.Session
     :param source: The name of source (i.e. the client).
     :type source: str or bytes
     :param target: The AMQP endpoint to send to.
-    :type target: ~uamqp.Target
+    :type target: ~uamqp.address.Target
     :param name: A unique name for the sender. If not specified a GUID will be used.
     :type name: str or bytes
     :param send_settle_mode: The mode by which to settle message send
@@ -149,7 +149,7 @@ class MessageSender():
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
         :param message: The message to send.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param timeout: An expiry time for the message added to the queue. If the
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.

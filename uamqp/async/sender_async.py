@@ -33,11 +33,11 @@ class MessageSenderAsync(sender.MessageSender):
     :vartype max_message_size: int
 
     :param session: The underlying Session with which to send.
-    :type session: ~uamqp.SessionAsync
+    :type session: ~uamqp.async.session_async.SessionAsync
     :param source: The name of source (i.e. the client).
     :type source: str or bytes
     :param target: The AMQP endpoint to send to.
-    :type target: ~uamqp.Target
+    :type target: ~uamqp.address.Target
     :param name: A unique name for the sender. If not specified a GUID will be used.
     :type name: str or bytes
     :param send_settle_mode: The mode by which to settle message send

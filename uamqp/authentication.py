@@ -169,11 +169,11 @@ class CBSAuthMixin:
 
         :param connection: The underlying AMQP connection on which
          to create the session.
-        :type connection: ~uamqp.Connection
+        :type connection: ~uamqp.connection.Connection
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
-        :rtype: ~uamqp.c_uamqp.CBSTokenAuth
+        :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self._lock = threading.Lock()
         self._session = Session(

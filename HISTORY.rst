@@ -53,7 +53,7 @@ Release History
 - Added encoding parameter everywhere where strings are encoded.
 - Started documentation.
 - Updated uAMQP-C to 1.2.4 and C Shared Utility to 1.1.4 (includes fix for issue #12).
-- Fixed return type of MgmtOperation.execute - now returns ~uamqp.Message.
+- Fixed return type of MgmtOperation.execute - now returns ~uamqp.message.Message.
 - Made AMQP connection/session/sender/receiver types in a client overridable.
 - Added debug trace to management operations.
 - Fixed error in management callback on failed operation.

@@ -128,7 +128,7 @@ class AMQPClientAsync(client.AMQPClient):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp.ConnectionAsync
+        :type connetion: ~uamqp.async.connection_async.ConnectionAsync
         """
         # pylint: disable=protected-access
         if self._session:
@@ -196,7 +196,7 @@ class AMQPClientAsync(client.AMQPClient):
         specified and the available options will depend on the target service.
 
         :param message: The message to send in the management request.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
          be service-specific, but common values incluse READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
@@ -218,7 +218,7 @@ class AMQPClientAsync(client.AMQPClient):
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
         :type description_fields: bytes or str
-        :rtype: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         timeout = False
         auth_in_progress = False
@@ -274,8 +274,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     """An AMQP client for sending messages asynchronously.
 
     :param target: The target AMQP service endpoint. This can either be the URI as
-     a string or a ~uamqp.Target object.
-    :type target: str, bytes or ~uamqp.Target
+     a string or a ~uamqp.address.Target object.
+    :type target: str, bytes or ~uamqp.address.Target
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
     :type auth: ~uamqp.authentication.AMQPAuth
@@ -438,9 +438,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """Send a single message or batched message asynchronously.
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.Message, or multiple messages wrapped in an instance
-         of ~uamqp.BatchMessage.
-        :type message: ~uamqp.Message
+         of ~uamqp.message.Message, or multiple messages wrapped in an instance
+         of ~uamqp.message.BatchMessage.
+        :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
         :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
@@ -495,8 +495,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     """An AMQP client for receiving messages asynchronously.
 
     :param target: The source AMQP service endpoint. This can either be the URI as
-     a string or a ~uamqp.Source object.
-    :type target: str, bytes or ~uamqp.Source
+     a string or a ~uamqp.address.Source object.
+    :type target: str, bytes or ~uamqp.address.Source
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
     :type auth: ~uamqp.authentication.AMQPAuth
@@ -632,8 +632,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         to be explicitly settled during the callback, otherwise it will be released.
 
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object.
-        :type on_message_received: callable[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
         """
         await self.open_async()
         self._message_received_callback = on_message_received
@@ -663,8 +663,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          the prefetch value will be used.
         :type max_batch_size: int
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object.
-        :type on_message_received: callable[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
@@ -718,9 +718,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         be explicitly settled before it expires and is released.
 
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object.
-        :type on_message_received: callable[~uamqp.Message]
-        :rtype: Generator[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
+        :rtype: Generator[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
@@ -760,7 +760,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
     """Python 3.5 and 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
-    :type recv_client: ~uamqp.ReceiveClientAsync
+    :type recv_client: ~uamqp.async.client_async.ReceiveClientAsync
     """
 
     def __init__(self, rcv_client, auto_complete=True):

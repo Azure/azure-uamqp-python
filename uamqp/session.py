@@ -27,7 +27,7 @@ class Session:
     :vartype handle_max: int
 
     :param connection: The underlying Connection for the Session.
-    :type connection: ~uamqp.Connection
+    :type connection: ~uamqp.connection.Connection
     :param incoming_window: The size of the allowed window for incoming messages.
     :type incoming_window: int
     :param outgoing_window: The size of the allowed window for outgoing messages.
@@ -66,7 +66,7 @@ class Session:
         and the available options will depend on the target service.
 
         :param message: The message to send in the management request.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
          be service-specific, but common values incluse READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
@@ -91,7 +91,7 @@ class Session:
         :param encoding: The encoding to use for parameters supplied as strings.
          Default is 'UTF-8'
         :type encoding: str
-        :rtype: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
         try:
