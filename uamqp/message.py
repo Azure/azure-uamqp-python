@@ -249,7 +249,7 @@ class Message:
         if not self._message:
             return None
         if self.properties:
-            self._message.properties = self.properties._properties  # pylint: disable=protected-access
+            self._message.properties = self.properties.get_properties_obj()
         if self.application_properties:
             if not isinstance(self.application_properties, dict):
                 raise TypeError("Application properties must be a dictionary.")
@@ -262,7 +262,7 @@ class Message:
                 utils.data_factory(self.annotations, encoding=self._encoding))
             self._message.message_annotations = ann_props
         if self.header:
-            self._message.header = self.header._header  # pylint: disable=protected-access
+            self._message.header = self.header.get_header_obj()
         return self._message
 
     def accept(self):
@@ -556,193 +556,220 @@ class MessageProperties:
                  reply_to_group_id=None,
                  properties=None,
                  encoding='UTF-8'):
-        self._properties = properties if properties else c_uamqp.cProperties()
         self._encoding = encoding
-        if message_id:
+        if properties:
+            self._message_id = properties.message_id
+            self._user_id = properties.user_id
+            self._to = properties.to
+            self._subject = properties.subject
+            self._reply_to = properties.reply_to
+            self._correlation_id = properties.correlation_id
+            self._content_type = properties.content_type
+            self._content_encoding = properties.content_encoding
+            self._absolute_expiry_time = properties.absolute_expiry_time
+            self._creation_time = properties.creation_time
+            self._group_id = properties.group_id
+            self._group_sequence = properties.group_sequence
+            self._reply_to_group_id = properties.reply_to_group_id
+        else:
             self.message_id = message_id
-        if user_id:
             self.user_id = user_id
-        if to:
             self.to = to
-        if subject:
             self.subject = subject
-        if reply_to:
             self.reply_to = reply_to
-        if correlation_id:
             self.correlation_id = correlation_id
-        if content_type:
             self.content_type = content_type
-        if content_encoding:
             self.content_encoding = content_encoding
-        if absolute_expiry_time:
             self.absolute_expiry_time = absolute_expiry_time
-        if creation_time:
             self.creation_time = creation_time
-        if group_id:
             self.group_id = group_id
-        if group_sequence:
             self.group_sequence = group_sequence
-        if reply_to_group_id:
             self.reply_to_group_id = reply_to_group_id
 
     @property
     def message_id(self):
-        _value = self._properties.message_id
-        if _value:
-            return _value.value
+        if self._message_id:
+            return self._message_id.value
         return None
 
     @message_id.setter
     def message_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.message_id = value
+        if value is None:
+            self._message_id = None
+        else:
+            self._message_id = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def user_id(self):
-        _value = self._properties.user_id
-        if _value:
-            return _value.value
-        return None
+        self._user_id
 
     @user_id.setter
     def user_id(self, value):
         if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("user_id must be bytes or str.")
-        self._properties.user_id = value
+        self._user_id = value
 
     @property
     def to(self):
-        _value = self._properties.to
-        if _value:
-            return _value.value
+        if self._to:
+            return self._to.value
         return None
 
     @to.setter
     def to(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.to = value
+        if value is None:
+            self._to = None
+        else:
+            self._to = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def subject(self):
-        _value = self._properties.subject
-        if _value:
-            return _value.value
+        if self._subject is not None:
+            return self._subject.value
         return None
 
     @subject.setter
     def subject(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.subject = value
+        if value is None:
+            self._subject = None
+        else:
+            self._subject = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def reply_to(self):
-        _value = self._properties.reply_to
-        if _value:
-            return _value.value
+        if self._reply_to is not None:
+            return self._reply_to.value
         return None
 
     @reply_to.setter
     def reply_to(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.reply_to = value
+        if value is None:
+            self._reply_to = None
+        else:
+            self._reply_to = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def correlation_id(self):
-        _value = self._properties.correlation_id
-        if _value:
-            return _value.value
+        if self._correlation_id is not None:
+            return self._correlation_id.value
         return None
 
     @correlation_id.setter
     def correlation_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.correlation_id = value
+        if value is None:
+            self._correlation_id = None
+        else:
+            self._correlation_id = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def content_type(self):
-        _value = self._properties.content_type
-        if _value:
-            return _value.value
+        if self._content_type is not None:
+            return self._content_type.value
         return None
 
     @content_type.setter
     def content_type(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.content_type = value
+        if value is None:
+            self._content_type = None
+        else:
+            self._content_type = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def content_encoding(self):
-        _value = self._properties.content_encoding
-        if _value:
-            return _value.value
+        if self._content_encoding is not None:
+            return self._content_encoding.value
         return None
 
     @content_encoding.setter
     def content_encoding(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.content_encoding = value
+        if value is None:
+            self._content_encoding = None
+        else:
+            self._content_encoding = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def absolute_expiry_time(self):
-        _value = self._properties.absolute_expiry_time
-        if _value:
-            return _value.value
+        if self._absolute_expiry_time is not None:
+            return self._absolute_expiry_time.value
         return None
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.absolute_expiry_time = value
+        if value is None:
+            self._absolute_expiry_time = None
+        else:
+            self._absolute_expiry_time = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def creation_time(self):
-        _value = self._properties.creation_time
-        if _value:
-            return _value.value
+        if self._creation_time is not None:
+            return self._creation_time.value
         return None
 
     @creation_time.setter
     def creation_time(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.creation_time = value
+        if value is None:
+            self._creation_time = None
+        else:
+            self._creation_time = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def group_id(self):
-        _value = self._properties.group_id
-        if _value:
-            return _value
-        return None
+        self._group_id
 
     @group_id.setter
     def group_id(self, value):
-        #value = utils.data_factory(value)
-        self._properties.group_id = value
+        self._group_id = value
 
     @property
     def group_sequence(self):
-        _value = self._properties.group_sequence
-        if _value:
-            return _value
+        if self._group_sequence is not None:
+            return self._group_sequence.value
         return None
 
     @group_sequence.setter
     def group_sequence(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.group_sequence = value
+        if value is None:
+            self._group_sequence = None
+        else:
+            self._group_sequence = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def reply_to_group_id(self):
-        _value = self._properties.reply_to_group_id
-        if _value:
-            return _value.value
+        if self._reply_to_group_id is not None:
+            return self._reply_to_group_id.value
         return None
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.reply_to_group_id = value
+        if value is None:
+            self._reply_to_group_id = None
+        else:
+            self._reply_to_group_id = utils.data_factory(value, encoding=self._encoding)
+
+    def _set_attr(self, attr, properties):
+        attr_value = getattr(self, "_" + attr)
+        if attr_value is not None:
+            setattr(properties, attr, attr_value)
+
+    def get_properties_obj(self):
+        properties = c_uamqp.cProperties()
+        self._set_attr('message_id', properties)
+        self._set_attr('user_id', properties)
+        self._set_attr('to', properties)
+        self._set_attr('subject', properties)
+        self._set_attr('reply_to', properties)
+        self._set_attr('correlation_id', properties)
+        self._set_attr('content_type', properties)
+        self._set_attr('content_encoding', properties)
+        self._set_attr('absolute_expiry_time', properties)
+        self._set_attr('creation_time', properties)
+        self._set_attr('group_id', properties)
+        self._set_attr('group_sequence', properties)
+        self._set_attr('reply_to_group_id', properties)
+        return properties
 
 
 class MessageBody:
@@ -917,32 +944,28 @@ class MessageHeader:
     """
 
     def __init__(self, header=None):
-        self._header = header if header else c_uamqp.create_header()
+        self.delivery_count = None
+        self.time_to_live = None
+        self.first_acquirer = None
+        self.durable = None
+        self.priority = None
+        if header:
+            self.delivery_count = header.delivery_count
+            self.time_to_live = header.time_to_live
+            self.first_acquirer = header.first_acquirer
+            self.durable = header.durable
+            self.priority = header.priority
 
-    @property
-    def delivery_count(self):
-        return self._header.delivery_count
-
-    @property
-    def time_to_live(self):
-        return self._header.time_to_live
-
-    @property
-    def first_acquirer(self):
-        return self._header.first_acquirer
-
-    @property
-    def durable(self):
-        return self._header.durable
-
-    @durable.setter
-    def durable(self, value):
-        self._header.durable = bool(value)
-
-    @property
-    def priority(self):
-        return self._header.priority
-
-    @priority.setter
-    def priority(self, value):
-        self._header.priority = int(value)
+    def get_header_obj(self):
+        header = c_uamqp.create_header()
+        if self.delivery_count is not None:
+            header.delivery_count = self.delivery_count
+        if self.time_to_live is not None:
+            header.time_to_live = self.time_to_live
+        if self.first_acquirer is not None:
+            header.first_acquirer = self.first_acquirer
+        if self.durable is not None:
+            header.durable = self.durable
+        if self.priority is not None:
+            header.priority = self.priority
+        return header
