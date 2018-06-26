@@ -52,6 +52,10 @@ class MessageSenderAsync(sender.MessageSender):
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param on_detach_received: A callback to be run if the client receives
+     a link DETACH frame from the service. The callback must take 3 arguments,
+     the `condition`, the optional `description` and an optional info dict.
+    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -68,6 +72,7 @@ class MessageSenderAsync(sender.MessageSender):
                  max_message_size=None,
                  link_credit=None,
                  properties=None,
+                 on_detach_received=None,
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
@@ -79,6 +84,7 @@ class MessageSenderAsync(sender.MessageSender):
             max_message_size=max_message_size,
             link_credit=link_credit,
             properties=properties,
+            on_detach_received=on_detach_received,
             debug=debug,
             encoding=encoding)
 
