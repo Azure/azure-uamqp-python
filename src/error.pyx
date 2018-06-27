@@ -35,7 +35,7 @@ cdef class cError(StructBase):
 
     def __dealloc__(self):
         _logger.debug("Deallocating {}".format(self.__class__.__name__))
-        self.destroy()
+        #self.destroy()
 
     cdef _create(self):
         if <void*>self._c_value is NULL:
