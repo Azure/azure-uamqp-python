@@ -88,7 +88,7 @@ class AMQPClientAsync(client.AMQPClient):
         """Close and destroy Client on exiting an async context manager."""
         await self.close_async()
 
-    async def redirect_async(self, redirect, auth):
+    async def _redirect_async(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
 
@@ -418,7 +418,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._pending_messages = []
 
         self._remote_address = address.Target(redirect.address)
-        await super(SendClientAsync, self).redirect_async(redirect, auth)
+        await self._redirect_async(redirect, auth)
 
     async def close_async(self):
         """Close down the client asynchronously. No further
@@ -748,7 +748,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._was_message_received = False
 
         self._remote_address = address.Source(redirect.address)
-        await super(ReceiveClientAsync, self).redirect_async(redirect, auth)
+        await self._redirect_async(redirect, auth)
 
     async def close_async(self):
         """Asynchonously close the receive client."""

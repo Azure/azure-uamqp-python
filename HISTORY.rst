@@ -16,10 +16,11 @@ Release History
     - `ReceivedSettled`
 - ** Breaking change ** Combined the `AbandonMessage` and `DeferMessage` exceptions as `ModifyMessage` to be in keeping with the AMQP specification.
 - Added `errors.LinkDetach` exception as new subclass of `AMQPConnectionError` as a wrapped for data in a Link DETACH dispostition.
-- Added `errors.LinkRedirect` as a specific subclass of `LinkDetack` to decode the specific redirect fields of a Link Redirect response.
+- Added `errors.LinkRedirect` as a specific subclass of `LinkDetach` to decode the specific redirect fields of a Link Redirect response.
 - Added `errors.MessageAlreadySettled` exception for operations performed on a received message that has already returned a receipt dispostition.
 - Added `errors.ReleaseMessage` exception.
 - Added `errors.ErrorResponse` exception.
+- **Breaking** The `errors.RejectMessage` now takes `condition` and `description` arguments rather than `message`.
 - A received Message can now be explicitly settled through a set of new functions on the message:
     - `Message.accept()`
     - `Message.reject(condition:str, description:str)`
@@ -31,6 +32,7 @@ Release History
     - Received messages processed by iterator (`ReceiveClient.receive_message_iter()`) will by automatically "accepted" if no explicit response has been set once the generator is incremented.
   If `auto_complete` is set to `False` then all messages must be explicitly "accepted" or "rejected" by the user otherwise they will timeout and be released.
 - Added new methods to clients and connections to allow to redirect to an alternative endpoint when a LinkRedirect exception is raised.
+  The client redirect helper cannot be used for clients that use a shared connection - the clients must be closed before the connection can be redirected.
   New credentials must be supplied for the new endpoint. The new methods are:
     - `uamqp.Connection.redirect(redirect_info, auth)`
     - `uamqp.async.ConnectionAsync.redirect_async(redirect_info, auth)`
@@ -41,6 +43,7 @@ Release History
 - Added `on_detach_received` argument to `Sender` and `Receiver` classes to pass in callback to run on Link DETACH.
 - Bumped uAMQP C version to 1.2.5
 - Bumped Azure C Shared Utility to 1.1.5
+- Fixed memory leaks in MessageProperties, MessageHeader and message annotations.
 
 
 0.1.0rc1 (2018-05-29)

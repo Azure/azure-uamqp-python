@@ -1998,15 +1998,15 @@ void connection_destroy_endpoint(ENDPOINT_HANDLE endpoint)
             }
 
             connection->endpoint_count--;
+            free(endpoint);
         }
         else if (connection->endpoint_count == 1)
         {
             free(connection->endpoints);
             connection->endpoints = NULL;
             connection->endpoint_count = 0;
+            free(endpoint);
         }
-
-        free(endpoint);
     }
 }
 

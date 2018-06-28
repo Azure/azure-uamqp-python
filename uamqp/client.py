@@ -135,7 +135,7 @@ class AMQPClient:
         """Perform a single Connection iteration."""
         self._connection.work()
 
-    def redirect(self, redirect, auth):
+    def _redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
 
@@ -390,7 +390,7 @@ class SendClient(AMQPClient):
 
         # AMQP object settings
         self.sender_type = sender.MessageSender
-        
+
         super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
     def _client_ready(self):
@@ -469,7 +469,7 @@ class SendClient(AMQPClient):
             self._message_sender = None
         self._pending_messages = []
         self._remote_address = address.Target(redirect.address)
-        super(SendClient, self).redirect(redirect, auth)
+        self._redirect(redirect, auth)
 
     def close(self):
         """Close down the client. No further messages
@@ -877,7 +877,7 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = False
 
         self._remote_address = address.Source(redirect.address)
-        super(ReceiveClient, self).redirect(redirect, auth)
+        self._redirect(redirect, auth)
 
     def close(self):
         """Close the ReceiverClient, shutting down the Link, Session and
