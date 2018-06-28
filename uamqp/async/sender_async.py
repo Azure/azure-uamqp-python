@@ -9,7 +9,7 @@ import logging
 import functools
 
 from uamqp import sender
-from uamqp import errors
+from uamqp import errors, constants
 
 
 _logger = logging.getLogger(__name__)
