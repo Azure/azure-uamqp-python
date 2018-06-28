@@ -144,6 +144,10 @@ class AMQPClient:
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
@@ -465,7 +469,7 @@ class SendClient(AMQPClient):
             self._message_sender = None
         self._pending_messages = []
         self._remote_address = address.Target(redirect.address)
-        super(ReceiveClient, self).redirect(redirect, auth)
+        super(SendClient, self).redirect(redirect, auth)
 
     def close(self):
         """Close down the client. No further messages

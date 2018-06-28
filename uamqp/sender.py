@@ -201,7 +201,8 @@ class MessageSender():
         :type new_state: ~uamqp.constants.MessageSenderState
         """
         if new_state != previous_state:
-            _logger.debug("Message sender state changed from {} to {}".format(previous_state, new_state))
+            _logger.debug("Message sender {} state changed from {} to {}".format(
+                self.name, previous_state, new_state))
             self._state = new_state
 
     @property

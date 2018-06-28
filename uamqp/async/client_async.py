@@ -17,6 +17,7 @@ import uamqp
 from uamqp import client
 from uamqp import constants
 from uamqp import errors
+from uamqp import address
 
 from uamqp.async.connection_async import ConnectionAsync
 from uamqp.async.session_async import SessionAsync
@@ -96,6 +97,10 @@ class AMQPClientAsync(client.AMQPClient):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             await self._session.destroy_async()
