@@ -106,7 +106,9 @@ def _receive_message(receive_client, target):
 
 
 def test_iothub_client_receive_sync(live_iothub_config):
-    operation = '/messages/events/$management'
+    operation = '/messages/events/ConsumerGroups/{}/Partitions/{}'.format(
+        live_iothub_config['consumer_group'],
+        live_iothub_config['partition'])
     endpoint = _build_iothub_amqp_endpoint_from_target(live_iothub_config)
 
     source = 'amqps://' + endpoint + operation
@@ -129,5 +131,7 @@ if __name__ == '__main__':
     config['device'] = os.environ['IOTHUB_DEVICE']
     config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
     config['access_key'] = os.environ['IOTHUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
 
     test_iothub_client_receive_sync(config)

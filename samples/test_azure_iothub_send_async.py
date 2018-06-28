@@ -6,6 +6,8 @@
 
 import os
 import logging
+import asyncio
+import pytest
 import sys
 from base64 import b64encode, b64decode
 from hashlib import sha256
@@ -18,7 +20,7 @@ except Exception:
     from urllib.parse import quote, quote_plus, urlencode
 
 import uamqp
-from uamqp import utils, errors
+from uamqp import async as a_uamqp
 from uamqp import authentication
 
 
@@ -61,7 +63,8 @@ def _build_iothub_amqp_endpoint_from_target(target):
     return endpoint
 
 
-def test_iot_hub_send(live_iothub_config):
+@pytest.mark.asyncio
+async def test_iot_hub_send_async(live_iothub_config):
     msg_content = b"hello world"
     msg_props = uamqp.message.MessageProperties()
     msg_props.to = '/devices/{}/messages/devicebound'.format(live_iothub_config['device'])
@@ -74,10 +77,11 @@ def test_iot_hub_send(live_iothub_config):
     target = 'amqps://' + endpoint + operation
     log.info("Target: {}".format(target))
 
-    send_client = uamqp.SendClient(target, debug=True)
+    send_client = a_uamqp.SendClientAsync(target, debug=True)
     send_client.queue_message(message)
-    send_client.send_all_messages()
-    log.info("Message sent.")
+    results = await send_client.send_all_messages_async()
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+
 
 if __name__ == '__main__':
     config = {}
@@ -86,6 +90,5 @@ if __name__ == '__main__':
     config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
     config['access_key'] = os.environ['IOTHUB_SAS_KEY']
 
-    test_iot_hub_send(config)
-
-
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_iot_hub_send_async(config))

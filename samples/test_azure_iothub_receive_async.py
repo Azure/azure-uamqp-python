@@ -6,6 +6,8 @@
 
 import os
 import logging
+import asyncio
+import pytest
 import sys
 from base64 import b64encode, b64decode
 from hashlib import sha256
@@ -18,8 +20,8 @@ except Exception:
     from urllib.parse import quote, quote_plus, urlencode
 
 import uamqp
-from uamqp import utils, errors
-from uamqp import authentication
+from uamqp import async as a_uamqp
+from uamqp import authentication, errors, address
 
 
 def get_logger(level):
@@ -53,31 +55,52 @@ def _generate_sas_token(uri, policy, key, expiry=None):
 
 def _build_iothub_amqp_endpoint_from_target(target):
     hub_name = target['hostname'].split('.')[0]
-    endpoint = "{}@sas.root.{}".format(target['key_name'], hub_name)
-    endpoint = quote_plus(endpoint)
+    username = "{}@sas.root.{}".format(target['key_name'], hub_name)
     sas_token = _generate_sas_token(target['hostname'], target['key_name'],
                                     target['access_key'], time() + 360)
-    endpoint = endpoint + ":{}@{}".format(quote_plus(sas_token), target['hostname'])
-    return endpoint
+    return username, sas_token
 
 
-def test_iot_hub_send(live_iothub_config):
-    msg_content = b"hello world"
-    msg_props = uamqp.message.MessageProperties()
-    msg_props.to = '/devices/{}/messages/devicebound'.format(live_iothub_config['device'])
-    msg_props.message_id = str(uuid4())
-    message = uamqp.Message(msg_content, properties=msg_props)
+async def _receive_mesages(conn, source, auth):
+    receive_client = a_uamqp.ReceiveClientAsync(source, auth=auth, debug=True, timeout=1000, prefetch=1)
+    try:
+        await receive_client.open_async(connection=conn)
+        batch = await receive_client.receive_message_batch_async(max_batch_size=1)
+    except errors.LinkRedirect as redirect:
+        return redirect
+    else:
+        return batch
+    finally:
+        await receive_client.close_async()
 
-    operation = '/messages/devicebound'
-    endpoint = _build_iothub_amqp_endpoint_from_target(live_iothub_config)
 
-    target = 'amqps://' + endpoint + operation
-    log.info("Target: {}".format(target))
+@pytest.mark.asyncio
+async def test_iothub_client_receive_async(live_iothub_config):
+    operation = '/messages/events/ConsumerGroups/{}/Partitions/'.format(live_iothub_config['consumer_group'])
+    auth = authentication.SASLPlain(
+        live_iothub_config['hostname'],
+        *_build_iothub_amqp_endpoint_from_target(live_iothub_config))
+    source = 'amqps://' + live_iothub_config['hostname'] + operation
+    log.info("Source: {}".format(source))
 
-    send_client = uamqp.SendClient(target, debug=True)
-    send_client.queue_message(message)
-    send_client.send_all_messages()
-    log.info("Message sent.")
+    async with a_uamqp.ConnectionAsync(live_iothub_config['hostname'], auth, debug=True) as conn:
+        tasks = [
+            _receive_mesages(conn, source + '0', auth),
+            _receive_mesages(conn, source + '1', auth)
+        ]
+        results = await asyncio.gather(*tasks)
+        redirect = results[0]
+        new_auth = authentication.SASLPlain(
+           redirect.hostname,
+           live_iothub_config['key_name'],
+           live_iothub_config['access_key'])
+        await conn.redirect_async(redirect, new_auth)
+        tasks = []
+        for t in results:
+           tasks.append(_receive_mesages(conn, t.address, auth))
+        messages = await asyncio.gather(*tasks)
+
+
 
 if __name__ == '__main__':
     config = {}
@@ -85,7 +108,8 @@ if __name__ == '__main__':
     config['device'] = os.environ['IOTHUB_DEVICE']
     config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
     config['access_key'] = os.environ['IOTHUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
 
-    test_iot_hub_send(config)
-
-
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_iothub_client_receive_async(config))

@@ -11,7 +11,6 @@ from base64 import b64encode, b64decode
 from hashlib import sha256
 from hmac import HMAC
 from time import time
-from uuid import uuid4
 try:
     from urllib import quote, quote_plus, urlencode #Py2
 except Exception:
@@ -53,31 +52,45 @@ def _generate_sas_token(uri, policy, key, expiry=None):
 
 def _build_iothub_amqp_endpoint_from_target(target):
     hub_name = target['hostname'].split('.')[0]
-    endpoint = "{}@sas.root.{}".format(target['key_name'], hub_name)
-    endpoint = quote_plus(endpoint)
+    username = "{}@sas.root.{}".format(target['key_name'], hub_name)
     sas_token = _generate_sas_token(target['hostname'], target['key_name'],
                                     target['access_key'], time() + 360)
-    endpoint = endpoint + ":{}@{}".format(quote_plus(sas_token), target['hostname'])
-    return endpoint
+    return username, sas_token
 
 
-def test_iot_hub_send(live_iothub_config):
-    msg_content = b"hello world"
-    msg_props = uamqp.message.MessageProperties()
-    msg_props.to = '/devices/{}/messages/devicebound'.format(live_iothub_config['device'])
-    msg_props.message_id = str(uuid4())
-    message = uamqp.Message(msg_content, properties=msg_props)
+def _receive_message(conn, source, auth):
+    batch = []
+    receive_client = uamqp.ReceiveClient(source, auth=auth, debug=True, timeout=5, prefetch=50)
+    try:
+        receive_client.open(connection=conn)
+        batch = receive_client.receive_message_batch(max_batch_size=10)
+    except errors.LinkRedirect as redirect:
+        return redirect
+    finally:
+        receive_client.close()
+    return batch
 
-    operation = '/messages/devicebound'
-    endpoint = _build_iothub_amqp_endpoint_from_target(live_iothub_config)
 
-    target = 'amqps://' + endpoint + operation
-    log.info("Target: {}".format(target))
+def test_iothub_client_receive_sync(live_iothub_config):
+    operation = '/messages/events/ConsumerGroups/{}/Partitions/{}'.format(
+        live_iothub_config['consumer_group'],
+        live_iothub_config['partition'])
+    auth = authentication.SASLPlain(
+        live_iothub_config['hostname'],
+        *_build_iothub_amqp_endpoint_from_target(live_iothub_config))
 
-    send_client = uamqp.SendClient(target, debug=True)
-    send_client.queue_message(message)
-    send_client.send_all_messages()
-    log.info("Message sent.")
+    source = 'amqps://' + live_iothub_config['hostname'] + operation
+    log.info("Source: {}".format(source))
+    with uamqp.Connection(live_iothub_config['hostname'], auth, debug=True) as conn:
+        result = _receive_message(conn, source, auth)
+        new_auth = authentication.SASLPlain(
+           result.hostname,
+           live_iothub_config['key_name'],
+           live_iothub_config['access_key'])
+        conn.redirect(result, new_auth)
+        result = _receive_message(conn, result.address, new_auth)
+    log.info("Finished receiving")
+
 
 if __name__ == '__main__':
     config = {}
@@ -85,7 +98,7 @@ if __name__ == '__main__':
     config['device'] = os.environ['IOTHUB_DEVICE']
     config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
     config['access_key'] = os.environ['IOTHUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
 
-    test_iot_hub_send(config)
-
-
+    test_iothub_client_receive_sync(config)

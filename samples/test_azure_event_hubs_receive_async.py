@@ -171,3 +171,16 @@ async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
     finally:
         await partition_0.close_async()
         await partition_1.close_async()
+
+
+if __name__ == '__main__':
+    config = {}
+    config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
+    config['event_hub'] = os.environ['EVENT_HUB_NAME']
+    config['key_name'] = os.environ['EVENT_HUB_SAS_POLICY']
+    config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_event_hubs_shared_connection_async(config))

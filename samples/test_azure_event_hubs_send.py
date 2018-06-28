@@ -36,9 +36,14 @@ def test_event_hubs_simple_send(live_eventhub_config):
 
 def test_event_hubs_client_send(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
+    header = uamqp.message.MessageHeader()
+    props = uamqp.message.MessageProperties()
     msg_content = b"hello world"
-
-    message = uamqp.Message(msg_content, annotations=annotations)
+    message = uamqp.Message(
+        msg_content,
+        annotations=annotations,
+        properties=props,
+        header=header)
 
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
