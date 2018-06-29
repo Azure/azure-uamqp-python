@@ -123,10 +123,11 @@ class MessageReceiver():
         try:
             raise self._error
         except TypeError:
-            return self._state
+            pass
         except Exception as e:
             _logger.warning(str(e))
             raise
+        return self._state
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
@@ -238,7 +239,7 @@ class MessageReceiver():
             settler=settler)
         try:
             self.on_message_received(wrapped_message)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settled_modified_message(message_number, True, True, None)
 

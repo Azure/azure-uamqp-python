@@ -4,7 +4,6 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from uamqp import c_uamqp
 from uamqp import utils
 
 

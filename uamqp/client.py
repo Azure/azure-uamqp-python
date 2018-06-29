@@ -9,21 +9,19 @@ import uuid
 import queue
 try:
     from urllib import unquote_plus
-    from urllib import unquote
 except ImportError:
     from urllib.parse import unquote_plus
-    from urllib.parse import unquote
 
-import uamqp
-from uamqp import authentication
-from uamqp import constants
-from uamqp import sender
-from uamqp import receiver
-from uamqp import address
-from uamqp import errors
-from uamqp import c_uamqp
-from uamqp import Connection
-from uamqp import Session
+from uamqp import (
+    authentication,
+    constants,
+    sender,
+    receiver,
+    address,
+    errors,
+    c_uamqp,
+    Connection,
+    Session)
 
 
 _logger = logging.getLogger(__name__)
@@ -119,9 +117,6 @@ class AMQPClient:
         """Close and destroy Client on exiting a context manager."""
         self.close()
 
-    def _on_link_detach(self, *args):
-        _logger.info("Detach received. Closing client.")
-
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
         receiving messages. To be ready, the connection must be open and
@@ -144,6 +139,7 @@ class AMQPClient:
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.AMQPAuth
         """
+        # pylint: disable=protected-access
         if self._ext_connection:
             raise ValueError(
                 "Clients with a shared connection cannot be "
@@ -398,7 +394,7 @@ class SendClient(AMQPClient):
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
         states.
-        
+
         :rtype: bool
         :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
          goes into an error state.
@@ -670,7 +666,6 @@ class ReceiveClient(AMQPClient):
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
-                on_detach_received=self._on_link_detach,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -715,6 +710,7 @@ class ReceiveClient(AMQPClient):
 
         :rtype: generator[~uamqp.message.Message]
         """
+        # pylint: disable=too-many-nested-blocks
         self.open()
         auto_complete = self.auto_complete
         self.auto_complete = False
@@ -881,7 +877,7 @@ class ReceiveClient(AMQPClient):
 
     def close(self):
         """Close the ReceiverClient, shutting down the Link, Session and
-        Connection (unless an external Conneciton was supplied on opening, 
+        Connection (unless an external Conneciton was supplied on opening,
         which will be left open).
         """
         if self._message_receiver:

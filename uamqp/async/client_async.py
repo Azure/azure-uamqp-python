@@ -13,7 +13,6 @@ import logging
 import uuid
 import queue
 
-import uamqp
 from uamqp import client
 from uamqp import constants
 from uamqp import errors
@@ -97,6 +96,7 @@ class AMQPClientAsync(client.AMQPClient):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.AMQPAuth
         """
+        # pylint: disable=protected-access
         if self._ext_connection:
             raise ValueError(
                 "Clients with a shared connection cannot be "
@@ -561,10 +561,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, loop=None, debug=False, timeout=0, auto_complete=True, **kwargs):
+    def __init__(self, source, auth=None, client_name=None, loop=None,
+                 debug=False, timeout=0, auto_complete=True, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.ReceiveClient.__init__(
-            self, source, auth=auth, client_name=client_name, debug=debug, timeout=timeout, auto_complete=auto_complete, **kwargs)
+            self, source, auth=auth, client_name=client_name, debug=debug,
+            timeout=timeout, auto_complete=auto_complete, **kwargs)
 
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
@@ -584,7 +586,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
-                on_detach_received=self._on_link_detach,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,

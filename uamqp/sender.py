@@ -117,10 +117,11 @@ class MessageSender():
         try:
             raise self._error
         except TypeError:
-            return self._state
+            pass
         except Exception as e:
             _logger.warning(str(e))
             raise
+        return self._state
 
     def destroy(self):
         """Close both the Sender and the Link. Clean up any C objects."""

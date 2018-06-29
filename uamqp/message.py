@@ -601,7 +601,7 @@ class MessageProperties:
 
     @property
     def user_id(self):
-        self._user_id
+        return self._user_id
 
     @user_id.setter
     def user_id(self, value):
@@ -717,7 +717,7 @@ class MessageProperties:
 
     @property
     def group_id(self):
-        self._group_id
+        return self._group_id
 
     @group_id.setter
     def group_id(self, value):

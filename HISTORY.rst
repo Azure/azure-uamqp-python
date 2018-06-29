@@ -8,12 +8,16 @@ Release History
 
 - ** Breaking change ** Anything returned by a callback supplied to receive messages will now be ignored.
 - ** Breaking change ** Changed message state enum values:
+
     - `Complete -> SendComplete`
     - `Failed -> SendFailed`
     - `WaitingForAck -> WaitingForSendAck`
+
 - Added new message state enum values:
+
     - `ReceivedUnsettled`
     - `ReceivedSettled`
+
 - ** Breaking change ** Combined the `AbandonMessage` and `DeferMessage` exceptions as `ModifyMessage` to be in keeping with the AMQP specification.
 - Added `errors.LinkDetach` exception as new subclass of `AMQPConnectionError` as a wrapped for data in a Link DETACH dispostition.
 - Added `errors.LinkRedirect` as a specific subclass of `LinkDetach` to decode the specific redirect fields of a Link Redirect response.
@@ -22,24 +26,30 @@ Release History
 - Added `errors.ErrorResponse` exception.
 - **Breaking** The `errors.RejectMessage` now takes `condition` and `description` arguments rather than `message`.
 - A received Message can now be explicitly settled through a set of new functions on the message:
+
     - `Message.accept()`
     - `Message.reject(condition:str, description:str)`
     - `Message.release()`
     - `Message.modify(failed:bool, deliverable:bool, annotations:dict)`
-- Added explicit `auto_complete` argument to `ReceiveClient` and `ReceiveClientAsync`. This defaults to the exiting behaviour for each receive mechanism:
+
+- Added explicit `auto_complete` argument to `ReceiveClient` and `ReceiveClientAsync`. If `auto_complete` is set to `False` then all messages must be
+  explicitly "accepted" or "rejected" by the user otherwise they will timeout and be released. The default is `True`, which is the exiting behaviour for each receive mechanism:
+
     - Received messages processed by callback (`ReceiveClient.receive_messages()`) will be automatically "accepted" if no explicit response has been set on completion of the callback.
     - Received messages processed by batch (`ReceiveClient.receive_message_batch()`) will by automatically "accepted" before being returned to the user.
     - Received messages processed by iterator (`ReceiveClient.receive_message_iter()`) will by automatically "accepted" if no explicit response has been set once the generator is incremented.
-  If `auto_complete` is set to `False` then all messages must be explicitly "accepted" or "rejected" by the user otherwise they will timeout and be released.
+
 - Added new methods to clients and connections to allow to redirect to an alternative endpoint when a LinkRedirect exception is raised.
   The client redirect helper cannot be used for clients that use a shared connection - the clients must be closed before the connection can be redirected.
   New credentials must be supplied for the new endpoint. The new methods are:
+
     - `uamqp.Connection.redirect(redirect_info, auth)`
     - `uamqp.async.ConnectionAsync.redirect_async(redirect_info, auth)`
     - `uamqp.SendClient.redirect(redirect_info, auth)`
     - `uamqp.ReceiveClient.redirect(redirect_info, auth)`
     - `uamqp.async.SendClientAsync.redirect_async(redirect_info, auth)`
     - `uamqp.async.ReceiveClientAsync.redirect_async(redirect_info, auth)`
+
 - Added `on_detach_received` argument to `Sender` and `Receiver` classes to pass in callback to run on Link DETACH.
 - Bumped uAMQP C version to 1.2.5
 - Bumped Azure C Shared Utility to 1.1.5

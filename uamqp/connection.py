@@ -71,7 +71,8 @@ class Connection:
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        self.container_id = self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id
+        if isinstance(self.container_id, str):
+            self.container_id = self.container_id.encode(encoding)
         self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
         self.auth = sasl
         self.cbs = None

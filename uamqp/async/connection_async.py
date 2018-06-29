@@ -137,4 +137,4 @@ class ConnectionAsync(connection.Connection):
         CBS authentication session.
         """
         await self._close_async()
-        uamqp._Platform.deinitialize()
+        uamqp._Platform.deinitialize()  # pylint: disable=protected-access

@@ -42,8 +42,8 @@ class Address:
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
-        formatted_address = self.parsed_address.scheme + b"://" + self.parsed_address.hostname + self.parsed_address.path
-        self._c_address = c_uamqp.string_value(formatted_address)
+        addr = self.parsed_address.scheme + b"://" + self.parsed_address.hostname + self.parsed_address.path
+        self._c_address = c_uamqp.string_value(addr)
 
     def __repr__(self):
         """Get the Address as a URL.
@@ -67,11 +67,13 @@ class Address:
     def username(self):
         if self.parsed_address.username:
             return self.parsed_address.username.decode(self._encoding)
+        return None
 
     @property
     def password(self):
         if self.parsed_address.password:
             return self.parsed_address.password.decode(self._encoding)
+        return None
 
     @property
     def address(self):

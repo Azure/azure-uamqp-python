@@ -7,7 +7,8 @@
 import logging
 import sys
 
-from uamqp import c_uamqp
+from uamqp import c_uamqp  # pylint: disable=import-self
+
 from uamqp.message import Message, BatchMessage
 from uamqp.address import Source, Target
 
