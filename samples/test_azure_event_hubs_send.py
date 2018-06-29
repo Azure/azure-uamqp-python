@@ -52,7 +52,8 @@ def test_event_hubs_client_send(live_eventhub_config):
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     send_client.queue_message(message)
-    send_client.send_all_messages()
+    results = send_client.send_all_messages()
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
 def test_event_hubs_single_send_sync(live_eventhub_config):
@@ -85,7 +86,8 @@ def test_event_hubs_batch_send(live_eventhub_config):
     target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     send_client.queue_message(message_batch)
-    send_client.send_all_messages()
+    results = send_client.send_all_messages()
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
 if __name__ == '__main__':

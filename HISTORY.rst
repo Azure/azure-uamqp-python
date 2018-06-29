@@ -53,6 +53,7 @@ Release History
     - `uamqp.async.ReceiveClientAsync.redirect_async(redirect_info, auth)`
 
 - Added `on_detach_received` argument to `Sender` and `Receiver` classes to pass in callback to run on Link DETACH.
+- Removed automatic char encoding for strings of length 1, and added `types.AMQPChar` for explicit encoding.
 - Bumped uAMQP C version to 1.2.5
 - Bumped Azure C Shared Utility to 1.1.5
 - Fixed memory leaks in MessageProperties, MessageHeader and message annotations.

@@ -76,9 +76,7 @@ def data_factory(value, encoding='UTF-8'):
         result = value
     elif isinstance(value, bool):
         result = c_uamqp.bool_value(value)
-    elif isinstance(value, str) and len(value) == 1:
-        result = c_uamqp.char_value(value.encode(encoding))
-    elif isinstance(value, str) and len(value) > 1:
+    elif isinstance(value, str):
         result = c_uamqp.string_value(value.encode(encoding))
     elif isinstance(value, bytes):
         result = c_uamqp.string_value(value)

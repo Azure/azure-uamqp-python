@@ -62,10 +62,11 @@ def _build_iothub_amqp_endpoint_from_target(target):
 
 def test_iot_hub_send(live_iothub_config):
     msg_content = b"hello world"
+    app_properties = {"test_prop_1": "value", "test_prop_2": "X"}
     msg_props = uamqp.message.MessageProperties()
     msg_props.to = '/devices/{}/messages/devicebound'.format(live_iothub_config['device'])
     msg_props.message_id = str(uuid4())
-    message = uamqp.Message(msg_content, properties=msg_props)
+    message = uamqp.Message(msg_content, properties=msg_props, application_properties=app_properties)
 
     operation = '/messages/devicebound'
     endpoint = _build_iothub_amqp_endpoint_from_target(live_iothub_config)
@@ -75,7 +76,8 @@ def test_iot_hub_send(live_iothub_config):
 
     send_client = uamqp.SendClient(target, debug=True)
     send_client.queue_message(message)
-    send_client.send_all_messages()
+    results = send_client.send_all_messages()
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
     log.info("Message sent.")
 
 if __name__ == '__main__':
