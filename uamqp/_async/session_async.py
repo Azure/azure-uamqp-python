@@ -11,7 +11,7 @@ import functools
 from uamqp import session
 from uamqp import constants
 from uamqp import errors
-from uamqp.async.mgmt_operation_async import MgmtOperationAsync
+from uamqp._async.mgmt_operation_async import MgmtOperationAsync
 
 
 _logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class SessionAsync(session.Session):
     :vartype handle_max: int
 
     :param connection: The underlying Connection for the Session.
-    :type connection: ~uamqp.async.connection_async.ConnectionAsync
+    :type connection: ~uamqp._async.connection_async.ConnectionAsync
     :param incoming_window: The size of the allowed window for incoming messages.
     :type incoming_window: int
     :param outgoing_window: The size of the allowed window for outgoing messages.

@@ -35,7 +35,7 @@ class ConnectionAsync(connection.Connection):
     :type hostname: bytes or str
     :param sasl: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type sasl: ~uamqp.authentication.AMQPAuth
+    :type sasl: ~uamqp.authentication.common.AMQPAuth
     :param container_id: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type container_id: str or bytes
@@ -111,7 +111,7 @@ class ConnectionAsync(connection.Connection):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         await self._lock.acquire()
         try:

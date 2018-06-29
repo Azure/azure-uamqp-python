@@ -11,7 +11,6 @@ import pytest
 import sys
 
 import uamqp
-from uamqp import async as a_uamqp
 from uamqp import authentication
 
 
@@ -36,7 +35,7 @@ async def test_event_hubs_client_send_async(live_eventhub_config):
     message = uamqp.Message(msg_content, application_properties=properties)
     plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
+    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
     send_client.queue_message(message)
     results = await send_client.send_all_messages_async()
     assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
@@ -49,10 +48,10 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
 
     message = uamqp.Message(msg_content, annotations=annotations)
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
     await send_client.send_message_async(message, close_on_done=True)
 
 
@@ -66,10 +65,10 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
     message_batch = uamqp.message.BatchMessage(data_generator())
 
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
 
     send_client.queue_message(message_batch)
     results = await send_client.send_all_messages_async()

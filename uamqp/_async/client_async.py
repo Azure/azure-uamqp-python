@@ -17,12 +17,12 @@ from uamqp import client
 from uamqp import constants
 from uamqp import errors
 from uamqp import address
+from uamqp import authentication
 
-from uamqp.async.connection_async import ConnectionAsync
-from uamqp.async.session_async import SessionAsync
-from uamqp.async.sender_async import MessageSenderAsync
-from uamqp.async.receiver_async import MessageReceiverAsync
-from uamqp.async.authentication_async import CBSAsyncAuthMixin
+from uamqp._async.connection_async import ConnectionAsync
+from uamqp._async.session_async import SessionAsync
+from uamqp._async.sender_async import MessageSenderAsync
+from uamqp._async.receiver_async import MessageReceiverAsync
 
 
 _logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class AMQPClientAsync(client.AMQPClient):
     :type remote_address: str, bytes or ~uamqp.address.Address
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -94,7 +94,7 @@ class AMQPClientAsync(client.AMQPClient):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
         if self._ext_connection:
@@ -108,7 +108,7 @@ class AMQPClientAsync(client.AMQPClient):
         self._auth = auth
         self._hostname = self._remote_address.hostname
         await self._connection.redirect_async(redirect, auth)
-        if not self._connection.cbs and isinstance(self._auth, CBSAsyncAuthMixin):
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
             self._connection.cbs = await self._auth.create_authenticator_async(
                 self._connection,
                 debug=self._debug_trace,
@@ -133,7 +133,7 @@ class AMQPClientAsync(client.AMQPClient):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp.async.connection_async.ConnectionAsync
+        :type connetion: ~uamqp._async.connection_async.ConnectionAsync
         """
         # pylint: disable=protected-access
         if self._session:
@@ -153,7 +153,7 @@ class AMQPClientAsync(client.AMQPClient):
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
             debug=self._debug_trace,
             loop=self.loop)
-        if not self._connection.cbs and isinstance(self._auth, CBSAsyncAuthMixin):
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
             self._connection.cbs = await self._auth.create_authenticator_async(
                 self._connection,
                 debug=self._debug_trace,
@@ -283,7 +283,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type target: str, bytes or ~uamqp.address.Target
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -410,7 +410,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         if self._message_sender:
             await self._message_sender.destroy_async()
@@ -504,7 +504,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type target: str, bytes or ~uamqp.address.Source
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -739,7 +739,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         if self._message_receiver:
             await self._message_receiver.destroy_async()
@@ -766,7 +766,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
     """Python 3.5 and 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
-    :type recv_client: ~uamqp.async.client_async.ReceiveClientAsync
+    :type recv_client: ~uamqp._async.client_async.ReceiveClientAsync
     """
 
     def __init__(self, rcv_client, auto_complete=True):

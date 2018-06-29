@@ -19,11 +19,15 @@ from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
 
 try:
-    from uamqp.async import ConnectionAsync
-    from uamqp.async import SessionAsync
-    from uamqp.async import MessageSenderAsync
-    from uamqp.async import MessageReceiverAsync
-    from uamqp.async import AMQPClientAsync, SendClientAsync, ReceiveClientAsync
+    from uamqp._async import ConnectionAsync
+    from uamqp._async import SessionAsync
+    from uamqp._async import MessageSenderAsync
+    from uamqp._async import MessageReceiverAsync
+    from uamqp._async.client_async import (
+        AMQPClientAsync,
+        SendClientAsync,
+        ReceiveClientAsync,
+        AsyncMessageIter)
 except (SyntaxError, ImportError):
     pass  # Async not supported.
 
@@ -50,7 +54,7 @@ def send_message(target, data, auth=None, debug=False):
         - ~uamqp.authentication.SASLPlain
         - ~uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -74,7 +78,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
         - ~uamqp.authentication.SASLPlain
         - ~uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param timeout: The timeout in seconds after which to return None if no messages
      are retrieved. If set to `0` (the default), the receiver will not timeout and
      will continue to wait for messages until interrupted.
@@ -101,7 +105,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
         - ~uamqp.authentication.SASLPlain
         - ~uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param max_batch_size: The maximum number of messages to return in a batch. If the
      receiver receives a smaller number than this, it will not wait to return them so
      the actual number returned can be anything up to this value. If the receiver reaches

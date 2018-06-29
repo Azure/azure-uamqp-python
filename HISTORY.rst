@@ -6,8 +6,10 @@ Release History
 0.1.0rc2 (unreleased)
 +++++++++++++++++++++
 
-- ** Breaking change ** Anything returned by a callback supplied to receive messages will now be ignored.
-- ** Breaking change ** Changed message state enum values:
+- **Breaking change** Submodule `async` has been renamed to the internal `_async`.
+  All asynchronous classes in the submodule can now be accessed from uamqp or uamqp.authentication directly.
+- **Breaking change** Anything returned by a callback supplied to receive messages will now be ignored.
+- **Breaking change** Changed message state enum values:
 
     - `Complete -> SendComplete`
     - `Failed -> SendFailed`
@@ -18,13 +20,13 @@ Release History
     - `ReceivedUnsettled`
     - `ReceivedSettled`
 
-- ** Breaking change ** Combined the `AbandonMessage` and `DeferMessage` exceptions as `ModifyMessage` to be in keeping with the AMQP specification.
+- **Breaking change** Combined the `AbandonMessage` and `DeferMessage` exceptions as `ModifyMessage` to be in keeping with the AMQP specification.
 - Added `errors.LinkDetach` exception as new subclass of `AMQPConnectionError` as a wrapped for data in a Link DETACH dispostition.
 - Added `errors.LinkRedirect` as a specific subclass of `LinkDetach` to decode the specific redirect fields of a Link Redirect response.
 - Added `errors.MessageAlreadySettled` exception for operations performed on a received message that has already returned a receipt dispostition.
 - Added `errors.ReleaseMessage` exception.
 - Added `errors.ErrorResponse` exception.
-- **Breaking** The `errors.RejectMessage` now takes `condition` and `description` arguments rather than `message`.
+- **Breaking change** The `errors.RejectMessage` now takes `condition` and `description` arguments rather than `message`.
 - A received Message can now be explicitly settled through a set of new functions on the message:
 
     - `Message.accept()`

@@ -20,8 +20,6 @@ except Exception:
     from urllib.parse import quote, quote_plus, urlencode
 
 import uamqp
-from uamqp import async as a_uamqp
-from uamqp import authentication
 
 
 def get_logger(level):
@@ -77,7 +75,7 @@ async def test_iot_hub_send_async(live_iothub_config):
     target = 'amqps://' + endpoint + operation
     log.info("Target: {}".format(target))
 
-    send_client = a_uamqp.SendClientAsync(target, debug=True)
+    send_client = uamqp.SendClientAsync(target, debug=True)
     send_client.queue_message(message)
     results = await send_client.send_all_messages_async()
     assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]

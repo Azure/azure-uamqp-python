@@ -35,7 +35,7 @@ class AMQPClient:
     :type remote_address: str, bytes or ~uamqp.address.Address
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -137,7 +137,7 @@ class AMQPClient:
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
         if self._ext_connection:
@@ -324,7 +324,7 @@ class SendClient(AMQPClient):
     :type target: str, bytes or ~uamqp.address.Target
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -458,7 +458,7 @@ class SendClient(AMQPClient):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         if self._message_sender:
             self._message_sender.destroy()
@@ -575,7 +575,7 @@ class ReceiveClient(AMQPClient):
     :type target: str, bytes or ~uamqp.address.Source
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -863,7 +863,7 @@ class ReceiveClient(AMQPClient):
         :param redirect: The Link DETACH redirect details.
         :type redirect: ~uamqp.errors.LinkRedirect
         :param auth: Authentication credentials to the redirected endpoint.
-        :type auth: ~uamqp.authentication.AMQPAuth
+        :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         if self._message_receiver:
             self._message_receiver.destroy()

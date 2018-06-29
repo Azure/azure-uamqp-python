@@ -8,16 +8,17 @@ import asyncio
 import logging
 import functools
 
-from uamqp.async import SessionAsync
+from .cbs_auth import CBSAuthMixin, SASTokenAuth
+from uamqp._async import SessionAsync
 from uamqp import constants
-from uamqp import authentication
 from uamqp import errors
 from uamqp import c_uamqp
+
 
 _logger = logging.getLogger(__name__)
 
 
-class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
+class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
     async def create_authenticator_async(self, connection, debug=False, loop=None):
@@ -26,7 +27,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
 
         :param connection: The underlying AMQP connection on which
          to create the session.
-        :type connection: ~uamqp.async.connection_async.ConnectionAsync
+        :type connection: ~uamqp._async.connection_async.ConnectionAsync
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
@@ -126,7 +127,7 @@ class CBSAsyncAuthMixin(authentication.CBSAuthMixin):
         return timeout, in_progress
 
 
-class SASTokenAsync(authentication.SASTokenAuth, CBSAsyncAuthMixin):
+class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
     """Asynchronous CBS authentication using SAS tokens.
 
     :param audience: The token audience field. For SAS tokens
@@ -156,7 +157,7 @@ class SASTokenAsync(authentication.SASTokenAuth, CBSAsyncAuthMixin):
     :type timeout: int
     :param retry_policy: The retry policy for the PUT token request. The default
      retry policy has 3 retries.
-    :type retry_policy: ~uamqp.authentication.TokenRetryPolicy
+    :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
     :param verify: The path to a user-defined certificate.
     :type verify: str
     :param token_type: The type field of the token request.

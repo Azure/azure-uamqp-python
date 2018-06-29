@@ -19,7 +19,6 @@ except Exception:
 
 import uamqp
 from uamqp import utils, errors
-from uamqp import authentication
 
 
 def get_logger(level):

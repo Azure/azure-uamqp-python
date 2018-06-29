@@ -25,7 +25,7 @@ class MgmtOperationAsync(MgmtOperation):
 
     :param session: The AMQP session to use for the operation. Nee send and
      receive links will be created in this Session.
-    :type session: ~uamqp.async.session_async.SessionAsync
+    :type session: ~uamqp._async.session_async.SessionAsync
     :param target: The AMQP node to send the request to.
      The default is `b"$management"`
     :type target: bytes or str
