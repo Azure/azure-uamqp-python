@@ -780,10 +780,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
         # pylint: disable=protected-access
         await self._client.open_async()
         if self.current_message and self.auto_complete:
-            try:
-                self.current_message.accept()
-            except (errors.MessageResponse, AttributeError):
-                pass
+            self.current_message.accept()
         try:
             while self.receiving and self._client._received_messages.empty():
                 self.receiving = await self._client.do_work_async()
