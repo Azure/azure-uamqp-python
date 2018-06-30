@@ -90,11 +90,11 @@ class MessageAlreadySettled(MessageResponse):
         super(MessageAlreadySettled, self).__init__(response)
 
 
-class AcceptMessage(MessageResponse):
+class MessageAccepted(MessageResponse):
     pass
 
 
-class RejectMessage(MessageResponse):
+class MessageRejected(MessageResponse):
 
     def __init__(self, condition=None, description=None, encoding='UTF-8'):
         if condition:
@@ -106,14 +106,14 @@ class RejectMessage(MessageResponse):
             self.error_description = description.encode(encoding) if isinstance(description, str) else description
         else:
             self.error_description = b""
-        super(RejectMessage, self).__init__()
+        super(MessageRejected, self).__init__()
 
 
-class ReleaseMessage(MessageResponse):
+class MessageReleased(MessageResponse):
     pass
 
 
-class ModifyMessage(MessageResponse):
+class MessageModified(MessageResponse):
 
     def __init__(self, failed, undeliverable, annotations=None, encoding='UTF-8'):
         self.failed = failed
@@ -121,7 +121,7 @@ class ModifyMessage(MessageResponse):
         if annotations and not isinstance(annotations, dict):
             raise TypeError("Disposition annotations must be a dictionary.")
         self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
-        super(ModifyMessage, self).__init__()
+        super(MessageModified, self).__init__()
 
 
 class ErrorResponse:

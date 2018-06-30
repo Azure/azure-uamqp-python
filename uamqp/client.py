@@ -708,11 +708,7 @@ class ReceiveClient(AMQPClient):
     def _complete_message(self, message, auto):  # pylint: disable=no-self-use
         if not message or not auto:
             return
-        try:
-            message.accept()
-        except errors.MessageResponse:
-            # MessageResponse will be raised if message is already settled, so we can ignore
-            pass
+        message.accept()
 
     def _message_generator(self):
         """Iterate over processed messages in the receive queue.
@@ -756,14 +752,11 @@ class ReceiveClient(AMQPClient):
 
         if self._received_messages:
             self._received_messages.put(message)
-        else:
+        elif not message.settled:
             # Message was received with callback processing and wasn't settled.
             # We'll log a warning and release it.
-            try:
-                message.release()
-                _logger.warning("Message was not settled. Releasing.")
-            except errors.MessageResponse:
-                pass
+            _logger.warning("Message was not settled. Releasing.")
+            message.release()
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been

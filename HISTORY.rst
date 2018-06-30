@@ -20,13 +20,17 @@ Release History
     - `ReceivedUnsettled`
     - `ReceivedSettled`
 
-- **Breaking change** Combined the `AbandonMessage` and `DeferMessage` exceptions as `ModifyMessage` to be in keeping with the AMQP specification.
+- **Breaking change** Changes to message settlement exceptions:
+
+    - Combined the `AbandonMessage` and `DeferMessage` exceptions as `MessageModified` to be in keeping with the AMQP specification.
+    - Renamed `AcceptMessage` to `MessageAccepted`.
+    - Renamed `RejectMessage` to `MessageRejected` which now takes `condition` and `description` arguments rather than `message`.
+
 - Added `errors.LinkDetach` exception as new subclass of `AMQPConnectionError` as a wrapped for data in a Link DETACH dispostition.
 - Added `errors.LinkRedirect` as a specific subclass of `LinkDetach` to decode the specific redirect fields of a Link Redirect response.
 - Added `errors.MessageAlreadySettled` exception for operations performed on a received message that has already returned a receipt dispostition.
-- Added `errors.ReleaseMessage` exception.
+- Added `errors.MessageReleased` exception.
 - Added `errors.ErrorResponse` exception.
-- **Breaking change** The `errors.RejectMessage` now takes `condition` and `description` arguments rather than `message`.
 - A received Message can now be explicitly settled through a set of new functions on the message:
 
     - `Message.accept()`

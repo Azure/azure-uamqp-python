@@ -143,18 +143,15 @@ class Message:
         _footer = self._message.footer
         if _footer:
             self.footer = _footer.map
-            _footer.destroy()
         _app_props = self._message.application_properties
         if _app_props:
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
             self.annotations = _ann.map
-            _ann.destroy()
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
             self.delivery_annotations = _delivery_ann.map
-            _delivery_ann.destroy()
 
     def _on_message_sent(self, result, error=None):
         """Callback run on a message send operation. If message
@@ -188,10 +185,9 @@ class Message:
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:
             raise TypeError("Only received messages can be settled.")
-        try:
-            raise self._response
-        except TypeError:
-            pass
+        elif self.settled:
+            return False
+        return True
 
     @property
     def settled(self):
@@ -272,63 +268,68 @@ class Message:
         """Send a response disposition to the service to indicate that
         a received message has been accepted. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
-        be ignored.
+        be ignored. Returns `True` is message was accepted, or `False` if the message
+        was already settled.
 
-        :raises: ValueError if message has already been settled (e.g. if the client
-         is running in `ReceiveAndDelete` mode) or if a settlement response has
-         already been assigned.
+        :rtype: bool
         :raises: TypeError if the message is being sent rather than received.
         """
-        self._can_settle_message()
-        self._response = errors.AcceptMessage()
-        self._settler(self._response)
-        self.state = constants.MessageState.ReceivedSettled
+        if self._can_settle_message():
+            self._response = errors.MessageAccepted()
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
 
     def reject(self, condition=None, description=None):
         """Send a response disposition to the service to indicate that
         a received message has been rejected. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
         be ignored. A rejected message will increment the messages delivery count.
+        Returns `True` is message was rejected, or `False` if the message
+        was already settled.
 
         :param condition: The AMQP rejection code. By default this is `amqp:internal-error`.
         :type condition: bytes or str
         :param description: A description/reason to accompany the rejection.
         :type description: bytes or str
-        :raises: ValueError if message has already been settled (e.g. if the client
-         is running in `ReceiveAndDelete` mode) or if a settlement response has
-         already been assigned.
+        :rtype: bool
         :raises: TypeError if the message is being sent rather than received.
         """
-        self._can_settle_message()
-        self._response = errors.RejectMessage(
-            condition=condition,
-            description=description,
-            encoding=self._encoding)
-        self._settler(self._response)
-        self.state = constants.MessageState.ReceivedSettled
+        if self._can_settle_message():
+            self._response = errors.MessageRejected(
+                condition=condition,
+                description=description,
+                encoding=self._encoding)
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
 
     def release(self):
         """Send a response disposition to the service to indicate that
         a received message has been released. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
         be ignored. A released message will not incremenet the messages
-        delivery count.
+        delivery count. Returns `True` is message was released, or `False` if the message
+        was already settled.
 
-        :raises: ValueError if message has already been settled (e.g. if the client
-         is running in `ReceiveAndDelete` mode) or if a settlement response has
-         already been assigned.
+        :rtype: bool
         :raises: TypeError if the message is being sent rather than received.
         """
-        self._can_settle_message()
-        self._response = errors.ReleaseMessage()
-        self._settler(self._response)
-        self.state = constants.MessageState.ReceivedSettled
+        if self._can_settle_message():
+            self._response = errors.MessageReleased()
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
 
     def modify(self, failed, deliverable, annotations=None):
         """Send a response disposition to the service to indicate that
         a received message has been modified. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
-        be ignored.
+        be ignored. Returns `True` is message was released, or `False` if the message
+        was already settled.
 
         :param failed: Whether this delivery of this message failed. This does not
          indicate whether subsequence deliveries of this message would also fail.
@@ -338,19 +339,19 @@ class Message:
         :type deliverable: bool
         :param annotations: Annotations to attach to response.
         :type annotations: dict
-        :raises: ValueError if message has already been settled (e.g. if the client
-         is running in `ReceiveAndDelete` mode) or if a settlement response has
-         already been assigned.
+        :rtype: bool
         :raises: TypeError if the message is being sent rather than received.
         """
-        self._can_settle_message()
-        self._response = errors.ModifyMessage(
-            failed,
-            deliverable,
-            annotations=annotations,
-            encoding=self._encoding)
-        self._settler(self._response)
-        self.state = constants.MessageState.ReceivedSettled
+        if self._can_settle_message():
+            self._response = errors.MessageModified(
+                failed,
+                deliverable,
+                annotations=annotations,
+                encoding=self._encoding)
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
 
 
 class BatchMessage(Message):
@@ -574,7 +575,6 @@ class MessageProperties:
             self._group_id = properties.group_id
             self._group_sequence = properties.group_sequence
             self._reply_to_group_id = properties.reply_to_group_id
-            properties.destroy()
         else:
             self.message_id = message_id
             self.user_id = user_id
@@ -959,7 +959,6 @@ class MessageHeader:
             self.first_acquirer = header.first_acquirer
             self.durable = header.durable
             self.priority = header.priority
-            header.destroy()
 
     def get_header_obj(self):
         header = c_uamqp.create_header()

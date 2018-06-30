@@ -86,7 +86,7 @@ cdef class cMessageReceiver(StructBase):
             self._value_error("Unable to send rejected message dispostition for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
-    cpdef settled_modified_message(self, c_amqp_definitions.delivery_number message_number, bint delivery_failed, bint undeliverable_here, AMQPValue annotations):
+    cpdef settle_modified_message(self, c_amqp_definitions.delivery_number message_number, bint delivery_failed, bint undeliverable_here, AMQPValue annotations):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         cdef c_amqp_definitions.fields delivery_fields
         if annotations is not None:

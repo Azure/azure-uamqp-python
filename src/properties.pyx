@@ -58,7 +58,7 @@ cdef class cProperties(StructBase):
     cdef load_from_value(self, AMQPValue value):
         self.destroy()
         if c_amqp_definitions.amqpvalue_get_properties(value._c_value, &self._c_value) != 0:
-            raise self._value_error()
+            self._value_error()
         self._validate()
 
     cdef get_properties(self):

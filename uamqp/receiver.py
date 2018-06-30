@@ -196,29 +196,25 @@ class MessageReceiver():
          the message was accepted, rejected or abandoned.
         :type response: ~uamqp.errors.MessageResponse
         """
-        try:
-            raise response
-        except errors.AcceptMessage:
+        if not response or isinstance(response, errors.MessageAlreadySettled):
+            return
+        elif isinstance(response, errors.MessageAccepted):
             self._receiver.settle_accepted_message(message_number)
-        except errors.ReleaseMessage:
+        elif isinstance(response, errors.MessageReleased):
             self._receiver.settle_released_message(message_number)
-        except errors.RejectMessage as rejection:
+        elif isinstance(response, errors.MessageRejected):
             self._receiver.settle_rejected_message(
                 message_number,
-                rejection.error_condition,
-                rejection.error_description)
-        except errors.ModifyMessage as modify:
-            self._receiver.settled_modified_message(
+                response.error_condition,
+                response.error_description)
+        elif isinstance(response, errors.MessageModified):
+            self._receiver.settle_modified_message(
                 message_number,
-                modify.failed,
-                modify.undeliverable,
-                modify.annotations)
-        except errors.MessageAlreadySettled:
-            pass
-        except TypeError:
-            # If the response is None, we assume no disposition is needed. Otherwise error.
-            if response:
-                raise ValueError("Invalid message response type: {}".format(response))
+                response.failed,
+                response.undeliverable,
+                response.annotations)
+        else:
+            raise ValueError("Invalid message response type: {}".format(response))
 
     def _message_received(self, message):
         """Callback run on receipt of every message. If there is
@@ -241,7 +237,7 @@ class MessageReceiver():
             self.on_message_received(wrapped_message)
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
-            self._receiver.settled_modified_message(message_number, True, True, None)
+            self._receiver.settle_modified_message(message_number, True, True, None)
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change
