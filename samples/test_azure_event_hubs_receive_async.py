@@ -125,7 +125,7 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'])
 
-    with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=True) as conn:
+    with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
         partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
         partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=True, auth=sas_auth, timeout=1000, prefetch=1)
         await partition_0.open_async(connection=conn)
@@ -182,4 +182,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_shared_connection_async(config))
+    loop.run_until_complete(test_event_hubs_iter_receive_async(config))
