@@ -10,7 +10,7 @@ import threading
 
 import uamqp
 from uamqp import c_uamqp
-from uamqp import utils
+from uamqp import utils, errors
 
 
 _logger = logging.getLogger(__name__)
@@ -133,8 +133,8 @@ class Connection:
         description = error.description
         info = error.info
         self._error = errors.ConnectionClose(condition, description, info)
-        if self.on_close_received:
-            self.on_close_received(condition, description, info)
+        # if self.on_close_received:
+        #     self.on_close_received(condition, description, info)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes

@@ -7,19 +7,9 @@
 # pylint: disable=super-init-not-called,no-self-use
 
 import logging
-import time
-import datetime
-import threading
 import certifi
-try:
-    from urllib import parse as urllib_parse
-except ImportError:
-    import urllib as urllib_parse  # Py2
 
-from uamqp import Session
-from uamqp import utils
 from uamqp import constants
-from uamqp import errors
 from uamqp import c_uamqp
 
 

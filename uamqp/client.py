@@ -705,7 +705,7 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = False
         return True
 
-    def _complete_message(self, message, auto):
+    def _complete_message(self, message, auto):  # pylint: disable=no-self-use
         if not message or not auto:
             return
         try:
@@ -752,7 +752,7 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = True
         if self._message_received_callback:
             self._message_received_callback(message)
-        self._complete_message(message, self.auto_complete):
+        self._complete_message(message, self.auto_complete)
 
         if self._received_messages:
             self._received_messages.put(message)

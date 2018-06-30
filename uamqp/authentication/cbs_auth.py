@@ -10,18 +10,17 @@ import logging
 import time
 import datetime
 import threading
-import certifi
 try:
     from urllib import parse as urllib_parse
 except ImportError:
     import urllib as urllib_parse  # Py2
 
-from .common import _SASL, AMQPAuth
 from uamqp import Session
 from uamqp import utils
 from uamqp import constants
 from uamqp import errors
 from uamqp import c_uamqp
+from .common import _SASL, AMQPAuth
 
 
 _logger = logging.getLogger(__name__)
