@@ -103,6 +103,10 @@ class ConnectionAsync(connection.Connection):
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
         await self._lock.acquire()
+        try:
+            raise self._error
+        except TypeError:
+            pass
         await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         self._lock.release()
 

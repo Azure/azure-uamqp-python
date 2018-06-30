@@ -705,16 +705,25 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = False
         return True
 
+    def _complete_message(self, message, auto):
+        if not message or not auto:
+            return
+        try:
+            message.accept()
+        except errors.MessageResponse:
+            # MessageResponse will be raised if message is already settled, so we can ignore
+            pass
+
     def _message_generator(self):
         """Iterate over processed messages in the receive queue.
 
         :rtype: generator[~uamqp.message.Message]
         """
-        # pylint: disable=too-many-nested-blocks
         self.open()
         auto_complete = self.auto_complete
         self.auto_complete = False
         receiving = True
+        message = None
         try:
             while receiving:
                 while receiving and self._received_messages.empty():
@@ -723,15 +732,11 @@ class ReceiveClient(AMQPClient):
                     message = self._received_messages.get()
                     self._received_messages.task_done()
                     yield message
-
-                    if auto_complete:
-                        try:
-                            message.accept()
-                        except errors.MessageResponse:
-                            pass
+                    self._complete_message(message, auto_complete)
         except:
             raise
         finally:
+            self._complete_message(message, auto_complete)
             self.auto_complete = auto_complete
             self.close()
 
@@ -747,14 +752,18 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = True
         if self._message_received_callback:
             self._message_received_callback(message)
-        if self.auto_complete:
-            try:
-                message.accept()
-            except errors.MessageResponse:
-                # MessageResponse will be raised if message is already settled, so we can ignore
-                pass
+        self._complete_message(message, self.auto_complete):
+
         if self._received_messages:
             self._received_messages.put(message)
+        else:
+            # Message was received with callback processing and wasn't settled.
+            # We'll log a warning and release it.
+            try:
+                message.release()
+                _logger.warning("Message was not settled. Releasing.")
+            except errors.MessageResponse:
+                pass
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
@@ -831,6 +840,7 @@ class ReceiveClient(AMQPClient):
         :type on_message_received: callable[~uamqp.message.Message]
         """
         self.open()
+        self._received_messages = None
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -871,6 +881,7 @@ class ReceiveClient(AMQPClient):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
+        self._received_messages = None
 
         self._remote_address = address.Source(redirect.address)
         self._redirect(redirect, auth)

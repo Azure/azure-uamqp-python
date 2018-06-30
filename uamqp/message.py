@@ -143,15 +143,18 @@ class Message:
         _footer = self._message.footer
         if _footer:
             self.footer = _footer.map
+            _footer.destroy()
         _app_props = self._message.application_properties
         if _app_props:
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
             self.annotations = _ann.map
+            _ann.destroy()
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
             self.delivery_annotations = _delivery_ann.map
+            _delivery_ann.destroy()
 
     def _on_message_sent(self, result, error=None):
         """Callback run on a message send operation. If message
@@ -571,6 +574,7 @@ class MessageProperties:
             self._group_id = properties.group_id
             self._group_sequence = properties.group_sequence
             self._reply_to_group_id = properties.reply_to_group_id
+            properties.destroy()
         else:
             self.message_id = message_id
             self.user_id = user_id
@@ -955,6 +959,7 @@ class MessageHeader:
             self.first_acquirer = header.first_acquirer
             self.durable = header.durable
             self.priority = header.priority
+            header.destroy()
 
     def get_header_obj(self):
         header = c_uamqp.create_header()

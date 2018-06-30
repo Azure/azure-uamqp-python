@@ -11,6 +11,19 @@ class AMQPConnectionError(Exception):
     pass
 
 
+class ConnectionClose(AMQPConnectionError):
+
+    def __init__(self, condition, description=None, info=None, encoding="UTF-8"):
+        self._encoding = encoding
+        self.condition = condition
+        self.description = description
+        self.info = info
+        message = self.condition.decode(self._encoding)
+        if self.description:
+            message += ": {}".format(self.description.decode(self._encoding))
+        super(ConnectionClose, self).__init__(message)
+
+
 class LinkDetach(AMQPConnectionError):
 
     def __init__(self, condition, description=None, info=None, encoding="UTF-8"):
