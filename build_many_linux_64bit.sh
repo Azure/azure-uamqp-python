@@ -14,6 +14,7 @@ export OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl"
 /opt/python/cp34-cp34m/bin/python -m pip install cython==0.27.3 wheel
 /opt/python/cp35-cp35m/bin/python -m pip install cython==0.27.3 wheel
 /opt/python/cp36-cp36m/bin/python -m pip install cython==0.27.3 wheel
+/opt/python/cp37-cp37m/bin/python -m pip install cython==0.27.3 wheel
 
 # Build the wheels
 pushd /data
@@ -25,3 +26,6 @@ auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp35-cp35m-linux_x86_64.whl
 
 /opt/python/cp36-cp36m/bin/python setup.py bdist_wheel
 auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp36-cp36m-linux_x86_64.whl
+
+/opt/python/cp37-cp37m/bin/python setup.py bdist_wheel
+auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp37-cp37m-linux_x86_64.whl
