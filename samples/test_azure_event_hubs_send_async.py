@@ -11,7 +11,6 @@ import pytest
 import sys
 
 import uamqp
-from uamqp import async as a_uamqp
 from uamqp import authentication
 
 
@@ -36,10 +35,10 @@ async def test_event_hubs_client_send_async(live_eventhub_config):
     message = uamqp.Message(msg_content, application_properties=properties)
     plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
+    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=False)
     send_client.queue_message(message)
     results = await send_client.send_all_messages_async()
-    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
 @pytest.mark.asyncio
@@ -49,28 +48,46 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
 
     message = uamqp.Message(msg_content, annotations=annotations)
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
-    await send_client.send_message_async(message, close_on_done=True)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+   
+    for _ in range(10):
+        message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+        await send_client.send_message_async(message)
+    await send_client.close_async()
 
 
 @pytest.mark.asyncio
 async def test_event_hubs_batch_send_async(live_eventhub_config):
-    def data_generator():
-        for i in range(5):
-            msg_content = "Hello world {}".format(i).encode('utf-8')
-            yield msg_content
+    for _ in range(10):
+        def data_generator():
+            for i in range(50):
+                msg_content = "Hello world {}".format(i).encode('utf-8')
+                yield msg_content
 
-    message_batch = uamqp.message.BatchMessage(data_generator())
+        message_batch = uamqp.message.BatchMessage(data_generator())
 
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = a_uamqp.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+        uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+        sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = a_uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+        target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+        send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
 
-    send_client.queue_message(message_batch)
-    results = await send_client.send_all_messages_async()
-    assert not [m for m in results if m == uamqp.constants.MessageState.Failed]
+        send_client.queue_message(message_batch)
+        results = await send_client.send_all_messages_async()
+        assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+
+
+if __name__ == '__main__':
+    config = {}
+    config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
+    config['event_hub'] = os.environ['EVENT_HUB_NAME']
+    config['key_name'] = os.environ['EVENT_HUB_SAS_POLICY']
+    config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
+    config['consumer_group'] = "$Default"
+    config['partition'] = "0"
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_event_hubs_single_send_async(config))

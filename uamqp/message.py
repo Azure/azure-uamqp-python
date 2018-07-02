@@ -8,7 +8,7 @@ import logging
 
 from uamqp import c_uamqp
 from uamqp import utils
-from uamqp import constants
+from uamqp import constants, errors
 
 
 _logger = logging.getLogger(__name__)
@@ -47,7 +47,11 @@ class Message:
     :param message: Internal only. This is used to wrap an existing message
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
-    :type message: ~uamqp.c_uamqp.cMessage
+    :type message: uamqp.c_uamqp.cMessage
+    :param settled: Internal only. This is used when wrapping an existing message
+     that has been received from an AMQP service. Should only be specified together
+     with `message` and is to determine receive-settled mode of the client.
+    :type settled: int
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -61,10 +65,13 @@ class Message:
                  header=None,
                  msg_format=None,
                  message=None,
+                 settler=None,
                  encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self._retries = 0
+        self._response = None
+        self._settler = None
         self._encoding = encoding
         self.on_send_complete = None
         self.properties = None
@@ -75,6 +82,13 @@ class Message:
         self.delivery_annotations = None
 
         if message:
+            if settler:
+                self.state = constants.MessageState.ReceivedUnsettled
+                self._response = None
+            else:
+                self.state = constants.MessageState.ReceivedSettled
+                self._response = errors.MessageAlreadySettled()
+            self._settler = settler
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
@@ -106,8 +120,9 @@ class Message:
 
     def _parse_message(self, message):
         """Parse a message received from an AMQP service.
+
         :param message: The received C message.
-        :type message: ~uamqp.c_uamqp.cMessage
+        :type message: uamqp.c_uamqp.cMessage
         """
         self._message = message
         body_type = message.body_type
@@ -156,28 +171,56 @@ class Message:
             self.state = constants.MessageState.WaitingToBeSent
         elif result == constants.MessageSendResult.Error:
             _logger.error("Message error, {} retries exhausted ({})".format(constants.MESSAGE_SEND_RETRIES, error))
-            self.state = constants.MessageState.Failed
+            self.state = constants.MessageState.SendFailed
+            self._response = errors.MessageAlreadySettled()
             if self.on_send_complete:
                 self.on_send_complete(result, error)
         else:
             _logger.debug("Message sent: {}, {}".format(result, error))
-            self.state = constants.MessageState.Complete
+            self.state = constants.MessageState.SendComplete
+            self._response = errors.MessageAlreadySettled()
             if self.on_send_complete:
                 self.on_send_complete(result, error)
+
+    def _can_settle_message(self):
+        if self.state not in constants.RECEIVE_STATES:
+            raise TypeError("Only received messages can be settled.")
+        elif self.settled:
+            return False
+        return True
+
+    @property
+    def settled(self):
+        """Whether the message transaction for this message has been completed.
+        If this message is to be sent, the message will be `settled=True` once a
+        disposition has been received from the service.
+        If this message has been received, the message will be `settled=True` once
+        a disposition has been sent to the service.
+
+        :rtype: bool
+        """
+        if self._response:
+            return True
+        return False
 
     def get_message_encoded_size(self):
         """Pre-emptively get the size of the message once it has been encoded
         to go over the wire so we can raise an error if the message will be
         rejected for being to large.
-        :returns: int
+
+        :rtype: int
         """
+        if self.state in constants.RECEIVE_STATES:
+            # We only need this for messages being sent.
+            return None
         # TODO: This no longer calculates the metadata accurately.
         return c_uamqp.get_encoded_message_size(self._message)
 
     def get_data(self):
         """Get the body data of the message. The format may vary depending
         on the body type.
-        :returns: generator
+
+        :rtype: generator
         """
         if not self._message or not self._body:
             return None
@@ -186,18 +229,26 @@ class Message:
     def gather(self):
         """Return all the messages represented by this object.
         This will always be a list of a single message.
-        :returns: list[~uamqp.Message]
+
+        :rtype: list[~uamqp.message.Message]
         """
+        if self.state in constants.RECEIVE_STATES:
+            raise TypeError("Only new messages can be gathered.")
+        try:
+            raise self._response
+        except TypeError:
+            pass
         return [self]
 
     def get_message(self):
         """Get the underlying C message from this object.
-        :returns: ~uamqp.c_uamqp.cMessage
+
+        :rtype: uamqp.c_uamqp.cMessage
         """
         if not self._message:
             return None
         if self.properties:
-            self._message.properties = self.properties._properties  # pylint: disable=protected-access
+            self._message.properties = self.properties.get_properties_obj()
         if self.application_properties:
             if not isinstance(self.application_properties, dict):
                 raise TypeError("Application properties must be a dictionary.")
@@ -210,8 +261,97 @@ class Message:
                 utils.data_factory(self.annotations, encoding=self._encoding))
             self._message.message_annotations = ann_props
         if self.header:
-            self._message.header = self.header._header  # pylint: disable=protected-access
+            self._message.header = self.header.get_header_obj()
         return self._message
+
+    def accept(self):
+        """Send a response disposition to the service to indicate that
+        a received message has been accepted. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. Returns `True` is message was accepted, or `False` if the message
+        was already settled.
+
+        :rtype: bool
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        if self._can_settle_message():
+            self._response = errors.MessageAccepted()
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
+
+    def reject(self, condition=None, description=None):
+        """Send a response disposition to the service to indicate that
+        a received message has been rejected. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. A rejected message will increment the messages delivery count.
+        Returns `True` is message was rejected, or `False` if the message
+        was already settled.
+
+        :param condition: The AMQP rejection code. By default this is `amqp:internal-error`.
+        :type condition: bytes or str
+        :param description: A description/reason to accompany the rejection.
+        :type description: bytes or str
+        :rtype: bool
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        if self._can_settle_message():
+            self._response = errors.MessageRejected(
+                condition=condition,
+                description=description,
+                encoding=self._encoding)
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
+
+    def release(self):
+        """Send a response disposition to the service to indicate that
+        a received message has been released. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. A released message will not incremenet the messages
+        delivery count. Returns `True` is message was released, or `False` if the message
+        was already settled.
+
+        :rtype: bool
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        if self._can_settle_message():
+            self._response = errors.MessageReleased()
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
+
+    def modify(self, failed, deliverable, annotations=None):
+        """Send a response disposition to the service to indicate that
+        a received message has been modified. If the client is running in PeekLock
+        mode, the service will wait on this disposition. Otherwise it will
+        be ignored. Returns `True` is message was released, or `False` if the message
+        was already settled.
+
+        :param failed: Whether this delivery of this message failed. This does not
+         indicate whether subsequence deliveries of this message would also fail.
+        :type failed: bool
+        :param deliverable: Whether this message will be deliverable to this client
+         on subsequent deliveries - i.e. whether delivery is retryable.
+        :type deliverable: bool
+        :param annotations: Annotations to attach to response.
+        :type annotations: dict
+        :rtype: bool
+        :raises: TypeError if the message is being sent rather than received.
+        """
+        if self._can_settle_message():
+            self._response = errors.MessageModified(
+                failed,
+                deliverable,
+                annotations=annotations,
+                encoding=self._encoding)
+            self._settler(self._response)
+            self.state = constants.MessageState.ReceivedSettled
+            return True
+        return False
 
 
 class BatchMessage(Message):
@@ -285,10 +425,10 @@ class BatchMessage(Message):
         self.header = header
 
     def _create_batch_message(self):
-        """Create a ~uamqp.Message for a value supplied by the data
+        """Create a ~uamqp.message.Message for a value supplied by the data
         generator. Applies all properties and annotations to the message.
 
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         return Message(body=[],
                        properties=self.properties,
@@ -298,13 +438,13 @@ class BatchMessage(Message):
                        encoding=self._encoding)
 
     def _multi_message_generator(self):
-        """Generate multiple ~uamqp.Message objects from a single data
+        """Generate multiple ~uamqp.message.Message objects from a single data
         stream that in total may exceed the maximum individual message size.
         Data will be continuously added to a single message until that message
         reaches a max allowable size, at which point it will be yielded and
         a new message will be started.
 
-        :returns: generator[~uamqp.Message]
+        :rtype: generator[~uamqp.message.Message]
         """
         while True:
             new_message = self._create_batch_message()
@@ -336,10 +476,10 @@ class BatchMessage(Message):
 
     def gather(self):
         """Return all the messages represented by this object. This will convert
-        the batch data into individual ~uamqp.Message objects, which may be one
+        the batch data into individual ~uamqp.message.Message objects, which may be one
         or more if multi_messages is set to `True`.
 
-        :returns: list[~uamqp.Message]
+        :rtype: list[~uamqp.message.Message]
         """
         if self._multi_messages:
             return self._multi_message_generator()
@@ -375,7 +515,7 @@ class MessageProperties:
      The message producer is usually responsible for setting the message-id in such a way that it
      is assured to be globally unique. A broker MAY discard a message as a duplicate if the value
      of the message-id matches that of a previously received message sent to the same node.
-    :vartype message_id: str or bytes, ~uuid.UUID, ~uamqp.types.AMQPType
+    :vartype message_id: str or bytes, uuid.UUID, ~uamqp.types.AMQPType
     :ivar user_id: The identity of the user responsible for producing the message. The client sets
      this value, and it MAY be authenticated by intermediaries.
     :vartype user_id: str or bytes
@@ -420,193 +560,220 @@ class MessageProperties:
                  reply_to_group_id=None,
                  properties=None,
                  encoding='UTF-8'):
-        self._properties = properties if properties else c_uamqp.cProperties()
         self._encoding = encoding
-        if message_id:
+        if properties:
+            self._message_id = properties.message_id
+            self._user_id = properties.user_id
+            self._to = properties.to
+            self._subject = properties.subject
+            self._reply_to = properties.reply_to
+            self._correlation_id = properties.correlation_id
+            self._content_type = properties.content_type
+            self._content_encoding = properties.content_encoding
+            self._absolute_expiry_time = properties.absolute_expiry_time
+            self._creation_time = properties.creation_time
+            self._group_id = properties.group_id
+            self._group_sequence = properties.group_sequence
+            self._reply_to_group_id = properties.reply_to_group_id
+        else:
             self.message_id = message_id
-        if user_id:
             self.user_id = user_id
-        if to:
             self.to = to
-        if subject:
             self.subject = subject
-        if reply_to:
             self.reply_to = reply_to
-        if correlation_id:
             self.correlation_id = correlation_id
-        if content_type:
             self.content_type = content_type
-        if content_encoding:
             self.content_encoding = content_encoding
-        if absolute_expiry_time:
             self.absolute_expiry_time = absolute_expiry_time
-        if creation_time:
             self.creation_time = creation_time
-        if group_id:
             self.group_id = group_id
-        if group_sequence:
             self.group_sequence = group_sequence
-        if reply_to_group_id:
             self.reply_to_group_id = reply_to_group_id
 
     @property
     def message_id(self):
-        _value = self._properties.message_id
-        if _value:
-            return _value.value
+        if self._message_id:
+            return self._message_id.value
         return None
 
     @message_id.setter
     def message_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.message_id = value
+        if value is None:
+            self._message_id = None
+        else:
+            self._message_id = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def user_id(self):
-        _value = self._properties.user_id
-        if _value:
-            return _value.value
-        return None
+        return self._user_id
 
     @user_id.setter
     def user_id(self, value):
         if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("user_id must be bytes or str.")
-        self._properties.user_id = value
+        self._user_id = value
 
     @property
     def to(self):
-        _value = self._properties.to
-        if _value:
-            return _value.value
+        if self._to:
+            return self._to.value
         return None
 
     @to.setter
     def to(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.to = value
+        if value is None:
+            self._to = None
+        else:
+            self._to = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def subject(self):
-        _value = self._properties.subject
-        if _value:
-            return _value.value
+        if self._subject is not None:
+            return self._subject.value
         return None
 
     @subject.setter
     def subject(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.subject = value
+        if value is None:
+            self._subject = None
+        else:
+            self._subject = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def reply_to(self):
-        _value = self._properties.reply_to
-        if _value:
-            return _value.value
+        if self._reply_to is not None:
+            return self._reply_to.value
         return None
 
     @reply_to.setter
     def reply_to(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.reply_to = value
+        if value is None:
+            self._reply_to = None
+        else:
+            self._reply_to = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def correlation_id(self):
-        _value = self._properties.correlation_id
-        if _value:
-            return _value.value
+        if self._correlation_id is not None:
+            return self._correlation_id.value
         return None
 
     @correlation_id.setter
     def correlation_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.correlation_id = value
+        if value is None:
+            self._correlation_id = None
+        else:
+            self._correlation_id = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def content_type(self):
-        _value = self._properties.content_type
-        if _value:
-            return _value.value
+        if self._content_type is not None:
+            return self._content_type.value
         return None
 
     @content_type.setter
     def content_type(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.content_type = value
+        if value is None:
+            self._content_type = None
+        else:
+            self._content_type = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def content_encoding(self):
-        _value = self._properties.content_encoding
-        if _value:
-            return _value.value
+        if self._content_encoding is not None:
+            return self._content_encoding.value
         return None
 
     @content_encoding.setter
     def content_encoding(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.content_encoding = value
+        if value is None:
+            self._content_encoding = None
+        else:
+            self._content_encoding = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def absolute_expiry_time(self):
-        _value = self._properties.absolute_expiry_time
-        if _value:
-            return _value.value
+        if self._absolute_expiry_time is not None:
+            return self._absolute_expiry_time.value
         return None
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.absolute_expiry_time = value
+        if value is None:
+            self._absolute_expiry_time = None
+        else:
+            self._absolute_expiry_time = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def creation_time(self):
-        _value = self._properties.creation_time
-        if _value:
-            return _value.value
+        if self._creation_time is not None:
+            return self._creation_time.value
         return None
 
     @creation_time.setter
     def creation_time(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.creation_time = value
+        if value is None:
+            self._creation_time = None
+        else:
+            self._creation_time = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def group_id(self):
-        _value = self._properties.group_id
-        if _value:
-            return _value
-        return None
+        return self._group_id
 
     @group_id.setter
     def group_id(self, value):
-        #value = utils.data_factory(value)
-        self._properties.group_id = value
+        self._group_id = value
 
     @property
     def group_sequence(self):
-        _value = self._properties.group_sequence
-        if _value:
-            return _value
+        if self._group_sequence is not None:
+            return self._group_sequence.value
         return None
 
     @group_sequence.setter
     def group_sequence(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.group_sequence = value
+        if value is None:
+            self._group_sequence = None
+        else:
+            self._group_sequence = utils.data_factory(value, encoding=self._encoding)
 
     @property
     def reply_to_group_id(self):
-        _value = self._properties.reply_to_group_id
-        if _value:
-            return _value.value
+        if self._reply_to_group_id is not None:
+            return self._reply_to_group_id.value
         return None
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._properties.reply_to_group_id = value
+        if value is None:
+            self._reply_to_group_id = None
+        else:
+            self._reply_to_group_id = utils.data_factory(value, encoding=self._encoding)
+
+    def _set_attr(self, attr, properties):
+        attr_value = getattr(self, "_" + attr)
+        if attr_value is not None:
+            setattr(properties, attr, attr_value)
+
+    def get_properties_obj(self):
+        properties = c_uamqp.cProperties()
+        self._set_attr('message_id', properties)
+        self._set_attr('user_id', properties)
+        self._set_attr('to', properties)
+        self._set_attr('subject', properties)
+        self._set_attr('reply_to', properties)
+        self._set_attr('correlation_id', properties)
+        self._set_attr('content_type', properties)
+        self._set_attr('content_encoding', properties)
+        self._set_attr('absolute_expiry_time', properties)
+        self._set_attr('creation_time', properties)
+        self._set_attr('group_id', properties)
+        self._set_attr('group_sequence', properties)
+        self._set_attr('reply_to_group_id', properties)
+        return properties
 
 
 class MessageBody:
@@ -637,7 +804,7 @@ class DataBody(MessageBody):
     a list of bytes sections.
 
     :ivar type: The body type. This should always be DataType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each section in the body, where
      each section will be a byte string.
@@ -678,7 +845,7 @@ class SequenceBody(MessageBody):
     a list of encoded objects.
 
     :ivar type: The body type. This should always be SequenceType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each item in the body.
     :vartype data: generator
@@ -716,7 +883,7 @@ class ValueBody(MessageBody):
     a single encoded object.
 
     :ivar type: The body type. This should always be ValueType
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. The value
      of the encoded object
     :vartype data: object
@@ -777,36 +944,32 @@ class MessageHeader:
 
     :param header: Internal only. This is used to wrap an existing message header
      that has been received from an AMQP service.
-    :type header: ~uamqp.c_uamqp.cHeader
+    :type header: uamqp.c_uamqp.cHeader
     """
 
     def __init__(self, header=None):
-        self._header = header if header else c_uamqp.create_header()
+        self.delivery_count = None
+        self.time_to_live = None
+        self.first_acquirer = None
+        self.durable = None
+        self.priority = None
+        if header:
+            self.delivery_count = header.delivery_count
+            self.time_to_live = header.time_to_live
+            self.first_acquirer = header.first_acquirer
+            self.durable = header.durable
+            self.priority = header.priority
 
-    @property
-    def delivery_count(self):
-        return self._header.delivery_count
-
-    @property
-    def time_to_live(self):
-        return self._header.time_to_live
-
-    @property
-    def first_acquirer(self):
-        return self._header.first_acquirer
-
-    @property
-    def durable(self):
-        return self._header.durable
-
-    @durable.setter
-    def durable(self, value):
-        self._header.durable = bool(value)
-
-    @property
-    def priority(self):
-        return self._header.priority
-
-    @priority.setter
-    def priority(self, value):
-        self._header.priority = int(value)
+    def get_header_obj(self):
+        header = c_uamqp.create_header()
+        if self.delivery_count is not None:
+            header.delivery_count = self.delivery_count
+        if self.time_to_live is not None:
+            header.time_to_live = self.time_to_live
+        if self.first_acquirer is not None:
+            header.first_acquirer = self.first_acquirer
+        if self.durable is not None:
+            header.durable = self.durable
+        if self.priority is not None:
+            header.priority = self.priority
+        return header

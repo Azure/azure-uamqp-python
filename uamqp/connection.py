@@ -10,7 +10,7 @@ import threading
 
 import uamqp
 from uamqp import c_uamqp
-from uamqp import utils
+from uamqp import utils, errors
 
 
 _logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class Connection:
     :type hostname: bytes or str
     :param sasl: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type sasl: ~uamqp.authentication.AMQPAuth
+    :type sasl: ~uamqp.authentication.common.AMQPAuth
     :param container_id: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type container_id: str or bytes
@@ -71,27 +71,38 @@ class Connection:
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        self.hostname = hostname
+        if isinstance(self.container_id, str):
+            self.container_id = self.container_id.encode(encoding)
+        self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
+        self.on_close_received = None
         self.auth = sasl
         self.cbs = None
+        self._debug = debug
         self._conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
-            hostname.encode(encoding) if isinstance(hostname, str) else hostname,
-            self.container_id.encode(encoding) if isinstance(self.container_id, str) else self.container_id,
+            self.hostname,
+            self.container_id,
             self)
-        self._conn.set_trace(debug)
+        self._conn.set_trace(self._debug)
+        #self._conn.subscribe_to_close_event(self)
         self._sessions = []
         self._lock = threading.Lock()
         self._state = c_uamqp.ConnectionState.UNKNOWN
         self._encoding = encoding
+        self._settings = {}
+        self._error = None
 
         if max_frame_size:
+            self._settings['max_frame_size'] = max_frame_size
             self.max_frame_size = max_frame_size
         if channel_max:
+            self._settings['channel_max'] = channel_max
             self.channel_max = channel_max
         if idle_timeout:
+            self._settings['idle_timeout'] = idle_timeout
             self.idle_timeout = idle_timeout
         if properties:
+            self._settings['properties'] = properties
             self.properties = properties
         if remote_idle_timeout_empty_frame_send_ratio:
             self._conn.remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
@@ -103,6 +114,27 @@ class Connection:
     def __exit__(self, *args):
         """Close the Connection when exiting a context manager."""
         self.destroy()
+
+    def _close(self):
+        if self.cbs:
+            self.auth.close_authenticator()
+            self.cbs = None
+        self._conn.destroy()
+        self.auth.close()
+
+    def _close_received(self, error):
+        """Callback called when a connection CLOSE frame is received.
+        :param error: The error information from the close
+         frame.
+        :type error: ~uamqp.errors.ErrorResponse
+        """
+        _logger.info("In conneciton close received")
+        condition = error.condition
+        description = error.description
+        info = error.info
+        self._error = errors.ConnectionClose(condition, description, info)
+        # if self.on_close_received:
+        #     self.on_close_received(condition, description, info)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes
@@ -128,15 +160,42 @@ class Connection:
         """Close the connection, and close any associated
         CBS authentication session.
         """
-        if self.cbs:
-            self.auth.close_authenticator()
-        self._conn.destroy()
-        self.auth.close()
+        self._close()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
+
+    def redirect(self, redirect_error, auth):
+        """Redirect the connection to an alternative endpoint.
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.common.AMQPAuth
+        """
+        self._lock.acquire()
+        try:
+            if self.hostname == redirect_error.hostname:
+                return
+            if self._state != c_uamqp.ConnectionState.END:
+                self._close()
+            self.hostname = redirect_error.hostname
+            self.auth = auth
+            self._conn = c_uamqp.create_connection(
+                self.auth.sasl_client.get_client(),
+                self.hostname,
+                self.container_id,
+                self)
+            self._conn.set_trace(self._debug)
+            for setting, value in self._settings.items():
+                setattr(self, setting, value)
+        finally:
+            self._lock.release()
 
     def work(self):
         """Perform a single Connection iteration."""
         self._lock.acquire()
+        try:
+            raise self._error
+        except TypeError:
+            pass
         self._conn.do_work()
         self._lock.release()
 

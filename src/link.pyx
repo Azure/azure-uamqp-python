@@ -28,6 +28,7 @@ cpdef create_link(cSession session, const char* name, bint role, AMQPValue sourc
 cdef class cLink(StructBase):
 
     cdef c_link.LINK_HANDLE _c_value
+    cdef c_link.ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE _detach_event
 
     def __cinit__(self):
         pass
@@ -61,6 +62,17 @@ cdef class cLink(StructBase):
         self.destroy()
         self._c_value = c_link.link_create(session, name, role, source, target)
         self._create()
+
+    cpdef subscribe_to_detach_event(self, on_detch_received):
+        self._detach_event = c_link.link_subscribe_on_link_detach_received(
+            self._c_value,
+            <c_link.ON_LINK_DETACH_RECEIVED>on_link_detach_received,
+            <void*>on_detch_received)
+        if <void*>self._detach_event == NULL:
+            self._value_error("Unable to register DETACH event handler.")
+
+    cpdef unsubscribe_to_detach_event(self):
+        c_link.link_unsubscribe_on_link_detach_received(self._detach_event)
 
     @property
     def send_settle_mode(self):
@@ -131,3 +143,16 @@ cdef class cLink(StructBase):
     cpdef set_attach_properties(self, AMQPValue properties):
         if c_link.link_set_attach_properties(self._c_value, <c_amqp_definitions.fields>properties._c_value) != 0:
             self._value_error("Unable to set link attach properties.")
+
+
+#### Callback
+
+cdef void on_link_detach_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
+    cdef c_amqp_definitions.ERROR_HANDLE cloned
+    context_obj = <object>context
+    cloned = c_amqp_definitions.error_clone(error)
+    wrapped_error = error_factory(cloned)
+    if hasattr(context_obj, '_detach_received'):
+        context_obj._detach_received(wrapped_error)
+    elif callable(context_obj):
+        context_obj(wrapped_error)

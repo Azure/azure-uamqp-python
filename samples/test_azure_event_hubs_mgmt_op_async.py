@@ -11,7 +11,6 @@ import pytest
 import sys
 
 import uamqp
-from uamqp import async as a_uamqp
 from uamqp import authentication
 
 

@@ -29,11 +29,11 @@ class MessageSender():
     :vartype max_message_size: int
 
     :param session: The underlying Session with which to send.
-    :type session: ~uamqp.Session
+    :type session: ~uamqp.session.Session
     :param source: The name of source (i.e. the client).
     :type source: str or bytes
     :param target: The AMQP endpoint to send to.
-    :type target: ~uamqp.Target
+    :type target: ~uamqp.address.Target
     :param name: A unique name for the sender. If not specified a GUID will be used.
     :type name: str or bytes
     :param send_settle_mode: The mode by which to settle message send
@@ -48,6 +48,10 @@ class MessageSender():
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param on_detach_received: A callback to be run if the client receives
+     a link DETACH frame from the service. The callback must take 3 arguments,
+     the `condition`, the optional `description` and an optional info dict.
+    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -58,10 +62,12 @@ class MessageSender():
 
     def __init__(self, session, source, target,
                  name=None,
-                 send_settle_mode=None,
-                 max_message_size=None,
+                 send_settle_mode=constants.SenderSettleMode.Unsettled,
+                 receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
+                 max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
+                 on_detach_received=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -74,10 +80,12 @@ class MessageSender():
 
         self.source = c_uamqp.Messaging.create_source(source)
         self.target = target._address.value
+        self.on_detach_received = on_detach_received
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
         self._link.max_message_size = max_message_size
+        self._link.subscribe_to_detach_event(self)
 
         if link_credit:
             self._link.set_prefetch_count(link_credit)
@@ -85,12 +93,15 @@ class MessageSender():
             self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if send_settle_mode:
             self.send_settle_mode = send_settle_mode
+        if receive_settle_mode:
+            self.receive_settle_mode = receive_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
 
         self._sender = c_uamqp.create_message_sender(self._link, self)
         self._sender.set_trace(debug)
         self._state = constants.MessageSenderState.Idle
+        self._error = None
 
     def __enter__(self):
         """Open the MessageSender in a context manager."""
@@ -100,6 +111,17 @@ class MessageSender():
     def __exit__(self, *args):
         """Close the MessageSender when exiting a context manager."""
         self.destroy()
+
+    def get_state(self):
+        """Get the state of the MessageSender and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        return self._state
 
     def destroy(self):
         """Close both the Sender and the Link. Clean up any C objects."""
@@ -128,13 +150,29 @@ class MessageSender():
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
         :param message: The message to send.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param timeout: An expiry time for the message added to the queue. If the
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.
         """
         c_message = message.get_message()
         self._sender.send(c_message, timeout, message)
+
+    def _detach_received(self, error):
+        """Callback called when a link DETACH frame is received.
+        :param error: The error information from the detach
+         frame.
+        :type error: ~uamqp.errors.ErrorResponse
+        """
+        condition = error.condition
+        description = error.description
+        info = error.info
+        if condition == constants.ERROR_LINK_REDIRECT:
+            self._error = errors.LinkRedirect(condition, description, info)
+        else:
+            self._error = errors.LinkDetach(condition, description, info)
+        if self.on_detach_received:
+            self.on_detach_received(condition, description, info)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -163,8 +201,10 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        _logger.debug("Message sender state changed from {} to {}".format(previous_state, new_state))
-        self._state = new_state
+        if new_state != previous_state:
+            _logger.debug("Message sender {} state changed from {} to {}".format(
+                self.name, previous_state, new_state))
+            self._state = new_state
 
     @property
     def send_settle_mode(self):
@@ -173,6 +213,14 @@ class MessageSender():
     @send_settle_mode.setter
     def send_settle_mode(self, value):
         self._link.send_settle_mode = value.value
+
+    @property
+    def receive_settle_mode(self):
+        return self._link.receive_settle_mode
+
+    @receive_settle_mode.setter
+    def receive_settle_mode(self, value):
+        self._link.receive_settle_mode = value.value
 
     @property
     def max_message_size(self):

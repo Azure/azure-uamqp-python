@@ -38,17 +38,42 @@ class Address:
     """
 
     def __init__(self, address, encoding='UTF-8'):
+        address = address.encode(encoding) if isinstance(address, str) else address
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
-        self._c_address = c_uamqp.string_value(
-            address.encode(encoding) if isinstance(address, str) else address)
+        addr = self.parsed_address.scheme + b"://" + self.parsed_address.hostname + self.parsed_address.path
+        self._c_address = c_uamqp.string_value(addr)
 
     def __repr__(self):
         """Get the Address as a URL.
-        :returns: str
+
+        :rtype: bytes
         """
         return self.parsed_address.geturl()
+
+    def __str__(self):
+        """Get the Address as a URL.
+
+        :rtype: str
+        """
+        return self.parsed_address.geturl().decode(self._encoding)
+
+    @property
+    def hostname(self):
+        return self.parsed_address.hostname.decode(self._encoding)
+
+    @property
+    def username(self):
+        if self.parsed_address.username:
+            return self.parsed_address.username.decode(self._encoding)
+        return None
+
+    @property
+    def password(self):
+        if self.parsed_address.password:
+            return self.parsed_address.password.decode(self._encoding)
+        return None
 
     @property
     def address(self):
@@ -101,10 +126,10 @@ class Address:
 
         :param address: The endpiont URL.
         :type address: str
-        :returns: ~urllib.parse.ParseResult
+        :rtype: ~urllib.parse.ParseResult
         """
         parsed = urlparse(address)
-        if not parsed.scheme.startswith('amqp'):
+        if not parsed.scheme.startswith(b'amqp'):
             raise ValueError("Source scheme must be amqp or amqps.")
         if not parsed.netloc or not parsed.path:
             raise ValueError("Invalid {} address: {}".format(
@@ -126,6 +151,7 @@ class Source(Address):
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
     :vartype distribution_mode: str
+
     :param address: An AMQP endpoint URL.
     :type address: str or bytes
     :param encoding: The encoding used if address is supplied
@@ -174,6 +200,7 @@ class Target(Address):
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
     :vartype distribution_mode: str
+
     :param address: An AMQP endpoint URL.
     :type address: str or bytes
     :param encoding: The encoding used if address is supplied

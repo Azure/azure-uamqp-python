@@ -73,7 +73,7 @@ class AMQPType(Enum):
 cdef value_factory(c_amqpvalue.AMQP_VALUE value):
     type_val = get_amqp_value_type(value)
     _logger.debug("Wrapping value type: {}".format(type_val))
-    if type_val == AMQPType.NullValue or type_val == AMQPType.UnknownType:
+    if type_val == AMQPType.NullValue:
         new_obj = AMQPValue()
     elif type_val == AMQPType.BoolValue:
         new_obj = BoolValue()

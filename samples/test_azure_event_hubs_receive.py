@@ -104,11 +104,12 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
     log.info("Finished receiving")
 
 
-def test_event_hubs_callback_receive(live_eventhub_config):
+def test_event_hubs_callback_receive_sync(live_eventhub_config):
     def on_message_received(message):
         annotations = message.annotations
         log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-        return message
+        log.info(str(message))
+        message.accept()
 
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -138,9 +139,25 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
         live_eventhub_config['partition'])
 
     receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=10, debug=False, prefetch=10)
-    for message in receive_client.receive_messages_iter():
-        annotations = message.annotations
-        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+    count = 0
+    gen = receive_client.receive_messages_iter()
+    for message in gen:
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+        count += 1
+        if count >= 100000:
+            log.info("Got {} messages. Shutting down.".format(count))
+            message.accept()
+            break
+    count = 0
+    for message in gen:
+        count += 1
+        if count >= 10:
+            log.info("Got {} more messages. Shutting down.".format(count))
+            message.accept()
+            break
+    
+    receive_client.close()
 
 
 def test_event_hubs_filter_receive(live_eventhub_config):
@@ -154,7 +171,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
     source = address.Source(source_url)
-    source.set_filter(b"amqp.annotation.x-opt-enqueuedtimeutc > 1518731960545")
+    source.set_filter(b"amqp.annotation.x-opt-sequence-number > 1324709514")
 
     with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")

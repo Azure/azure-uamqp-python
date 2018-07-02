@@ -6,7 +6,9 @@
 
 import logging
 import uuid
+import functools
 
+import uamqp
 from uamqp import utils
 from uamqp import errors
 from uamqp import constants
@@ -30,9 +32,9 @@ class MessageReceiver():
     :vartype max_message_size: int
 
     :param session: The underlying Session with which to receive.
-    :type session: ~uamqp.Session
+    :type session: ~uamqp.session.Session
     :param source: The AMQP endpoint to receive from.
-    :type source: ~uamqp.Source
+    :type source: ~uamqp.address.Source
     :param target: The name of target (i.e. the client).
     :type target: str or bytes
     :param name: A unique name for the receiver. If not specified a GUID will be used.
@@ -50,6 +52,10 @@ class MessageReceiver():
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param on_detach_received: A callback to be run if the client receives
+     a link DETACH frame from the service. The callback must take 3 arguments,
+     the `condition`, the optional `description` and an optional info dict.
+    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -61,10 +67,12 @@ class MessageReceiver():
     def __init__(self, session, source, target,
                  on_message_received,
                  name=None,
-                 receive_settle_mode=None,
-                 max_message_size=None,
-                 prefetch=None,
+                 receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
+                 send_settle_mode=constants.SenderSettleMode.Unsettled,
+                 max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
+                 prefetch=300,
                  properties=None,
+                 on_detach_received=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -78,22 +86,28 @@ class MessageReceiver():
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
         self.on_message_received = on_message_received
+        self.on_detach_received = on_detach_received
+        self.encoding = encoding
+        self._settle_mode = receive_settle_mode
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
-
+        self._link.subscribe_to_detach_event(self)
         if prefetch:
             self._link.set_prefetch_count(prefetch)
         if properties:
             self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
         if receive_settle_mode:
             self.receive_settle_mode = receive_settle_mode
+        if send_settle_mode:
+            self.send_settle_mode = send_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
 
         self._receiver = c_uamqp.create_message_receiver(self._link, self)
         self._receiver.set_trace(debug)
         self._state = constants.MessageReceiverState.Idle
+        self._error = None
 
     def __enter__(self):
         """Open the MessageReceiver in a context manager."""
@@ -103,6 +117,17 @@ class MessageReceiver():
     def __exit__(self, *args):
         """Close the MessageReceiver when exiting a context manager."""
         self.destroy()
+
+    def get_state(self):
+        """Get the state of the MessageReceiver and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        return self._state
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
@@ -117,7 +142,7 @@ class MessageReceiver():
          or the credentials are rejected.
         """
         try:
-            self._receiver.open(self.on_message_received)
+            self._receiver.open(self)
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
@@ -146,6 +171,74 @@ class MessageReceiver():
             _new_state = new_state
         self.on_state_changed(_previous_state, _new_state)
 
+    def _detach_received(self, error):
+        """Callback called when a link DETACH frame is received.
+        :param error: The error information from the detach
+         frame.
+        :type error: ~uamqp.errors.ErrorResponse
+        """
+        condition = error.condition
+        description = error.description
+        info = error.info
+        if condition == constants.ERROR_LINK_REDIRECT:
+            self._error = errors.LinkRedirect(condition, description, info)
+        else:
+            self._error = errors.LinkDetach(condition, description, info)
+        if self.on_detach_received:
+            self.on_detach_received(condition, description, info)
+
+    def _settle_message(self, message_number, response):
+        """Send a settle dispostition for a received message.
+        :param message_number: The delivery number of the message
+         to settle.
+        :type message_number: int
+        :response: The type of disposition to respond with, e.g. whether
+         the message was accepted, rejected or abandoned.
+        :type response: ~uamqp.errors.MessageResponse
+        """
+        if not response or isinstance(response, errors.MessageAlreadySettled):
+            return
+        elif isinstance(response, errors.MessageAccepted):
+            self._receiver.settle_accepted_message(message_number)
+        elif isinstance(response, errors.MessageReleased):
+            self._receiver.settle_released_message(message_number)
+        elif isinstance(response, errors.MessageRejected):
+            self._receiver.settle_rejected_message(
+                message_number,
+                response.error_condition,
+                response.error_description)
+        elif isinstance(response, errors.MessageModified):
+            self._receiver.settle_modified_message(
+                message_number,
+                response.failed,
+                response.undeliverable,
+                response.annotations)
+        else:
+            raise ValueError("Invalid message response type: {}".format(response))
+
+    def _message_received(self, message):
+        """Callback run on receipt of every message. If there is
+        a user-defined callback, this will be called.
+        Additionally if the client is retrieving messages for a batch
+        or iterator, the message will be added to an internal queue.
+        :param message: c_uamqp.Message
+        """
+        message_number = self._receiver.last_received_message_number()
+        if self._settle_mode == constants.ReceiverSettleMode.ReceiveAndDelete:
+            settler = None
+        else:
+            settler = functools.partial(self._settle_message, message_number)
+
+        wrapped_message = uamqp.Message(
+            message=message,
+            encoding=self.encoding,
+            settler=settler)
+        try:
+            self.on_message_received(wrapped_message)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.error("Error processing message: {}\nRejecting message.".format(e))
+            self._receiver.settle_modified_message(message_number, True, True, None)
+
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change
         of state. This function can be overridden.
@@ -155,7 +248,8 @@ class MessageReceiver():
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
         if new_state != previous_state:
-            _logger.debug("Message receiver state changed from {} to {}".format(previous_state, new_state))
+            _logger.debug("Message receiver {} state changed from {} to {}".format(
+                self.name, previous_state, new_state))
             self._state = new_state
 
     @property
@@ -165,6 +259,14 @@ class MessageReceiver():
     @receive_settle_mode.setter
     def receive_settle_mode(self, value):
         self._link.receive_settle_mode = value.value
+
+    @property
+    def send_settle_mode(self):
+        return self._link.send_settle_mode
+
+    @send_settle_mode.setter
+    def send_settle_mode(self, value):
+        self._link.send_settle_mode = value.value
 
     @property
     def max_message_size(self):

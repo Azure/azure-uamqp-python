@@ -416,7 +416,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    log_message_chunk(message_sender, "Header:", header_amqp_value);
+                    //log_message_chunk(message_sender, "Header:", header_amqp_value);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (msg_annotations != NULL))
@@ -427,7 +427,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    log_message_chunk(message_sender, "Message Annotations:", msg_annotations);
+                    //log_message_chunk(message_sender, "Message Annotations:", msg_annotations);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (properties != NULL))
@@ -438,7 +438,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    log_message_chunk(message_sender, "Properties:", properties_amqp_value);
+                    //log_message_chunk(message_sender, "Properties:", properties_amqp_value);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (application_properties != NULL))
@@ -449,7 +449,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    log_message_chunk(message_sender, "Application properties:", application_properties_value);
+                    //log_message_chunk(message_sender, "Application properties:", application_properties_value);
                 }
 
                 if (result == SEND_ONE_MESSAGE_OK)
@@ -469,7 +469,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                             result = SEND_ONE_MESSAGE_ERROR;
                         }
 
-                        log_message_chunk(message_sender, "Body - amqp value:", body_amqp_value);
+                        //log_message_chunk(message_sender, "Body - amqp value:", body_amqp_value);
                         break;
                     }
                     case MESSAGE_BODY_TYPE_DATA:
@@ -800,7 +800,7 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN))
         {
             set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_CLOSING);
-            if (link_detach(message_sender->link, true) != 0)
+            if (link_detach(message_sender->link, true, NULL, NULL, NULL) != 0)
             {
                 LogError("Detaching link failed");
                 result = __FAILURE__;

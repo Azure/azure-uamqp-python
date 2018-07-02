@@ -12,16 +12,16 @@ try:
 except ImportError:
     from urllib.parse import unquote_plus
 
-import uamqp
-from uamqp import authentication
-from uamqp import constants
-from uamqp import sender
-from uamqp import receiver
-from uamqp import address
-from uamqp import errors
-from uamqp import c_uamqp
-from uamqp import Connection
-from uamqp import Session
+from uamqp import (
+    authentication,
+    constants,
+    sender,
+    receiver,
+    address,
+    errors,
+    c_uamqp,
+    Connection,
+    Session)
 
 
 _logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class AMQPClient:
     :type remote_address: str, bytes or ~uamqp.address.Address
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -67,12 +67,13 @@ class AMQPClient:
     """
 
     def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
+        self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
-        self._hostname = self._remote_address.parsed_address.hostname
+        self._hostname = self._remote_address.hostname
         if not auth:
-            username = self._remote_address.parsed_address.username
-            password = self._remote_address.parsed_address.password
+            username = self._remote_address.username
+            password = self._remote_address.password
             if username and password:
                 username = unquote_plus(username)
                 password = unquote_plus(password)
@@ -86,7 +87,6 @@ class AMQPClient:
         self._connection = None
         self._ext_connection = False
         self._session = None
-        self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -121,13 +121,49 @@ class AMQPClient:
         """Determine whether the client is ready to start sending and/or
         receiving messages. To be ready, the connection must be open and
         authentication complete.
-        :returns: bool
+
+        :rtype: bool
         """
         return True
 
     def _client_run(self):
         """Perform a single Connection iteration."""
         self._connection.work()
+
+    def _redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.common.AMQPAuth
+        """
+        # pylint: disable=protected-access
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
+        if not self._connection.cbs:
+            _logger.debug("Closing non-CBS session.")
+            self._session.destroy()
+        self._session = None
+        self._auth = auth
+        self._hostname = self._remote_address.hostname
+        self._connection.redirect(redirect, auth)
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection.cbs = self._auth.create_authenticator(
+                self._connection,
+                debug=self._debug_trace)
+            self._session = self._auth._session
+        elif self._connection.cbs:
+            self._session = self._auth._session
+        else:
+            self._session = self.session_type(
+                self._connection,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max)
 
     def open(self, connection=None):
         """Open the client. The client can create a new Connection
@@ -138,7 +174,7 @@ class AMQPClient:
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp.Connection
+        :type connetion: ~uamqp.connection.Connection
         """
         # pylint: disable=protected-access
         if self._session:
@@ -205,7 +241,7 @@ class AMQPClient:
         and the available options will depend on the target service.
 
         :param message: The message to send in the management request.
-        :type message: ~uamqp.Message
+        :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
          be service-specific, but common values incluse READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
@@ -227,7 +263,7 @@ class AMQPClient:
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusDescription"`.
         :type description_fields: bytes
-        :returns: ~uamqp.Message
+        :rtype: ~uamqp.message.Message
         """
         timeout = False
         auth_in_progress = False
@@ -258,7 +294,7 @@ class AMQPClient:
         and ready to be used for further work, or `False` if it needs
         to be shut down.
 
-        :returns: bool
+        :rtype: bool
         :raises: TimeoutError if CBS authentication timeout reached.
         """
         timeout = False
@@ -284,11 +320,11 @@ class SendClient(AMQPClient):
     """An AMQP client for sending messages.
 
     :param target: The target AMQP service endpoint. This can either be the URI as
-     a string or a ~uamqp.Target object.
-    :type target: str, bytes or ~uamqp.Target
+     a string or a ~uamqp.address.Target object.
+    :type target: str, bytes or ~uamqp.address.Target
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -358,7 +394,8 @@ class SendClient(AMQPClient):
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
         states.
-        :returns: bool
+
+        :rtype: bool
         :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
          goes into an error state.
         """
@@ -375,12 +412,12 @@ class SendClient(AMQPClient):
                 encoding=self._encoding)
             self._message_sender.open()
             return False
-        elif self._message_sender._state == constants.MessageSenderState.Error:
+        elif self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
                 "Message Sender Client was unable to open. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_sender._state != constants.MessageSenderState.Open:
+        elif self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
@@ -389,17 +426,18 @@ class SendClient(AMQPClient):
         on all pending messages.
         Will return True if operation successful and client can remain open for
         further work.
-        :returns: bool
+
+        :rtype: bool
         """
         # pylint: disable=protected-access
         for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.Complete, constants.MessageState.Failed]:
+            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
                 try:
                     self._pending_messages.remove(message)
                 except ValueError:
                     pass
             elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForAck
+                message.state = constants.MessageState.WaitingForSendAck
                 try:
                     current_time = self._counter.get_current_ms()
                     elapsed_time = (current_time - message.idle_time)/1000
@@ -412,6 +450,22 @@ class SendClient(AMQPClient):
                     message._on_message_sent(constants.MessageSendResult.Error, error=exp)
         self._connection.work()
         return True
+
+    def redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.common.AMQPAuth
+        """
+        if self._message_sender:
+            self._message_sender.destroy()
+            self._message_sender = None
+        self._pending_messages = []
+        self._remote_address = address.Target(redirect.address)
+        self._redirect(redirect, auth)
 
     def close(self):
         """Close down the client. No further messages
@@ -433,9 +487,9 @@ class SendClient(AMQPClient):
         to the queue.
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.Message, or multiple messages wrapped in an instance
-         of ~uamqp.BatchMessage.
-        :type message: ~uamqp.Message
+         of ~uamqp.message.Message, or multiple messages wrapped in an instance
+         of ~uamqp.message.BatchMessage.
+        :type message: ~uamqp.message.Message
         """
         for message in messages.gather():
             message.idle_time = self._counter.get_current_ms()
@@ -445,9 +499,9 @@ class SendClient(AMQPClient):
         """Send a single message or batched message.
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.Message, or multiple messages wrapped in an instance
-         of ~uamqp.BatchMessage.
-        :type message: ~uamqp.Message
+         of ~uamqp.message.Message, or multiple messages wrapped in an instance
+         of ~uamqp.message.BatchMessage.
+        :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
         :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
@@ -466,7 +520,7 @@ class SendClient(AMQPClient):
         except:
             raise
         else:
-            failed = [m for m in pending_batch if m.state == constants.MessageState.Failed]
+            failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
@@ -476,7 +530,8 @@ class SendClient(AMQPClient):
     def messages_pending(self):
         """Check whether the client is holding any unsent
         messages in the queue.
-        :returns: bool
+
+        :rtype: bool
         """
         return bool(self._pending_messages)
 
@@ -496,7 +551,7 @@ class SendClient(AMQPClient):
         :param close_on_done: Close the client once the messages are sent.
          Default is `True`.
         :type close_on_done: bool
-        :returns: list[~uamqp.constants.MessageState]
+        :rtype: list[~uamqp.constants.MessageState]
         """
         self.open()
         try:
@@ -516,11 +571,11 @@ class ReceiveClient(AMQPClient):
     """An AMQP client for receiving messages.
 
     :param target: The source AMQP service endpoint. This can either be the URI as
-     a string or a ~uamqp.Source object.
-    :type target: str, bytes or ~uamqp.Source
+     a string or a ~uamqp.address.Source object.
+    :type target: str, bytes or ~uamqp.address.Source
     :param auth: Authentication for the connection. If none is provided SASL Annoymous
      authentication will be used.
-    :type auth: ~uamqp.authentication.AMQPAuth
+    :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
@@ -531,6 +586,12 @@ class ReceiveClient(AMQPClient):
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
     :type timeout: int
+    :param auto_complete: Whether to automatically settle message received via callback
+     or via iterator. If the message has not been explicitly settled after processing
+     the message will be accepted. Alternatively, when used with batch receive, this setting
+     will determine whether the messages are pre-emptively settled during batching, or otherwise
+     let to the user to be explicitly settled.
+    :type auto_complete: bool
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -569,7 +630,7 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, **kwargs):
+    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._message_receiver = None
@@ -586,6 +647,7 @@ class ReceiveClient(AMQPClient):
 
         # AMQP object settings
         self.receiver_type = receiver.MessageReceiver
+        self.auto_complete = auto_complete
 
         super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
 
@@ -594,7 +656,8 @@ class ReceiveClient(AMQPClient):
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
         states.
-        :returns: bool
+
+        :rtype: bool
         :raises: ~uamqp.errors.AMQPConnectionError if the MessageReceiver
          goes into an error state.
         """
@@ -602,7 +665,7 @@ class ReceiveClient(AMQPClient):
         if not self._message_receiver:
             self._message_receiver = self.receiver_type(
                 self._session, self._remote_address, self._name,
-                on_message_received=self,
+                on_message_received=self._message_received,
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
@@ -612,12 +675,12 @@ class ReceiveClient(AMQPClient):
                 encoding=self._encoding)
             self._message_receiver.open()
             return False
-        elif self._message_receiver._state == constants.MessageReceiverState.Error:
+        elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
                 "Message Receiver Client was unable to open. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_receiver._state != constants.MessageReceiverState.Open:
+        elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True
@@ -626,7 +689,8 @@ class ReceiveClient(AMQPClient):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.
-        :returns: bool
+
+        :rtype: bool
         """
         self._connection.work()
         if self._timeout > 0:
@@ -641,12 +705,21 @@ class ReceiveClient(AMQPClient):
         self._was_message_received = False
         return True
 
+    def _complete_message(self, message, auto):  # pylint: disable=no-self-use
+        if not message or not auto:
+            return
+        message.accept()
+
     def _message_generator(self):
         """Iterate over processed messages in the receive queue.
-        :returns: generator[~uamqp.Message]
+
+        :rtype: generator[~uamqp.message.Message]
         """
         self.open()
+        auto_complete = self.auto_complete
+        self.auto_complete = False
         receiving = True
+        message = None
         try:
             while receiving:
                 while receiving and self._received_messages.empty():
@@ -655,9 +728,12 @@ class ReceiveClient(AMQPClient):
                     message = self._received_messages.get()
                     self._received_messages.task_done()
                     yield message
+                    self._complete_message(message, auto_complete)
         except:
             raise
         finally:
+            self._complete_message(message, auto_complete)
+            self.auto_complete = auto_complete
             self.close()
 
     def _message_received(self, message):
@@ -665,14 +741,22 @@ class ReceiveClient(AMQPClient):
         a user-defined callback, this will be called.
         Additionally if the client is retrieving messages for a batch
         or iterator, the message will be added to an internal queue.
-        :param message: c_uamqp.Message
+
+        :param message: Received message.
+        :type message: ~uamqp.message.Message
         """
         self._was_message_received = True
-        wrapped_message = uamqp.Message(message=message, encoding=self._encoding)
         if self._message_received_callback:
-            wrapped_message = self._message_received_callback(wrapped_message) or wrapped_message
+            self._message_received_callback(message)
+        self._complete_message(message, self.auto_complete)
+
         if self._received_messages:
-            self._received_messages.put(wrapped_message)
+            self._received_messages.put(message)
+        elif not message.settled:
+            # Message was received with callback processing and wasn't settled.
+            # We'll log a warning and release it.
+            _logger.warning("Message was not settled. Releasing.")
+            message.release()
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
@@ -681,16 +765,18 @@ class ReceiveClient(AMQPClient):
         available rather than waiting to achieve a specific batch size, and therefore the
         number of messages returned per call will vary up to the maximum allowed.
 
+        If the receive client is configured with `auto_complete=True` then the messages received
+        in the batch returned by this function will already be settled. Alternatively, if
+        `auto_complete=False`, then each message will need to be explicitly settled before
+        it expires and is released.
+
         :param max_batch_size: The maximum number of messages that can be returned in
          one call. This value cannot be larger than the prefetch value, and if not specified,
          the prefetch value will be used.
         :type max_batch_size: int
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
-        :type on_message_received: callable[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
         :param timeout: I timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
@@ -702,7 +788,7 @@ class ReceiveClient(AMQPClient):
         if max_batch_size > self._prefetch:
             raise ValueError(
                 'Maximum batch size cannot be greater than the '
-                'connection prefetch: {}'.format(self._prefetch))
+                'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
         self._received_messages = self._received_messages or queue.Queue()
@@ -736,11 +822,18 @@ class ReceiveClient(AMQPClient):
         """Receive messages. This function will run indefinitely, until the client
         closes either via timeout, error or forced interruption (e.g. keyboard interrupt).
 
+        If the receive client is configured with `auto_complete=True` then the messages that
+        have not been settled on completion of the provided callback will automatically be
+        accepted provided it has not expired. If an error occurs or the message has expired
+        it will be released. Alternatively if `auto_complete=False`, each message will need
+        to be explicitly settled during the callback, otherwise it will be released.
+
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object.
-        :type on_message_received: callable[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
         """
         self.open()
+        self._received_messages = None
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -759,17 +852,38 @@ class ReceiveClient(AMQPClient):
         criteria, pass in a callback.
 
         :param on_message_received: A callback to process messages as they arrive from the
-         service. It takes a single argument, a ~uamqp.Message object. The callback can also
-         optionally return an altered Message instance to replace that which will be returned
-         by this function. If the callback returns nothing, the original ~uamqp.Message object
-         will be returned in the batch.
-        :type on_message_received: callable[~uamqp.Message]
+         service. It takes a single argument, a ~uamqp.message.Message object.
+        :type on_message_received: callable[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
         self._received_messages = queue.Queue()
         return self._message_generator()
 
+    def redirect(self, redirect, auth):
+        """Redirect the client endpoint using a Link DETACH redirect
+        response.
+
+        :param redirect: The Link DETACH redirect details.
+        :type redirect: ~uamqp.errors.LinkRedirect
+        :param auth: Authentication credentials to the redirected endpoint.
+        :type auth: ~uamqp.authentication.common.AMQPAuth
+        """
+        if self._message_receiver:
+            self._message_receiver.destroy()
+            self._message_receiver = None
+        self._shutdown = False
+        self._last_activity_timestamp = None
+        self._was_message_received = False
+        self._received_messages = None
+
+        self._remote_address = address.Source(redirect.address)
+        self._redirect(redirect, auth)
+
     def close(self):
+        """Close the ReceiverClient, shutting down the Link, Session and
+        Connection (unless an external Conneciton was supplied on opening,
+        which will be left open).
+        """
         if self._message_receiver:
             self._message_receiver.destroy()
             self._message_receiver = None

@@ -121,6 +121,20 @@ cdef extern from "azure_uamqp_c/amqp_definitions.h":
     c_amqpvalue.AMQP_VALUE amqpvalue_create_address_string(address_string value)
     #cdef amqpvalue_get_address_string
 
+    # error
+    ctypedef struct ERROR_HANDLE:
+        pass
+
+    ERROR_HANDLE error_create(const char* condition_value)
+    ERROR_HANDLE error_clone(ERROR_HANDLE value)
+    void error_destroy(ERROR_HANDLE error)
+    int error_get_condition(ERROR_HANDLE error, const char** condition_value)
+    int error_set_condition(ERROR_HANDLE error, const char* condition_value)
+    int error_get_description(ERROR_HANDLE error, const char** description_value)
+    int error_set_description(ERROR_HANDLE error, const char* description_value)
+    int error_get_info(ERROR_HANDLE error, fields* info_value)
+    int error_set_info(ERROR_HANDLE error, fields info_value)
+
     # header
     ctypedef struct HEADER_HANDLE:
         pass

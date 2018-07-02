@@ -54,13 +54,37 @@ class AMQPSymbol(AMQPType):
         return c_uamqp.symbol_value(value)
 
 
+class AMQPChar(AMQPType):
+    """An AMQP char object.
+
+    :ivar value: The Python value of the AMQP type.
+    :vartype value: bytes
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: c_uamqp.CharValue
+    :param value: The value to encode as an AMQP char.
+    :type value: bytes or str
+    :param encoding: The encoding to be used if a str is provided.
+     The default is 'UTF-8'.
+    :type encoding: str
+    """
+
+    def __init__(self, value, encoding='UTF-8'):
+        self._c_type = self._c_wrapper(value, encoding)
+
+    def _c_wrapper(self, value, encoding='UTF-8'):
+        if len(value) > 1:
+            raise ValueError("Value must be a single character.")
+        value = value.encode(encoding) if isinstance(value, str) else value
+        return c_uamqp.char_value(value)
+
+
 class AMQPLong(AMQPType):
     """An AMQP long object.
 
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.LongValue
+    :vartype c_data: uamqp.c_uamqp.LongValue
     :param value: The value to encode as an AMQP ulong.
     :type value: int
     :raises: ValueError if value is not within allowed range.
@@ -81,7 +105,7 @@ class AMQPuLong(AMQPType):
     :ivar value: The Python value of the AMQP type.
     :vartype value: int
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.ArrayValue
+    :vartype c_data: uamqp.c_uamqp.ArrayValue
     :param value: The value to encode as an AMQP Array.
     :type value: list
     :raises: ValueError if value is not within allowed range.
@@ -103,7 +127,7 @@ class AMQPArray(AMQPType):
     :ivar value: The Python values of the AMQP array.
     :vartype value: list
     :ivar c_data: The C AMQP encoded object.
-    :vartype c_data: ~uamqp.c_uamqp.ULongValue
+    :vartype c_data: uamqp.c_uamqp.ULongValue
     :param value: The value to encode as an AMQP symbol.
     :type value: int
     :raises: ValueError if all values are not the same type.
