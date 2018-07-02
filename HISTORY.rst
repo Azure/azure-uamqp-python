@@ -3,7 +3,7 @@
 Release History
 ===============
 
-0.1.0rc2 (unreleased)
+0.1.0rc2 (2018-07-02)
 +++++++++++++++++++++
 
 - **Breaking change** Submodule `async` has been renamed to the internal `_async`.

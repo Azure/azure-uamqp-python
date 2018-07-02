@@ -145,8 +145,8 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
         log.info(message.annotations.get(b'x-opt-sequence-number'))
         log.info(str(message))
         count += 1
-        if count >= 100000:
-            log.info("Got {} messages. Shutting down.".format(count))
+        if count >= 10:
+            log.info("Got {} messages. Breaking.".format(count))
             message.accept()
             break
     count = 0
