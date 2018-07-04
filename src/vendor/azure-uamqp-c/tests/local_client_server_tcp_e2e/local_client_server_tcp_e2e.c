@@ -59,10 +59,17 @@ TEST_SUITE_CLEANUP(suite_cleanup)
     TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
 }
 
+typedef struct SERVER_SESSION_TAG
+{
+    SESSION_HANDLE session;
+    struct SERVER_INSTANCE_TAG* server;
+} SERVER_SESSION;
+
 typedef struct SERVER_INSTANCE_TAG
 {
     CONNECTION_HANDLE connection;
-    SESSION_HANDLE session;
+    size_t session_count;
+    SERVER_SESSION sessions[2];
     size_t link_count;
     LINK_HANDLE links[2];
     MESSAGE_RECEIVER_HANDLE message_receivers[2];
@@ -127,10 +134,11 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
 
 static bool on_new_link_attached(void* context, LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, role role, AMQP_VALUE source, AMQP_VALUE target)
 {
-    SERVER_INSTANCE* server = (SERVER_INSTANCE*)context;
+    SERVER_SESSION* server_session = (SERVER_SESSION*)context;
+    SERVER_INSTANCE* server = server_session->server;
     int result;
 
-    server->links[server->link_count] = link_create_from_endpoint(server->session, new_link_endpoint, name, role, source, target);
+    server->links[server->link_count] = link_create_from_endpoint(server_session->session, new_link_endpoint, name, role, source, target);
     ASSERT_IS_NOT_NULL_WITH_MSG(server->links[server->link_count], "Could not create link");
     server->message_receivers[server->link_count] = messagereceiver_create(server->links[server->link_count], on_message_receivers_state_changed, server);
     ASSERT_IS_NOT_NULL_WITH_MSG(server->message_receivers[server->link_count], "Could not create message receiver");
@@ -146,9 +154,12 @@ static bool on_new_session_endpoint(void* context, ENDPOINT_HANDLE new_endpoint)
     SERVER_INSTANCE* server = (SERVER_INSTANCE*)context;
     int result;
 
-    server->session = session_create_from_endpoint(server->connection, new_endpoint, on_new_link_attached, server);
-    ASSERT_IS_NOT_NULL_WITH_MSG(server->session, "Could not create server session");
-    result = session_begin(server->session);
+    SESSION_HANDLE session = session_create_from_endpoint(server->connection, new_endpoint, on_new_link_attached, &server->sessions[server->session_count]);
+    server->sessions[server->session_count].server = server;
+    server->sessions[server->session_count].session = session;
+    server->session_count++;
+    ASSERT_IS_NOT_NULL_WITH_MSG(session, "Could not create server session");
+    result = session_begin(session);
     ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot begin server session");
 
     return true;
@@ -207,7 +218,8 @@ TEST_FUNCTION(client_and_server_connect_and_send_one_message_settled)
     ASYNC_OPERATION_HANDLE send_async_operation;
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.message_receivers[0] = NULL;
@@ -291,7 +303,7 @@ TEST_FUNCTION(client_and_server_connect_and_send_one_message_settled)
 
     messagereceiver_destroy(server_instance.message_receivers[0]);
     link_destroy(server_instance.links[0]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);
@@ -322,7 +334,8 @@ TEST_FUNCTION(client_and_server_connect_and_send_one_message_unsettled)
     ASYNC_OPERATION_HANDLE send_async_operation;
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.message_receivers[0] = NULL;
@@ -407,7 +420,7 @@ TEST_FUNCTION(client_and_server_connect_and_send_one_message_unsettled)
 
     messagereceiver_destroy(server_instance.message_receivers[0]);
     link_destroy(server_instance.links[0]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);
@@ -438,7 +451,8 @@ TEST_FUNCTION(cancelling_a_send_works)
     ASYNC_OPERATION_HANDLE send_async_operation;
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.message_receivers[0] = NULL;
@@ -524,7 +538,7 @@ TEST_FUNCTION(cancelling_a_send_works)
 
     messagereceiver_destroy(server_instance.message_receivers[0]);
     link_destroy(server_instance.links[0]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);
@@ -557,7 +571,8 @@ TEST_FUNCTION(destroying_one_out_of_2_senders_works)
     ASYNC_OPERATION_HANDLE send_async_operation;
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.links[1] = NULL;
@@ -691,7 +706,7 @@ TEST_FUNCTION(destroying_one_out_of_2_senders_works)
     messagereceiver_destroy(server_instance.message_receivers[1]);
     link_destroy(server_instance.links[0]);
     link_destroy(server_instance.links[1]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);
@@ -822,7 +837,8 @@ TEST_FUNCTION(connection_redirect_notifies_the_user_of_the_event)
     SOCKETIO_CONFIG socketio_config = { "localhost", 0, NULL };
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.links[1] = NULL;
@@ -904,7 +920,7 @@ TEST_FUNCTION(connection_redirect_notifies_the_user_of_the_event)
     messagereceiver_destroy(server_instance.message_receivers[1]);
     link_destroy(server_instance.links[0]);
     link_destroy(server_instance.links[1]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);
@@ -967,7 +983,8 @@ static void on_link_redirect_received(void* context, ERROR_HANDLE error)
 
 static bool on_new_link_attached_link_redirect(void* context, LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, role role, AMQP_VALUE source, AMQP_VALUE target)
 {
-    SERVER_INSTANCE* server = (SERVER_INSTANCE*)context;
+    SERVER_SESSION* server_session = (SERVER_SESSION*)context;
+    SERVER_INSTANCE* server = server_session->server;
     int result;
     AMQP_VALUE redirect_map = amqpvalue_create_map();
     AMQP_VALUE hostname_key = amqpvalue_create_string("hostname");
@@ -993,7 +1010,7 @@ static bool on_new_link_attached_link_redirect(void* context, LINK_ENDPOINT_HAND
     amqpvalue_destroy(address_key);
     amqpvalue_destroy(address_value);
 
-    server->links[server->link_count] = link_create_from_endpoint(server->session, new_link_endpoint, name, role, source, target);
+    server->links[server->link_count] = link_create_from_endpoint(server_session->session, new_link_endpoint, name, role, source, target);
     ASSERT_IS_NOT_NULL_WITH_MSG(server->links[server->link_count], "Could not create link");
     server->message_receivers[server->link_count] = messagereceiver_create(server->links[server->link_count], on_message_receivers_state_changed, server);
     ASSERT_IS_NOT_NULL_WITH_MSG(server->message_receivers[server->link_count], "Could not create message receiver");
@@ -1011,9 +1028,12 @@ static bool on_new_session_endpoint_link_redirect(void* context, ENDPOINT_HANDLE
     SERVER_INSTANCE* server = (SERVER_INSTANCE*)context;
     int result;
 
-    server->session = session_create_from_endpoint(server->connection, new_endpoint, on_new_link_attached_link_redirect, server);
-    ASSERT_IS_NOT_NULL_WITH_MSG(server->session, "Could not create server session");
-    result = session_begin(server->session);
+    SESSION_HANDLE session = session_create_from_endpoint(server->connection, new_endpoint, on_new_link_attached_link_redirect, &server->sessions[server->session_count]);
+    server->sessions[server->session_count].server = server;
+    server->sessions[server->session_count].session = session;
+    server->session_count++;
+    ASSERT_IS_NOT_NULL_WITH_MSG(session, "Could not create server session");
+    result = session_begin(session);
     ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot begin server session");
 
     return true;
@@ -1068,7 +1088,8 @@ TEST_FUNCTION(link_redirect_notifies_the_user_of_the_event)
     SOCKETIO_CONFIG socketio_config = { "localhost", 0, NULL };
 
     server_instance.connection = NULL;
-    server_instance.session = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
     server_instance.link_count = 0;
     server_instance.links[0] = NULL;
     server_instance.links[1] = NULL;
@@ -1150,7 +1171,515 @@ TEST_FUNCTION(link_redirect_notifies_the_user_of_the_event)
     messagereceiver_destroy(server_instance.message_receivers[1]);
     link_destroy(server_instance.links[0]);
     link_destroy(server_instance.links[1]);
-    session_destroy(server_instance.session);
+    session_destroy(server_instance.sessions[0].session);
+    connection_destroy(server_instance.connection);
+    xio_destroy(server_instance.header_detect_io);
+    xio_destroy(server_instance.underlying_io);
+    socketlistener_destroy(socket_listener);
+}
+
+TEST_FUNCTION(link_redirects_for_2_links_on_1_session_work)
+{
+    // arrange
+    int port_number = generate_port_number();
+    SERVER_INSTANCE server_instance;
+    SOCKET_LISTENER_HANDLE socket_listener = socketlistener_create(port_number);
+    int result;
+    XIO_HANDLE socket_io;
+    CONNECTION_HANDLE client_connection;
+    SESSION_HANDLE client_session_1;
+    LINK_HANDLE client_link_1;
+    LINK_HANDLE client_link_2;
+    MESSAGE_SENDER_HANDLE client_message_sender_1;
+    MESSAGE_SENDER_HANDLE client_message_sender_2;
+    bool redirect_received_1;
+    bool redirect_received_2;
+    AMQP_VALUE source;
+    AMQP_VALUE target;
+    time_t now_time;
+    time_t start_time;
+    SOCKETIO_CONFIG socketio_config = { "localhost", 0, NULL };
+
+    server_instance.connection = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
+    server_instance.link_count = 0;
+    server_instance.links[0] = NULL;
+    server_instance.links[1] = NULL;
+    server_instance.message_receivers[0] = NULL;
+    server_instance.message_receivers[1] = NULL;
+    server_instance.received_messages = 0;
+
+    redirect_received_1 = false;
+    redirect_received_2 = false;
+
+    result = socketlistener_start(socket_listener, on_socket_accepted_link_redirect, &server_instance);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "socketlistener_start failed");
+
+    // start the client
+    socketio_config.port = port_number;
+    socket_io = xio_create(socketio_get_interface_description(), &socketio_config);
+    ASSERT_IS_NOT_NULL_WITH_MSG(socket_io, "Could not create socket IO");
+
+    /* create the connection and sessions */
+    client_connection = connection_create(socket_io, "localhost", "some", NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_connection, "Could not create client connection");
+
+    (void)connection_set_trace(client_connection, true);
+    client_session_1 = session_create(client_connection, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_session_1, "Could not create client session 1");
+
+    source = messaging_create_source("ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(source, "Could not create source");
+    target = messaging_create_target("localhost/ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(target, "Could not create target");
+
+    // links
+    client_link_1 = link_create(client_session_1, "sender-link-1", role_sender, source, target);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_link_1, "Could not create client link 1");
+    result = link_set_snd_settle_mode(client_link_1, sender_settle_mode_unsettled);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set sender settle mode on link 1");
+
+    client_link_2 = link_create(client_session_1, "sender-link-2", role_sender, source, target);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_link_2, "Could not create client link 2");
+    result = link_set_snd_settle_mode(client_link_2, sender_settle_mode_unsettled);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set sender settle mode on link 2");
+
+    (void)link_subscribe_on_link_detach_received(client_link_1, on_link_redirect_received, &redirect_received_1);
+    (void)link_subscribe_on_link_detach_received(client_link_2, on_link_redirect_received, &redirect_received_2);
+
+    amqpvalue_destroy(source);
+    amqpvalue_destroy(target);
+
+    /* create the message senders */
+    client_message_sender_1 = messagesender_create(client_link_1, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_message_sender_1, "Could not create message sender 1");
+    result = messagesender_open(client_message_sender_1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot open message sender 1");
+
+    client_message_sender_2 = messagesender_create(client_link_2, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_message_sender_2, "Could not create message sender 2");
+    result = messagesender_open(client_message_sender_2);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot open message sender 2");
+
+    // wait for either time elapsed or message received
+    start_time = time(NULL);
+    while ((now_time = time(NULL)),
+        (difftime(now_time, start_time) < TEST_TIMEOUT))
+    {
+        // schedule work for all components
+        socketlistener_dowork(socket_listener);
+        connection_dowork(client_connection);
+        connection_dowork(server_instance.connection);
+
+        // if we received the message, break
+        if (redirect_received_1 && redirect_received_2)
+        {
+            break;
+        }
+
+        ThreadAPI_Sleep(1);
+    }
+
+    // assert
+    ASSERT_IS_TRUE_WITH_MSG(redirect_received_1, "Redirect information not received for link 1");
+    ASSERT_IS_TRUE_WITH_MSG(redirect_received_2, "Redirect information not received for link 2");
+
+    // cleanup
+    socketlistener_stop(socket_listener);
+    messagesender_destroy(client_message_sender_1);
+    messagesender_destroy(client_message_sender_2);
+    link_destroy(client_link_1);
+    link_destroy(client_link_2);
+    session_destroy(client_session_1);
+    connection_destroy(client_connection);
+    xio_destroy(socket_io);
+
+    messagereceiver_destroy(server_instance.message_receivers[0]);
+    messagereceiver_destroy(server_instance.message_receivers[1]);
+    link_destroy(server_instance.links[0]);
+    link_destroy(server_instance.links[1]);
+    session_destroy(server_instance.sessions[0].session);
+    connection_destroy(server_instance.connection);
+    xio_destroy(server_instance.header_detect_io);
+    xio_destroy(server_instance.underlying_io);
+    socketlistener_destroy(socket_listener);
+}
+
+TEST_FUNCTION(link_redirects_for_2_links_on_2_different_sessions_work)
+{
+    // arrange
+    int port_number = generate_port_number();
+    SERVER_INSTANCE server_instance;
+    SOCKET_LISTENER_HANDLE socket_listener = socketlistener_create(port_number);
+    int result;
+    XIO_HANDLE socket_io;
+    CONNECTION_HANDLE client_connection;
+    SESSION_HANDLE client_session_1;
+    SESSION_HANDLE client_session_2;
+    LINK_HANDLE client_link_1;
+    LINK_HANDLE client_link_2;
+    MESSAGE_SENDER_HANDLE client_message_sender_1;
+    MESSAGE_SENDER_HANDLE client_message_sender_2;
+    bool redirect_received_1;
+    bool redirect_received_2;
+    AMQP_VALUE source;
+    AMQP_VALUE target;
+    time_t now_time;
+    time_t start_time;
+    SOCKETIO_CONFIG socketio_config = { "localhost", 0, NULL };
+
+    server_instance.connection = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
+    server_instance.sessions[1].session = NULL;
+    server_instance.link_count = 0;
+    server_instance.links[0] = NULL;
+    server_instance.links[1] = NULL;
+    server_instance.message_receivers[0] = NULL;
+    server_instance.message_receivers[1] = NULL;
+    server_instance.received_messages = 0;
+
+    redirect_received_1 = false;
+    redirect_received_2 = false;
+
+    result = socketlistener_start(socket_listener, on_socket_accepted_link_redirect, &server_instance);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "socketlistener_start failed");
+
+    // start the client
+    socketio_config.port = port_number;
+    socket_io = xio_create(socketio_get_interface_description(), &socketio_config);
+    ASSERT_IS_NOT_NULL_WITH_MSG(socket_io, "Could not create socket IO");
+
+    /* create the connection and sessions */
+    client_connection = connection_create(socket_io, "localhost", "some", NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_connection, "Could not create client connection");
+
+    (void)connection_set_trace(client_connection, true);
+    client_session_1 = session_create(client_connection, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_session_1, "Could not create client session 1");
+
+    client_session_2 = session_create(client_connection, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_session_2, "Could not create client session 2");
+
+    source = messaging_create_source("ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(source, "Could not create source");
+    target = messaging_create_target("localhost/ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(target, "Could not create target");
+
+    // links
+    client_link_1 = link_create(client_session_1, "sender-link-1", role_sender, source, target);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_link_1, "Could not create client link 1");
+    result = link_set_snd_settle_mode(client_link_1, sender_settle_mode_unsettled);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set sender settle mode on link 1");
+
+    client_link_2 = link_create(client_session_2, "sender-link-2", role_sender, source, target);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_link_2, "Could not create client link 2");
+    result = link_set_snd_settle_mode(client_link_2, sender_settle_mode_unsettled);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set sender settle mode on link 2");
+
+    (void)link_subscribe_on_link_detach_received(client_link_1, on_link_redirect_received, &redirect_received_1);
+    (void)link_subscribe_on_link_detach_received(client_link_2, on_link_redirect_received, &redirect_received_2);
+
+    amqpvalue_destroy(source);
+    amqpvalue_destroy(target);
+
+    /* create the message senders */
+    client_message_sender_1 = messagesender_create(client_link_1, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_message_sender_1, "Could not create message sender 1");
+    result = messagesender_open(client_message_sender_1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot open message sender 1");
+
+    client_message_sender_2 = messagesender_create(client_link_2, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_message_sender_2, "Could not create message sender 2");
+    result = messagesender_open(client_message_sender_2);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot open message sender 2");
+
+    // wait for either time elapsed or message received
+    start_time = time(NULL);
+    while ((now_time = time(NULL)),
+        (difftime(now_time, start_time) < TEST_TIMEOUT))
+    {
+        // schedule work for all components
+        socketlistener_dowork(socket_listener);
+        connection_dowork(client_connection);
+        connection_dowork(server_instance.connection);
+
+        // if we received the message, break
+        if (redirect_received_1 && redirect_received_2)
+        {
+            break;
+        }
+
+        ThreadAPI_Sleep(1);
+    }
+
+    // assert
+    ASSERT_IS_TRUE_WITH_MSG(redirect_received_1, "Redirect information not received for link 1");
+    ASSERT_IS_TRUE_WITH_MSG(redirect_received_2, "Redirect information not received for link 2");
+
+    // cleanup
+    socketlistener_stop(socket_listener);
+    messagesender_destroy(client_message_sender_1);
+    messagesender_destroy(client_message_sender_2);
+    link_destroy(client_link_1);
+    link_destroy(client_link_2);
+    session_destroy(client_session_1);
+    session_destroy(client_session_2);
+    connection_destroy(client_connection);
+    xio_destroy(socket_io);
+
+    messagereceiver_destroy(server_instance.message_receivers[0]);
+    messagereceiver_destroy(server_instance.message_receivers[1]);
+    link_destroy(server_instance.links[0]);
+    link_destroy(server_instance.links[1]);
+    session_destroy(server_instance.sessions[0].session);
+    session_destroy(server_instance.sessions[1].session);
+    connection_destroy(server_instance.connection);
+    xio_destroy(server_instance.header_detect_io);
+    xio_destroy(server_instance.underlying_io);
+    socketlistener_destroy(socket_listener);
+}
+
+TEST_FUNCTION(client_and_server_connect_and_send_one_message_with_all_message_parts)
+{
+    // arrange
+    int port_number = generate_port_number();
+    SERVER_INSTANCE server_instance;
+    SOCKET_LISTENER_HANDLE socket_listener = socketlistener_create(port_number);
+    int result;
+    XIO_HANDLE socket_io;
+    CONNECTION_HANDLE client_connection;
+    SESSION_HANDLE client_session;
+    LINK_HANDLE client_link;
+    MESSAGE_HANDLE client_send_message;
+    MESSAGE_SENDER_HANDLE client_message_sender;
+    size_t sent_messages;
+    AMQP_VALUE source;
+    AMQP_VALUE target;
+    time_t now_time;
+    time_t start_time;
+    SOCKETIO_CONFIG socketio_config = { "localhost", 0, NULL };
+    unsigned char hello[] = { 'H', 'e', 'l', 'l', 'o' };
+    BINARY_DATA binary_data;
+    ASYNC_OPERATION_HANDLE send_async_operation;
+    HEADER_HANDLE message_header;
+    AMQP_VALUE message_footer;
+    AMQP_VALUE footer_key_1;
+    AMQP_VALUE footer_value_1;
+    delivery_annotations delivery_annotations_map;
+    AMQP_VALUE delivery_annotations_key_1;
+    AMQP_VALUE delivery_annotations_value_1;
+    message_annotations message_annotations_map;
+    AMQP_VALUE message_annotations_key_1;
+    AMQP_VALUE message_annotations_value_1;
+    PROPERTIES_HANDLE message_properties;
+    AMQP_VALUE message_id;
+    AMQP_VALUE to_value;
+    AMQP_VALUE reply_to_value;
+    AMQP_VALUE correlation_id;
+    amqp_binary user_id_binary;
+
+    server_instance.connection = NULL;
+    server_instance.session_count = 0;
+    server_instance.sessions[0].session = NULL;
+    server_instance.link_count = 0;
+    server_instance.links[0] = NULL;
+    server_instance.message_receivers[0] = NULL;
+    server_instance.received_messages = 0;
+
+    sent_messages = 0;
+
+    result = socketlistener_start(socket_listener, on_socket_accepted, &server_instance);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "socketlistener_start failed");
+
+    // start the client
+    socketio_config.port = port_number;
+    socket_io = xio_create(socketio_get_interface_description(), &socketio_config);
+    ASSERT_IS_NOT_NULL_WITH_MSG(socket_io, "Could not create socket IO");
+
+    /* create the connection, session and link */
+    client_connection = connection_create(socket_io, "localhost", "some", NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_connection, "Could not create client connection");
+
+    (void)connection_set_trace(client_connection, true);
+    client_session = session_create(client_connection, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_session, "Could not create client session");
+
+    source = messaging_create_source("ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(source, "Could not create source");
+    target = messaging_create_target("localhost/ingress");
+    ASSERT_IS_NOT_NULL_WITH_MSG(target, "Could not create target");
+    client_link = link_create(client_session, "sender-link", role_sender, source, target);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_link, "Could not create client link");
+    result = link_set_snd_settle_mode(client_link, sender_settle_mode_settled);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set sender settle mode");
+
+    amqpvalue_destroy(source);
+    amqpvalue_destroy(target);
+
+    client_send_message = message_create();
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_send_message, "Could not create message");
+    binary_data.bytes = hello;
+    binary_data.length = sizeof(hello);
+    result = message_add_body_amqp_data(client_send_message, binary_data);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message body");
+
+    // add a message header
+    message_header = header_create();
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_header, "Could not create message header");
+    result = header_set_durable(message_header, true);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set durable on message header");
+    result = header_set_priority(message_header, 1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set priority on message header");
+    result = header_set_ttl(message_header, 42);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set ttl on message header");
+    result = header_set_first_acquirer(message_header, true);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set first-acquirer on message header");
+    result = header_set_delivery_count(message_header, 45);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set delivery-count on message header");
+    result = message_set_header(client_send_message, message_header);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message header");
+    header_destroy(message_header);
+
+    // add delivery annotations
+    delivery_annotations_map = amqpvalue_create_map();
+    ASSERT_IS_NOT_NULL_WITH_MSG(delivery_annotations_map, "Could not create delivery annotation map");
+    delivery_annotations_key_1 = amqpvalue_create_string("teststring_42");
+    ASSERT_IS_NOT_NULL_WITH_MSG(delivery_annotations_key_1, "Could not create delivery annotations key 1");
+    delivery_annotations_value_1 = amqpvalue_create_string("hagauaga");
+    ASSERT_IS_NOT_NULL_WITH_MSG(delivery_annotations_value_1, "Could not create delivery annotations value 1");
+    result = amqpvalue_set_map_value(delivery_annotations_map, delivery_annotations_key_1, delivery_annotations_value_1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set value in delivery annotations map");
+    result = message_set_delivery_annotations(client_send_message, delivery_annotations_map);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message delivery annotations");
+    amqpvalue_destroy(delivery_annotations_map);
+    amqpvalue_destroy(delivery_annotations_key_1);
+    amqpvalue_destroy(delivery_annotations_value_1);
+
+    // add message annotations
+    message_annotations_map = amqpvalue_create_map();
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_annotations_map, "Could not create message annotation map");
+    message_annotations_key_1 = amqpvalue_create_string("teststring_42");
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_annotations_key_1, "Could not create message annotations key 1");
+    message_annotations_value_1 = amqpvalue_create_string("hagauaga");
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_annotations_value_1, "Could not create message annotations value 1");
+    result = amqpvalue_set_map_value(message_annotations_map, message_annotations_key_1, message_annotations_value_1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set value in message annotations map");
+    result = message_set_message_annotations(client_send_message, message_annotations_map);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message annotations");
+    amqpvalue_destroy(message_annotations_map);
+    amqpvalue_destroy(message_annotations_key_1);
+    amqpvalue_destroy(message_annotations_value_1);
+
+    // add message properties 
+    message_properties = properties_create();
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_properties, "Could not create message properties");
+    message_id = amqpvalue_create_string("msg-X");
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_id, "Could not create message id");
+    result = properties_set_message_id(message_properties, message_id);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message-id on message properties");
+    amqp_value_destroy(message_id);
+    user_id_binary.bytes = "\0x42";
+    user_id_binary.length = 1;
+    result = properties_set_user_id(message_properties, user_id_binary);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set user-id on message properties");
+    to_value = messaging_create_source("blahblah");
+    ASSERT_IS_NOT_NULL_WITH_MSG(to_value, "Could not create to value");
+    result = properties_set_to(message_properties, to_value);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set to on message properties");
+    amqpvalue_destroy(to_value);
+    result = properties_set_subject(message_properties, "123");
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set subject on message properties");
+    reply_to_value = messaging_create_source("blahblah-reply-to");
+    ASSERT_IS_NOT_NULL_WITH_MSG(reply_to_value, "Could not create reply-to value");
+    result = properties_set_reply_to(message_properties, reply_to_value);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set reply-to on message properties");
+    amqpvalue_destroy(reply_to_value);
+    correlation_id = amqpvalue_create_string("msg-Y");
+    ASSERT_IS_NOT_NULL_WITH_MSG(correlation_id, "Could not create correlation-id value");
+    result = properties_set_reply_to(message_properties, correlation_id);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set correlation-id on message properties");
+    amqpvalue_destroy(correlation_id);
+    result = properties_set_content_type(message_properties, "text");
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set content-type on message properties");
+    result = properties_set_content_encoding(message_properties, "to_json_or_not_to_json");
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set content-encoding on message properties");
+    result = properties_set_absolute_expiry_time(message_properties, 42);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set absolute-expiry-time on message properties");
+    result = properties_set_creation_time(message_properties, 43);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set creation-time on message properties");
+    result = properties_set_group_id(message_properties, "argh");
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set group-id on message properties");
+    result = properties_set_group_sequence(message_properties, 0x4242);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set group-sequence on message properties");
+    result = properties_set_reply_to_group_id(message_properties, "I am a pirate");
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set reply-to-group-id on message properties");
+    result = message_set_properties(client_send_message, message_properties);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message properties");
+    properties_destroy(message_properties);
+
+    // add message footer
+    message_footer = amqpvalue_create_map();
+    ASSERT_IS_NOT_NULL_WITH_MSG(message_footer, "Could not create message footer");
+    footer_key_1 = amqpvalue_create_string("teststring_42");
+    ASSERT_IS_NOT_NULL_WITH_MSG(footer_key_1, "Could not create footer key 1");
+    footer_value_1 = amqpvalue_create_string("hagauaga");
+    ASSERT_IS_NOT_NULL_WITH_MSG(footer_value_1, "Could not create footer value 1");
+    result = amqpvalue_set_map_value(message_footer, footer_key_1, footer_value_1);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set value in footer map");
+    result = message_set_footer(client_send_message, message_footer);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot set message footer");
+    amqpvalue_destroy(message_footer);
+    amqpvalue_destroy(footer_key_1);
+    amqpvalue_destroy(footer_value_1);
+
+    /* create a message sender */
+    client_message_sender = messagesender_create(client_link, NULL, NULL);
+    ASSERT_IS_NOT_NULL_WITH_MSG(client_message_sender, "Could not create message sender");
+
+    // enable tracing of message payloads to expose any potential leaks
+    messagesender_set_trace(client_message_sender, true);
+
+    result = messagesender_open(client_message_sender);
+    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "cannot open message sender");
+    send_async_operation = messagesender_send_async(client_message_sender, client_send_message, on_message_send_complete, &sent_messages, 0);
+    ASSERT_IS_NOT_NULL_WITH_MSG(send_async_operation, "cannot send message");
+    message_destroy(client_send_message);
+
+    start_time = time(NULL);
+    while ((now_time = time(NULL)),
+        (difftime(now_time, start_time) < TEST_TIMEOUT))
+    {
+        // schedule work for all components
+        socketlistener_dowork(socket_listener);
+        connection_dowork(client_connection);
+        connection_dowork(server_instance.connection);
+
+        // if we received the message, break
+        if (server_instance.received_messages >= 1)
+        {
+            break;
+        }
+
+        ThreadAPI_Sleep(1);
+    }
+
+    // assert
+    ASSERT_ARE_EQUAL_WITH_MSG(size_t, 1, sent_messages, "Bad sent messages count");
+    ASSERT_ARE_EQUAL_WITH_MSG(size_t, 1, server_instance.received_messages, "Bad received messages count");
+
+    // cleanup
+    socketlistener_stop(socket_listener);
+    messagesender_destroy(client_message_sender);
+    link_destroy(client_link);
+    session_destroy(client_session);
+    connection_destroy(client_connection);
+    xio_destroy(socket_io);
+
+    messagereceiver_destroy(server_instance.message_receivers[0]);
+    link_destroy(server_instance.links[0]);
+    session_destroy(server_instance.sessions[0].session);
     connection_destroy(server_instance.connection);
     xio_destroy(server_instance.header_detect_io);
     xio_destroy(server_instance.underlying_io);

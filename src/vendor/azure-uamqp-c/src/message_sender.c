@@ -162,15 +162,15 @@ static int encode_bytes(void* context, const unsigned char* bytes, size_t length
 static void log_message_chunk(MESSAGE_SENDER_INSTANCE* message_sender, const char* name, AMQP_VALUE value)
 {
 #ifdef NO_LOGGING
-    UNUSED(message_sender);
-    UNUSED(name);
-    UNUSED(value);
+    (void)message_sender;
+    (void)name;
+    (void)value;
 #else
     if (xlogging_get_log_function() != NULL && message_sender->is_trace_on == 1)
     {
         char* value_as_string = NULL;
         LOG(AZ_LOG_TRACE, 0, "%s", P_OR_NULL(name));
-        LOG(AZ_LOG_TRACE, 0, "%s", P_OR_NULL((value_as_string = amqpvalue_to_string(value))));
+        LOG(AZ_LOG_TRACE, 0, "%s", ((value_as_string = amqpvalue_to_string(value)), P_OR_NULL(value_as_string)));
         if (value_as_string != NULL)
         {
             free(value_as_string);
@@ -416,7 +416,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    //log_message_chunk(message_sender, "Header:", header_amqp_value);
+                    log_message_chunk(message_sender, "Header:", header_amqp_value);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (msg_annotations != NULL))
@@ -427,7 +427,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    //log_message_chunk(message_sender, "Message Annotations:", msg_annotations);
+                    log_message_chunk(message_sender, "Message Annotations:", msg_annotations);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (properties != NULL))
@@ -438,7 +438,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    //log_message_chunk(message_sender, "Properties:", properties_amqp_value);
+                    log_message_chunk(message_sender, "Properties:", properties_amqp_value);
                 }
 
                 if ((result == SEND_ONE_MESSAGE_OK) && (application_properties != NULL))
@@ -449,7 +449,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                         result = SEND_ONE_MESSAGE_ERROR;
                     }
 
-                    //log_message_chunk(message_sender, "Application properties:", application_properties_value);
+                    log_message_chunk(message_sender, "Application properties:", application_properties_value);
                 }
 
                 if (result == SEND_ONE_MESSAGE_OK)
@@ -469,7 +469,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                             result = SEND_ONE_MESSAGE_ERROR;
                         }
 
-                        //log_message_chunk(message_sender, "Body - amqp value:", body_amqp_value);
+                        log_message_chunk(message_sender, "Body - amqp value:", body_amqp_value);
                         break;
                     }
                     case MESSAGE_BODY_TYPE_DATA:
