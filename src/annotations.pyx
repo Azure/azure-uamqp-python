@@ -125,8 +125,7 @@ cdef class cAnnotations(StructBase):
         if c_amqpvalue.amqpvalue_get_map(unmapped, &mapped) == 0:
             if <void*>mapped == NULL:
                 return None
-            map = value_factory(mapped).value
-            return copy.deepcopy(map)
+            return copy.deepcopy(value_factory(mapped).value)
         else:
             return None
 
@@ -150,8 +149,7 @@ cdef class cApplicationProperties(cAnnotations):
         if c_amqpvalue.amqpvalue_get_map(extracted, &value) == 0:
             if <void*>value == NULL:
                 return None
-            map = value_factory(value).value
-            return copy.deepcopy(map)
+            return copy.deepcopy(value_factory(value).value)
         else:
             return None
 
