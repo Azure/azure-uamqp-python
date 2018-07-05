@@ -32,7 +32,7 @@ cdef class cHeader(StructBase):
 
     def __dealloc__(self):
         _logger.debug("Deallocating {}".format(self.__class__.__name__))
-        #self.destroy()
+        self.destroy()
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:

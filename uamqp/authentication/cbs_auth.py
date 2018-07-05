@@ -82,9 +82,10 @@ class CBSAuthMixin:
                 self.timeout)
             self._cbs_auth.set_trace(debug)
         except ValueError:
+            self._session.destroy()
             raise errors.AMQPConnectionError(
-                "Unable to open authentication session. "
-                "Please confirm target URI exists.")
+                "Unable to open authentication session.\n"
+                "Please confirm target hostname exists: {}".format(connection.hostname))
         return self._cbs_auth
 
     def close_authenticator(self):

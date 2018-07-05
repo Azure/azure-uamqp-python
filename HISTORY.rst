@@ -3,6 +3,15 @@
 Release History
 ===============
 
+0.1.0 (2018-07-05)
+++++++++++++++++++
+
+- Fixed bug in error handling for CBS auth to invalid hostname.
+- Changed C error logging to debug level.
+- Bumped uAMQP C version to 1.2.7
+- Fixed memory leaks and deallocation bugs with Properties and Annotations.
+
+
 0.1.0rc2 (2018-07-02)
 +++++++++++++++++++++
 

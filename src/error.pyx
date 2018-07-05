@@ -6,6 +6,7 @@
 
 # Python imports
 import logging
+import copy
 
 # C imports
 cimport c_amqp_definitions
@@ -86,7 +87,7 @@ cdef class cError(StructBase):
         cdef c_amqp_definitions.fields info_value
         if  c_amqp_definitions.error_get_info(self._c_value, &info_value) != 0:
             return None
-        return value_factory(info_value).value
+        return copy.deepcopy(value_factory(info_value).value)
 
     @info.setter
     def info(self, AMQPValue info_value):

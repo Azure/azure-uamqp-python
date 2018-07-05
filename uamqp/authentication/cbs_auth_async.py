@@ -52,14 +52,15 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 self.timeout)
             self._cbs_auth.set_trace(debug)
         except ValueError:
+            await self._session.destroy_async()
             raise errors.AMQPConnectionError(
-                "Unable to open authentication session. "
-                "Please confirm target URI exists.") from None
+                "Unable to open authentication session.\n"
+                "Please confirm target hostname exists: {}".format(connection.hostname)) from None
         return self._cbs_auth
 
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
-        await self.loop.run_in_executor(None, functools.partial(self.close_authenticator))
+        await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
         await self._session.destroy_async()
 
     async def handle_token_async(self):

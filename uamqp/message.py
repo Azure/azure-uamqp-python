@@ -214,7 +214,7 @@ class Message:
             # We only need this for messages being sent.
             return None
         # TODO: This no longer calculates the metadata accurately.
-        return c_uamqp.get_encoded_message_size(self._message)
+        return 0  # c_uamqp.get_encoded_message_size(self._message)
 
     def get_data(self):
         """Get the body data of the message. The format may vary depending
