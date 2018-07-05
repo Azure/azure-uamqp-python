@@ -154,7 +154,7 @@ cdef class CBSTokenAuth:
     cpdef on_cbs_error(self):
         _logger.debug("CBS error occured.")
 
-    cpdef _cbs_put_token_compelete(self, result, status_code, status_description):
+    cpdef _cbs_put_token_compelete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         if result == CBS_OPERATION_RESULT_OK:
             self.state = AUTH_STATUS_OK
         else:
@@ -163,7 +163,7 @@ cdef class CBSTokenAuth:
         self.token_status_description = status_description
         self.on_cbs_put_token_complete(result, status_code, status_description)
 
-    cpdef on_cbs_put_token_complete(self, result, status_code, status_description):
+    cpdef on_cbs_put_token_complete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         _logger.debug("Token put complete with result: {}, status: {}, description: {}".format(result, status_code, status_description))
 
 

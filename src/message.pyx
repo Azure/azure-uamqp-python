@@ -96,10 +96,7 @@ cdef class cMessage(StructBase):
                     self._value_error()
         elif c_message.message_set_header(
             self._c_value, <c_amqp_definitions.HEADER_HANDLE>value._c_value) != 0:
-                value.destroy()
                 self._value_error()
-        else:
-            value.destroy()
 
     @property
     def delivery_annotations(self):
@@ -121,10 +118,7 @@ cdef class cMessage(StructBase):
                     self._value_error()
         elif c_message.message_set_delivery_annotations(
             self._c_value, <c_amqp_definitions.delivery_annotations>value._c_value) != 0:
-                value.destroy()
                 self._value_error()
-        else:
-            value.destroy()
 
     @property
     def message_annotations(self):
@@ -146,10 +140,7 @@ cdef class cMessage(StructBase):
                     self._value_error()
         elif c_message.message_set_message_annotations(
             self._c_value, <c_amqp_definitions.message_annotations>value._c_value) != 0:
-                value.destroy()
                 self._value_error()
-        else:
-            value.destroy()
 
     @property
     def properties(self):
@@ -171,10 +162,7 @@ cdef class cMessage(StructBase):
                     self._value_error()
         elif c_message.message_set_properties(
             self._c_value, <c_amqp_definitions.PROPERTIES_HANDLE>value._c_value) != 0:
-                value.destroy()
                 self._value_error()
-        else:
-            value.destroy()
 
     @property
     def application_properties(self):
@@ -218,10 +206,7 @@ cdef class cMessage(StructBase):
                     self._value_error()
         elif c_message.message_set_footer(
             self._c_value, <c_amqp_definitions.annotations>value._c_value) != 0:
-                value.destroy()
                 self._value_error()
-        else:
-            value.destroy()
 
     @property
     def body_type(self):

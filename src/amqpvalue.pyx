@@ -8,6 +8,7 @@
 from enum import Enum
 import logging
 import uuid
+import copy
 
 # C improts
 from libc cimport stdint
@@ -331,13 +332,6 @@ cdef class AMQPValue(StructBase):
         if <void*>value == NULL:
             self._value_error()
         return value_factory(value)
-
-    cpdef get_map(self):
-        cdef c_amqpvalue.AMQP_VALUE value
-        if c_amqpvalue.amqpvalue_get_map(self._c_value, &value) == 0:
-            return value_factory(value)
-        else:
-            self._value_error()
 
 
 cdef class BoolValue(AMQPValue):
@@ -713,7 +707,7 @@ cdef class ListValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(self[i].value)
+            value.append(copy.deepcopy(self[i].value))
         return value
 
 
@@ -763,7 +757,7 @@ cdef class DictValue(AMQPValue):
         value = {}
         for i in range(self.size):
             key, item = self.get(i)
-            value[key.value] = item.value
+            value[copy.deepcopy(key.value)] = copy.deepcopy(item.value)
         return value
 
 
@@ -808,7 +802,7 @@ cdef class ArrayValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(self[i].value)
+            value.append(copy.deepcopy(self[i].value))
         return value
 
 
@@ -899,4 +893,4 @@ cdef class DescribedValue(AMQPValue):
         assert self.type
         #descriptor = self.description
         described = self.data
-        return described.value
+        return copy.deepcopy(described.value)

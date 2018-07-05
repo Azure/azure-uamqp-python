@@ -6,6 +6,7 @@
 
 # Python imports
 import logging
+import copy
 
 # C imports
 from libc cimport stdint
@@ -76,7 +77,7 @@ cdef class cAnnotations(StructBase):
 
     def __dealloc__(self):
         _logger.debug("Deallocating {}".format(self.__class__.__name__))
-        #self.destroy()
+        self.destroy()
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:
@@ -118,13 +119,15 @@ cdef class cAnnotations(StructBase):
 
     @property
     def map(self):
-        cdef c_amqpvalue.AMQP_VALUE value
-        if c_amqpvalue.amqpvalue_get_map(self._c_value, &value) == 0:
-            if <void*>value == NULL:
+        cdef c_amqpvalue.AMQP_VALUE unmapped
+        cdef c_amqpvalue.AMQP_VALUE mapped
+        unmapped = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>self._c_value)
+        if c_amqpvalue.amqpvalue_get_map(unmapped, &mapped) == 0:
+            if <void*>mapped == NULL:
                 return None
-            return value_factory(value).value
+            map = value_factory(mapped).value
+            return copy.deepcopy(map)
         else:
-            #self._value_error("Failed to get map.")
             return None
 
 
@@ -147,7 +150,8 @@ cdef class cApplicationProperties(cAnnotations):
         if c_amqpvalue.amqpvalue_get_map(extracted, &value) == 0:
             if <void*>value == NULL:
                 return None
-            return value_factory(value).value
+            map = value_factory(value).value
+            return copy.deepcopy(map)
         else:
             return None
 

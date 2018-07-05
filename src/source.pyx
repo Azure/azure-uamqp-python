@@ -6,6 +6,7 @@
 
 # Python imports
 import logging
+import copy
 
 # C imports
 cimport c_amqp_definitions
@@ -62,7 +63,7 @@ cdef class cSource(StructBase):
             self._value_error("Failed to get source address")
         if <void*>_value == NULL:
             return None
-        return _value.value
+        return copy.deepcopy(_value.value)
 
     @address.setter
     def address(self, AMQPValue value):
