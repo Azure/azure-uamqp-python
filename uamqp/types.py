@@ -7,7 +7,7 @@
 # pylint: disable=super-init-not-called,arguments-differ
 
 from uamqp import c_uamqp
-from uamqp import utils
+import utils
 
 
 class AMQPType:

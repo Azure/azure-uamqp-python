@@ -9,7 +9,7 @@ from datetime import timedelta
 import time
 import base64
 
-from uamqp import types
+import types
 from uamqp import c_uamqp
 
 
