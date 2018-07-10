@@ -27,6 +27,10 @@ Python 2.7 support
 ++++++++++++++++++
 Coming soon...
 
+Documentation
++++++++++++++
+Reference documentation can be found here: `docs.microsoft.com/python/api/uamqp/uamqp <https://docs.microsoft.com/python/api/uamqp/uamqp>`__.
+
 
 Developer Setup
 ===============
