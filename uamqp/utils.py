@@ -9,7 +9,6 @@ from datetime import timedelta
 import time
 import base64
 
-from uamqp import types
 from uamqp import c_uamqp
 
 
@@ -70,7 +69,7 @@ def data_factory(value, encoding='UTF-8'):
     result = None
     if value is None:
         result = c_uamqp.null_value()
-    elif isinstance(value, types.AMQPType):
+    elif hasattr(value, 'c_data'):
         result = value.c_data
     elif isinstance(value, c_uamqp.AMQPValue):
         result = value
