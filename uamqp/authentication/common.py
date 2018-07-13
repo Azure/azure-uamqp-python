@@ -30,14 +30,14 @@ class AMQPAuth:
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
         self.sasl = _SASL()
-        self.set_tlsio(self.hostname, port)
+        self.set_tlsio(self.hostname, port, http_proxy)
 
-    def set_tlsio(self, hostname, port):
+    def set_tlsio(self, hostname, port, http_proxy):
         """Setup the default underlying TLS IO layer. On Windows this is
         Schannel, on Linux and MacOS this is OpenSSL.
 

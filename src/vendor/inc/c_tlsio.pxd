@@ -18,3 +18,16 @@ cdef extern from "azure_c_shared_utility/tlsio.h":
         void* underlying_io_parameters
 
     ctypedef TLSIO_CONFIG_TAG TLSIO_CONFIG
+
+
+cdef extern from "azure_c_shared_utility/http_proxy_io.h":
+
+    ctypedef struct HTTP_PROXY_IO_CONFIG_TAG:
+        const char* hostname;
+        int port;
+        const char* proxy_hostname;
+        int proxy_port;
+        const char* username;
+        const char* password;
+
+    const c_xio.IO_INTERFACE_DESCRIPTION* http_proxy_io_get_interface_description()
