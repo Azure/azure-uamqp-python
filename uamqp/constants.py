@@ -17,7 +17,6 @@ STRING_FILTER = b"apache.org:selector-filter:string"
 OPERATION = b"operation"
 READ_OPERATION = b"READ"
 MGMT_TARGET = b"$management"
-MESSAGE_SEND_RETRIES = 3
 
 
 BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT

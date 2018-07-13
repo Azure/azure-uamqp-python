@@ -380,26 +380,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
 
         :rtype: bool
         """
-        # pylint: disable=protected-access
-        for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
-                try:
-                    self._pending_messages.remove(message)
-                except ValueError:
-                    pass
-            elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForSendAck
-                try:
-                    current_time = self._counter.get_current_ms()
-                    elapsed_time = (current_time - message.idle_time)/1000
-                    if self._msg_timeout > 0 and elapsed_time/1000 > self._msg_timeout:
-                        message._on_message_sent(constants.MessageSendResult.Timeout)
-                    else:
-                        timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                        self._message_sender.send_async(message, timeout=timeout)
-
-                except Exception as exp:  # pylint: disable=broad-except
-                    message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+        self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
         await self._connection.work_async()
         return True
 

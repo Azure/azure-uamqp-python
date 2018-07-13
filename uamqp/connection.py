@@ -7,6 +7,7 @@
 import logging
 import uuid
 import threading
+import time
 
 import uamqp
 from uamqp import c_uamqp
@@ -198,6 +199,17 @@ class Connection:
             pass
         self._conn.do_work()
         self._lock.release()
+
+    def sleep(self, seconds):
+        """Lock the connection for a given number of seconds.
+
+        :param seconds: Length of time to lock the connection.
+        :type seconds: int
+        """
+        self._lock.acquire()
+        time.sleep(seconds)
+        self._lock.release()
+
 
     @property
     def max_frame_size(self):

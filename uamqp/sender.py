@@ -6,6 +6,7 @@
 
 import logging
 import uuid
+import enum
 
 from uamqp import utils
 from uamqp import errors
@@ -146,7 +147,7 @@ class MessageSender():
         """Close the sender, leaving the link intact."""
         self._sender.close()
 
-    def send_async(self, message, timeout=0):
+    def send_async(self, message, callback, timeout=0):
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
         :param message: The message to send.
@@ -156,6 +157,7 @@ class MessageSender():
          state. If set to 0, the message will not expire. The default is 0.
         """
         c_message = message.get_message()
+        message._on_message_sent = callback
         self._sender.send(c_message, timeout, message)
 
     def _detach_received(self, error):
@@ -229,3 +231,34 @@ class MessageSender():
     @max_message_size.setter
     def max_message_size(self, value):
         self._link.max_message_size = int(value)
+
+
+class SendFailedAction:
+
+    retry = 0
+    fail = 1
+    shutdown = 2
+
+    def __init__(self, retry=False, fail=False, shutdown=False, backoff=0):
+        if retry:
+            self.action = SendFailedAction.retry
+        elif fail:
+            self.action = SendFailedAction.fail
+        elif shutdown:
+            self.action = SendFailedAction.shutdown
+        else:
+            raise ValueError("An action must be specified.")
+        self.backoff = backoff
+
+
+class RetryPolicy:
+
+    def __init__(self, max_retries=0, on_error=None):
+        self.max_retries = max_retries
+        self._on_error = on_error
+
+    def on_error(self, error):
+        if self._on_error:
+            return self._on_error(error)
+        else:
+            return SendFailedAction.retry

@@ -7,6 +7,7 @@
 import logging
 import uuid
 import queue
+import time
 try:
     from urllib import unquote_plus
 except ImportError:
@@ -87,6 +88,7 @@ class AMQPClient:
         self._connection = None
         self._ext_connection = False
         self._session = None
+        self._backoff = 0
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -371,12 +373,13 @@ class SendClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
+    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, retry_policy=None, **kwargs):
         target = target if isinstance(target, address.Address) else address.Target(target)
         self._msg_timeout = msg_timeout
         self._pending_messages = []
         self._message_sender = None
         self._shutdown = None
+        self._retry_policy = retry_policy or sender.RetryPolicy()
 
         # Sender and Link settings
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
@@ -421,6 +424,67 @@ class SendClient(AMQPClient):
             return False
         return True
 
+    def _on_message_sent(self, message, result, delivery_state=None):
+        """Callback run on a message send operation. If message
+        has a user defined callback, it will be called here. If the result
+        of the operation is failure, the message state will be reverted
+        to 'pending' up to the maximum retry count.
+
+        :param result: The result of the send operation.
+        :type result: int
+        :param error: An Exception if an error ocurred during the send operation.
+        :type error: ~Exception
+        """
+        result = constants.MessageSendResult(result)
+        if result == constants.MessageSendResult.Error and message.retries < self._retry_policy.max_retries:
+            action_policy = self._retry_policy.on_error(delivery_state)
+            if action_policy.action == sender.SendFailedAction.retry:
+                message.retries += 1
+                self._backoff = action_policy.backoff
+                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(message.retries, delivery_state))
+                message.state = constants.MessageState.WaitingToBeSent
+                return
+            else:
+                _logger.error("Message error, not retrying. Error: {}".format(delivery_state))
+                message.state = constants.MessageState.SendFailed
+                message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
+                if action_policy.action == sender.SendFailedAction.shutdown:
+                    _logger.error("Sender is shutting down according to error policy.")
+                    self._shutdown = True
+        elif result == constants.MessageSendResult.Error:
+            _logger.error("Message error, {} retries exhausted. Error: {}".format(message.retries, delivery_state))
+            message.state = constants.MessageState.SendFailed
+            message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
+        else:
+            _logger.debug("Message sent: {}, {}".format(result, delivery_state))
+            message.state = constants.MessageState.SendComplete
+            message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
+        if message.on_send_complete:
+            message.on_send_complete(result, delivery_state)
+
+    def _filter_pending(self, message):
+        if message.state in constants.DONE_STATES:
+            return False
+        elif message.state == constants.MessageState.WaitingForSendAck:
+            self._waiting_messages += 1
+        elif message.state == constants.MessageState.WaitingToBeSent:
+            message.state = constants.MessageState.WaitingForSendAck
+            try:
+                current_time = self._counter.get_current_ms()
+                elapsed_time = (current_time - message.idle_time)/1000
+                if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
+                    self._on_message_sent(message, constants.MessageSendResult.Timeout)
+                    return False
+                else:
+                    timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+                    self._message_sender.send_async(message, self._on_message_sent, timeout=timeout)
+                    return True
+            except Exception as exp:  # pylint: disable=broad-except
+                self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
+                return False
+        return True
+
+
     def _client_run(self):
         """MessageSender Link is now open - perform message send
         on all pending messages.
@@ -430,24 +494,12 @@ class SendClient(AMQPClient):
         :rtype: bool
         """
         # pylint: disable=protected-access
-        for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
-                try:
-                    self._pending_messages.remove(message)
-                except ValueError:
-                    pass
-            elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForSendAck
-                try:
-                    current_time = self._counter.get_current_ms()
-                    elapsed_time = (current_time - message.idle_time)/1000
-                    if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
-                        message._on_message_sent(constants.MessageSendResult.Timeout)
-                    else:
-                        timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                        self._message_sender.send_async(message, timeout=timeout)
-                except Exception as exp:  # pylint: disable=broad-except
-                    message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+        self._waiting_messages = 0
+        self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
+        if self._backoff and not self._waiting_messages:
+            print("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            self._connection.sleep(self._backoff)
+            self._backoff = 0
         self._connection.work()
         return True
 
@@ -514,9 +566,10 @@ class SendClient(AMQPClient):
             self._pending_messages.append(message)
             pending_batch.append(message)
         self.open()
+        running = True
         try:
-            while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
-                self.do_work()
+            while running and any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
+                running = self.do_work()
         except:
             raise
         else:
@@ -524,7 +577,7 @@ class SendClient(AMQPClient):
             if any(failed):
                 raise errors.MessageSendFailed("Failed to send message.")
         finally:
-            if close_on_done:
+            if close_on_done or not running:
                 self.close()
 
     def messages_pending(self):
@@ -537,10 +590,15 @@ class SendClient(AMQPClient):
 
     def wait(self):
         """Run the client until all pending message in the queue
-        have been processed.
+        have been processed. Returns whether the client is still running after the
+        messages have been processed, or whether a shutdown has been initiated.
+
+        :rtype: bool
         """
-        while self.messages_pending():
-            self.do_work()
+        running = True
+        while running and self.messages_pending():
+            running = self.do_work()
+        return running
 
     def send_all_messages(self, close_on_done=True):
         """Send all pending messages in the queue. This will return a list
@@ -554,16 +612,17 @@ class SendClient(AMQPClient):
         :rtype: list[~uamqp.constants.MessageState]
         """
         self.open()
+        running = True
         try:
             messages = self._pending_messages[:]
-            self.wait()
+            running = self.wait()
         except:
             raise
         else:
             results = [m.state for m in messages]
             return results
         finally:
-            if close_on_done:
+            if close_on_done or not running:
                 self.close()
 
 

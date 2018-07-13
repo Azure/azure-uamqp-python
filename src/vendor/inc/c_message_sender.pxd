@@ -10,6 +10,7 @@ cimport c_message
 cimport c_link
 cimport c_async_operation
 cimport c_amqp_definitions
+cimport c_amqpvalue
 
 
 cdef extern from "azure_uamqp_c/message_sender.h":
@@ -30,7 +31,7 @@ cdef extern from "azure_uamqp_c/message_sender.h":
     ctypedef struct MESSAGE_SENDER_HANDLE:
         pass
 
-    ctypedef void (*ON_MESSAGE_SEND_COMPLETE)(void* context, MESSAGE_SEND_RESULT_TAG send_result)
+    ctypedef void (*ON_MESSAGE_SEND_COMPLETE)(void* context, MESSAGE_SEND_RESULT_TAG send_result, c_amqpvalue.AMQP_VALUE delivery_state)
     ctypedef void (*ON_MESSAGE_SENDER_STATE_CHANGED)(void* context, MESSAGE_SENDER_STATE_TAG new_state, MESSAGE_SENDER_STATE_TAG previous_state)
 
     MESSAGE_SENDER_HANDLE messagesender_create(c_link.LINK_HANDLE link, ON_MESSAGE_SENDER_STATE_CHANGED on_message_sender_state_changed, void* context)
