@@ -83,7 +83,7 @@ class ConnectionAsync(connection.Connection):
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
             debug=debug,
             encoding=encoding)
-        self._async_lock = asyncio.Lock(loop=self.loop)
+        self._lock = asyncio.Lock(loop=self.loop)
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
@@ -102,13 +102,13 @@ class ConnectionAsync(connection.Connection):
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
-        await self._async_lock.acquire()
+        await self._lock.acquire()
         try:
             raise self._error
         except TypeError:
             pass
         await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
-        self._async_lock.release()
+        self._lock.release()
 
     async def redirect_async(self, redirect_error, auth):
         """Redirect the connection to an alternative endpoint.
@@ -117,7 +117,7 @@ class ConnectionAsync(connection.Connection):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
-        await self._async_lock.acquire()
+        await self._lock.acquire()
         try:
             if self.hostname == redirect_error.hostname:
                 return
@@ -134,7 +134,7 @@ class ConnectionAsync(connection.Connection):
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:
-            self._async_lock.release()
+            self._lock.release()
 
     async def destroy_async(self):
         """Close the connection asynchronously, and close any associated

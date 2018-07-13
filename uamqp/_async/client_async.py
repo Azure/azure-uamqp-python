@@ -268,11 +268,11 @@ class AMQPClientAsync(client.AMQPClient):
         elif auth_in_progress:
             await self._connection.work_async()
             return True
-        elif not await self._client_ready_async():
+        elif not await self._client_ready():
             await self._connection.work_async()
             return True
         else:
-            return await self._client_run_async()
+            return await self._client_run()
 
 
 class SendClientAsync(client.SendClient, AMQPClientAsync):
@@ -340,7 +340,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         # AMQP object settings
         self.sender_type = MessageSenderAsync
 
-    async def _client_ready_async(self):
+    async def _client_ready(self):
         """Determine whether the client is ready to start sending messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
@@ -372,7 +372,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             return False
         return True
 
-    async def _client_run_async(self):
+    async def _client_run(self):
         """MessageSender Link is now open - perform message send
         on all pending messages.
         Will return True if operation successful and client can remain open for
@@ -571,7 +571,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
 
-    async def _client_ready_async(self):
+    async def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
@@ -606,7 +606,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             return False
         return True
 
-    async def _client_run_async(self):
+    async def _client_run(self):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.

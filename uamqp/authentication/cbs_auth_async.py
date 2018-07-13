@@ -36,7 +36,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self.loop = loop or asyncio.get_event_loop()
-        self._async_lock = asyncio.Lock(loop=self.loop)
+        self._lock = asyncio.Lock(loop=self.loop)
         self._session = SessionAsync(
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
@@ -80,7 +80,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """
         timeout = False
         in_progress = False
-        await self._async_lock.acquire()
+        await self._lock.acquire()
         try:
             auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
             auth_status = constants.CBSAuthStatus(auth_status)
@@ -124,7 +124,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         except:
             raise
         finally:
-            self._async_lock.release()
+            self._lock.release()
         return timeout, in_progress
 
 
