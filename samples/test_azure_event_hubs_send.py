@@ -36,10 +36,9 @@ def test_event_hubs_simple_send(live_eventhub_config):
 
 def test_event_hubs_client_send_sync(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
-    proxy_settings={'proxy_hostname':'127.0.0.1', 'proxy_port': 12345}
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
-        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'], http_proxy=proxy_settings)
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
