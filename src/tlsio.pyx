@@ -35,8 +35,10 @@ cdef class TLSIOConfig:
     def port(self, int port):
         self._c_value.port = port
 
-    cdef set_underlying_io(self, const c_xio.IO_INTERFACE_DESCRIPTION* underlying_io_interface, void* underlying_io_parameters):
-        self._c_value.underlying_io_interface = underlying_io_interface
+    cdef set_proxy_config(self, void* underlying_io_parameters):
+        const c_xio.IO_INTERFACE_DESCRIPTION* proxy_io
+        proxy_io = c_tlsio.http_proxy_io_get_interface_description()
+        self._c_value.underlying_io_interface = proxy_io
         self._c_value.underlying_io_parameters = underlying_io_parameters
 
 

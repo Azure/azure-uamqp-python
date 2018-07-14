@@ -25,6 +25,10 @@ class AMQPAuth:
     :type port: int
     :param verify: The path to a user-defined certificate.
     :type verify: str
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
@@ -36,6 +40,22 @@ class AMQPAuth:
         self.cert_file = verify
         self.sasl = _SASL()
         self.set_tlsio(self.hostname, port, http_proxy)
+
+    def _build_proxy_config(self, hostname, port, proxy_settings):
+        config = c_uamqp.HTTPProxyConfig()
+        config.hostname = hostname
+        config.port = port
+        for value in proxy_settings.values():
+            value = value.encode(self._encoding) if isinstance(value, str) else value
+        config.proxy_hostname = proxy_settings['proxy_hostname']
+        config.proxy_port = proxy_settings['proxy_port']
+        username = proxy_settings.get('username')
+        if username:
+            config.username = username
+        password = proxy_settings.get('password')
+        if password:
+            config.password = password
+        return config
 
     def set_tlsio(self, hostname, port, http_proxy):
         """Setup the default underlying TLS IO layer. On Windows this is
@@ -50,6 +70,9 @@ class AMQPAuth:
         _tlsio_config = c_uamqp.TLSIOConfig()
         _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
+        if http_proxy:
+            proxy_config = self._build_proxy_config(hostname, port, http_proxy)
+            _tlsio_config.set_proxy_config(proxy_config)
         self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
 
         cert = self.cert_file or certifi.where()
@@ -84,19 +107,23 @@ class SASLPlain(AMQPAuth):
     :type port: int
     :param verify: The path to a user-defined certificate.
     :type verify: str
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname and credentials
      are provided as a str. Default is 'UTF-8'.
     :type encoding: str
     """
 
-    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.username = username.encode(self._encoding) if isinstance(username, str) else username
         self.password = password.encode(self._encoding) if isinstance(password, str) else password
         self.cert_file = verify
         self.sasl = _SASLPlain(self.username, self.password, encoding=self._encoding)
-        self.set_tlsio(self.hostname, port)
+        self.set_tlsio(self.hostname, port, http_proxy)
 
 
 class SASLAnonymous(AMQPAuth):
@@ -111,17 +138,21 @@ class SASLAnonymous(AMQPAuth):
     :type port: int
     :param verify: The path to a user-defined certificate.
     :type verify: str
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, encoding='UTF-8'):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.cert_file = verify
         self.sasl = _SASLAnonymous()
-        self.set_tlsio(self.hostname, port)
+        self.set_tlsio(self.hostname, port, http_proxy)
 
 
 class _SASLClient:

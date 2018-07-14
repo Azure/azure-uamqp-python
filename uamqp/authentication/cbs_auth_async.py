@@ -164,6 +164,10 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
     :param token_type: The type field of the token request.
      Default value is `b"servicebus.windows.net:sastoken"`.
     :type token_type: bytes
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str

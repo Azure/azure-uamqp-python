@@ -189,6 +189,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :param token_type: The type field of the token request.
      Default value is `b"servicebus.windows.net:sastoken"`.
     :type token_type: bytes
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
@@ -204,6 +208,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
+                 http_proxy=None,
                  encoding='UTF-8'):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
@@ -234,7 +239,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.timeout = timeout
         self.retries = 0
         self.sasl = _SASL()
-        self.set_tlsio(self.hostname, port)
+        self.set_tlsio(self.hostname, port, http_proxy)
 
     def update_token(self):
         """If a username and password are present - attempt to use them to
@@ -262,6 +267,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             timeout=10,
             retry_policy=TokenRetryPolicy(),
             verify=None,
+            http_proxy=None,
             encoding='UTF-8'):
         """Attempt to create a CBS token session using a Shared Access Key such
         as is used to connect to Azure services.
@@ -286,6 +292,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
         :param verify: The path to a user-defined certificate.
         :type verify: str
+        :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+         the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+         keys are 'username' and 'password'.
+        :type http_proxy: dict
         :param encoding: The encoding to use if hostname is provided as a str.
         Default is 'UTF-8'.
         :type encoding: str
@@ -309,4 +319,5 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             timeout=timeout,
             retry_policy=retry_policy,
             verify=verify,
+            http_proxy=http_proxy,
             encoding=encoding)
