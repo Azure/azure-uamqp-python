@@ -74,7 +74,7 @@ async def test_event_hubs_async_sender_sync(live_eventhub_config):
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
         send_client.send_message(message)
-    await send_client.close_async()
+    send_client.close()
 
 
 @pytest.mark.asyncio

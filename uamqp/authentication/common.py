@@ -45,8 +45,8 @@ class AMQPAuth:
         config = c_uamqp.HTTPProxyConfig()
         config.hostname = hostname
         config.port = port
-        for value in proxy_settings.values():
-            value = value.encode(self._encoding) if isinstance(value, str) else value
+        for key, value in proxy_settings.items():
+            proxy_settings[key] = value.encode(self._encoding) if isinstance(value, str) else value
         config.proxy_hostname = proxy_settings['proxy_hostname']
         config.proxy_port = proxy_settings['proxy_port']
         username = proxy_settings.get('username')

@@ -272,7 +272,7 @@ class AMQPClientAsync(client.AMQPClient):
             await self._connection.work_async()
             return True
         else:
-            return await self._client_run()
+            return await self._client_run_async()
 
 
 class SendClientAsync(client.SendClient, AMQPClientAsync):
@@ -332,10 +332,10 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, msg_timeout=0, **kwargs):
+    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, retry_policy=None, msg_timeout=0, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.SendClient.__init__(
-            self, target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
+            self, target, auth=auth, client_name=client_name, debug=debug, retry_policy=retry_policy, msg_timeout=msg_timeout, **kwargs)
 
         # AMQP object settings
         self.sender_type = MessageSenderAsync
@@ -372,7 +372,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             return False
         return True
 
-    async def _client_run(self):
+    async def _client_run_async(self):
         """MessageSender Link is now open - perform message send
         on all pending messages.
         Will return True if operation successful and client can remain open for
@@ -380,7 +380,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
 
         :rtype: bool
         """
+        self._waiting_messages = 0
         self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
+        if self._backoff and not self._waiting_messages:
+            print("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            await self._connection.sleep_async(self._backoff)
+            self._backoff = 0
         await self._connection.work_async()
         return True
 
@@ -587,7 +592,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             return False
         return True
 
-    async def _client_run(self):
+    async def _client_run_async(self):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.

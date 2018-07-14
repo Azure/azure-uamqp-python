@@ -35,19 +35,19 @@ cdef class TLSIOConfig:
     def port(self, int port):
         self._c_value.port = port
 
-    cdef set_proxy_config(self, void* underlying_io_parameters):
-        const c_xio.IO_INTERFACE_DESCRIPTION* proxy_io
+    cpdef set_proxy_config(self, underlying_io_parameters):
+        cdef const c_xio.IO_INTERFACE_DESCRIPTION* proxy_io
         proxy_io = c_tlsio.http_proxy_io_get_interface_description()
         self._c_value.underlying_io_interface = proxy_io
-        self._c_value.underlying_io_parameters = underlying_io_parameters
+        self._c_value.underlying_io_parameters = <void*>underlying_io_parameters
 
 
 cdef class HTTPProxyConfig:
 
-    cdef c_tlsio.HTTP_PROXY_IO_CONFIG_TAG _c_value
+    cdef c_tlsio.HTTP_PROXY_IO_CONFIG _c_value
 
     def __cinit__(self):
-        self._c_value = c_tlsio.HTTP_PROXY_IO_CONFIG_TAG(NULL, 0, NULL, 0, NULL, NULL)
+        self._c_value = c_tlsio.HTTP_PROXY_IO_CONFIG(NULL, 0, NULL, 0, NULL, NULL)
 
     @property
     def hostname(self):
