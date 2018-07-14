@@ -3,6 +3,13 @@
 Release History
 ===============
 
+0.2.0 (unreleased)
+++++++++++++++++++
+
+- Added support for HTTP proxy configuration.
+- Added support for running async clients synchronously.
+
+
 0.1.1 (2018-07-14)
 ++++++++++++++++++
 

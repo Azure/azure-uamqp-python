@@ -268,7 +268,7 @@ class AMQPClientAsync(client.AMQPClient):
         elif auth_in_progress:
             await self._connection.work_async()
             return True
-        elif not await self._client_ready():
+        elif not await self._client_ready_async():
             await self._connection.work_async()
             return True
         else:
@@ -340,7 +340,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         # AMQP object settings
         self.sender_type = MessageSenderAsync
 
-    async def _client_ready(self):
+    async def _client_ready_async(self):
         """Determine whether the client is ready to start sending messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
@@ -552,7 +552,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
 
-    async def _client_ready(self):
+    async def _client_ready_async(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
