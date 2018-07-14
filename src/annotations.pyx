@@ -140,18 +140,24 @@ cdef class cApplicationProperties(cAnnotations):
 
     @property
     def map(self):
+        cdef c_amqpvalue.AMQP_VALUE unmapped
+        cdef c_amqpvalue.AMQP_VALUE mapped
+        cdef c_amqpvalue.AMQP_VALUE unextracted
         cdef c_amqpvalue.AMQP_VALUE extracted
-        cdef c_amqpvalue.AMQP_VALUE value
-        extracted = c_amqpvalue.amqpvalue_get_inplace_described_value(self._c_value)
-        if <void*>extracted == NULL:
-            return None
-
-        if c_amqpvalue.amqpvalue_get_map(extracted, &value) == 0:
-            if <void*>value == NULL:
-                return None
-            return copy.deepcopy(value_factory(value).value)
+        unextracted = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>self._c_value)
+        extracted = c_amqpvalue.amqpvalue_get_inplace_described_value(unextracted)
+        unmapped = c_amqpvalue.amqpvalue_clone(extracted)
+        if <void*>unmapped == NULL:
+            result = None
+        elif c_amqpvalue.amqpvalue_get_map(unmapped, &mapped) == 0:
+            if <void*>mapped == NULL:
+                result = None
+            else:
+                result = copy.deepcopy(value_factory(mapped).value)
         else:
-            return None
+            result = None
+        c_amqpvalue.amqpvalue_destroy(unextracted)
+        return result
 
 
 cdef class cDeliveryAnnotations(cAnnotations):

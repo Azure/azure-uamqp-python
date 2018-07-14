@@ -11,6 +11,9 @@ import functools
 # C imports
 cimport c_message_receiver
 cimport c_message
+cimport c_link
+cimport c_amqpvalue
+
 
 
 _logger = logging.getLogger(__name__)

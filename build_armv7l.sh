@@ -6,9 +6,14 @@ set -e
 
 export UAMQP_VERSION="0.1.1"
 
-export CPATH="/opt/pyca/cryptography/openssl/include"
-export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"
-export OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl"
+export CPATH="/opt/uamqp/openssl/include"
+export LIBRARY_PATH="/opt/uamqp/openssl/lib"
+export OPENSSL_ROOT_DIR="/opt/uamqp/openssl"
+export OPENSSL_INCLUDE_DIR="/opt/uamqp/openssl/include"
+export UAMQP_SUPPRESS_LINK_FLAGS=True
+export LDFLAGS="/opt/uamqp/openssl/lib/libssl.a /opt/uamqp/openssl/lib/libcrypto.a"
+export CFLAGS="-I/opt/uamqp/openssl/include"
+
 
 # Make sure Cython and Wheel are available in all env
 /opt/python/cp34-cp34m/bin/python -m pip install cython==0.28.4 wheel

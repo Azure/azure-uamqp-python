@@ -3,6 +3,14 @@
 Release History
 ===============
 
+0.1.1 (2018-07-14)
+++++++++++++++++++
+
+- Removed circular dependency in Python 3.4 with types.py/utils.py
+- When a header properties is not set, returns `None` rather than raising ValueError.
+- Fixed bug in receiving messages with application properties.
+
+
 0.1.0 (2018-07-05)
 ++++++++++++++++++
 

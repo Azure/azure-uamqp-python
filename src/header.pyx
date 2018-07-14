@@ -61,9 +61,12 @@ cdef class cHeader(StructBase):
     @property
     def delivery_count(self):
         cdef stdint.uint32_t _value
-        if c_amqp_definitions.header_get_delivery_count(self._c_value, &_value) != 0:
-            self._value_error("Couldn't get 'delivery_count'.")
-        return _value
+        if c_amqp_definitions.header_get_delivery_count(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return _value
+        else:
+            return None
 
     @delivery_count.setter
     def delivery_count(self, stdint.uint32_t value):
@@ -74,9 +77,12 @@ cdef class cHeader(StructBase):
     @property
     def time_to_live(self):
         cdef c_amqp_definitions.milliseconds _value
-        if c_amqp_definitions.header_get_ttl(self._c_value, &_value) != 0:
-            self._value_error("Couldn't get 'time_to_live'.")
-        return _value
+        if c_amqp_definitions.header_get_ttl(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return _value
+        else:
+            return None
 
     @time_to_live.setter
     def time_to_live(self, c_amqp_definitions.milliseconds value):
@@ -87,9 +93,12 @@ cdef class cHeader(StructBase):
     @property
     def durable(self):
         cdef bint _value
-        if c_amqp_definitions.header_get_durable(self._c_value, &_value) != 0:
-            self._value_error("Couldn't get 'durable'.")
-        return _value
+        if c_amqp_definitions.header_get_durable(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return _value
+        else:
+            return None
 
     @durable.setter
     def durable(self, bint value):
@@ -100,9 +109,12 @@ cdef class cHeader(StructBase):
     @property
     def first_acquirer(self):
         cdef bint _value
-        if c_amqp_definitions.header_get_first_acquirer(self._c_value, &_value) != 0:
-            self._value_error("Couldn't get 'first_acquirer'.")
-        return _value
+        if c_amqp_definitions.header_get_first_acquirer(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return _value
+        else:
+            return None
 
     @first_acquirer.setter
     def first_acquirer(self, bint value):
@@ -113,9 +125,12 @@ cdef class cHeader(StructBase):
     @property
     def priority(self):
         cdef stdint.uint8_t _value
-        if c_amqp_definitions.header_get_priority(self._c_value, &_value) != 0:
-            self._value_error("Couldn't get 'priority'.")
-        return _value
+        if c_amqp_definitions.header_get_priority(self._c_value, &_value) == 0:
+            if <void*>_value == NULL:
+                return None
+            return _value
+        else:
+            return None
 
     @priority.setter
     def priority(self, stdint.uint8_t value):
