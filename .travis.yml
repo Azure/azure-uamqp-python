@@ -3,14 +3,18 @@ cache: pip
 matrix:
   include:
     - os: linux
-      python: "3.4"
-      env: UAMQP_ENV=LINUX34
-    - os: linux
       python: "3.5"
       env: UAMQP_ENV=LINUX35
     - os: linux
       python: "3.6"
       env: UAMQP_ENV=LINUX36
+  allow_failures:
+    - os: linux
+      python: "3.4"
+      env: UAMQP_ENV=LINUX34
+    - os: linux
+      python: "3.7"
+      env: UAMQP_ENV=LINUX37
 # command to install dependencies
 sudo: required
 services:
