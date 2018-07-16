@@ -875,18 +875,26 @@ cdef class DescribedValue(AMQPValue):
     @property
     def description(self):
         cdef c_amqpvalue.AMQP_VALUE value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         value = c_amqpvalue.amqpvalue_get_inplace_descriptor(self._c_value)
         if <void*>value == NULL:
             self._value_error()
-        return value_factory(value)
+        cloned = c_amqpvalue.amqpvalue_clone(value)
+        if <void*>cloned == NULL:
+            self._value_error()
+        return value_factory(cloned)
 
     @property
     def data(self):
         cdef c_amqpvalue.AMQP_VALUE value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         value = c_amqpvalue.amqpvalue_get_inplace_described_value(self._c_value)
         if <void*>value == NULL:
             self._value_error()
-        return value_factory(value)
+        cloned = c_amqpvalue.amqpvalue_clone(value)
+        if <void*>cloned == NULL:
+            self._value_error()
+        return value_factory(cloned)
 
     @property
     def value(self):
