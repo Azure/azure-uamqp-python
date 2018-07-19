@@ -448,7 +448,7 @@ class SendClient(AMQPClient):
                 exception = errors._process_send_error(self._error_policy, error.condition, error.description, error.info)
             else:
                 exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
-                exception.action = errors.ErrorAction(retry=False)
+                exception.action = errors.ErrorAction(retry=True)
             if exception.action.retry == errors.ErrorAction.retry and message.retries < self._error_policy.max_retries:
                 if exception.action.increment_retries:
                     message.retries += 1

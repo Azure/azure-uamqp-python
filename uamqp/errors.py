@@ -85,6 +85,10 @@ class ErrorPolicy:
     def on_link_error(self, error):
         if error.condition == constants.ErrorCodes.LinkRedirect:
             return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.NotAllowed:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.UnauthorizedAccess:
+            return ErrorAction(retry=False)
         elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
             return ErrorAction(retry=False)
         elif error.condition == constants.ErrorCodes.LinkStolen:
