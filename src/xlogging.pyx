@@ -65,5 +65,5 @@ def _python_log(category, text, end, text_bldr=[], file=None, func=None, line=No
     if category == LogCategory.Debug or category == LogCategory.Info:
         _logger.info(log_line)
     else:
-        _logger.debug("{} ({}:{}:{})".format(
+        _logger.error("{} ({}:{}:{})".format(
             log_line, file, func, line))

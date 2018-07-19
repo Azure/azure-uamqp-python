@@ -190,14 +190,19 @@ cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STA
 cdef void on_io_error(void* context):
     if <void*>context != NULL:
         context_obj = <object>context
-        context_obj._io_error()
+        if hasattr(context_obj, '_io_error'):
+            context_obj._io_error()
 
 
 cdef void on_connection_close_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
+    print("Got connection close event")
+    cdef c_amqp_definitions.ERROR_HANDLE cloned
     context_obj = <object>context
     cloned = c_amqp_definitions.error_clone(error)
+    print("cloned error")
     wrapped_error = error_factory(cloned)
+    print("wrapped error")
     if hasattr(context_obj, '_close_received'):
+        print("calling python")
         context_obj._close_received(wrapped_error)
-    elif callable(context_obj):
-        context_obj(wrapped_error)
+    print("finished C callback")
