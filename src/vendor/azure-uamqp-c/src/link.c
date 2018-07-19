@@ -617,7 +617,7 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 }
             }
 
-            if (detach_get_error(close_handle, &error) != 0)
+            if (detach_get_error(detach, &error) != 0)
             {
                 error = NULL;
             }
