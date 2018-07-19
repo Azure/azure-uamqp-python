@@ -69,6 +69,7 @@ class ConnectionAsync(connection.Connection):
                  idle_timeout=None,
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
@@ -81,6 +82,7 @@ class ConnectionAsync(connection.Connection):
             idle_timeout=idle_timeout,
             properties=properties,
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=error_policy,
             debug=debug,
             encoding=encoding)
         self._async_lock = asyncio.Lock(loop=self.loop)

@@ -4,10 +4,113 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from uamqp import utils
+from uamqp import c_uamqp
+from uamqp import utils, constants
 
 
-class AMQPConnectionError(Exception):
+def _process_send_error(policy, condition, description=None, info=None):
+    try:
+        amqp_condition = constants.ErrorCodes(condition)
+    except ValueError:
+        exception = MessageException(condition, description, info)
+        exception.action = policy.on_unrecognized_error(exception)
+    else:
+        exception = MessageSendFailed(amqp_condition, description, info)
+        exception.action = policy.on_message_error(exception)
+    return exception
+
+
+def _process_link_error(policy, condition, description=None, info=None):
+    try:
+        amqp_condition = constants.ErrorCodes(condition)
+    except ValueError:
+        exception = VendorLinkDetach(condition, description, info)
+        exception.action = policy.on_unrecognized_error(exception)
+    else:
+        if amqp_condition == constants.ErrorCodes.LinkRedirect:
+            exception = LinkRedirect(amqp_condition, description, info)
+        else:
+            exception = LinkDetach(amqp_condition, description, info)
+        exception.action = policy.on_link_error(exception)
+    return exception
+
+
+def _process_connection_error(policy, condition, description=None, info=None):
+    try:
+        print("processing conn error")
+        amqp_condition = constants.ErrorCodes(condition)
+    except ValueError:
+        print("unrecognized")
+        exception = VendorConnectionClose(condition, description, info)
+        exception.action = policy.on_unrecognized_error(exception)
+    else:
+        print("recognized")
+        exception = ConnectionClose(amqp_condition, description, info)
+        exception.action = policy.on_connection_error(exception)
+    print("returning", exception)
+    return exception
+
+
+class ErrorAction:
+
+    retry = True
+    fail = False
+
+    def __init__(self, retry, backoff=0, increment_retries=False):
+        self.retry = bool(retry)
+        self.backoff = backoff
+        self.increment_retries = increment_retries
+
+
+class ErrorPolicy:
+
+    def __init__(self, max_retries=3, on_error=None):
+        self.max_retries = max_retries
+        self._on_error = on_error
+
+    def on_unrecognized_error(self, error):
+        if self._on_error:
+            return self._on_error(error)
+        else:
+            return ErrorAction(retry=True)
+
+    def on_message_error(self, error):
+        if error.condition == constants.ErrorCodes.DecodeError:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
+            return ErrorAction(retry=False)
+        else:
+            return ErrorAction(retry=True, increment_retries=True)
+
+    def on_link_error(self, error):
+        if error.condition == constants.ErrorCodes.LinkRedirect:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.LinkStolen:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.ResourceLimitExceeded:
+            return ErrorAction(retry=False)
+        else:
+            return ErrorAction(retry=True)
+
+    def on_connection_error(self, error):
+        if error.condition == constants.ErrorCodes.ConnectionRedirect:
+            return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.ConnectionCloseForced:
+            return ErrorAction(retry=True)
+        elif error.condition == constants.ErrorCodes.NotFound:
+            return ErrorAction(retry=False)
+        else:
+            return ErrorAction(retry=True)
+
+
+
+class AMQPError(Exception):
+    pass
+
+
+class AMQPConnectionError(AMQPError):
     pass
 
 
@@ -18,10 +121,15 @@ class ConnectionClose(AMQPConnectionError):
         self.condition = condition
         self.description = description
         self.info = info
-        message = self.condition.decode(self._encoding)
+        self.action = None
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
         if self.description:
             message += ": {}".format(self.description.decode(self._encoding))
         super(ConnectionClose, self).__init__(message)
+
+
+class VendorConnectionClose(ConnectionClose):
+    pass
 
 
 class LinkDetach(AMQPConnectionError):
@@ -31,10 +139,15 @@ class LinkDetach(AMQPConnectionError):
         self.condition = condition
         self.description = description
         self.info = info
-        message = self.condition.decode(self._encoding)
+        self.action = None
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
         if self.description:
             message += ": {}".format(self.description.decode(self._encoding))
         super(LinkDetach, self).__init__(message)
+
+
+class VendorLinkDetach(LinkDetach):
+    pass
 
 
 class LinkRedirect(LinkDetach):
@@ -49,15 +162,7 @@ class LinkRedirect(LinkDetach):
         super(LinkRedirect, self).__init__(condition, description, info, encoding)
 
 
-class MessageException(Exception):
-    pass
-
-
-class MessageSendFailed(MessageException):
-    pass
-
-
-class AuthenticationException(Exception):
+class AuthenticationException(AMQPError):
     pass
 
 
@@ -76,11 +181,42 @@ class TokenAuthFailure(AuthenticationException):
         super(TokenAuthFailure, self).__init__(message)
 
 
-class MessageResponse(Exception):
+class MessageResponse(AMQPError):
 
     def __init__(self, message=None):
         response = message or "Sending {} disposition.".format(self.__class__.__name__)
         super(MessageResponse, self).__init__(response)
+
+
+class MessageException(MessageResponse):
+
+    def __init__(self, condition, description=None, info=None, encoding="UTF-8"):
+        self._encoding = encoding
+        self.condition = condition
+        self.description = description
+        self.info = info
+        self.action = None
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
+        if self.description:
+            decoded = self.description if isinstance(self.description, str) else self.description.decode(self._encoding)
+            message += ": {}".format(decoded)
+        super(MessageException, self).__init__(message=message)
+
+
+class MessageSendFailed(MessageException):
+    pass
+
+
+class ClientMessageError(MessageException):
+
+    def __init__(self, exception, info=None):
+        if hasattr(exception, 'condition'):
+            condition = exception.condition
+            description = exception.description
+        else:
+            condition = constants.ErrorCodes.ClientError
+            description=str(exception)
+        super(ClientMessageError, self).__init__(condition, description=description, info=info)
 
 
 class MessageAlreadySettled(MessageResponse):
@@ -126,20 +262,22 @@ class MessageModified(MessageResponse):
 
 class ErrorResponse:
 
-    def __init__(self, error_info):
-        self._error = error_info
-
-    @property
-    def condition(self):
-        return self._error.condition
-
-    @property
-    def description(self):
-        return self._error.description
-
-    @property
-    def information(self):
-        info = self._error.info
+    def __init__(self, error_info=None, condition=None, description=None, info=None):
+        info = None
+        self.condition = condition
+        self.description = description
+        self.info = info
+        self.error = error_info
+        if isinstance(error_info, c_uamqp.cError):
+            self.condition = error_info.condition
+            self.description = error_info.description
+            info = error_info.info
+        elif isinstance(error_info, list) and len(error_info) >= 1:
+            if isinstance(error_info[0], list) and len(error_info[0]) >= 1:
+                self.condition = error_info[0][0]
+                if len(error_info[0]) >= 2:
+                    self.description = error_info[0][1]
+                if len(error_info[0]) >= 3:
+                    info = error_info[0][2]
         if info:
-            return info.value
-        return None
+            self.info = info.value

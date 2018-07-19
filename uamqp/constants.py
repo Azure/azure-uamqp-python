@@ -36,9 +36,45 @@ class MessageState(Enum):
 DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 
+
 # Error Codes
-ERROR_CONNECTION_REDIRECT = b"amqp:connection:redirect"
-ERROR_LINK_REDIRECT = b"amqp:link:redirect"
+class ErrorCodes(Enum):
+    InternalServerError = b"amqp:internal-error"
+    IllegalState = b"amqp:illegal-state"
+    DecodeError = b"amqp:decode-error"
+    NotFound = b"amqp:not-found"
+    NotImplement = b"amqp:not-implemented"
+    NotAllowed = b"amqp:not-allowed"
+    InvalidField = b"amqp:invalid-field"
+    ResourceLocked = b"amqp:resource-locked"
+    ResourceDeleted = b"amqp:resource-deleted"
+    UnauthorizedAccess = b"amqp:unauthorized-access"
+    FrameSizeTooSmall = b"amqp:frame-size-too-small"
+    ResourceLimitExceeded = b"amqp:resource-limit-exceeded"
+    PreconditionFailed = b"amqp:precondition-failed"
+    ConnectionRedirect = b"amqp:connection:redirect"
+    ConnectionCloseForced = b"amqp:connection:forced"
+    ConnectionFramingError = b"amqp:connection:framing-error"
+    SessionWindowViolation = b"amqp:session:window-violation"
+    SessionErrantLink = b"amqp:session:errant-link"
+    SessionHandleInUse = b"amqp:session:handle-in-use"
+    SessionUnattachedHandle = b"amqp:session:unattached-handle"
+    LinkRedirect = b"amqp:link:redirect"
+    LinkStolen = b"amqp:link:stolen"
+    LinkDetachForced = b"amqp:link:detach-forced"
+    LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
+    LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
+    ClientError = b"amqp:client-eror"
+    UnknownError = b"amqp:unknown-error"
+    VendorError = b"amqp:vendor-error"
+
+
+RETRYABLE_ERRORS = (
+    ErrorCodes.InternalServerError,
+    ErrorCodes.LinkDetachForced,
+    ErrorCodes.LinkTransferLimitExceeded,
+    ErrorCodes.ConnectionCloseForced
+)
 
 
 class MessageReceiverState(Enum):

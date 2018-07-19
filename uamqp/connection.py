@@ -11,7 +11,7 @@ import time
 
 import uamqp
 from uamqp import c_uamqp
-from uamqp import utils, errors
+from uamqp import utils, errors, constants
 
 
 _logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ class Connection:
                  idle_timeout=None,
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
@@ -75,9 +76,9 @@ class Connection:
         if isinstance(self.container_id, str):
             self.container_id = self.container_id.encode(encoding)
         self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
-        self.on_close_received = None
         self.auth = sasl
         self.cbs = None
+        self.error_policy = error_policy or errors.ErrorPolicy()
         self._debug = debug
         self._conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
@@ -85,7 +86,7 @@ class Connection:
             self.container_id,
             self)
         self._conn.set_trace(self._debug)
-        #self._conn.subscribe_to_close_event(self)
+        self._conn.subscribe_to_close_event(self)
         self._sessions = []
         self._lock = threading.Lock()
         self._state = c_uamqp.ConnectionState.UNKNOWN
@@ -125,17 +126,22 @@ class Connection:
 
     def _close_received(self, error):
         """Callback called when a connection CLOSE frame is received.
+        This callback will process the received CLOSE error to determine if
+        the connection is recoverable or whether it should be shutdown.
         :param error: The error information from the close
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        _logger.info("In conneciton close received")
-        condition = error.condition
-        description = error.description
-        info = error.info
-        self._error = errors.ConnectionClose(condition, description, info)
-        # if self.on_close_received:
-        #     self.on_close_received(condition, description, info)
+        if error:
+            condition = error.condition
+            description = error.description
+            info = error.info
+        else:
+            condition = b"amqp:unknown-error"
+            description = None
+            info = None
+        _logger.info("Received Connection close event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
+        self._error = errors._process_connection_error(self.error_policy, condition, description, info)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes
@@ -197,6 +203,9 @@ class Connection:
             raise self._error
         except TypeError:
             pass
+        except:
+            print("raising connection error", self._error)
+            raise
         self._conn.do_work()
         self._lock.release()
 

@@ -169,7 +169,7 @@ class MessageSender():
             description = error.description
             info = error.info
         else:
-            condition = constants.ErrorCodes.UnknownError
+            condition = b"amqp:unknown-error"
             description = None
             info = None
         _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
