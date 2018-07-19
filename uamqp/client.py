@@ -67,7 +67,7 @@ class AMQPClient:
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
+    def __init__(self, remote_address, auth=None, client_name=None, error_policy=None, debug=False, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
@@ -89,6 +89,7 @@ class AMQPClient:
         self._ext_connection = False
         self._session = None
         self._backoff = 0
+        self._error_policy = error_policy or errors.ErrorPolicy()
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -195,6 +196,7 @@ class AMQPClient:
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=self._error_policy,
             debug=self._debug_trace,
             encoding=self._encoding)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
@@ -373,13 +375,12 @@ class SendClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, retry_policy=None, **kwargs):
+    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, error_policy=None, **kwargs):
         target = target if isinstance(target, address.Address) else address.Target(target)
         self._msg_timeout = msg_timeout
         self._pending_messages = []
         self._message_sender = None
         self._shutdown = None
-        self._retry_policy = retry_policy or sender.RetryPolicy()
 
         # Sender and Link settings
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
@@ -390,7 +391,7 @@ class SendClient(AMQPClient):
         # AMQP object settings
         self.sender_type = sender.MessageSender
 
-        super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
+        super(SendClient, self).__init__(target, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
     def _client_ready(self):
         """Determine whether the client is ready to start sending messages.
@@ -412,12 +413,13 @@ class SendClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 link_credit=self._link_credit,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding)
             self._message_sender.open()
             return False
         elif self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
-                "Message Sender Client was unable to open. "
+                "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_sender.get_state() != constants.MessageSenderState.Open:
@@ -435,26 +437,32 @@ class SendClient(AMQPClient):
         :param error: An Exception if an error ocurred during the send operation.
         :type error: ~Exception
         """
+        exception = delivery_state
         result = constants.MessageSendResult(result)
-        if result == constants.MessageSendResult.Error and message.retries < self._retry_policy.max_retries:
-            action_policy = self._retry_policy.on_error(delivery_state)
-            if action_policy.action == sender.SendFailedAction.retry:
-                message.retries += 1
-                self._backoff = action_policy.backoff
-                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(message.retries, delivery_state))
+        if result == constants.MessageSendResult.Error:
+            if isinstance(delivery_state, Exception):
+                exception = errors.ClientMessageError(delivery_state, info=delivery_state)
+                exception.action = errors.ErrorAction(retry=True)
+            elif delivery_state:
+                error = errors.ErrorResponse(delivery_state)
+                exception = errors._process_send_error(self._error_policy, error.condition, error.description, error.info)
+            else:
+                exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
+                exception.action = errors.ErrorAction(retry=False)
+            if exception.action.retry == errors.ErrorAction.retry and message.retries < self._error_policy.max_retries:
+                if exception.action.increment_retries:
+                    message.retries += 1
+                self._backoff = exception.action.backoff
+                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(message.retries, exception))
                 message.state = constants.MessageState.WaitingToBeSent
                 return
+            elif exception.action.retry == errors.ErrorAction.retry:
+                _logger.info("Message error, {} retries exhausted. Error: {}".format(message.retries, exception))
             else:
-                _logger.error("Message error, not retrying. Error: {}".format(delivery_state))
-                message.state = constants.MessageState.SendFailed
-                message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
-                if action_policy.action == sender.SendFailedAction.shutdown:
-                    _logger.error("Sender is shutting down according to error policy.")
-                    self._shutdown = True
-        elif result == constants.MessageSendResult.Error:
-            _logger.error("Message error, {} retries exhausted. Error: {}".format(message.retries, delivery_state))
+                _logger.info("Message error, not retrying. Error: {}".format(exception))
             message.state = constants.MessageState.SendFailed
-            message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
+            message._response = exception  # pylint: disable=protected-access
+
         else:
             _logger.debug("Message sent: {}, {}".format(result, delivery_state))
             message.state = constants.MessageState.SendComplete
@@ -483,7 +491,6 @@ class SendClient(AMQPClient):
                 self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
                 return False
         return True
-
 
     def _client_run(self):
         """MessageSender Link is now open - perform message send
@@ -556,7 +563,7 @@ class SendClient(AMQPClient):
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
-        :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
+        :raises: ~uamqp.errors.MessageException if message fails to send after retry policy
          is exhausted.
         """
         batch = messages.gather()
@@ -575,7 +582,13 @@ class SendClient(AMQPClient):
         else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
-                raise errors.MessageSendFailed("Failed to send message.")
+                details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
+                details['failed_messages'] = {}
+                exception = None
+                for failed_message in failed:
+                    exception = failed_message._response  # pylint: disable=protected-access
+                    details['failed_messages'][failed_message] = exception
+                raise errors.ClientMessageError(exception, info=details)
         finally:
             if close_on_done or not running:
                 self.close()
@@ -689,7 +702,7 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, **kwargs):
+    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, error_policy=None, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._message_receiver = None
@@ -708,7 +721,7 @@ class ReceiveClient(AMQPClient):
         self.receiver_type = receiver.MessageReceiver
         self.auto_complete = auto_complete
 
-        super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
+        super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
     def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
@@ -731,12 +744,13 @@ class ReceiveClient(AMQPClient):
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding)
             self._message_receiver.open()
             return False
         elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
-                "Message Receiver Client was unable to open. "
+                "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:

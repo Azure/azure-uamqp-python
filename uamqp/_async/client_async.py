@@ -69,10 +69,10 @@ class AMQPClientAsync(client.AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, loop=None, debug=False, **kwargs):
+    def __init__(self, remote_address, auth=None, client_name=None, loop=None, error_policy=None, debug=False, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         super(AMQPClientAsync, self).__init__(
-            remote_address, auth=auth, client_name=client_name, debug=debug, **kwargs)
+            remote_address, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
         # AMQP object settings
         self.connection_type = ConnectionAsync
@@ -332,10 +332,10 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, retry_policy=None, msg_timeout=0, **kwargs):
+    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, error_policy=None, msg_timeout=0, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.SendClient.__init__(
-            self, target, auth=auth, client_name=client_name, debug=debug, retry_policy=retry_policy, msg_timeout=msg_timeout, **kwargs)
+            self, target, auth=auth, client_name=client_name, debug=debug, error_policy=error_policy, msg_timeout=msg_timeout, **kwargs)
 
         # AMQP object settings
         self.sender_type = MessageSenderAsync
@@ -359,13 +359,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
             await self._message_sender.open_async()
             return False
         elif self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.AMQPConnectionError(
-                "Message Sender Client was unable to open. "
+                "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_sender.get_state() != constants.MessageSenderState.Open:
@@ -434,7 +435,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
-        :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
+        :raises: ~uamqp.errors.MessageException if message fails to send after retry policy
          is exhausted.
         """
         batch = messages.gather()
@@ -452,7 +453,13 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
-                raise errors.MessageSendFailed("Failed to send message.")
+                details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
+                details['failed_messages'] = {}
+                exception = None
+                for failed_message in failed:
+                    exception = failed_message._response  # pylint: disable=protected-access
+                    details['failed_messages'][failed_message] = exception
+                raise errors.ClientMessageError(exception, info=details)
         finally:
             if close_on_done:
                 await self.close_async()
@@ -548,11 +555,11 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     """
 
     def __init__(self, source, auth=None, client_name=None, loop=None,
-                 debug=False, timeout=0, auto_complete=True, **kwargs):
+                 debug=False, error_policy=None, timeout=0, auto_complete=True, **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.ReceiveClient.__init__(
             self, source, auth=auth, client_name=client_name, debug=debug,
-            timeout=timeout, auto_complete=auto_complete, **kwargs)
+            error_policy=error_policy, timeout=timeout, auto_complete=auto_complete, **kwargs)
 
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
@@ -578,13 +585,14 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
             await self._message_receiver.open_async()
             return False
         elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.AMQPConnectionError(
-                "Message Receiver Client was unable to open. "
+                "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
