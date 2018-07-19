@@ -49,10 +49,6 @@ class MessageSender():
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
-    :param on_detach_received: A callback to be run if the client receives
-     a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition`, the optional `description` and an optional info dict.
-    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -68,7 +64,7 @@ class MessageSender():
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
-                 on_detach_received=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -81,7 +77,7 @@ class MessageSender():
 
         self.source = c_uamqp.Messaging.create_source(source)
         self.target = target._address.value
-        self.on_detach_received = on_detach_received
+        self.error_policy = error_policy or errors.ErrorPolicy()
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
@@ -162,19 +158,23 @@ class MessageSender():
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
+        This callback will process the received DETACH error to determine if
+        the link is recoverable or whether it should be shutdown.
         :param error: The error information from the detach
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        condition = error.condition
-        description = error.description
-        info = error.info
-        if condition == constants.ERROR_LINK_REDIRECT:
-            self._error = errors.LinkRedirect(condition, description, info)
+        if error:
+            condition = error.condition
+            description = error.description
+            info = error.info
         else:
-            self._error = errors.LinkDetach(condition, description, info)
-        if self.on_detach_received:
-            self.on_detach_received(condition, description, info)
+            condition = constants.ErrorCodes.UnknownError
+            description = None
+            info = None
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -231,34 +231,3 @@ class MessageSender():
     @max_message_size.setter
     def max_message_size(self, value):
         self._link.max_message_size = int(value)
-
-
-class SendFailedAction:
-
-    retry = 0
-    fail = 1
-    shutdown = 2
-
-    def __init__(self, retry=False, fail=False, shutdown=False, backoff=0):
-        if retry:
-            self.action = SendFailedAction.retry
-        elif fail:
-            self.action = SendFailedAction.fail
-        elif shutdown:
-            self.action = SendFailedAction.shutdown
-        else:
-            raise ValueError("An action must be specified.")
-        self.backoff = backoff
-
-
-class RetryPolicy:
-
-    def __init__(self, max_retries=0, on_error=None):
-        self.max_retries = max_retries
-        self._on_error = on_error
-
-    def on_error(self, error):
-        if self._on_error:
-            return self._on_error(error)
-        else:
-            return SendFailedAction.retry

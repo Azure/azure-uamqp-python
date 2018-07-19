@@ -52,10 +52,6 @@ class MessageReceiver():
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
-    :param on_detach_received: A callback to be run if the client receives
-     a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition`, the optional `description` and an optional info dict.
-    :type on_detach_received: Callable[bytes, bytes, dict]
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -72,7 +68,7 @@ class MessageReceiver():
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  prefetch=300,
                  properties=None,
-                 on_detach_received=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -86,8 +82,8 @@ class MessageReceiver():
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
         self.on_message_received = on_message_received
-        self.on_detach_received = on_detach_received
         self.encoding = encoding
+        self.error_policy = error_policy or errors.ErrorPolicy()
         self._settle_mode = receive_settle_mode
         self._conn = session._conn
         self._session = session
@@ -173,19 +169,22 @@ class MessageReceiver():
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
+        This callback will process the received DETACH error to determine if
+        the link is recoverable or whether it should be shutdown.
         :param error: The error information from the detach
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        condition = error.condition
-        description = error.description
-        info = error.info
-        if condition == constants.ERROR_LINK_REDIRECT:
-            self._error = errors.LinkRedirect(condition, description, info)
+        if error:
+            condition = error.condition
+            description = error.description
+            info = error.info
         else:
-            self._error = errors.LinkDetach(condition, description, info)
-        if self.on_detach_received:
-            self.on_detach_received(condition, description, info)
+            condition = b"amqp:unknown-error"
+            description = None
+            info = None
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
