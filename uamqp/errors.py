@@ -79,6 +79,8 @@ class ErrorPolicy:
             return ErrorAction(retry=False)
         elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
             return ErrorAction(retry=False)
+        elif error.condition == constants.ErrorCodes.NotFound:
+            return ErrorAction(retry=False)
         else:
             return ErrorAction(retry=True, increment_retries=True)
 
@@ -283,5 +285,7 @@ class ErrorResponse:
                     self.description = error_info[0][1]
                 if len(error_info[0]) >= 3:
                     info = error_info[0][2]
-        if info:
+        try:
             self.info = info.value
+        except AttributeError:
+            self.info = info
