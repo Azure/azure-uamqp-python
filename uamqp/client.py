@@ -8,6 +8,7 @@ import logging
 import uuid
 import queue
 import time
+import threading
 try:
     from urllib import unquote_plus
 except ImportError:
@@ -90,6 +91,7 @@ class AMQPClient:
         self._session = None
         self._backoff = 0
         self._error_policy = error_policy or errors.ErrorPolicy()
+        self._keep_alive_thread = threading.Thread(target=self._keep_alive)
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -119,6 +121,12 @@ class AMQPClient:
     def __exit__(self, *args):
         """Close and destroy Client on exiting a context manager."""
         self.close()
+
+    def _keep_alive(self):
+        while self._connection and not self._shutdown:
+            _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+            self._connection.work()
+            time.sleep(60)
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -212,6 +220,7 @@ class AMQPClient:
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max)
+        self._keep_alive_thread.start()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -219,6 +228,7 @@ class AMQPClient:
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        self._shutdown = True
         if not self._session:
             return  # already closed.
         else:
@@ -504,7 +514,7 @@ class SendClient(AMQPClient):
         self._waiting_messages = 0
         self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
         if self._backoff and not self._waiting_messages:
-            print("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
             self._connection.sleep(self._backoff)
             self._backoff = 0
         self._connection.work()

@@ -43,7 +43,7 @@ class ErrorCodes(Enum):
     IllegalState = b"amqp:illegal-state"
     DecodeError = b"amqp:decode-error"
     NotFound = b"amqp:not-found"
-    NotImplement = b"amqp:not-implemented"
+    NotImplemented = b"amqp:not-implemented"
     NotAllowed = b"amqp:not-allowed"
     InvalidField = b"amqp:invalid-field"
     ResourceLocked = b"amqp:resource-locked"

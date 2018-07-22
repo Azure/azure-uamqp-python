@@ -37,17 +37,13 @@ def _process_link_error(policy, condition, description=None, info=None):
 
 def _process_connection_error(policy, condition, description=None, info=None):
     try:
-        print("processing conn error")
         amqp_condition = constants.ErrorCodes(condition)
     except ValueError:
-        print("unrecognized")
         exception = VendorConnectionClose(condition, description, info)
         exception.action = policy.on_unrecognized_error(exception)
     else:
-        print("recognized")
         exception = ConnectionClose(amqp_condition, description, info)
         exception.action = policy.on_connection_error(exception)
-    print("returning", exception)
     return exception
 
 
@@ -64,6 +60,29 @@ class ErrorAction:
 
 class ErrorPolicy:
 
+    no_retry = (
+        constants.ErrorCodes.DecodeError,
+        constants.ErrorCodes.LinkMessageSizeExceeded,
+        constants.ErrorCodes.NotFound,
+        constants.ErrorCodes.NotImplemented,
+        constants.ErrorCodes.LinkRedirect,
+        constants.ErrorCodes.NotAllowed,
+        constants.ErrorCodes.UnauthorizedAccess,
+        constants.ErrorCodes.LinkStolen,
+        constants.ErrorCodes.ResourceLimitExceeded,
+        constants.ErrorCodes.ConnectionRedirect,
+        constants.ErrorCodes.PreconditionFailed,
+        constants.ErrorCodes.InvalidField,
+        constants.ErrorCodes.ResourceDeleted,
+        constants.ErrorCodes.IllegalState,
+        constants.ErrorCodes.FrameSizeTooSmall,
+        constants.ErrorCodes.ConnectionFramingError,
+        constants.ErrorCodes.SessionUnattachedHandle,
+        constants.ErrorCodes.SessionHandleInUse,
+        constants.ErrorCodes.SessionErrantLink,
+        constants.ErrorCodes.SessionWindowViolation
+    )
+
     def __init__(self, max_retries=3, on_error=None):
         self.max_retries = max_retries
         self._on_error = on_error
@@ -75,38 +94,22 @@ class ErrorPolicy:
             return ErrorAction(retry=True)
 
     def on_message_error(self, error):
-        if error.condition == constants.ErrorCodes.DecodeError:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.NotFound:
+        if error.condition in self.no_retry:
             return ErrorAction(retry=False)
         else:
             return ErrorAction(retry=True, increment_retries=True)
 
     def on_link_error(self, error):
-        if error.condition == constants.ErrorCodes.LinkRedirect:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.NotAllowed:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.UnauthorizedAccess:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.LinkMessageSizeExceeded:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.LinkStolen:
-            return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.ResourceLimitExceeded:
+        if error.condition in self.no_retry:
             return ErrorAction(retry=False)
         else:
             return ErrorAction(retry=True)
 
     def on_connection_error(self, error):
-        if error.condition == constants.ErrorCodes.ConnectionRedirect:
+        if error.condition in self.no_retry:
             return ErrorAction(retry=False)
         elif error.condition == constants.ErrorCodes.ConnectionCloseForced:
             return ErrorAction(retry=True)
-        elif error.condition == constants.ErrorCodes.NotFound:
-            return ErrorAction(retry=False)
         else:
             return ErrorAction(retry=True)
 

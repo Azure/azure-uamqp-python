@@ -203,9 +203,6 @@ class Connection:
             raise self._error
         except TypeError:
             pass
-        except:
-            print("raising connection error", self._error)
-            raise
         self._conn.do_work()
         self._lock.release()
 

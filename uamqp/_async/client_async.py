@@ -168,6 +168,7 @@ class AMQPClientAsync(client.AMQPClient):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 loop=self.loop)
+        self._keep_alive_thread.start()
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -175,6 +176,7 @@ class AMQPClientAsync(client.AMQPClient):
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        self._shutdown = True
         if not self._session:
             return  # already closed.
         else:
@@ -384,7 +386,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._waiting_messages = 0
         self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
         if self._backoff and not self._waiting_messages:
-            print("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
             await self._connection.sleep_async(self._backoff)
             self._backoff = 0
         await self._connection.work_async()
