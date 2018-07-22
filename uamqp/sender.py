@@ -152,6 +152,13 @@ class MessageSender():
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.
         """
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
         c_message = message.get_message()
         message._on_message_sent = callback
         self._sender.send(c_message, timeout, message)
@@ -174,7 +181,6 @@ class MessageSender():
             info = None
         _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
         self._error = errors._process_link_error(self.error_policy, condition, description, info)
-
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change

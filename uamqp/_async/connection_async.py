@@ -109,6 +109,9 @@ class ConnectionAsync(connection.Connection):
             raise self._error
         except TypeError:
             pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
         await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         self._async_lock.release()
 

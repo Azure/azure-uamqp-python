@@ -203,6 +203,9 @@ class Connection:
             raise self._error
         except TypeError:
             pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
         self._conn.do_work()
         self._lock.release()
 
