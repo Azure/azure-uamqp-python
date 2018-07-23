@@ -123,6 +123,10 @@ class AMQPConnectionError(AMQPError):
     pass
 
 
+class MessageHandlerError(AMQPConnectionError):
+    pass
+
+
 class ConnectionClose(AMQPConnectionError):
 
     def __init__(self, condition, description=None, info=None, encoding="UTF-8"):

@@ -75,7 +75,9 @@ cdef class cMessageSender(StructBase):
     cpdef send(self, cMessage message, c_amqp_definitions.tickcounter_ms_t timeout, callback_context):
         operation = c_message_sender.messagesender_send_async(self._c_value, <c_message.MESSAGE_HANDLE>message._c_value, on_message_send_complete, <void*>callback_context, timeout)
         if <void*>operation is NULL:
-            self._memory_error()
+            _logger.info("Send operation result is NULL")
+            return False
+        return True
 
     cpdef set_trace(self, bint value):
         c_message_sender.messagesender_set_trace(self._c_value, value)

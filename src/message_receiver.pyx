@@ -72,21 +72,21 @@ cdef class cMessageReceiver(StructBase):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_accepted()
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
-            self._value_error("Unable to send accepted message dispostition for message number {}".format(message_number))
+            raise RuntimeError("Unable to send message dispostition 'accepted' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settle_released_message(self, c_amqp_definitions.delivery_number message_number):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_released()
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
-            self._value_error("Unable to send released message dispostition for message number {}".format(message_number))
+            raise RuntimeError("Unable to send message dispostition 'released' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settle_rejected_message(self, c_amqp_definitions.delivery_number message_number, const char* error_condition, const char* error_description):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_rejected(error_condition, error_description)
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
-            self._value_error("Unable to send rejected message dispostition for message number {}".format(message_number))
+            raise RuntimeError("Unable to send message dispostition 'rejected' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cpdef settle_modified_message(self, c_amqp_definitions.delivery_number message_number, bint delivery_failed, bint undeliverable_here, AMQPValue annotations):
@@ -98,7 +98,7 @@ cdef class cMessageReceiver(StructBase):
             delivery_fields = <c_amqp_definitions.fields>NULL
         delivery_state = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, delivery_fields)
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
-            self._value_error("Unable to send delivery-modified message dispostition for message number {}".format(message_number))
+            raise RuntimeError("Unable to send message dispostition 'delivery-modified' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
     cdef wrap(self, c_message_receiver.MESSAGE_RECEIVER_HANDLE value):

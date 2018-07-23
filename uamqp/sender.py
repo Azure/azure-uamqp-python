@@ -161,7 +161,7 @@ class MessageSender():
             raise
         c_message = message.get_message()
         message._on_message_sent = callback
-        self._sender.send(c_message, timeout, message)
+        return self._sender.send(c_message, timeout, message)
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
@@ -179,8 +179,9 @@ class MessageSender():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
         self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, description, info, self._error.action.retry))
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change

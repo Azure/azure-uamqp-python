@@ -183,8 +183,9 @@ class MessageReceiver():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
         self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, description, info, self._error.action.retry))
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -234,7 +235,11 @@ class MessageReceiver():
             settler=settler)
         try:
             self.on_message_received(wrapped_message)
-        except Exception as e:  # pylint: disable=broad-except
+        except RuntimeError:
+            condition = b"amqp:unknown-error"
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)
+            _logger.info("Unable to settle message. Disconnecting.")
+        except Exception as e:
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settle_modified_message(message_number, True, True, None)
 
