@@ -132,10 +132,16 @@ class AMQPClient:
         self.close()
 
     def _keep_alive(self):
+        start_time = self._counter.get_current_ms()
+        elapsed_time = 0
         while self._connection and not self._shutdown:
-            _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
-            self._connection.work()
-            time.sleep(self._keep_alive_interval)
+            if elapsed_time >= self._keep_alive_interval:
+                _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                self._connection.work()
+                start_time = current_time
+            time.sleep(1)
+            current_time = self._counter.get_current_ms()
+            elapsed_time = (current_time - start_time)/1000
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or

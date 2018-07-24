@@ -148,7 +148,6 @@ cdef class cLink(StructBase):
 #### Callback
 
 cdef void on_link_detach_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
-    print("Got link detach event")
     cdef c_amqp_definitions.ERROR_HANDLE cloned
     context_obj = <object>context
     if <void*> error != NULL:
