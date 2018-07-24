@@ -69,14 +69,6 @@ class ErrorCodes(Enum):
     VendorError = b"amqp:vendor-error"
 
 
-RETRYABLE_ERRORS = (
-    ErrorCodes.InternalServerError,
-    ErrorCodes.LinkDetachForced,
-    ErrorCodes.LinkTransferLimitExceeded,
-    ErrorCodes.ConnectionCloseForced
-)
-
-
 class MessageReceiverState(Enum):
     Idle = c_uamqp.MESSAGE_RECEIVER_STATE_IDLE
     Opening = c_uamqp.MESSAGE_RECEIVER_STATE_OPENING

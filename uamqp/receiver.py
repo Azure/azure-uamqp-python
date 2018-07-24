@@ -114,40 +114,6 @@ class MessageReceiver():
         """Close the MessageReceiver when exiting a context manager."""
         self.destroy()
 
-    def get_state(self):
-        """Get the state of the MessageReceiver and its underlying Link."""
-        try:
-            raise self._error
-        except TypeError:
-            pass
-        except Exception as e:
-            _logger.warning(str(e))
-            raise
-        return self._state
-
-    def destroy(self):
-        """Close both the Receiver and the Link. Clean up any C objects."""
-        self._receiver.destroy()
-        self._link.destroy()
-
-    def open(self):
-        """Open the MessageReceiver in order to start processing messages.
-
-        :raises: ~uamqp.errors.AMQPConnectionError if the Receiver raises
-         an error on opening. This can happen if the source URI is invalid
-         or the credentials are rejected.
-        """
-        try:
-            self._receiver.open(self)
-        except ValueError:
-            raise errors.AMQPConnectionError(
-                "Failed to open Message Receiver. "
-                "Please confirm credentials and target URI.")
-
-    def close(self):
-        """Close the Receiver, leaving the link intact."""
-        self._receiver.close()
-
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change
         of state. This function wraps the states as Enums to prepare for
@@ -242,6 +208,40 @@ class MessageReceiver():
         except Exception as e:
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settle_modified_message(message_number, True, True, None)
+
+    def get_state(self):
+        """Get the state of the MessageReceiver and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        return self._state
+
+    def destroy(self):
+        """Close both the Receiver and the Link. Clean up any C objects."""
+        self._receiver.destroy()
+        self._link.destroy()
+
+    def open(self):
+        """Open the MessageReceiver in order to start processing messages.
+
+        :raises: ~uamqp.errors.AMQPConnectionError if the Receiver raises
+         an error on opening. This can happen if the source URI is invalid
+         or the credentials are rejected.
+        """
+        try:
+            self._receiver.open(self)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Receiver. "
+                "Please confirm credentials and target URI.")
+
+    def close(self):
+        """Close the Receiver, leaving the link intact."""
+        self._receiver.close()
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change

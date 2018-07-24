@@ -499,7 +499,7 @@ class SendClient(AMQPClient):
             message.state = constants.MessageState.SendComplete
             message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
         if message.on_send_complete:
-            message.on_send_complete(result, delivery_state)
+            message.on_send_complete(result, exception)
 
     def _filter_pending(self, message):
         if message.state in constants.DONE_STATES:
