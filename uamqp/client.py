@@ -100,6 +100,7 @@ class AMQPClient:
         self._backoff = 0
         self._error_policy = error_policy or errors.ErrorPolicy()
         self._keep_alive_interval = int(keep_alive_interval) if keep_alive_interval else 0
+        self._keep_alive_thread = None
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -231,8 +232,8 @@ class AMQPClient:
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max)
         if self._keep_alive_interval:
-            keep_alive_thread = threading.Thread(target=self._keep_alive)
-            keep_alive_thread.start()
+            self._keep_alive_thread = threading.Thread(target=self._keep_alive)
+            self._keep_alive_thread.start()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -241,6 +242,9 @@ class AMQPClient:
         this will be left intact.
         """
         self._shutdown = True
+        if self._keep_alive_thread:
+            self._keep_alive_thread.join()
+            self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
         else:
