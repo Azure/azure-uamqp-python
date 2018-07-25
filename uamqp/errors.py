@@ -52,7 +52,7 @@ class ErrorAction:
     retry = True
     fail = False
 
-    def __init__(self, retry, backoff=0, increment_retries=False):
+    def __init__(self, retry, backoff=0, increment_retries=True):
         self.retry = bool(retry)
         self.backoff = backoff
         self.increment_retries = increment_retries
@@ -90,28 +90,24 @@ class ErrorPolicy:
     def on_unrecognized_error(self, error):
         if self._on_error:
             return self._on_error(error)
-        else:
-            return ErrorAction(retry=True)
+        return ErrorAction(retry=True)
 
     def on_message_error(self, error):
         if error.condition in self.no_retry:
             return ErrorAction(retry=False)
-        else:
-            return ErrorAction(retry=True, increment_retries=True)
+        return ErrorAction(retry=True, increment_retries=True)
 
     def on_link_error(self, error):
         if error.condition in self.no_retry:
             return ErrorAction(retry=False)
-        else:
-            return ErrorAction(retry=True)
+        return ErrorAction(retry=True)
 
     def on_connection_error(self, error):
         if error.condition in self.no_retry:
             return ErrorAction(retry=False)
         elif error.condition == constants.ErrorCodes.ConnectionCloseForced:
             return ErrorAction(retry=True)
-        else:
-            return ErrorAction(retry=True)
+        return ErrorAction(retry=True)
 
 
 
@@ -228,7 +224,7 @@ class ClientMessageError(MessageException):
             description = exception.description
         else:
             condition = constants.ErrorCodes.ClientError
-            description=str(exception)
+            description = str(exception)
         super(ClientMessageError, self).__init__(condition, description=description, info=info)
 
 

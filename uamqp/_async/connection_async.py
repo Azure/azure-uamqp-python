@@ -59,7 +59,7 @@ class ConnectionAsync(connection.Connection):
      Default is 'UTF-8'
     :type encoding: str
     :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
+    :type loop: ~asyncio.AbstractEventLoop
     """
 
     def __init__(self, hostname, sasl,
@@ -122,7 +122,7 @@ class ConnectionAsync(connection.Connection):
         :type seconds: int
         """
         await self._async_lock.acquire()
-        await asycnio.sleep(seconds)
+        await asyncio.sleep(seconds)
         self._async_lock.release()
 
     async def redirect_async(self, redirect_error, auth):

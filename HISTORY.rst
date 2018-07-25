@@ -6,8 +6,50 @@ Release History
 0.2.0 (unreleased)
 ++++++++++++++++++
 
+- **Breaking change** `MessageSender.send_async` has been renamed to `MessageSender.send`, and
+  `MessageSenderAsync.send_async` is now a coroutine.
+- **Breaking change** Removed `detach_received` callback argument from MessageSender, MessageReceiver,
+  MessageSenderAsync, and MessageReceiverAsync in favour of new `error_policy` argument.
+- Added ErrorPolicy class to determine how the client should respond to both generic AMQP errors
+  and custom or vendor-specific errors. A default policy will be used, but a custom policy can
+  be added to and client by using new `error_policy` argument. Value must be either an instance
+  or subclass of ErrorPolicy.
+
+    - The `error_policy` argument has also been added to MessageSender, MessageReceiver, Connection, and their
+      async counterparts to allow for handling of link DETACH and connection CLOSE events.
+    - The error policy passed to a SendClient determines the number of message send retry
+      attempts. This replaces the previous `constants.MESSAGE_SEND_RETRIES` value which is now
+      deprecated.
+    - Added new ErrorAction object to determine how a client should respond to an error. It has
+      three properties: `retry` (a boolean to determine whether the error is retryable), `backoff`
+      (an integer to determine how long the client should wait before retrying, default is 0) and
+      `increment_retries` (a boolean to determine whether the error should count against the maximum
+      retry attempts). Currently `backoff` and `increment_retries` are only considered for message
+      send failures.
+    - Added `VendorConnectionClose` and `VendorLinkDetach` exceptions for non-standard (unrecognized)
+      connection errors.
+
 - Added support for HTTP proxy configuration.
 - Added support for running async clients synchronously.
+- Added keep-alive support for connection - this is a background thread for a synchronous
+  client, and a background async function for an async client. The keep-alive feature is
+  disabled by default, to enable, set the `keep_alive_interval` argument on the client to
+  an integer representing the number of seconds between connection pings.
+- Added support for catching a Connection CLOSE event.
+- Added support for `Connection.sleep` and `AsyncConnection.sleep_async` to pause the connection.
+- Added support for surfacing message disposition delivery-state (with error information).
+- Added `constants.ErrorCodes` enum to map standard AMQP error conditions. This replaces the previous
+  `constants.ERROR_CONNECTION_REDIRECT` and `constants.ERROR_LINK_REDIRECT` which are now both
+  deprecated.
+- Added new super error `AMQPError` from which all exceptions inherit.
+- Added new `MessageHandlerError` exception, a subclass of `AMQPConnectionError`, for
+  Senders/Receivers that enter an indeterminate error state.
+- `MessageException` is now a subclass of `MessageResponse`.
+- Added `ClientMessageError` exception, a subclass of `MessageException` for send errors raised client-side.
+- Catching Link DETACH event will now work regardless of whether service returns delivery-state.
+- Fixed bug where received messages attempting to settle on a detached link crashed the client.
+- Fixed bug in amqp C DescribedValue.
+- Fixed bug where client crashed on deallocating failed management operation.
 
 
 0.1.1 (2018-07-14)

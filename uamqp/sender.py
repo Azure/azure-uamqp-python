@@ -6,7 +6,6 @@
 
 import logging
 import uuid
-import enum
 
 from uamqp import utils
 from uamqp import errors
@@ -49,6 +48,9 @@ class MessageSender():
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -125,7 +127,7 @@ class MessageSender():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
         _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
             condition, description, info, self._error.action.retry))
 

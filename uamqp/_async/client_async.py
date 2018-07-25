@@ -77,7 +77,16 @@ class AMQPClientAsync(client.AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, loop=None, debug=False, error_policy=None, keep_alive_interval=None, **kwargs):
+    def __init__(
+            self,
+            remote_address,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         super(AMQPClientAsync, self).__init__(
             remote_address,
@@ -103,15 +112,31 @@ class AMQPClientAsync(client.AMQPClient):
 
     async def _keep_alive_async(self):
         start_time = self._counter.get_current_ms()
-        elapsed_time = 0
-        while self._connection and not self._shutdown:
-            if elapsed_time >= self._keep_alive_interval:
-                _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
-                await self._connection.work_async()
-                start_time = current_time
-            await asyncio.sleep(1)
-            current_time = self._counter.get_current_ms()
-            elapsed_time = (current_time - start_time)/1000
+        try:
+            while self._connection and not self._shutdown:
+                current_time = self._counter.get_current_ms()
+                elapsed_time = (current_time - start_time)/1000
+                if elapsed_time >= self._keep_alive_interval:
+                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    await self._connection.work_async()
+                    start_time = current_time
+                await asyncio.sleep(1)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.info("Connection keep-alive for {} failed: {}.".format(
+                self.__class__.__name__, e))
+
+    async def _client_ready_async(self):  # pylint: disable=no-self-use
+        """Determine whether the client is ready to start sending and/or
+        receiving messages. To be ready, the connection must be open and
+        authentication complete.
+
+        :rtype: bool
+        """
+        return True
+
+    async def _client_run_async(self):
+        """Perform a single Connection iteration."""
+        await self._connection.work_async()
 
     async def _redirect_async(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
@@ -173,6 +198,7 @@ class AMQPClientAsync(client.AMQPClient):
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=self._error_policy,
             debug=self._debug_trace,
             loop=self.loop)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
@@ -368,7 +394,17 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, msg_timeout=0, error_policy=None, keep_alive_interval=None, **kwargs):
+    def __init__(
+            self,
+            target,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            msg_timeout=0,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.SendClient.__init__(
             self,
@@ -640,17 +676,17 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     """
 
     def __init__(
-        self,
-        source,
-        auth=None,
-        client_name=None,
-        loop=None,
-        debug=False,
-        timeout=0,
-        auto_complete=True,
-        error_policy=None,
-        keep_alive_interval=None,
-        **kwargs):
+            self,
+            source,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            timeout=0,
+            auto_complete=True,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.ReceiveClient.__init__(
             self,

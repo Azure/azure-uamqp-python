@@ -11,7 +11,7 @@ import time
 
 import uamqp
 from uamqp import c_uamqp
-from uamqp import utils, errors, constants
+from uamqp import utils, errors
 
 
 _logger = logging.getLogger(__name__)
@@ -140,8 +140,9 @@ class Connection:
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Connection close event: {}\nDescription: {}\nDetails: {}".format(condition, description, info))
-        self._error = errors._process_connection_error(self.error_policy, condition, description, info)
+        _logger.info("Received Connection close event: {}\nDescription: {}\nDetails: {}".format(
+            condition, description, info))
+        self._error = errors._process_connection_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Connection undergoes

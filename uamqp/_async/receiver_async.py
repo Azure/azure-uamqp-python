@@ -49,6 +49,9 @@ class MessageReceiverAsync(receiver.MessageReceiver):
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool

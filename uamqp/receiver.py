@@ -52,6 +52,9 @@ class MessageReceiver():
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -149,7 +152,7 @@ class MessageReceiver():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
         _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
             condition, description, info, self._error.action.retry))
 
@@ -203,9 +206,9 @@ class MessageReceiver():
             self.on_message_received(wrapped_message)
         except RuntimeError:
             condition = b"amqp:unknown-error"
-            self._error = errors._process_link_error(self.error_policy, condition, None, None)
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)  # pylint: disable=protected-access
             _logger.info("Unable to settle message. Disconnecting.")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settle_modified_message(message_number, True, True, None)
 

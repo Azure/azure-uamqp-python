@@ -116,7 +116,9 @@ class SASLPlain(AMQPAuth):
     :type encoding: str
     """
 
-    def __init__(self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
+    def __init__(
+            self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
+            verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
         self.username = username.encode(self._encoding) if isinstance(username, str) else username

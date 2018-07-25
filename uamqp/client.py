@@ -4,6 +4,8 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=too-many-lines
+
 import logging
 import uuid
 import queue
@@ -76,7 +78,9 @@ class AMQPClient:
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, debug=False, error_policy=None, keep_alive_interval=None, **kwargs):
+    def __init__(
+            self, remote_address, auth=None, client_name=None, debug=False,
+            error_policy=None, keep_alive_interval=None, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
@@ -133,15 +137,18 @@ class AMQPClient:
 
     def _keep_alive(self):
         start_time = self._counter.get_current_ms()
-        elapsed_time = 0
-        while self._connection and not self._shutdown:
-            if elapsed_time >= self._keep_alive_interval:
-                _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
-                self._connection.work()
-                start_time = current_time
-            time.sleep(1)
-            current_time = self._counter.get_current_ms()
-            elapsed_time = (current_time - start_time)/1000
+        try:
+            while self._connection and not self._shutdown:
+                current_time = self._counter.get_current_ms()
+                elapsed_time = (current_time - start_time)/1000
+                if elapsed_time >= self._keep_alive_interval:
+                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    self._connection.work()
+                    start_time = current_time
+                time.sleep(1)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.info("Connection keep-alive for {} failed: {}.".format(
+                self.__class__.__name__, e))
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -409,10 +416,13 @@ class SendClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, error_policy=None, keep_alive_interval=None, **kwargs):
+    def __init__(
+            self, target, auth=None, client_name=None, debug=False, msg_timeout=0,
+            error_policy=None, keep_alive_interval=None, **kwargs):
         target = target if isinstance(target, address.Address) else address.Target(target)
         self._msg_timeout = msg_timeout
         self._pending_messages = []
+        self._waiting_messages = []
         self._message_sender = None
         self._shutdown = None
 
@@ -473,11 +483,14 @@ class SendClient(AMQPClient):
         of the operation is failure, the message state will be reverted
         to 'pending' up to the maximum retry count.
 
+        :param message: The message that was sent.
+        :type message: ~uamqp.message.Message
         :param result: The result of the send operation.
         :type result: int
         :param error: An Exception if an error ocurred during the send operation.
         :type error: ~Exception
         """
+        # pylint: disable=protected-access
         exception = delivery_state
         result = constants.MessageSendResult(result)
         if result == constants.MessageSendResult.Error:
@@ -486,7 +499,11 @@ class SendClient(AMQPClient):
                 exception.action = errors.ErrorAction(retry=True)
             elif delivery_state:
                 error = errors.ErrorResponse(delivery_state)
-                exception = errors._process_send_error(self._error_policy, error.condition, error.description, error.info)
+                exception = errors._process_send_error(
+                    self._error_policy,
+                    error.condition,
+                    error.description,
+                    error.info)
             else:
                 exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
                 exception.action = errors.ErrorAction(retry=True)
@@ -494,20 +511,22 @@ class SendClient(AMQPClient):
                 if exception.action.increment_retries:
                     message.retries += 1
                 self._backoff = exception.action.backoff
-                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(message.retries, exception))
+                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(
+                    message.retries, exception))
                 message.state = constants.MessageState.WaitingToBeSent
                 return
             elif exception.action.retry == errors.ErrorAction.retry:
-                _logger.info("Message error, {} retries exhausted. Error: {}".format(message.retries, exception))
+                _logger.info("Message error, {} retries exhausted. Error: {}".format(
+                    message.retries, exception))
             else:
                 _logger.info("Message error, not retrying. Error: {}".format(exception))
             message.state = constants.MessageState.SendFailed
-            message._response = exception  # pylint: disable=protected-access
+            message._response = exception
 
         else:
-            _logger.debug("Message sent: {}, {}".format(result, delivery_state))
+            _logger.debug("Message sent: {}, {}".format(result, exception))
             message.state = constants.MessageState.SendComplete
-            message._response = errors.MessageAlreadySettled()  # pylint: disable=protected-access
+            message._response = errors.MessageAlreadySettled()
         if message.on_send_complete:
             message.on_send_complete(result, exception)
 
@@ -516,8 +535,7 @@ class SendClient(AMQPClient):
         elapsed_time = (current_time - message.idle_time)/1000
         if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
             return None
-        else:
-            return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+        return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
 
     def _transfer_message(self, message, timeout):
         sent = self._message_sender.send(message, self._on_message_sent, timeout=timeout)
@@ -769,7 +787,9 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, error_policy=None, **kwargs):
+    def __init__(
+            self, source, auth=None, client_name=None, debug=False, timeout=0,
+            auto_complete=True, error_policy=None, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._message_receiver = None
@@ -788,7 +808,8 @@ class ReceiveClient(AMQPClient):
         self.receiver_type = receiver.MessageReceiver
         self.auto_complete = auto_complete
 
-        super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
+        super(ReceiveClient, self).__init__(
+            source, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
     def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
