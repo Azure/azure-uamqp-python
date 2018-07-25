@@ -182,7 +182,7 @@ class MessageSender():
         """Close the sender, leaving the link intact."""
         self._sender.close()
 
-    def send_async(self, message, callback, timeout=0):
+    def send(self, message, callback, timeout=0):
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
         :param message: The message to send.

@@ -31,7 +31,7 @@ def test_event_hubs_simple_send(live_eventhub_config):
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    uamqp.send_message(target, msg_content, auth=sas_auth)
+    uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
 
 
 def test_event_hubs_client_send_sync(live_eventhub_config):

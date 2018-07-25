@@ -101,6 +101,18 @@ class AMQPClientAsync(client.AMQPClient):
         """Close and destroy Client on exiting an async context manager."""
         await self.close_async()
 
+    async def _keep_alive_async(self):
+        start_time = self._counter.get_current_ms()
+        elapsed_time = 0
+        while self._connection and not self._shutdown:
+            if elapsed_time >= self._keep_alive_interval:
+                _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                await self._connection.work_async()
+                start_time = current_time
+            await asyncio.sleep(1)
+            current_time = self._counter.get_current_ms()
+            elapsed_time = (current_time - start_time)/1000
+
     async def _redirect_async(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
@@ -179,7 +191,7 @@ class AMQPClientAsync(client.AMQPClient):
                 handle_max=self._handle_max,
                 loop=self.loop)
         if self._keep_alive_interval:
-            self._keep_alive_thread.start()
+            asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -402,6 +414,34 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             return False
         return True
 
+    async def _transfer_message_async(self, message, timeout):
+        sent = await self._message_sender.send_async(message, self._on_message_sent, timeout=timeout)
+        if not sent:
+            _logger.info("Message not sent, raising RuntimeError.")
+            raise RuntimeError("Message sender failed to add message data to outgoing queue.")
+
+    async def _filter_pending_async(self):
+        filtered = []
+        for message in self._pending_messages:
+            if message.state in constants.DONE_STATES:
+                continue
+            elif message.state == constants.MessageState.WaitingForSendAck:
+                self._waiting_messages += 1
+            elif message.state == constants.MessageState.WaitingToBeSent:
+                message.state = constants.MessageState.WaitingForSendAck
+                try:
+                    timeout = self._get_msg_timeout(message)
+                    if timeout is None:
+                        self._on_message_sent(message, constants.MessageSendResult.Timeout)
+                        continue
+                    else:
+                        await self._transfer_message_async(message, timeout)
+                except Exception as exp:  # pylint: disable=broad-except
+                    self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
+                    continue
+            filtered.append(message)
+        return filtered
+
     async def _client_run_async(self):
         """MessageSender Link is now open - perform message send
         on all pending messages.
@@ -410,8 +450,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
 
         :rtype: bool
         """
+        # pylint: disable=protected-access
         self._waiting_messages = 0
-        self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
+        self._pending_messages = await self._filter_pending_async()
         if self._backoff and not self._waiting_messages:
             _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
             await self._connection.sleep_async(self._backoff)

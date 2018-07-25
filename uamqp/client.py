@@ -100,7 +100,6 @@ class AMQPClient:
         self._backoff = 0
         self._error_policy = error_policy or errors.ErrorPolicy()
         self._keep_alive_interval = int(keep_alive_interval) if keep_alive_interval else 0
-        self._keep_alive_thread = threading.Thread(target=self._keep_alive)
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -232,7 +231,8 @@ class AMQPClient:
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max)
         if self._keep_alive_interval:
-            self._keep_alive_thread.start()
+            keep_alive_thread = threading.Thread(target=self._keep_alive)
+            keep_alive_thread.start()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -507,30 +507,41 @@ class SendClient(AMQPClient):
         if message.on_send_complete:
             message.on_send_complete(result, exception)
 
-    def _filter_pending(self, message):
-        if message.state in constants.DONE_STATES:
-            return False
-        elif message.state == constants.MessageState.WaitingForSendAck:
-            self._waiting_messages += 1
-        elif message.state == constants.MessageState.WaitingToBeSent:
-            message.state = constants.MessageState.WaitingForSendAck
-            try:
-                current_time = self._counter.get_current_ms()
-                elapsed_time = (current_time - message.idle_time)/1000
-                if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
-                    self._on_message_sent(message, constants.MessageSendResult.Timeout)
-                    return False
-                else:
-                    timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                    sent = self._message_sender.send_async(message, self._on_message_sent, timeout=timeout)
-                    if not sent:
-                        _logger.info("Message not send, raising RuntimeError.")
-                        raise RuntimeError("Message sender failed to add message data to outgoing queue.")
-                    return True
-            except Exception as exp:  # pylint: disable=broad-except
-                self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
-                return False
-        return True
+    def _get_msg_timeout(self, message):
+        current_time = self._counter.get_current_ms()
+        elapsed_time = (current_time - message.idle_time)/1000
+        if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
+            return None
+        else:
+            return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+
+    def _transfer_message(self, message, timeout):
+        sent = self._message_sender.send(message, self._on_message_sent, timeout=timeout)
+        if not sent:
+            _logger.info("Message not sent, raising RuntimeError.")
+            raise RuntimeError("Message sender failed to add message data to outgoing queue.")
+
+    def _filter_pending(self):
+        filtered = []
+        for message in self._pending_messages:
+            if message.state in constants.DONE_STATES:
+                continue
+            elif message.state == constants.MessageState.WaitingForSendAck:
+                self._waiting_messages += 1
+            elif message.state == constants.MessageState.WaitingToBeSent:
+                message.state = constants.MessageState.WaitingForSendAck
+                try:
+                    timeout = self._get_msg_timeout(message)
+                    if timeout is None:
+                        self._on_message_sent(message, constants.MessageSendResult.Timeout)
+                        continue
+                    else:
+                        self._transfer_message(message, timeout)
+                except Exception as exp:  # pylint: disable=broad-except
+                    self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
+                    continue
+            filtered.append(message)
+        return filtered
 
     def _client_run(self):
         """MessageSender Link is now open - perform message send
@@ -542,7 +553,7 @@ class SendClient(AMQPClient):
         """
         # pylint: disable=protected-access
         self._waiting_messages = 0
-        self._pending_messages = list(filter(self._filter_pending, self._pending_messages))
+        self._pending_messages = self._filter_pending()
         if self._backoff and not self._waiting_messages:
             _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
             self._connection.sleep(self._backoff)

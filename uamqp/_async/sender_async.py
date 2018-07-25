@@ -114,6 +114,36 @@ class MessageSenderAsync(sender.MessageSender):
                 "Failed to open Message Sender. "
                 "Please confirm credentials and target URI.")
 
+    async def send_async(self, message, callback, timeout=0):
+        """Add a single message to the internal pending queue to be processed
+        by the Connection without waiting for it to be sent.
+        :param message: The message to send.
+        :type message: ~uamqp.message.Message
+        :param callback: The callback to be run once a disposition is received
+         in receipt of the message. The callback must take three arguments, the message,
+         the send result and the optional delivery condition (exception).
+        :type callback:
+         Callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
+        :param timeout: An expiry time for the message added to the queue. If the
+         message is not sent within this timeout it will be discarded with an error
+         state. If set to 0, the message will not expire. The default is 0.
+        """
+        # pylint: disable=protected-access
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        c_message = message.get_message()
+        message._on_message_sent = callback
+        try:
+            await self._session._connection._async_lock.acquire()
+            return self._sender.send(c_message, timeout, message)
+        finally:
+            self._session._connection._async_lock.release()
+
     async def close_async(self):
         """Close the sender asynchronously, leaving the link intact."""
         await self.loop.run_in_executor(None, functools.partial(self._sender.close))
