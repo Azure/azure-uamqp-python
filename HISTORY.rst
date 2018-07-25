@@ -3,7 +3,7 @@
 Release History
 ===============
 
-0.2.0 (unreleased)
+0.2.0 (2018-07-25)
 ++++++++++++++++++
 
 - **Breaking change** `MessageSender.send_async` has been renamed to `MessageSender.send`, and
@@ -12,7 +12,7 @@ Release History
   MessageSenderAsync, and MessageReceiverAsync in favour of new `error_policy` argument.
 - Added ErrorPolicy class to determine how the client should respond to both generic AMQP errors
   and custom or vendor-specific errors. A default policy will be used, but a custom policy can
-  be added to and client by using new `error_policy` argument. Value must be either an instance
+  be added to any client by using a new `error_policy` argument. Value must be either an instance
   or subclass of ErrorPolicy.
 
     - The `error_policy` argument has also been added to MessageSender, MessageReceiver, Connection, and their
@@ -24,10 +24,10 @@ Release History
       three properties: `retry` (a boolean to determine whether the error is retryable), `backoff`
       (an integer to determine how long the client should wait before retrying, default is 0) and
       `increment_retries` (a boolean to determine whether the error should count against the maximum
-      retry attempts). Currently `backoff` and `increment_retries` are only considered for message
-      send failures.
+      retry attempts, default is `True`). Currently `backoff` and `increment_retries` are only
+      considered for message send failures.
     - Added `VendorConnectionClose` and `VendorLinkDetach` exceptions for non-standard (unrecognized)
-      connection errors.
+      connection/link errors.
 
 - Added support for HTTP proxy configuration.
 - Added support for running async clients synchronously.
@@ -36,7 +36,7 @@ Release History
   disabled by default, to enable, set the `keep_alive_interval` argument on the client to
   an integer representing the number of seconds between connection pings.
 - Added support for catching a Connection CLOSE event.
-- Added support for `Connection.sleep` and `AsyncConnection.sleep_async` to pause the connection.
+- Added support for `Connection.sleep` and `ConnectionAsync.sleep_async` to pause the connection.
 - Added support for surfacing message disposition delivery-state (with error information).
 - Added `constants.ErrorCodes` enum to map standard AMQP error conditions. This replaces the previous
   `constants.ERROR_CONNECTION_REDIRECT` and `constants.ERROR_LINK_REDIRECT` which are now both
