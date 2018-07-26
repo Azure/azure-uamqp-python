@@ -98,14 +98,13 @@ class Session:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
             mgmt_link = mgmt_operation.MgmtOperation(self, target=node, **kwargs)
+            self._mgmt_links[node] = mgmt_link
             while not mgmt_link.open and not mgmt_link.mgmt_error:
                 self._connection.work()
             if mgmt_link.mgmt_error:
                 raise mgmt_link.mgmt_error
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
-
-            self._mgmt_links[node] = mgmt_link
         op_type = op_type or b'empty'
         response = mgmt_link.execute(operation, op_type, message, timeout=timeout)
         return response

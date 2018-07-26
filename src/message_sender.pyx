@@ -6,6 +6,7 @@
 
 # Python imports
 import logging
+import copy
 
 # C imports
 from libc cimport stdint
@@ -13,6 +14,7 @@ from libc cimport stdint
 cimport c_message_sender
 cimport c_link
 cimport c_async_operation
+cimport c_amqpvalue
 
 
 _logger = logging.getLogger(__name__)
@@ -73,7 +75,9 @@ cdef class cMessageSender(StructBase):
     cpdef send(self, cMessage message, c_amqp_definitions.tickcounter_ms_t timeout, callback_context):
         operation = c_message_sender.messagesender_send_async(self._c_value, <c_message.MESSAGE_HANDLE>message._c_value, on_message_send_complete, <void*>callback_context, timeout)
         if <void*>operation is NULL:
-            self._memory_error()
+            _logger.info("Send operation result is NULL")
+            return False
+        return True
 
     cpdef set_trace(self, bint value):
         c_message_sender.messagesender_set_trace(self._c_value, value)
@@ -81,13 +85,17 @@ cdef class cMessageSender(StructBase):
 
 #### Callbacks
 
-cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result):
+cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result, c_amqpvalue.AMQP_VALUE delivery_state):
+    cdef c_amqpvalue.AMQP_VALUE send_data
+    if <void*>delivery_state == NULL:
+        wrapped = None
+    else:
+        send_data = c_amqpvalue.amqpvalue_clone(delivery_state)
+        wrapped = copy.deepcopy(value_factory(send_data).value)
     if context != NULL:
         context_obj = <object>context
         if hasattr(context_obj, "_on_message_sent"):
-            context_obj._on_message_sent(send_result)
-        elif callable(context_obj):
-            context_obj(send_result)
+            context_obj._on_message_sent(context_obj, send_result, delivery_state=wrapped)
 
 
 cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):

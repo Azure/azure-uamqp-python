@@ -12,17 +12,18 @@ from uamqp import c_uamqp
 DEFAULT_AMQPS_PORT = 5671
 AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS
-
+BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT
+MAX_FRAME_SIZE_BYTES = c_uamqp.MAX_FRAME_SIZE_BYTES
+MAX_MESSAGE_LENGTH_BYTES = c_uamqp.MAX_MESSAGE_LENGTH_BYTES
 STRING_FILTER = b"apache.org:selector-filter:string"
 OPERATION = b"operation"
 READ_OPERATION = b"READ"
 MGMT_TARGET = b"$management"
+
+# Deprecated - will be removed in future versions
 MESSAGE_SEND_RETRIES = 3
-
-
-BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT
-MAX_FRAME_SIZE_BYTES = c_uamqp.MAX_FRAME_SIZE_BYTES
-MAX_MESSAGE_LENGTH_BYTES = c_uamqp.MAX_MESSAGE_LENGTH_BYTES
+ERROR_CONNECTION_REDIRECT = b"amqp:connection:redirect"
+ERROR_LINK_REDIRECT = b"amqp:link:redirect"
 
 
 class MessageState(Enum):
@@ -37,9 +38,37 @@ class MessageState(Enum):
 DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 
+
 # Error Codes
-ERROR_CONNECTION_REDIRECT = b"amqp:connection:redirect"
-ERROR_LINK_REDIRECT = b"amqp:link:redirect"
+class ErrorCodes(Enum):
+    InternalServerError = b"amqp:internal-error"
+    IllegalState = b"amqp:illegal-state"
+    DecodeError = b"amqp:decode-error"
+    NotFound = b"amqp:not-found"
+    NotImplemented = b"amqp:not-implemented"
+    NotAllowed = b"amqp:not-allowed"
+    InvalidField = b"amqp:invalid-field"
+    ResourceLocked = b"amqp:resource-locked"
+    ResourceDeleted = b"amqp:resource-deleted"
+    UnauthorizedAccess = b"amqp:unauthorized-access"
+    FrameSizeTooSmall = b"amqp:frame-size-too-small"
+    ResourceLimitExceeded = b"amqp:resource-limit-exceeded"
+    PreconditionFailed = b"amqp:precondition-failed"
+    ConnectionRedirect = b"amqp:connection:redirect"
+    ConnectionCloseForced = b"amqp:connection:forced"
+    ConnectionFramingError = b"amqp:connection:framing-error"
+    SessionWindowViolation = b"amqp:session:window-violation"
+    SessionErrantLink = b"amqp:session:errant-link"
+    SessionHandleInUse = b"amqp:session:handle-in-use"
+    SessionUnattachedHandle = b"amqp:session:unattached-handle"
+    LinkRedirect = b"amqp:link:redirect"
+    LinkStolen = b"amqp:link:stolen"
+    LinkDetachForced = b"amqp:link:detach-forced"
+    LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
+    LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
+    ClientError = b"amqp:client-eror"
+    UnknownError = b"amqp:unknown-error"
+    VendorError = b"amqp:vendor-error"
 
 
 class MessageReceiverState(Enum):

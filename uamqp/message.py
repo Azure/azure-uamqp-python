@@ -69,7 +69,7 @@ class Message:
                  encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
-        self._retries = 0
+        self.retries = 0
         self._response = None
         self._settler = None
         self._encoding = encoding
@@ -152,35 +152,6 @@ class Message:
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
             self.delivery_annotations = _delivery_ann.map
-
-    def _on_message_sent(self, result, error=None):
-        """Callback run on a message send operation. If message
-        has a user defined callback, it will be called here. If the result
-        of the operation is failure, the message state will be reverted
-        to 'pending' up to the maximum retry count.
-
-        :param result: The result of the send operation.
-        :type result: int
-        :param error: An Exception if an error ocurred during the send operation.
-        :type error: ~Exception
-        """
-        result = constants.MessageSendResult(result)
-        if not error and result == constants.MessageSendResult.Error and self._retries < constants.MESSAGE_SEND_RETRIES:
-            self._retries += 1
-            _logger.debug("Message error, retrying. Attempts: {}".format(self._retries))
-            self.state = constants.MessageState.WaitingToBeSent
-        elif result == constants.MessageSendResult.Error:
-            _logger.error("Message error, {} retries exhausted ({})".format(constants.MESSAGE_SEND_RETRIES, error))
-            self.state = constants.MessageState.SendFailed
-            self._response = errors.MessageAlreadySettled()
-            if self.on_send_complete:
-                self.on_send_complete(result, error)
-        else:
-            _logger.debug("Message sent: {}, {}".format(result, error))
-            self.state = constants.MessageState.SendComplete
-            self._response = errors.MessageAlreadySettled()
-            if self.on_send_complete:
-                self.on_send_complete(result, error)
 
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:

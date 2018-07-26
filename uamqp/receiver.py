@@ -52,10 +52,9 @@ class MessageReceiver():
     :type prefetch: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
-    :param on_detach_received: A callback to be run if the client receives
-     a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition`, the optional `description` and an optional info dict.
-    :type on_detach_received: Callable[bytes, bytes, dict]
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -72,7 +71,7 @@ class MessageReceiver():
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  prefetch=300,
                  properties=None,
-                 on_detach_received=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -86,8 +85,8 @@ class MessageReceiver():
         self.source = source._address.value
         self.target = c_uamqp.Messaging.create_target(target)
         self.on_message_received = on_message_received
-        self.on_detach_received = on_detach_received
         self.encoding = encoding
+        self.error_policy = error_policy or errors.ErrorPolicy()
         self._settle_mode = receive_settle_mode
         self._conn = session._conn
         self._session = session
@@ -118,40 +117,6 @@ class MessageReceiver():
         """Close the MessageReceiver when exiting a context manager."""
         self.destroy()
 
-    def get_state(self):
-        """Get the state of the MessageReceiver and its underlying Link."""
-        try:
-            raise self._error
-        except TypeError:
-            pass
-        except Exception as e:
-            _logger.warning(str(e))
-            raise
-        return self._state
-
-    def destroy(self):
-        """Close both the Receiver and the Link. Clean up any C objects."""
-        self._receiver.destroy()
-        self._link.destroy()
-
-    def open(self):
-        """Open the MessageReceiver in order to start processing messages.
-
-        :raises: ~uamqp.errors.AMQPConnectionError if the Receiver raises
-         an error on opening. This can happen if the source URI is invalid
-         or the credentials are rejected.
-        """
-        try:
-            self._receiver.open(self)
-        except ValueError:
-            raise errors.AMQPConnectionError(
-                "Failed to open Message Receiver. "
-                "Please confirm credentials and target URI.")
-
-    def close(self):
-        """Close the Receiver, leaving the link intact."""
-        self._receiver.close()
-
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change
         of state. This function wraps the states as Enums to prepare for
@@ -173,19 +138,23 @@ class MessageReceiver():
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
+        This callback will process the received DETACH error to determine if
+        the link is recoverable or whether it should be shutdown.
         :param error: The error information from the detach
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
-        condition = error.condition
-        description = error.description
-        info = error.info
-        if condition == constants.ERROR_LINK_REDIRECT:
-            self._error = errors.LinkRedirect(condition, description, info)
+        if error:
+            condition = error.condition
+            description = error.description
+            info = error.info
         else:
-            self._error = errors.LinkDetach(condition, description, info)
-        if self.on_detach_received:
-            self.on_detach_received(condition, description, info)
+            condition = b"amqp:unknown-error"
+            description = None
+            info = None
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, description, info, self._error.action.retry))
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -235,9 +204,47 @@ class MessageReceiver():
             settler=settler)
         try:
             self.on_message_received(wrapped_message)
+        except RuntimeError:
+            condition = b"amqp:unknown-error"
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)  # pylint: disable=protected-access
+            _logger.info("Unable to settle message. Disconnecting.")
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settle_modified_message(message_number, True, True, None)
+
+    def get_state(self):
+        """Get the state of the MessageReceiver and its underlying Link."""
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        return self._state
+
+    def destroy(self):
+        """Close both the Receiver and the Link. Clean up any C objects."""
+        self._receiver.destroy()
+        self._link.destroy()
+
+    def open(self):
+        """Open the MessageReceiver in order to start processing messages.
+
+        :raises: ~uamqp.errors.AMQPConnectionError if the Receiver raises
+         an error on opening. This can happen if the source URI is invalid
+         or the credentials are rejected.
+        """
+        try:
+            self._receiver.open(self)
+        except ValueError:
+            raise errors.AMQPConnectionError(
+                "Failed to open Message Receiver. "
+                "Please confirm credentials and target URI.")
+
+    def close(self):
+        """Close the Receiver, leaving the link intact."""
+        self._receiver.close()
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change

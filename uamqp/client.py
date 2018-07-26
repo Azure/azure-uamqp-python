@@ -4,9 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=too-many-lines
+
 import logging
 import uuid
 import queue
+import time
+import threading
 try:
     from urllib import unquote_plus
 except ImportError:
@@ -42,6 +46,14 @@ class AMQPClient:
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
     :type max_frame_size: int
     :param channel_max: Maximum number of Session channels in the Connection.
@@ -66,7 +78,9 @@ class AMQPClient:
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, debug=False, **kwargs):
+    def __init__(
+            self, remote_address, auth=None, client_name=None, debug=False,
+            error_policy=None, keep_alive_interval=None, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
@@ -87,6 +101,10 @@ class AMQPClient:
         self._connection = None
         self._ext_connection = False
         self._session = None
+        self._backoff = 0
+        self._error_policy = error_policy or errors.ErrorPolicy()
+        self._keep_alive_interval = int(keep_alive_interval) if keep_alive_interval else 0
+        self._keep_alive_thread = None
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -117,6 +135,21 @@ class AMQPClient:
         """Close and destroy Client on exiting a context manager."""
         self.close()
 
+    def _keep_alive(self):
+        start_time = self._counter.get_current_ms()
+        try:
+            while self._connection and not self._shutdown:
+                current_time = self._counter.get_current_ms()
+                elapsed_time = (current_time - start_time)/1000
+                if elapsed_time >= self._keep_alive_interval:
+                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    self._connection.work()
+                    start_time = current_time
+                time.sleep(1)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.info("Connection keep-alive for {} failed: {}.".format(
+                self.__class__.__name__, e))
+
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
         receiving messages. To be ready, the connection must be open and
@@ -140,10 +173,6 @@ class AMQPClient:
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
-        if self._ext_connection:
-            raise ValueError(
-                "Clients with a shared connection cannot be "
-                "automatically redirected.")
         if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
@@ -193,6 +222,7 @@ class AMQPClient:
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=self._error_policy,
             debug=self._debug_trace,
             encoding=self._encoding)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
@@ -208,6 +238,9 @@ class AMQPClient:
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max)
+        if self._keep_alive_interval:
+            self._keep_alive_thread = threading.Thread(target=self._keep_alive)
+            self._keep_alive_thread.start()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -215,6 +248,10 @@ class AMQPClient:
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        self._shutdown = True
+        if self._keep_alive_thread:
+            self._keep_alive_thread.join()
+            self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
         else:
@@ -335,6 +372,14 @@ class SendClient(AMQPClient):
      added to the send queue to when the message is actually sent. This prevents potentially
      expired data from being sent. If set to 0, messages will not expire. Default is 0.
     :type msg_timeout: int
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
      from the service that the message was successfully sent. If set to 'Settled',
@@ -371,10 +416,13 @@ class SendClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, debug=False, msg_timeout=0, **kwargs):
+    def __init__(
+            self, target, auth=None, client_name=None, debug=False, msg_timeout=0,
+            error_policy=None, keep_alive_interval=None, **kwargs):
         target = target if isinstance(target, address.Address) else address.Target(target)
         self._msg_timeout = msg_timeout
         self._pending_messages = []
+        self._waiting_messages = []
         self._message_sender = None
         self._shutdown = None
 
@@ -387,7 +435,14 @@ class SendClient(AMQPClient):
         # AMQP object settings
         self.sender_type = sender.MessageSender
 
-        super(SendClient, self).__init__(target, auth=auth, client_name=client_name, debug=debug, **kwargs)
+        super(SendClient, self).__init__(
+            target,
+            auth=auth,
+            client_name=client_name,
+            debug=debug,
+            error_policy=error_policy,
+            keep_alive_interval=keep_alive_interval,
+            **kwargs)
 
     def _client_ready(self):
         """Determine whether the client is ready to start sending messages.
@@ -396,7 +451,7 @@ class SendClient(AMQPClient):
         states.
 
         :rtype: bool
-        :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageSender
          goes into an error state.
         """
         # pylint: disable=protected-access
@@ -409,17 +464,106 @@ class SendClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 link_credit=self._link_credit,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding)
             self._message_sender.open()
             return False
         elif self._message_sender.get_state() == constants.MessageSenderState.Error:
-            raise errors.AMQPConnectionError(
-                "Message Sender Client was unable to open. "
+            raise errors.MessageHandlerError(
+                "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
+
+    def _on_message_sent(self, message, result, delivery_state=None):
+        """Callback run on a message send operation. If message
+        has a user defined callback, it will be called here. If the result
+        of the operation is failure, the message state will be reverted
+        to 'pending' up to the maximum retry count.
+
+        :param message: The message that was sent.
+        :type message: ~uamqp.message.Message
+        :param result: The result of the send operation.
+        :type result: int
+        :param error: An Exception if an error ocurred during the send operation.
+        :type error: ~Exception
+        """
+        # pylint: disable=protected-access
+        exception = delivery_state
+        result = constants.MessageSendResult(result)
+        if result == constants.MessageSendResult.Error:
+            if isinstance(delivery_state, Exception):
+                exception = errors.ClientMessageError(delivery_state, info=delivery_state)
+                exception.action = errors.ErrorAction(retry=True)
+            elif delivery_state:
+                error = errors.ErrorResponse(delivery_state)
+                exception = errors._process_send_error(
+                    self._error_policy,
+                    error.condition,
+                    error.description,
+                    error.info)
+            else:
+                exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
+                exception.action = errors.ErrorAction(retry=True)
+            if exception.action.retry == errors.ErrorAction.retry and message.retries < self._error_policy.max_retries:
+                if exception.action.increment_retries:
+                    message.retries += 1
+                self._backoff = exception.action.backoff
+                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(
+                    message.retries, exception))
+                message.state = constants.MessageState.WaitingToBeSent
+                return
+            elif exception.action.retry == errors.ErrorAction.retry:
+                _logger.info("Message error, {} retries exhausted. Error: {}".format(
+                    message.retries, exception))
+            else:
+                _logger.info("Message error, not retrying. Error: {}".format(exception))
+            message.state = constants.MessageState.SendFailed
+            message._response = exception
+
+        else:
+            _logger.debug("Message sent: {}, {}".format(result, exception))
+            message.state = constants.MessageState.SendComplete
+            message._response = errors.MessageAlreadySettled()
+        if message.on_send_complete:
+            message.on_send_complete(result, exception)
+
+    def _get_msg_timeout(self, message):
+        current_time = self._counter.get_current_ms()
+        elapsed_time = (current_time - message.idle_time)/1000
+        if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
+            return None
+        return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
+
+    def _transfer_message(self, message, timeout):
+        sent = self._message_sender.send(message, self._on_message_sent, timeout=timeout)
+        if not sent:
+            _logger.info("Message not sent, raising RuntimeError.")
+            raise RuntimeError("Message sender failed to add message data to outgoing queue.")
+
+    def _filter_pending(self):
+        filtered = []
+        for message in self._pending_messages:
+            if message.state in constants.DONE_STATES:
+                continue
+            elif message.state == constants.MessageState.WaitingForSendAck:
+                self._waiting_messages += 1
+            elif message.state == constants.MessageState.WaitingToBeSent:
+                message.state = constants.MessageState.WaitingForSendAck
+                try:
+                    timeout = self._get_msg_timeout(message)
+                    if timeout is None:
+                        self._on_message_sent(message, constants.MessageSendResult.Timeout)
+                        continue
+                    else:
+                        self._transfer_message(message, timeout)
+                except Exception as exp:  # pylint: disable=broad-except
+                    self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
+                    continue
+            filtered.append(message)
+        return filtered
 
     def _client_run(self):
         """MessageSender Link is now open - perform message send
@@ -430,24 +574,12 @@ class SendClient(AMQPClient):
         :rtype: bool
         """
         # pylint: disable=protected-access
-        for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
-                try:
-                    self._pending_messages.remove(message)
-                except ValueError:
-                    pass
-            elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForSendAck
-                try:
-                    current_time = self._counter.get_current_ms()
-                    elapsed_time = (current_time - message.idle_time)/1000
-                    if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
-                        message._on_message_sent(constants.MessageSendResult.Timeout)
-                    else:
-                        timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                        self._message_sender.send_async(message, timeout=timeout)
-                except Exception as exp:  # pylint: disable=broad-except
-                    message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+        self._waiting_messages = 0
+        self._pending_messages = self._filter_pending()
+        if self._backoff and not self._waiting_messages:
+            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            self._connection.sleep(self._backoff)
+            self._backoff = 0
         self._connection.work()
         return True
 
@@ -460,6 +592,10 @@ class SendClient(AMQPClient):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if self._message_sender:
             self._message_sender.destroy()
             self._message_sender = None
@@ -504,7 +640,7 @@ class SendClient(AMQPClient):
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
-        :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
+        :raises: ~uamqp.errors.MessageException if message fails to send after retry policy
          is exhausted.
         """
         batch = messages.gather()
@@ -514,17 +650,24 @@ class SendClient(AMQPClient):
             self._pending_messages.append(message)
             pending_batch.append(message)
         self.open()
+        running = True
         try:
-            while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
-                self.do_work()
+            while running and any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
+                running = self.do_work()
         except:
             raise
         else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
-                raise errors.MessageSendFailed("Failed to send message.")
+                details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
+                details['failed_messages'] = {}
+                exception = None
+                for failed_message in failed:
+                    exception = failed_message._response  # pylint: disable=protected-access
+                    details['failed_messages'][failed_message] = exception
+                raise errors.ClientMessageError(exception, info=details)
         finally:
-            if close_on_done:
+            if close_on_done or not running:
                 self.close()
 
     def messages_pending(self):
@@ -537,10 +680,15 @@ class SendClient(AMQPClient):
 
     def wait(self):
         """Run the client until all pending message in the queue
-        have been processed.
+        have been processed. Returns whether the client is still running after the
+        messages have been processed, or whether a shutdown has been initiated.
+
+        :rtype: bool
         """
-        while self.messages_pending():
-            self.do_work()
+        running = True
+        while running and self.messages_pending():
+            running = self.do_work()
+        return running
 
     def send_all_messages(self, close_on_done=True):
         """Send all pending messages in the queue. This will return a list
@@ -554,16 +702,17 @@ class SendClient(AMQPClient):
         :rtype: list[~uamqp.constants.MessageState]
         """
         self.open()
+        running = True
         try:
             messages = self._pending_messages[:]
-            self.wait()
+            running = self.wait()
         except:
             raise
         else:
             results = [m.state for m in messages]
             return results
         finally:
-            if close_on_done:
+            if close_on_done or not running:
                 self.close()
 
 
@@ -592,6 +741,14 @@ class ReceiveClient(AMQPClient):
      will determine whether the messages are pre-emptively settled during batching, or otherwise
      let to the user to be explicitly settled.
     :type auto_complete: bool
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -630,7 +787,9 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, debug=False, timeout=0, auto_complete=True, **kwargs):
+    def __init__(
+            self, source, auth=None, client_name=None, debug=False, timeout=0,
+            auto_complete=True, error_policy=None, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._message_receiver = None
@@ -649,7 +808,8 @@ class ReceiveClient(AMQPClient):
         self.receiver_type = receiver.MessageReceiver
         self.auto_complete = auto_complete
 
-        super(ReceiveClient, self).__init__(source, auth=auth, client_name=client_name, debug=debug, **kwargs)
+        super(ReceiveClient, self).__init__(
+            source, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
     def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
@@ -658,7 +818,7 @@ class ReceiveClient(AMQPClient):
         states.
 
         :rtype: bool
-        :raises: ~uamqp.errors.AMQPConnectionError if the MessageReceiver
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageReceiver
          goes into an error state.
         """
         # pylint: disable=protected-access
@@ -672,12 +832,13 @@ class ReceiveClient(AMQPClient):
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding)
             self._message_receiver.open()
             return False
         elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
-            raise errors.AMQPConnectionError(
-                "Message Receiver Client was unable to open. "
+            raise errors.MessageHandlerError(
+                "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
@@ -868,6 +1029,10 @@ class ReceiveClient(AMQPClient):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if self._message_receiver:
             self._message_receiver.destroy()
             self._message_receiver = None

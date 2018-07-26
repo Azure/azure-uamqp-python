@@ -150,9 +150,10 @@ cdef class cLink(StructBase):
 cdef void on_link_detach_received(void* context, c_amqp_definitions.ERROR_HANDLE error):
     cdef c_amqp_definitions.ERROR_HANDLE cloned
     context_obj = <object>context
-    cloned = c_amqp_definitions.error_clone(error)
-    wrapped_error = error_factory(cloned)
+    if <void*> error != NULL:
+        cloned = c_amqp_definitions.error_clone(error)
+        wrapped_error = error_factory(cloned)
+    else:
+        wrapped_error = None
     if hasattr(context_obj, '_detach_received'):
         context_obj._detach_received(wrapped_error)
-    elif callable(context_obj):
-        context_obj(wrapped_error)

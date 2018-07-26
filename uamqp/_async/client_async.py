@@ -45,6 +45,14 @@ class AMQPClientAsync(client.AMQPClient):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param max_frame_size: Maximum AMQP frame size. Default is 63488 bytes.
     :type max_frame_size: int
     :param channel_max: Maximum number of Session channels in the Connection.
@@ -69,10 +77,25 @@ class AMQPClientAsync(client.AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, remote_address, auth=None, client_name=None, loop=None, debug=False, **kwargs):
+    def __init__(
+            self,
+            remote_address,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         super(AMQPClientAsync, self).__init__(
-            remote_address, auth=auth, client_name=client_name, debug=debug, **kwargs)
+            remote_address,
+            auth=auth,
+            client_name=client_name,
+            debug=debug,
+            error_policy=error_policy,
+            keep_alive_interval=keep_alive_interval,
+            **kwargs)
 
         # AMQP object settings
         self.connection_type = ConnectionAsync
@@ -87,6 +110,34 @@ class AMQPClientAsync(client.AMQPClient):
         """Close and destroy Client on exiting an async context manager."""
         await self.close_async()
 
+    async def _keep_alive_async(self):
+        start_time = self._counter.get_current_ms()
+        try:
+            while self._connection and not self._shutdown:
+                current_time = self._counter.get_current_ms()
+                elapsed_time = (current_time - start_time)/1000
+                if elapsed_time >= self._keep_alive_interval:
+                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    await self._connection.work_async()
+                    start_time = current_time
+                await asyncio.sleep(1)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.info("Connection keep-alive for {} failed: {}.".format(
+                self.__class__.__name__, e))
+
+    async def _client_ready_async(self):  # pylint: disable=no-self-use
+        """Determine whether the client is ready to start sending and/or
+        receiving messages. To be ready, the connection must be open and
+        authentication complete.
+
+        :rtype: bool
+        """
+        return True
+
+    async def _client_run_async(self):
+        """Perform a single Connection iteration."""
+        await self._connection.work_async()
+
     async def _redirect_async(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
@@ -97,10 +148,6 @@ class AMQPClientAsync(client.AMQPClient):
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
-        if self._ext_connection:
-            raise ValueError(
-                "Clients with a shared connection cannot be "
-                "automatically redirected.")
         if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             await self._session.destroy_async()
@@ -151,6 +198,7 @@ class AMQPClientAsync(client.AMQPClient):
             idle_timeout=self._idle_timeout,
             properties=self._properties,
             remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=self._error_policy,
             debug=self._debug_trace,
             loop=self.loop)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
@@ -168,6 +216,8 @@ class AMQPClientAsync(client.AMQPClient):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 loop=self.loop)
+        if self._keep_alive_interval:
+            self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -175,6 +225,10 @@ class AMQPClientAsync(client.AMQPClient):
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        self._shutdown = True
+        if self._keep_alive_thread:
+            await self._keep_alive_thread
+            self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
         else:
@@ -268,11 +322,11 @@ class AMQPClientAsync(client.AMQPClient):
         elif auth_in_progress:
             await self._connection.work_async()
             return True
-        elif not await self._client_ready():
+        elif not await self._client_ready_async():
             await self._connection.work_async()
             return True
         else:
-            return await self._client_run()
+            return await self._client_run_async()
 
 
 class SendClientAsync(client.SendClient, AMQPClientAsync):
@@ -296,6 +350,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
      added to the send queue to when the message is actually sent. This prevents potentially
      expired data from being sent. If set to 0, messages will not expire. Default is 0.
     :type msg_timeout: int
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
      from the service that the message was successfully sent. If set to 'Settled',
@@ -332,22 +394,40 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, target, auth=None, client_name=None, loop=None, debug=False, msg_timeout=0, **kwargs):
+    def __init__(
+            self,
+            target,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            msg_timeout=0,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.SendClient.__init__(
-            self, target, auth=auth, client_name=client_name, debug=debug, msg_timeout=msg_timeout, **kwargs)
+            self,
+            target,
+            auth=auth,
+            client_name=client_name,
+            debug=debug,
+            msg_timeout=msg_timeout,
+            error_policy=error_policy,
+            keep_alive_interval=keep_alive_interval,
+            **kwargs)
 
         # AMQP object settings
         self.sender_type = MessageSenderAsync
 
-    async def _client_ready(self):
+    async def _client_ready_async(self):
         """Determine whether the client is ready to start sending messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageSender must be open and in non-errored
         states.
 
         :rtype: bool
-        :raises: ~uamqp.errors.AMQPConnectionError if the MessageSender
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageSender
          goes into an error state.
         """
         # pylint: disable=protected-access
@@ -359,20 +439,49 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 send_settle_mode=self._send_settle_mode,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
             await self._message_sender.open_async()
             return False
         elif self._message_sender.get_state() == constants.MessageSenderState.Error:
-            raise errors.AMQPConnectionError(
-                "Message Sender Client was unable to open. "
+            raise errors.MessageHandlerError(
+                "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
-    async def _client_run(self):
+    async def _transfer_message_async(self, message, timeout):
+        sent = await self._message_sender.send_async(message, self._on_message_sent, timeout=timeout)
+        if not sent:
+            _logger.info("Message not sent, raising RuntimeError.")
+            raise RuntimeError("Message sender failed to add message data to outgoing queue.")
+
+    async def _filter_pending_async(self):
+        filtered = []
+        for message in self._pending_messages:
+            if message.state in constants.DONE_STATES:
+                continue
+            elif message.state == constants.MessageState.WaitingForSendAck:
+                self._waiting_messages += 1
+            elif message.state == constants.MessageState.WaitingToBeSent:
+                message.state = constants.MessageState.WaitingForSendAck
+                try:
+                    timeout = self._get_msg_timeout(message)
+                    if timeout is None:
+                        self._on_message_sent(message, constants.MessageSendResult.Timeout)
+                        continue
+                    else:
+                        await self._transfer_message_async(message, timeout)
+                except Exception as exp:  # pylint: disable=broad-except
+                    self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
+                    continue
+            filtered.append(message)
+        return filtered
+
+    async def _client_run_async(self):
         """MessageSender Link is now open - perform message send
         on all pending messages.
         Will return True if operation successful and client can remain open for
@@ -381,25 +490,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :rtype: bool
         """
         # pylint: disable=protected-access
-        for message in self._pending_messages[:]:
-            if message.state in [constants.MessageState.SendComplete, constants.MessageState.SendFailed]:
-                try:
-                    self._pending_messages.remove(message)
-                except ValueError:
-                    pass
-            elif message.state == constants.MessageState.WaitingToBeSent:
-                message.state = constants.MessageState.WaitingForSendAck
-                try:
-                    current_time = self._counter.get_current_ms()
-                    elapsed_time = (current_time - message.idle_time)/1000
-                    if self._msg_timeout > 0 and elapsed_time/1000 > self._msg_timeout:
-                        message._on_message_sent(constants.MessageSendResult.Timeout)
-                    else:
-                        timeout = self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
-                        self._message_sender.send_async(message, timeout=timeout)
-
-                except Exception as exp:  # pylint: disable=broad-except
-                    message._on_message_sent(constants.MessageSendResult.Error, error=exp)
+        self._waiting_messages = 0
+        self._pending_messages = await self._filter_pending_async()
+        if self._backoff and not self._waiting_messages:
+            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            await self._connection.sleep_async(self._backoff)
+            self._backoff = 0
         await self._connection.work_async()
         return True
 
@@ -412,6 +508,10 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if self._message_sender:
             await self._message_sender.destroy_async()
             self._message_sender = None
@@ -448,7 +548,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
-        :raises: ~uamqp.errors.MessageSendFailed if message fails to send after retry policy
+        :raises: ~uamqp.errors.MessageException if message fails to send after retry policy
          is exhausted.
         """
         batch = messages.gather()
@@ -466,7 +566,13 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
-                raise errors.MessageSendFailed("Failed to send message.")
+                details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
+                details['failed_messages'] = {}
+                exception = None
+                for failed_message in failed:
+                    exception = failed_message._response  # pylint: disable=protected-access
+                    details['failed_messages'][failed_message] = exception
+                raise errors.ClientMessageError(exception, info=details)
         finally:
             if close_on_done:
                 await self.close_async()
@@ -523,6 +629,14 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
      will determine whether the messages are pre-emptively settled during batching, or otherwise
      let to the user to be explicitly settled.
     :type auto_complete: bool
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
+    :param keep_alive_interval: If set, a thread will be started to keep the connection
+     alive during periods of user inactivity. The value will determine how long the
+     thread will sleep (in seconds) between pinging the connection. If 0 or None, no
+     thread will be started.
+    :type keep_alive_interval: int
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -561,24 +675,42 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type encoding: str
     """
 
-    def __init__(self, source, auth=None, client_name=None, loop=None,
-                 debug=False, timeout=0, auto_complete=True, **kwargs):
+    def __init__(
+            self,
+            source,
+            auth=None,
+            client_name=None,
+            loop=None,
+            debug=False,
+            timeout=0,
+            auto_complete=True,
+            error_policy=None,
+            keep_alive_interval=None,
+            **kwargs):
         self.loop = loop or asyncio.get_event_loop()
         client.ReceiveClient.__init__(
-            self, source, auth=auth, client_name=client_name, debug=debug,
-            timeout=timeout, auto_complete=auto_complete, **kwargs)
+            self,
+            source,
+            auth=auth,
+            client_name=client_name,
+            debug=debug,
+            timeout=timeout,
+            auto_complete=auto_complete,
+            error_policy=error_policy,
+            keep_alive_interval=keep_alive_interval,
+            **kwargs)
 
         # AMQP object settings
         self.receiver_type = MessageReceiverAsync
 
-    async def _client_ready(self):
+    async def _client_ready_async(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
         states.
 
         :rtype: bool
-        :raises: ~uamqp.errors.AMQPConnectionError if the MessageReceiver
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageReceiver
          goes into an error state.
         """
         # pylint: disable=protected-access
@@ -592,13 +724,14 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
+                error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
             await self._message_receiver.open_async()
             return False
         elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
-            raise errors.AMQPConnectionError(
-                "Message Receiver Client was unable to open. "
+            raise errors.MessageHandlerError(
+                "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
         elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
@@ -606,7 +739,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             return False
         return True
 
-    async def _client_run(self):
+    async def _client_run_async(self):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.
@@ -741,6 +874,10 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
+        if self._ext_connection:
+            raise ValueError(
+                "Clients with a shared connection cannot be "
+                "automatically redirected.")
         if self._message_receiver:
             await self._message_receiver.destroy_async()
             self._message_receiver = None

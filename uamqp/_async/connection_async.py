@@ -59,7 +59,7 @@ class ConnectionAsync(connection.Connection):
      Default is 'UTF-8'
     :type encoding: str
     :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
+    :type loop: ~asyncio.AbstractEventLoop
     """
 
     def __init__(self, hostname, sasl,
@@ -69,6 +69,7 @@ class ConnectionAsync(connection.Connection):
                  idle_timeout=None,
                  properties=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
@@ -81,9 +82,10 @@ class ConnectionAsync(connection.Connection):
             idle_timeout=idle_timeout,
             properties=properties,
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
+            error_policy=error_policy,
             debug=debug,
             encoding=encoding)
-        self._lock = asyncio.Lock(loop=self.loop)
+        self._async_lock = asyncio.Lock(loop=self.loop)
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
@@ -102,13 +104,26 @@ class ConnectionAsync(connection.Connection):
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
-        await self._lock.acquire()
+        await self._async_lock.acquire()
         try:
             raise self._error
         except TypeError:
             pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
         await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
-        self._lock.release()
+        self._async_lock.release()
+
+    async def sleep_async(self, seconds):
+        """Lock the connection for a given number of seconds.
+
+        :param seconds: Length of time to lock the connection.
+        :type seconds: int
+        """
+        await self._async_lock.acquire()
+        await asyncio.sleep(seconds)
+        self._async_lock.release()
 
     async def redirect_async(self, redirect_error, auth):
         """Redirect the connection to an alternative endpoint.
@@ -117,7 +132,7 @@ class ConnectionAsync(connection.Connection):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
-        await self._lock.acquire()
+        await self._async_lock.acquire()
         try:
             if self.hostname == redirect_error.hostname:
                 return
@@ -134,7 +149,7 @@ class ConnectionAsync(connection.Connection):
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:
-            self._lock.release()
+            self._async_lock.release()
 
     async def destroy_async(self):
         """Close the connection asynchronously, and close any associated

@@ -48,10 +48,9 @@ class MessageSender():
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
-    :param on_detach_received: A callback to be run if the client receives
-     a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition`, the optional `description` and an optional info dict.
-    :type on_detach_received: Callable[bytes, bytes, dict]
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -67,7 +66,7 @@ class MessageSender():
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
-                 on_detach_received=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8'):
         # pylint: disable=protected-access
@@ -80,7 +79,7 @@ class MessageSender():
 
         self.source = c_uamqp.Messaging.create_source(source)
         self.target = target._address.value
-        self.on_detach_received = on_detach_received
+        self.error_policy = error_policy or errors.ErrorPolicy()
         self._conn = session._conn
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
@@ -111,6 +110,45 @@ class MessageSender():
     def __exit__(self, *args):
         """Close the MessageSender when exiting a context manager."""
         self.destroy()
+
+    def _detach_received(self, error):
+        """Callback called when a link DETACH frame is received.
+        This callback will process the received DETACH error to determine if
+        the link is recoverable or whether it should be shutdown.
+        :param error: The error information from the detach
+         frame.
+        :type error: ~uamqp.errors.ErrorResponse
+        """
+        if error:
+            condition = error.condition
+            description = error.description
+            info = error.info
+        else:
+            condition = b"amqp:unknown-error"
+            description = None
+            info = None
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
+        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, description, info, self._error.action.retry))
+
+    def _state_changed(self, previous_state, new_state):
+        """Callback called whenever the underlying Sender undergoes a change
+        of state. This function wraps the states as Enums to prepare for
+        calling the public callback.
+        :param previous_state: The previous Sender state.
+        :type previous_state: int
+        :param new_state: The new Sender state.
+        :type new_state: int
+        """
+        try:
+            _previous_state = constants.MessageSenderState(previous_state)
+        except ValueError:
+            _previous_state = new_state
+        try:
+            _new_state = constants.MessageSenderState(new_state)
+        except ValueError:
+            _new_state = new_state
+        self.on_state_changed(_previous_state, _new_state)
 
     def get_state(self):
         """Get the state of the MessageSender and its underlying Link."""
@@ -146,52 +184,35 @@ class MessageSender():
         """Close the sender, leaving the link intact."""
         self._sender.close()
 
-    def send_async(self, message, timeout=0):
+    def send(self, message, callback, timeout=0):
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
         :param message: The message to send.
         :type message: ~uamqp.message.Message
+        :param callback: The callback to be run once a disposition is received
+         in receipt of the message. The callback must take three arguments, the message,
+         the send result and the optional delivery condition (exception).
+        :type callback:
+         Callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
         :param timeout: An expiry time for the message added to the queue. If the
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.
         """
+        # pylint: disable=protected-access
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
         c_message = message.get_message()
-        self._sender.send(c_message, timeout, message)
-
-    def _detach_received(self, error):
-        """Callback called when a link DETACH frame is received.
-        :param error: The error information from the detach
-         frame.
-        :type error: ~uamqp.errors.ErrorResponse
-        """
-        condition = error.condition
-        description = error.description
-        info = error.info
-        if condition == constants.ERROR_LINK_REDIRECT:
-            self._error = errors.LinkRedirect(condition, description, info)
-        else:
-            self._error = errors.LinkDetach(condition, description, info)
-        if self.on_detach_received:
-            self.on_detach_received(condition, description, info)
-
-    def _state_changed(self, previous_state, new_state):
-        """Callback called whenever the underlying Sender undergoes a change
-        of state. This function wraps the states as Enums to prepare for
-        calling the public callback.
-        :param previous_state: The previous Sender state.
-        :type previous_state: int
-        :param new_state: The new Sender state.
-        :type new_state: int
-        """
+        message._on_message_sent = callback
         try:
-            _previous_state = constants.MessageSenderState(previous_state)
-        except ValueError:
-            _previous_state = new_state
-        try:
-            _new_state = constants.MessageSenderState(new_state)
-        except ValueError:
-            _new_state = new_state
-        self.on_state_changed(_previous_state, _new_state)
+            self._session._connection._lock.acquire()
+            return self._sender.send(c_message, timeout, message)
+        finally:
+            self._session._connection._lock.release()
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change

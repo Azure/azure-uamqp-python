@@ -52,10 +52,9 @@ class MessageSenderAsync(sender.MessageSender):
     :type link_credit: int
     :param properties: Data to be sent in the Link ATTACH frame.
     :type properties: dict
-    :param on_detach_received: A callback to be run if the client receives
-     a link DETACH frame from the service. The callback must take 3 arguments,
-     the `condition`, the optional `description` and an optional info dict.
-    :type on_detach_received: Callable[bytes, bytes, dict]
+    :param error_policy: A policy for parsing errors on link, connection and message
+     disposition to determine whether the error should be retryable.
+    :type error_policy: ~uamqp.errors.ErrorPolicy
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -73,7 +72,7 @@ class MessageSenderAsync(sender.MessageSender):
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
-                 on_detach_received=None,
+                 error_policy=None,
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
@@ -86,7 +85,7 @@ class MessageSenderAsync(sender.MessageSender):
             max_message_size=max_message_size,
             link_credit=link_credit,
             properties=properties,
-            on_detach_received=on_detach_received,
+            error_policy=error_policy,
             debug=debug,
             encoding=encoding)
 
@@ -117,6 +116,36 @@ class MessageSenderAsync(sender.MessageSender):
             raise errors.AMQPConnectionError(
                 "Failed to open Message Sender. "
                 "Please confirm credentials and target URI.")
+
+    async def send_async(self, message, callback, timeout=0):
+        """Add a single message to the internal pending queue to be processed
+        by the Connection without waiting for it to be sent.
+        :param message: The message to send.
+        :type message: ~uamqp.message.Message
+        :param callback: The callback to be run once a disposition is received
+         in receipt of the message. The callback must take three arguments, the message,
+         the send result and the optional delivery condition (exception).
+        :type callback:
+         Callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
+        :param timeout: An expiry time for the message added to the queue. If the
+         message is not sent within this timeout it will be discarded with an error
+         state. If set to 0, the message will not expire. The default is 0.
+        """
+        # pylint: disable=protected-access
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning(str(e))
+            raise
+        c_message = message.get_message()
+        message._on_message_sent = callback
+        try:
+            await self._session._connection._async_lock.acquire()
+            return self._sender.send(c_message, timeout, message)
+        finally:
+            self._session._connection._async_lock.release()
 
     async def close_async(self):
         """Close the sender asynchronously, leaving the link intact."""

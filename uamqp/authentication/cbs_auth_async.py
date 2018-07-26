@@ -36,7 +36,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self.loop = loop or asyncio.get_event_loop()
-        self._lock = asyncio.Lock(loop=self.loop)
+        self._async_lock = asyncio.Lock(loop=self.loop)
         self._session = SessionAsync(
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
@@ -80,7 +80,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """
         timeout = False
         in_progress = False
-        await self._lock.acquire()
+        await self._async_lock.acquire()
         try:
             auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
             auth_status = constants.CBSAuthStatus(auth_status)
@@ -124,7 +124,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         except:
             raise
         finally:
-            self._lock.release()
+            self._async_lock.release()
         return timeout, in_progress
 
 
@@ -164,6 +164,10 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
     :param token_type: The type field of the token request.
      Default value is `b"servicebus.windows.net:sastoken"`.
     :type token_type: bytes
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
