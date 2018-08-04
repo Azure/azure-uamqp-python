@@ -155,9 +155,9 @@ class _Platform:
         if not cls.initialized:
             _logger.debug("Platform already deinitialized.")
         else:
-            cls.initialized = False
+            #cls.initialized = False
             _logger.debug("Deinitializing platform.")
-            c_uamqp.platform_deinit()
+            #c_uamqp.platform_deinit()
 
 
 def get_platform_info():
