@@ -91,11 +91,13 @@ class CBSAuthMixin:
 
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
-        _logger.info("Closing CBS session.")
+        _logger.info("Shutting down CBS session.")
         self._lock.acquire()
-        self._cbs_auth.destroy()
-        self._session.destroy()
-        self._lock.release()
+        try:
+            self._cbs_auth.destroy()
+            self._session.destroy()
+        finally:
+            self._lock.release()
 
     def handle_token(self):
         """This function is called periodically to check the status of the current

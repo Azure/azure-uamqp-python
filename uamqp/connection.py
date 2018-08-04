@@ -119,7 +119,6 @@ class Connection:
         self.destroy()
 
     def _close(self):
-        self._lock.acquire()
         _logger.info("Shutting down connection.")
         self._closing = True
         if self.cbs:
@@ -128,7 +127,6 @@ class Connection:
         self._conn.destroy()
         self.auth.close()
         _logger.debug("Connection shutdown complete.")
-        self._lock.release()
 
     def _close_received(self, error):
         """Callback called when a connection CLOSE frame is received.
@@ -179,7 +177,11 @@ class Connection:
         """Close the connection, and close any associated
         CBS authentication session.
         """
-        self._close()
+        self._lock.acquire()
+        try:
+            self._close()
+        finally:
+            self._lock.release()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
     def redirect(self, redirect_error, auth):
@@ -195,6 +197,7 @@ class Connection:
             if self.hostname == redirect_error.hostname:
                 return
             if self._state != c_uamqp.ConnectionState.END:
+                _logger.debug("Connection not closed yet - shutting down.")
                 self._close()
             self.hostname = redirect_error.hostname
             self.auth = auth
@@ -207,20 +210,23 @@ class Connection:
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:
+            _logger.debug("Finished redirecting connection.")
             self._lock.release()
 
     def work(self):
         """Perform a single Connection iteration."""
         self._lock.acquire()
         try:
-            raise self._error
-        except TypeError:
-            pass
-        except Exception as e:
-            _logger.warning(str(e))
-            raise
-        self._conn.do_work()
-        self._lock.release()
+            try:
+                raise self._error
+            except TypeError:
+                pass
+            except Exception as e:
+                _logger.warning(str(e))
+                raise
+            self._conn.do_work()
+        finally:
+            self._lock.release()
 
     def sleep(self, seconds):
         """Lock the connection for a given number of seconds.
@@ -229,8 +235,10 @@ class Connection:
         :type seconds: int
         """
         self._lock.acquire()
-        time.sleep(seconds)
-        self._lock.release()
+        try:
+            time.sleep(seconds)
+        finally:
+            self._lock.release()
 
 
     @property

@@ -96,7 +96,6 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
 
     async def _close_async(self):
-        await self._async_lock.acquire()
         _logger.info("Shutting down connection.")
         self._closing = True
         if self.cbs:
@@ -105,20 +104,21 @@ class ConnectionAsync(connection.Connection):
         await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
         self.auth.close()
         _logger.debug("Connection shutdown complete.")
-        self._async_lock.release()
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
         await self._async_lock.acquire()
         try:
-            raise self._error
-        except TypeError:
-            pass
-        except Exception as e:
-            _logger.warning(str(e))
-            raise
-        await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
-        self._async_lock.release()
+            try:
+                raise self._error
+            except TypeError:
+                pass
+            except Exception as e:
+                _logger.warning(str(e))
+                raise
+            await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
+        finally:
+            self._async_lock.release()
 
     async def sleep_async(self, seconds):
         """Lock the connection for a given number of seconds.
@@ -127,8 +127,10 @@ class ConnectionAsync(connection.Connection):
         :type seconds: int
         """
         await self._async_lock.acquire()
-        await asyncio.sleep(seconds)
-        self._async_lock.release()
+        try:
+            await asyncio.sleep(seconds)
+        finally:
+            self._async_lock.release()
 
     async def redirect_async(self, redirect_error, auth):
         """Redirect the connection to an alternative endpoint.
@@ -161,5 +163,9 @@ class ConnectionAsync(connection.Connection):
         """Close the connection asynchronously, and close any associated
         CBS authentication session.
         """
-        await self._close_async()
+        await self._async_lock.acquire()
+        try:
+            await self._close_async()
+        finally:
+            self._async_lock.release()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
