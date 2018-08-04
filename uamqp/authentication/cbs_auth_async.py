@@ -61,6 +61,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
 
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
+        _logger.info("Closing CBS session.")
         await self._async_lock.acquire()
         await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
         await self._session.destroy_async()

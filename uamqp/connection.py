@@ -93,6 +93,7 @@ class Connection:
         self._encoding = encoding
         self._settings = {}
         self._error = None
+        self._closing = False
 
         if max_frame_size:
             self._settings['max_frame_size'] = max_frame_size
@@ -118,11 +119,16 @@ class Connection:
         self.destroy()
 
     def _close(self):
+        self._lock.acquire()
+        _logger.info("Shutting down connection.")
+        self._closing = True
         if self.cbs:
             self.auth.close_authenticator()
             self.cbs = None
         self._conn.destroy()
         self.auth.close()
+        _logger.debug("Connection shutdown complete.")
+        self._lock.release()
 
     def _close_received(self, error):
         """Callback called when a connection CLOSE frame is received.
@@ -163,6 +169,11 @@ class Connection:
             _new_state = c_uamqp.ConnectionState.UNKNOWN
         self._state = _new_state
         _logger.debug("Connection state changed from {} to {}".format(_previous_state, _new_state))
+        if _new_state == c_uamqp.ConnectionState.END and not self._closing and not self._error:
+            _logger.info("Connection unexpectedly in an error state. Closing.")
+            condition = b"amqp:unknown-error"
+            description = b"Connection in an unexpected error state."
+            self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
     def destroy(self):
         """Close the connection, and close any associated
@@ -179,6 +190,7 @@ class Connection:
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         self._lock.acquire()
+        _logger.info("Redirecting connection.")
         try:
             if self.hostname == redirect_error.hostname:
                 return

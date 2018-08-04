@@ -96,11 +96,16 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
 
     async def _close_async(self):
+        await self._async_lock.acquire()
+        _logger.info("Shutting down connection.")
+        self._closing = True
         if self.cbs:
             await self.auth.close_authenticator_async()
             self.cbs = None
         await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
         self.auth.close()
+        _logger.debug("Connection shutdown complete.")
+        self._async_lock.release()
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
@@ -132,6 +137,7 @@ class ConnectionAsync(connection.Connection):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
+        _logger.info("Redirecting connection.")
         await self._async_lock.acquire()
         try:
             if self.hostname == redirect_error.hostname:

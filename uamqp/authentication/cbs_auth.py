@@ -91,6 +91,7 @@ class CBSAuthMixin:
 
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
+        _logger.info("Closing CBS session.")
         self._lock.acquire()
         self._cbs_auth.destroy()
         self._session.destroy()
