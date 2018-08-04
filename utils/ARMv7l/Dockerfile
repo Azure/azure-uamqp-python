@@ -38,6 +38,10 @@ RUN curl -O https://www.python.org/ftp/python/3.4.1/Python-3.4.1.tar.xz && \
     make && \
     sudo make altinstall
 
+# Install pip for Python 3.4
+RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
+    /usr/local/bin/python3.4 get-pip.py
+
 # Build OpenSSL 1.0.2g
 #ENV OPENSSL_VERSION 1.0.2o
 #RUN curl -O https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz && \
