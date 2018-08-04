@@ -143,7 +143,7 @@ class MessageSender():
         try:
             _previous_state = constants.MessageSenderState(previous_state)
         except ValueError:
-            _previous_state = new_state
+            _previous_state = previous_state
         try:
             _new_state = constants.MessageSenderState(new_state)
         except ValueError:
@@ -222,7 +222,11 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        if new_state != previous_state:
+        if new_state == constants.MessageSenderState.Error and \
+                previous_state == constants.MessageSenderState.Opening:
+            _logger.debug("Message sender received invalid ATTACH - waiting for DETACH")
+            self._state == constants.MessageSenderState.Failed
+        elif new_state != previous_state:
             _logger.debug("Message sender {} state changed from {} to {}".format(
                 self.name, previous_state, new_state))
             self._state = new_state
