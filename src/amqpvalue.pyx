@@ -281,13 +281,24 @@ cdef class AMQPValue(StructBase):
         return not c_amqpvalue.amqpvalue_are_equal(self._c_value, other._c_value)
 
     def __bytes__(self):
-        return c_amqpvalue.amqpvalue_to_string(self._c_value)
+        return self._as_string()
 
     def __str__(self):
         try:
             return bytes(self).decode('UTF-8')
         except UnicodeDecodeError:
             return str(bytes(self))
+
+    cpdef _as_string(self):
+        cdef c_amqpvalue.AMQP_VALUE value
+        cdef const char* as_string
+        value = c_amqpvalue.amqpvalue_clone(self._c_value)
+        if <void*>value == NULL:
+            self._value_error()
+        as_string = c_amqpvalue.amqpvalue_to_string(value)
+        py_string = copy.deepcopy(as_string)
+        c_amqpvalue.amqpvalue_destroy(self._c_value)
+        return py_string
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:
@@ -637,7 +648,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
@@ -655,7 +666,7 @@ cdef class SymbolValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_symbol(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
