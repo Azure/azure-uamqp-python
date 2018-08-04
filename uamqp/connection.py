@@ -146,8 +146,8 @@ class Connection:
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Connection close event: {}\nDescription: {}\nDetails: {}".format(
-            condition, description, info))
+        _logger.info("Received Connection close event: {}\nConnection: {}\nDescription: {}\nDetails: {}".format(
+            condition, self.container_id, description, info))
         self._error = errors._process_connection_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
 
     def _state_changed(self, previous_state, new_state):
@@ -170,7 +170,7 @@ class Connection:
         self._state = _new_state
         _logger.debug("Connection state changed from {} to {}".format(_previous_state, _new_state))
         if _new_state == c_uamqp.ConnectionState.END and not self._closing and not self._error:
-            _logger.info("Connection unexpectedly in an error state. Closing.")
+            _logger.info("Connection with ID {} unexpectedly in an error state. Closing.".format(self.container_id))
             condition = b"amqp:unknown-error"
             description = b"Connection in an unexpected error state."
             self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
