@@ -68,6 +68,7 @@ class CBSAuthMixin:
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self._lock = threading.Lock()
+        self._connection = connection
         self._session = Session(
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
@@ -90,8 +91,10 @@ class CBSAuthMixin:
 
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
+        self._lock.acquire()
         self._cbs_auth.destroy()
         self._session.destroy()
+        self._lock.release()
 
     def handle_token(self):
         """This function is called periodically to check the status of the current
@@ -108,10 +111,14 @@ class CBSAuthMixin:
          refreshed.
         :rtype: tuple[bool, bool]
         """
+        # pylint: disable=protected-access
         timeout = False
         in_progress = False
         self._lock.acquire()
+        self._connection._lock.acquire()
         try:
+            if self._connection._closing or self._connection._error:
+                return timeout, in_progress
             auth_status = self._cbs_auth.get_status()
             auth_status = constants.CBSAuthStatus(auth_status)
             if auth_status == constants.CBSAuthStatus.Error:
@@ -149,6 +156,7 @@ class CBSAuthMixin:
         except:
             raise
         finally:
+            self._connection._lock.release()
             self._lock.release()
         return timeout, in_progress
 
