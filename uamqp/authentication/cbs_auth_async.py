@@ -82,6 +82,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
          refreshed.
         :rtype: tuple[bool, bool]
         """
+        # pylint: disable=protected-access
         timeout = False
         in_progress = False
         await self._async_lock.acquire()

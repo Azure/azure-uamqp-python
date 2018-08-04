@@ -225,7 +225,7 @@ class MessageSender():
         if new_state == constants.MessageSenderState.Error and \
                 previous_state == constants.MessageSenderState.Opening:
             _logger.debug("Message sender received invalid ATTACH - waiting for DETACH")
-            self._state == constants.MessageSenderState.Failed
+            self._state = constants.MessageSenderState.Failed
         elif new_state != previous_state:
             _logger.debug("Message sender {} state changed from {} to {}".format(
                 self.name, previous_state, new_state))
