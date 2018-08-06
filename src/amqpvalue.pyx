@@ -121,7 +121,9 @@ cdef value_factory(c_amqpvalue.AMQP_VALUE value):
     elif type_val == AMQPType.DescribedType:
         new_obj = DescribedValue()
     else:
-        raise TypeError("Unrecognized AMQPType: {}".format(type_val))
+        error = "Unrecognized AMQPType: {}".format(type_val)
+        _logger.info(error)
+        raise TypeError(error)
     new_obj.wrap(value)
     return new_obj
 
@@ -689,7 +691,10 @@ cdef class ListValue(AMQPValue):
         value = c_amqpvalue.amqpvalue_get_list_item(self._c_value, index)
         if <void*>value == NULL:
             self._value_error()
-        return value_factory(value)
+        try:
+            return value_factory(value)
+        except TypeError:
+            return None
 
     def __setitem__(self, stdint.uint32_t index, AMQPValue value):
         assert value.type
@@ -738,7 +743,10 @@ cdef class DictValue(AMQPValue):
         value = c_amqpvalue.amqpvalue_get_map_value(self._c_value, key._c_value)
         if <void*>value == NULL:
             raise KeyError("No value found for key: {}".format(key.value))
-        return value_factory(value)
+        try:
+            return value_factory(value)
+        except TypeError:
+            return None
 
     def __setitem__(self, AMQPValue key, AMQPValue value):
         if c_amqpvalue.amqpvalue_set_map_value(self._c_value, key._c_value, value._c_value) != 0:

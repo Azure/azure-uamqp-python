@@ -20,7 +20,10 @@ _logger = logging.getLogger(__name__)
 
 
 cdef annotations_factory(c_amqpvalue.AMQP_VALUE value):
-    wrapped = value_factory(value)
+    try:
+        wrapped = value_factory(value)
+    except TypeError:
+        return None
     if c_amqp_definitions.is_delivery_annotations_type_by_descriptor(<c_amqp_definitions.delivery_annotations>value):
         new_obj = create_delivery_annotations(wrapped)
     elif c_amqp_definitions.is_message_annotations_type_by_descriptor(<c_amqp_definitions.message_annotations>value):
@@ -115,7 +118,10 @@ cdef class cAnnotations(StructBase):
 
     @property
     def value(self):
-        return value_factory(self._c_value)
+        try:
+            return value_factory(self._c_value)
+        except TypeError:
+            return None
 
     @property
     def map(self):
