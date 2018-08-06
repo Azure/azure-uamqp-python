@@ -837,6 +837,7 @@ static void on_amqp_frame_received(void* context, uint16_t channel, AMQP_VALUE p
                 else
                 {
                     AMQP_VALUE descriptor = amqpvalue_get_inplace_descriptor(performative);
+                    uint64_t performative_ulong;
 
                     if (connection->is_trace_on == 1)
                     {
@@ -989,96 +990,89 @@ static void on_amqp_frame_received(void* context, uint16_t channel, AMQP_VALUE p
                     }
                     else
                     {
-                        uint64_t performative_ulong;
+                        amqpvalue_get_ulong(descriptor, &performative_ulong);
 
-                        if (amqpvalue_get_ulong(descriptor, &performative_ulong) != 0)
+                        switch (performative_ulong)
                         {
-                            LogError("Failed getting ulong amqp performative");
-                        }
-                        else
+                        default:
+                            LogError("Bad performative: %02x", performative);
+                            break;
+
+                        case AMQP_BEGIN:
                         {
-                            switch (performative_ulong)
+                            BEGIN_HANDLE begin;
+
+                            if (amqpvalue_get_begin(performative, &begin) != 0)
                             {
-                            default:
-                                LogError("Bad performative: %02x", performative);
-                                break;
-
-                            case AMQP_BEGIN:
+                                LogError("Cannot get begin performative");
+                            }
+                            else
                             {
-                                BEGIN_HANDLE begin;
+                                uint16_t remote_channel;
+                                ENDPOINT_HANDLE new_endpoint = NULL;
+                                bool remote_begin = false;
 
-                                if (amqpvalue_get_begin(performative, &begin) != 0)
+                                if (begin_get_remote_channel(begin, &remote_channel) != 0)
                                 {
-                                    LogError("Cannot get begin performative");
-                                }
-                                else
-                                {
-                                    uint16_t remote_channel;
-                                    ENDPOINT_HANDLE new_endpoint = NULL;
-                                    bool remote_begin = false;
-
-                                    if (begin_get_remote_channel(begin, &remote_channel) != 0)
+                                    remote_begin = true;
+                                    if (connection->on_new_endpoint != NULL)
                                     {
-                                        remote_begin = true;
-                                        if (connection->on_new_endpoint != NULL)
+                                        new_endpoint = connection_create_endpoint(connection);
+                                        if (!connection->on_new_endpoint(connection->on_new_endpoint_callback_context, new_endpoint))
                                         {
-                                            new_endpoint = connection_create_endpoint(connection);
-                                            if (!connection->on_new_endpoint(connection->on_new_endpoint_callback_context, new_endpoint))
-                                            {
-                                                connection_destroy_endpoint(new_endpoint);
-                                                new_endpoint = NULL;
-                                            }
+                                            connection_destroy_endpoint(new_endpoint);
+                                            new_endpoint = NULL;
                                         }
                                     }
+                                }
 
-                                    if (!remote_begin)
+                                if (!remote_begin)
+                                {
+                                    ENDPOINT_INSTANCE* session_endpoint = find_session_endpoint_by_outgoing_channel(connection, remote_channel);
+                                    if (session_endpoint == NULL)
                                     {
-                                        ENDPOINT_INSTANCE* session_endpoint = find_session_endpoint_by_outgoing_channel(connection, remote_channel);
-                                        if (session_endpoint == NULL)
-                                        {
-                                            LogError("Cannot create session endpoint");
-                                        }
-                                        else
-                                        {
-                                            session_endpoint->incoming_channel = channel;
-                                            session_endpoint->on_endpoint_frame_received(session_endpoint->callback_context, performative, payload_size, payload_bytes);
-                                        }
+                                        LogError("Cannot create session endpoint");
                                     }
                                     else
                                     {
-                                        if (new_endpoint != NULL)
-                                        {
-                                            new_endpoint->incoming_channel = channel;
-                                            new_endpoint->on_endpoint_frame_received(new_endpoint->callback_context, performative, payload_size, payload_bytes);
-                                        }
+                                        session_endpoint->incoming_channel = channel;
+                                        session_endpoint->on_endpoint_frame_received(session_endpoint->callback_context, performative, payload_size, payload_bytes);
                                     }
-
-                                    begin_destroy(begin);
-                                }
-
-                                break;
-                            }
-
-                            case AMQP_FLOW:
-                            case AMQP_TRANSFER:
-                            case AMQP_DISPOSITION:
-                            case AMQP_END:
-                            case AMQP_ATTACH:
-                            case AMQP_DETACH:
-                            {
-                                ENDPOINT_INSTANCE* session_endpoint = find_session_endpoint_by_incoming_channel(connection, channel);
-                                if (session_endpoint == NULL)
-                                {
-                                    LogError("Cannot find session endpoint for channel %u", (unsigned int)channel);
                                 }
                                 else
                                 {
-                                    session_endpoint->on_endpoint_frame_received(session_endpoint->callback_context, performative, payload_size, payload_bytes);
+                                    if (new_endpoint != NULL)
+                                    {
+                                        new_endpoint->incoming_channel = channel;
+                                        new_endpoint->on_endpoint_frame_received(new_endpoint->callback_context, performative, payload_size, payload_bytes);
+                                    }
                                 }
 
-                                break;
+                                begin_destroy(begin);
                             }
+
+                            break;
+                        }
+
+                        case AMQP_FLOW:
+                        case AMQP_TRANSFER:
+                        case AMQP_DISPOSITION:
+                        case AMQP_END:
+                        case AMQP_ATTACH:
+                        case AMQP_DETACH:
+                        {
+                            ENDPOINT_INSTANCE* session_endpoint = find_session_endpoint_by_incoming_channel(connection, channel);
+                            if (session_endpoint == NULL)
+                            {
+                                LogError("Cannot find session endpoint for channel %u", (unsigned int)channel);
                             }
+                            else
+                            {
+                                session_endpoint->on_endpoint_frame_received(session_endpoint->callback_context, performative, payload_size, payload_bytes);
+                            }
+
+                            break;
+                        }
                         }
                     }
                 }
