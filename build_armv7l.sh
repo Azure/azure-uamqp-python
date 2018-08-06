@@ -12,13 +12,6 @@ export UAMQP_SUPPRESS_LINK_FLAGS=True
 export LDFLAGS="/opt/uamqp/openssl/lib/libssl.a /opt/uamqp/openssl/lib/libcrypto.a"
 export CFLAGS="-I/opt/uamqp/openssl/include"
 
-
-# Make sure Cython and Wheel are available in all env
-# TODO: /opt/python/cp34-cp34m/bin/python -m pip install cython==0.28.4 wheel
-/usr/local/bin/pip3.4 install cython==0.28.4 wheel
-/usr/local/bin/pip3.4 install cython==0.28.4 wheel
-/usr/local/bin/pip3.4 install cython==0.28.4 wheel
-
 # Build the wheels
 pushd /data
 /usr/local/bin/python3.4 setup.py bdist_wheel

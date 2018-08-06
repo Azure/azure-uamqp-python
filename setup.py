@@ -188,7 +188,9 @@ elif is_mac:
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    kwargs['libraries'] = ['uamqp', 'aziotsharedutil', 'ssl', 'crypto']  # 'uuid'
+    kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
+    if not supress_link_flags:
+        kwargs['libraries'].extend(['ssl', 'crypto'])
 
 
 # If the C file doesn't exist, build the "c_uamqp.c" file
