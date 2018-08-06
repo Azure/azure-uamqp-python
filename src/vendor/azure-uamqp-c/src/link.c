@@ -331,37 +331,32 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 (attach_get_initial_delivery_count(attach_handle, &link_instance->delivery_count) != 0))
             {
                 LogError("Cannot get initial delivery count");
-                remove_all_pending_deliveries(link_instance, true);
-                set_link_state(link_instance, LINK_STATE_DETACHED);
             }
-            else
+            if (attach_get_max_message_size(attach_handle, &link_instance->peer_max_message_size) != 0)
             {
-                if (attach_get_max_message_size(attach_handle, &link_instance->peer_max_message_size) != 0)
+                LogError("Could not retrieve peer_max_message_size from attach frame");
+            }
+
+            if ((link_instance->link_state == LINK_STATE_DETACHED) ||
+                (link_instance->link_state == LINK_STATE_HALF_ATTACHED_ATTACH_SENT))
+            {
+                if (link_instance->role == role_receiver)
                 {
-                    LogError("Could not retrieve peer_max_message_size from attach frame");
+                    link_instance->current_link_credit = link_instance->max_link_credit;
+                    send_flow(link_instance);
+                }
+                else
+                {
+                    link_instance->current_link_credit = 0;
                 }
 
-                if ((link_instance->link_state == LINK_STATE_DETACHED) ||
-                    (link_instance->link_state == LINK_STATE_HALF_ATTACHED_ATTACH_SENT))
+                if (link_instance->link_state == LINK_STATE_DETACHED)
                 {
-                    if (link_instance->role == role_receiver)
-                    {
-                        link_instance->current_link_credit = link_instance->max_link_credit;
-                        send_flow(link_instance);
-                    }
-                    else
-                    {
-                        link_instance->current_link_credit = 0;
-                    }
-
-                    if (link_instance->link_state == LINK_STATE_DETACHED)
-                    {
-                        set_link_state(link_instance, LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED);
-                    }
-                    else
-                    {
-                        set_link_state(link_instance, LINK_STATE_ATTACHED);
-                    }
+                    set_link_state(link_instance, LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED);
+                }
+                else
+                {
+                    set_link_state(link_instance, LINK_STATE_ATTACHED);
                 }
             }
 
