@@ -91,6 +91,7 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
         wrapped = None
     else:
         send_data = c_amqpvalue.amqpvalue_clone(delivery_state)
+        _logger.info("Calling value factory from on_message_send_complete")
         wrapped = copy.deepcopy(value_factory(send_data).value)
     if context != NULL:
         context_obj = <object>context

@@ -21,6 +21,7 @@ _logger = logging.getLogger(__name__)
 
 cdef annotations_factory(c_amqpvalue.AMQP_VALUE value):
     try:
+        _logger.info("Calling value factory from annotations_factory")
         wrapped = value_factory(value)
     except TypeError:
         return None
@@ -97,6 +98,7 @@ cdef class cAnnotations(StructBase):
         value = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>self._c_value)
         if <void*>value == NULL:
             self._value_error()
+        _logger.info("Calling value factory from annotations clone")
         amqp_value = value_factory(value)
         return cAnnotations(amqp_value)
 
@@ -119,6 +121,7 @@ cdef class cAnnotations(StructBase):
     @property
     def value(self):
         try:
+            _logger.info("Calling value factory from annotations value")
             return value_factory(self._c_value)
         except TypeError:
             return None
@@ -131,6 +134,7 @@ cdef class cAnnotations(StructBase):
         if c_amqpvalue.amqpvalue_get_map(unmapped, &mapped) == 0:
             if <void*>mapped == NULL:
                 return None
+            _logger.info("Calling value factory from annotations map")
             return copy.deepcopy(value_factory(mapped).value)
         else:
             return None
@@ -159,6 +163,7 @@ cdef class cApplicationProperties(cAnnotations):
             if <void*>mapped == NULL:
                 result = None
             else:
+                _logger.info("Calling value factory from application props map")
                 result = copy.deepcopy(value_factory(mapped).value)
         else:
             result = None

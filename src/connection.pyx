@@ -156,6 +156,7 @@ cdef class Connection(StructBase):
         if c_connection.connection_get_properties(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
+            _logger.info("Calling value factory from connection properties")
             return value_factory(_value)
         else:
             self._value_error()
