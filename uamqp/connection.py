@@ -93,6 +93,7 @@ class Connection:
         self._encoding = encoding
         self._settings = {}
         self._error = None
+        self._closing = False
 
         if max_frame_size:
             self._settings['max_frame_size'] = max_frame_size
@@ -118,11 +119,14 @@ class Connection:
         self.destroy()
 
     def _close(self):
+        _logger.info("Shutting down connection.")
+        self._closing = True
         if self.cbs:
             self.auth.close_authenticator()
             self.cbs = None
         self._conn.destroy()
         self.auth.close()
+        _logger.debug("Connection shutdown complete.")
 
     def _close_received(self, error):
         """Callback called when a connection CLOSE frame is received.
@@ -140,8 +144,8 @@ class Connection:
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Connection close event: {}\nDescription: {}\nDetails: {}".format(
-            condition, description, info))
+        _logger.info("Received Connection close event: {}\nConnection: {}\nDescription: {}\nDetails: {}".format(
+            condition, self.container_id, description, info))
         self._error = errors._process_connection_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
 
     def _state_changed(self, previous_state, new_state):
@@ -163,12 +167,21 @@ class Connection:
             _new_state = c_uamqp.ConnectionState.UNKNOWN
         self._state = _new_state
         _logger.debug("Connection state changed from {} to {}".format(_previous_state, _new_state))
+        if _new_state == c_uamqp.ConnectionState.END and not self._closing and not self._error:
+            _logger.info("Connection with ID {} unexpectedly in an error state. Closing.".format(self.container_id))
+            condition = b"amqp:unknown-error"
+            description = b"Connection in an unexpected error state."
+            self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
     def destroy(self):
         """Close the connection, and close any associated
         CBS authentication session.
         """
-        self._close()
+        self._lock.acquire()
+        try:
+            self._close()
+        finally:
+            self._lock.release()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
     def redirect(self, redirect_error, auth):
@@ -179,10 +192,12 @@ class Connection:
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         self._lock.acquire()
+        _logger.info("Redirecting connection.")
         try:
             if self.hostname == redirect_error.hostname:
                 return
             if self._state != c_uamqp.ConnectionState.END:
+                _logger.debug("Connection not closed yet - shutting down.")
                 self._close()
             self.hostname = redirect_error.hostname
             self.auth = auth
@@ -195,20 +210,23 @@ class Connection:
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:
+            _logger.debug("Finished redirecting connection.")
             self._lock.release()
 
     def work(self):
         """Perform a single Connection iteration."""
         self._lock.acquire()
         try:
-            raise self._error
-        except TypeError:
-            pass
-        except Exception as e:
-            _logger.warning(str(e))
-            raise
-        self._conn.do_work()
-        self._lock.release()
+            try:
+                raise self._error
+            except TypeError:
+                pass
+            except Exception as e:
+                _logger.warning(str(e))
+                raise
+            self._conn.do_work()
+        finally:
+            self._lock.release()
 
     def sleep(self, seconds):
         """Lock the connection for a given number of seconds.
@@ -217,8 +235,10 @@ class Connection:
         :type seconds: int
         """
         self._lock.acquire()
-        time.sleep(seconds)
-        self._lock.release()
+        try:
+            time.sleep(seconds)
+        finally:
+            self._lock.release()
 
 
     @property

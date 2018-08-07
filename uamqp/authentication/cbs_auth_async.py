@@ -37,6 +37,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """
         self.loop = loop or asyncio.get_event_loop()
         self._async_lock = asyncio.Lock(loop=self.loop)
+        self._connection = connection
         self._session = SessionAsync(
             connection,
             incoming_window=constants.MAX_FRAME_SIZE_BYTES,
@@ -60,8 +61,13 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
 
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
-        await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
-        await self._session.destroy_async()
+        _logger.info("Shutting down CBS session.")
+        await self._async_lock.acquire()
+        try:
+            await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
+            await self._session.destroy_async()
+        finally:
+            self._async_lock.release()
 
     async def handle_token_async(self):
         """This coroutine is called periodically to check the status of the current
@@ -78,10 +84,14 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
          refreshed.
         :rtype: tuple[bool, bool]
         """
+        # pylint: disable=protected-access
         timeout = False
         in_progress = False
         await self._async_lock.acquire()
+        await self._connection._async_lock.acquire()
         try:
+            if self._connection._closing or self._connection._error:
+                return timeout, in_progress
             auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
             auth_status = constants.CBSAuthStatus(auth_status)
             if auth_status == constants.CBSAuthStatus.Error:
@@ -124,6 +134,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         except:
             raise
         finally:
+            self._connection._async_lock.release()
             self._async_lock.release()
         return timeout, in_progress
 

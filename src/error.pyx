@@ -87,7 +87,11 @@ cdef class cError(StructBase):
         cdef c_amqp_definitions.fields info_value
         if  c_amqp_definitions.error_get_info(self._c_value, &info_value) != 0:
             return None
-        return copy.deepcopy(value_factory(info_value).value)
+        try:
+            info = value_factory(info_value)
+            return copy.deepcopy(info.value)
+        except TypeError:
+            return None
 
     @info.setter
     def info(self, AMQPValue info_value):

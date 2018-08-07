@@ -129,7 +129,7 @@ class MessageReceiver():
         try:
             _previous_state = constants.MessageReceiverState(previous_state)
         except ValueError:
-            _previous_state = new_state
+            _previous_state = previous_state
         try:
             _new_state = constants.MessageReceiverState(new_state)
         except ValueError:
@@ -153,8 +153,8 @@ class MessageReceiver():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
-            condition, description, info, self._error.action.retry))
+        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, self.name, description, info, self._error.action.retry))
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -254,10 +254,9 @@ class MessageReceiver():
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
-        if new_state != previous_state:
-            _logger.debug("Message receiver {} state changed from {} to {}".format(
-                self.name, previous_state, new_state))
-            self._state = new_state
+        _logger.debug("Message receiver {} state changed from {} to {}".format(
+            self.name, previous_state, new_state))
+        self._state = new_state
 
     @property
     def receive_settle_mode(self):

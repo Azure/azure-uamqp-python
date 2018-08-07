@@ -32,7 +32,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 _logger = logging.getLogger(__name__)
@@ -155,9 +155,9 @@ class _Platform:
         if not cls.initialized:
             _logger.debug("Platform already deinitialized.")
         else:
-            cls.initialized = False
+            #cls.initialized = False
             _logger.debug("Deinitializing platform.")
-            c_uamqp.platform_deinit()
+            #c_uamqp.platform_deinit()
 
 
 def get_platform_info():

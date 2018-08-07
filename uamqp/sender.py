@@ -128,8 +128,8 @@ class MessageSender():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
-            condition, description, info, self._error.action.retry))
+        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
+            condition, self.name, description, info, self._error.action.retry))
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -143,7 +143,7 @@ class MessageSender():
         try:
             _previous_state = constants.MessageSenderState(previous_state)
         except ValueError:
-            _previous_state = new_state
+            _previous_state = previous_state
         try:
             _new_state = constants.MessageSenderState(new_state)
         except ValueError:
@@ -222,10 +222,9 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        if new_state != previous_state:
-            _logger.debug("Message sender {} state changed from {} to {}".format(
-                self.name, previous_state, new_state))
-            self._state = new_state
+        _logger.debug("Message sender {} state changed from {} to {}".format(
+            self.name, previous_state, new_state))
+        self._state = new_state
 
     @property
     def send_settle_mode(self):

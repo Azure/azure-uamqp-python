@@ -255,18 +255,14 @@ class AMQPClient:
         if not self._session:
             return  # already closed.
         else:
-            if self._connection.cbs and not self._ext_connection:
-                _logger.debug("Closing CBS session.")
-                self._auth.close_authenticator()
-                self._connection.cbs = None
-            elif not self._connection.cbs:
+            if not self._connection.cbs:
                 _logger.debug("Closing non-CBS session.")
                 self._session.destroy()
             else:
-                _logger.debug("Not closing CBS session.")
+                _logger.debug("CBS session pending.")
             self._session = None
             if not self._ext_connection:
-                _logger.debug("Closing unshared connection.")
+                _logger.debug("Closing exclusive connection.")
                 self._connection.destroy()
             else:
                 _logger.debug("Shared connection remaining open.")

@@ -3,6 +3,18 @@
 Release History
 ===============
 
+0.2.1 (2018-08-06)
+++++++++++++++++++
+
+- Fixed potential crashing in bindings for amqpvalue.
+- Fixed bindings fault in cbs PUT token complete callback.
+- Updated uAMQP-C.
+- Added additional auth and connection locking for thread/async safety.
+- Increased INFO level logging.
+- Removed platform deinitialization until it can be improved.
+- Added handling for a connection reaching a client-caused error state.
+
+
 0.2.0 (2018-07-25)
 ++++++++++++++++++
 

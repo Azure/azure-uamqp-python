@@ -121,7 +121,9 @@ cdef value_factory(c_amqpvalue.AMQP_VALUE value):
     elif type_val == AMQPType.DescribedType:
         new_obj = DescribedValue()
     else:
-        raise TypeError("Unrecognized AMQPType: {}".format(type_val))
+        error = "Unrecognized AMQPType: {}".format(type_val)
+        _logger.info(error)
+        raise TypeError(error)
     new_obj.wrap(value)
     return new_obj
 
@@ -281,13 +283,24 @@ cdef class AMQPValue(StructBase):
         return not c_amqpvalue.amqpvalue_are_equal(self._c_value, other._c_value)
 
     def __bytes__(self):
-        return c_amqpvalue.amqpvalue_to_string(self._c_value)
+        return self._as_string()
 
     def __str__(self):
         try:
             return bytes(self).decode('UTF-8')
         except UnicodeDecodeError:
             return str(bytes(self))
+
+    cpdef _as_string(self):
+        cdef c_amqpvalue.AMQP_VALUE value
+        cdef const char* as_string
+        value = c_amqpvalue.amqpvalue_clone(self._c_value)
+        if <void*>value == NULL:
+            self._value_error()
+        as_string = c_amqpvalue.amqpvalue_to_string(value)
+        py_string = copy.deepcopy(as_string)
+        c_amqpvalue.amqpvalue_destroy(self._c_value)
+        return py_string
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:
@@ -637,7 +650,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
@@ -655,7 +668,7 @@ cdef class SymbolValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_symbol(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
@@ -678,7 +691,10 @@ cdef class ListValue(AMQPValue):
         value = c_amqpvalue.amqpvalue_get_list_item(self._c_value, index)
         if <void*>value == NULL:
             self._value_error()
-        return value_factory(value)
+        try:
+            return value_factory(value)
+        except TypeError:
+            return None
 
     def __setitem__(self, stdint.uint32_t index, AMQPValue value):
         assert value.type
@@ -727,7 +743,10 @@ cdef class DictValue(AMQPValue):
         value = c_amqpvalue.amqpvalue_get_map_value(self._c_value, key._c_value)
         if <void*>value == NULL:
             raise KeyError("No value found for key: {}".format(key.value))
-        return value_factory(value)
+        try:
+            return value_factory(value)
+        except TypeError:
+            return None
 
     def __setitem__(self, AMQPValue key, AMQPValue value):
         if c_amqpvalue.amqpvalue_set_map_value(self._c_value, key._c_value, value._c_value) != 0:
