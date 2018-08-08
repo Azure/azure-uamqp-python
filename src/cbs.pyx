@@ -69,7 +69,7 @@ cdef class CBSTokenAuth:
             raise ValueError("Unable to open CBS link.")
 
     def __dealloc__(self):
-        self.destroy()
+        _logger.info("Deallocating {}".format(self.__class__.__name__))
 
     cpdef destroy(self):
         if <void*>self._cbs_handle is not NULL:

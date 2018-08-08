@@ -344,7 +344,7 @@ cdef class AMQPValue(StructBase):
         value = c_amqpvalue.amqpvalue_clone(self._c_value)
         if <void*>value == NULL:
             self._value_error()
-        _logger.info("Calling value factory from amqpvalue clone")
+        _logger.debug("Calling value factory from amqpvalue clone")
         return value_factory(value)
 
 
@@ -693,7 +693,7 @@ cdef class ListValue(AMQPValue):
         if <void*>value == NULL:
             self._value_error()
         try:
-            _logger.info("Calling value factory from list __getitem__")
+            _logger.debug("Calling value factory from list __getitem__")
             return value_factory(value)
         except TypeError:
             return None
@@ -746,7 +746,7 @@ cdef class DictValue(AMQPValue):
         if <void*>value == NULL:
             raise KeyError("No value found for key: {}".format(key.value))
         try:
-            _logger.info("Calling value factory from dict __getitem__")
+            _logger.debug("Calling value factory from dict __getitem__")
             return value_factory(value)
         except TypeError:
             return None
@@ -762,7 +762,7 @@ cdef class DictValue(AMQPValue):
         cdef c_amqpvalue.AMQP_VALUE value
         if c_amqpvalue.amqpvalue_get_map_key_value_pair(self._c_value, index, &key,  &value) != 0:
             self._value_error()
-        _logger.info("Calling value factory from dict get")
+        _logger.debug("Calling value factory from dict get")
         return (value_factory(key), value_factory(value))
 
     @property
@@ -802,7 +802,7 @@ cdef class ArrayValue(AMQPValue):
         value = c_amqpvalue.amqpvalue_get_array_item(self._c_value, index)
         if <void*>value == NULL:
             self._value_error()
-        _logger.info("Calling value factory from array __getitem__")
+        _logger.debug("Calling value factory from array __getitem__")
         return value_factory(value)
 
     @property
@@ -853,7 +853,7 @@ cdef class CompositeValue(AMQPValue):
         if <void*>value == NULL:
             self._value_error()
         try:
-            _logger.info("Calling value factory from comp __getitem__")
+            _logger.debug("Calling value factory from comp __getitem__")
             return value_factory(value)
         except TypeError:
             raise IndexError("No item found at index {}".format(index))
@@ -882,7 +882,7 @@ cdef class CompositeValue(AMQPValue):
         if <void*>value == NULL:
             self._value_error()
         try:
-            _logger.info("Calling value factory from comp pop")
+            _logger.debug("Calling value factory from comp pop")
             return value_factory(value)
         except TypeError:
             raise IndexError("No item found at index {}".format(index))
@@ -908,7 +908,7 @@ cdef class DescribedValue(AMQPValue):
         cloned = c_amqpvalue.amqpvalue_clone(value)
         if <void*>cloned == NULL:
             self._value_error()
-        _logger.info("Calling value factory from described description")
+        _logger.debug("Calling value factory from described description")
         return value_factory(cloned)
 
     @property
@@ -921,7 +921,7 @@ cdef class DescribedValue(AMQPValue):
         cloned = c_amqpvalue.amqpvalue_clone(value)
         if <void*>cloned == NULL:
             self._value_error()
-        _logger.info("Calling value factory from described data")
+        _logger.debug("Calling value factory from described data")
         return value_factory(cloned)
 
     @property

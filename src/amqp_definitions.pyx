@@ -27,7 +27,7 @@ cpdef create_data(char* binary_data):
     body_data = c_amqp_definitions.amqpvalue_create_data(_binary)
     if <void*>body_data == NULL:
         raise ValueError("Unable to create payload data")
-    _logger.info("Calling value factory from create_data")
+    _logger.debug("Calling value factory from create_data")
     return value_factory(body_data)
 
 
@@ -35,5 +35,5 @@ cpdef create_sequence(AMQPValue sequence_data):
     body_data = c_amqp_definitions.amqpvalue_create_amqp_sequence(<c_amqpvalue.AMQP_VALUE>sequence_data._c_value)
     if <void*>body_data == NULL:
         raise ValueError("Unable to create payload data")
-    _logger.info("Calling value factory from create_sequence")
+    _logger.debug("Calling value factory from create_sequence")
     return value_factory(body_data)

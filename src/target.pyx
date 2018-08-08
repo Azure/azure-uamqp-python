@@ -54,7 +54,7 @@ cdef class cTarget(StructBase):
         _value = c_amqp_definitions.amqpvalue_create_target(self._c_value)
         if <void*>_value == NULL:
             self._null_error("Failed to create target.")
-        _logger.info("Calling value factory from target value")
+        _logger.debug("Calling value factory from target value")
         return value_factory(_value)
 
     @property

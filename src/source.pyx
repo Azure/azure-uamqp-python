@@ -54,7 +54,7 @@ cdef class cSource(StructBase):
         _value = c_amqp_definitions.amqpvalue_create_source(self._c_value)
         if <void*>_value == NULL:
             self._null_error("Failed to create source.")
-        _logger.info("Calling value factory from source value")
+        _logger.debug("Calling value factory from source value")
         return value_factory(_value)
 
     @property
@@ -163,7 +163,7 @@ cdef class cSource(StructBase):
             self._value_error("Failed to get source filter_set")
         if <void*>_value == NULL:
             return None
-        _logger.info("Calling value factory from source filter")
+        _logger.debug("Calling value factory from source filter")
         return value_factory(_value)
 
     @filter_set.setter

@@ -88,7 +88,7 @@ cdef class cError(StructBase):
         if  c_amqp_definitions.error_get_info(self._c_value, &info_value) != 0:
             return None
         try:
-            _logger.info("Calling value factory from error info")
+            _logger.debug("Calling value factory from error info")
             info = value_factory(info_value)
             return copy.deepcopy(info.value)
         except TypeError:

@@ -117,7 +117,7 @@ class AMQPClientAsync(client.AMQPClient):
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    _logger.info("Keeping {} connection alive. {}".format(self.__class__.__name__, self._connection.container_id))
                     await self._connection.work_async()
                     start_time = current_time
                 await asyncio.sleep(1)
@@ -149,7 +149,7 @@ class AMQPClientAsync(client.AMQPClient):
         """
         # pylint: disable=protected-access
         if not self._connection.cbs:
-            _logger.debug("Closing non-CBS session.")
+            _logger.info("Closing non-CBS session.")
             await self._session.destroy_async()
         self._session = None
         self._auth = auth
@@ -186,7 +186,7 @@ class AMQPClientAsync(client.AMQPClient):
         if self._session:
             return  # already open
         if connection:
-            _logger.debug("Using existing connection.")
+            _logger.info("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
         self._connection = connection or self.connection_type(
@@ -233,16 +233,16 @@ class AMQPClientAsync(client.AMQPClient):
             return  # already closed.
         else:
             if not self._connection.cbs:
-                _logger.debug("Closing non-CBS session.")
+                _logger.info("Closing non-CBS session.")
                 await self._session.destroy_async()
             else:
-                _logger.debug("CBS session pending.")
+                _logger.info("CBS session pending {}.".format(self._connection.container_id))
             self._session = None
             if not self._ext_connection:
-                _logger.debug("Closing exclusive connection.")
+                _logger.info("Closing exclusive connection {}.".format(self._connection.container_id))
                 await self._connection.destroy_async()
             else:
-                _logger.debug("Shared connection remaining open.")
+                _logger.info("Shared connection remaining open.")
             self._connection = None
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
@@ -281,6 +281,7 @@ class AMQPClientAsync(client.AMQPClient):
             if self._connection.cbs:
                 timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout:
+                _logger.info("CBS authentication timeout on connection: {}.".format(self._connection.container_id))
                 raise TimeoutError("Authorization timeout.")
             elif auth_in_progress:
                 await self._connection.work_async()
@@ -314,6 +315,7 @@ class AMQPClientAsync(client.AMQPClient):
         if self._shutdown:
             return False
         if timeout:
+            _logger.info("CBS authentication timeout on connection: {}.".format(self._connection.container_id))
             raise TimeoutError("Authorization timeout.")
         elif auth_in_progress:
             await self._connection.work_async()

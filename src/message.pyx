@@ -259,7 +259,7 @@ cdef class cMessage(StructBase):
     cpdef get_body_value(self):
         cdef c_amqpvalue.AMQP_VALUE _value
         if c_message.message_get_body_amqp_value_in_place(self._c_value, &_value) == 0:
-            _logger.info("Calling value factory from get_body_value")
+            _logger.debug("Calling value factory from get_body_value")
             return value_factory(_value)
         else:
             self._value_error()
@@ -271,7 +271,7 @@ cdef class cMessage(StructBase):
     cpdef get_body_sequence(self, size_t index):
         cdef c_amqpvalue.AMQP_VALUE _value
         if c_message.message_get_body_amqp_sequence_in_place(self._c_value, index, &_value) == 0:
-            _logger.info("Calling value factory from get_body_sequence")
+            _logger.debug("Calling value factory from get_body_sequence")
             return value_factory(_value)
         else:
             self._value_error()
@@ -292,7 +292,7 @@ cdef class Messaging:
         _value = c_message.messaging_create_source(address)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for messaging source.")
-        _logger.info("Calling value factory from create_source")
+        _logger.debug("Calling value factory from create_source")
         return value_factory(_value)
 
     @staticmethod
@@ -301,7 +301,7 @@ cdef class Messaging:
         _value = c_message.messaging_create_target(address)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for messaging target.")
-        _logger.info("Calling value factory from create_target")
+        _logger.debug("Calling value factory from create_target")
         return value_factory(_value)
 
     @staticmethod
@@ -310,7 +310,7 @@ cdef class Messaging:
         _value = c_message.messaging_delivery_received(section_number, section_offset)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for received delivery.")
-        _logger.info("Calling value factory from delivery_received")
+        _logger.debug("Calling value factory from delivery_received")
         return value_factory(_value)
 
     @staticmethod
@@ -319,7 +319,7 @@ cdef class Messaging:
         _value = c_message.messaging_delivery_accepted()
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for accepted delivery.")
-        _logger.info("Calling value factory from delivery_accepted")
+        _logger.debug("Calling value factory from delivery_accepted")
         return value_factory(_value)
 
     @staticmethod
@@ -328,7 +328,7 @@ cdef class Messaging:
         _value = c_message.messaging_delivery_rejected(error_condition, error_description)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for rejected delivery.")
-        _logger.info("Calling value factory from delivery_rejected")
+        _logger.debug("Calling value factory from delivery_rejected")
         return value_factory(_value)
 
     @staticmethod
@@ -337,7 +337,7 @@ cdef class Messaging:
         _value = c_message.messaging_delivery_released()
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for released delivery.")
-        _logger.info("Calling value factory from delivery_released")
+        _logger.debug("Calling value factory from delivery_released")
         return value_factory(_value)
 
     @staticmethod
@@ -347,7 +347,7 @@ cdef class Messaging:
         _value = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, <c_amqp_definitions.fields>message_annotations._c_value)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for modified delivery.")
-        _logger.info("Calling value factory from delivery_modified")
+        _logger.debug("Calling value factory from delivery_modified")
         return value_factory(_value)
 
 

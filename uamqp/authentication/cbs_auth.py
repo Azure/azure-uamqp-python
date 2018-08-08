@@ -95,9 +95,11 @@ class CBSAuthMixin:
         self._lock.acquire()
         try:
             self._cbs_auth.destroy()
+            _logger.info("Auth closed, destroying session.")
             self._session.destroy()
         finally:
             self._lock.release()
+            _logger.info("Finished shutting down CBS session.")
 
     def handle_token(self):
         """This function is called periodically to check the status of the current

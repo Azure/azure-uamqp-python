@@ -153,8 +153,8 @@ class MessageReceiver():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
-            condition, self.name, description, info, self._error.action.retry))
+        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}\nConnection: {}".format(
+            condition, self.name, description, info, self._error.action.retry, self._session._connection.container_id))
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -207,7 +207,9 @@ class MessageReceiver():
         except RuntimeError:
             condition = b"amqp:unknown-error"
             self._error = errors._process_link_error(self.error_policy, condition, None, None)  # pylint: disable=protected-access
-            _logger.info("Unable to settle message. Disconnecting.")
+            _logger.info("Unable to settle message. Disconnecting.\nLink: {}\nConnection: {}".format(
+                self.name,
+                self._session._connection.container_id))
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message: {}\nRejecting message.".format(e))
             self._receiver.settle_modified_message(message_number, True, True, None)
@@ -254,8 +256,8 @@ class MessageReceiver():
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
-        _logger.debug("Message receiver {} state changed from {} to {}".format(
-            self.name, previous_state, new_state))
+        _logger.info("Message receiver {} state changed from {} to {} on connection: {}".format(
+            self.name, previous_state, new_state, self._session._connection.container_id))
         self._state = new_state
 
     @property

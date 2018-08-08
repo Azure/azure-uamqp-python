@@ -61,13 +61,15 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
 
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
-        _logger.info("Shutting down CBS session.")
+        _logger.info("Shutting down CBS session on connection: {}.".format(self._connection.container_id))
         await self._async_lock.acquire()
         try:
             await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
+            _logger.info("Auth closed, destroying session {}.".format(self._connection.container_id))
             await self._session.destroy_async()
         finally:
             self._async_lock.release()
+            _logger.info("Finished shutting down CBS session {}.".format(self._connection.container_id))
 
     async def handle_token_async(self):
         """This coroutine is called periodically to check the status of the current
