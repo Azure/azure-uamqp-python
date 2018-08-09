@@ -50,7 +50,8 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 self.token,
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
-                self.timeout)
+                self.timeout,
+                self._connection.container_id)
             self._cbs_auth.set_trace(debug)
         except ValueError:
             await self._session.destroy_async()
@@ -117,7 +118,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token will expire soon - attempting to refresh.")
+                _logger.info("Token will expire soon - attempting to refresh {}.".format(self._connection.container_id))
                 self.update_token()
                 await self.loop.run_in_executor(
                     None, functools.partial(

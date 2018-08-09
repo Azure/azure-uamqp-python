@@ -50,14 +50,16 @@ cdef class CBSTokenAuth:
     cdef stdint.uint64_t _token_put_time
     cdef unsigned int token_status_code
     cdef const char* token_status_description
+    cdef const char* connection_id
 
-    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout):
+    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout, const char* connection_id):
         self.state = AUTH_STATUS_IDLE
         self.audience = audience
         self.token_type = token_type
         self.token = token
         self.expires_at = expires_at
         self.auth_timeout = timeout
+        self.connection_id = connection_id
         self._token_put_time = 0
         current_time = int(time.time())
         remaining_time = expires_at - current_time
@@ -70,10 +72,12 @@ cdef class CBSTokenAuth:
 
     def __dealloc__(self):
         _logger.info("Deallocating {}".format(self.__class__.__name__))
+        _logger.info("Deallocating CBS auth for connection {}".format(self.connection_id))
 
     cpdef destroy(self):
         if <void*>self._cbs_handle is not NULL:
             _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying CBS auth for connection {}".format(self.connection_id))
             c_cbs.cbs_destroy(self._cbs_handle)
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
 
@@ -145,6 +149,7 @@ cdef class CBSTokenAuth:
 
     cpdef on_cbs_open_complete(self, result):
         _logger.info("CBS completed opening with status: {}".format(result))
+        _logger.info("CBS for connection {} completed opening with status: {}".format(self.connection_id, result))
         if result == c_cbs.CBS_OPEN_COMPLETE_RESULT_TAG.CBS_OPEN_ERROR:
             self.state = AUTH_STATUS_FAILURE
 
@@ -153,6 +158,7 @@ cdef class CBSTokenAuth:
 
     cpdef on_cbs_error(self):
         _logger.info("CBS error occured.")
+        _logger.info("CBS error occured on connection {}.".format(self.connection_id))
 
     cpdef _cbs_put_token_compelete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         if result == CBS_OPERATION_RESULT_OK:
@@ -165,6 +171,7 @@ cdef class CBSTokenAuth:
 
     cpdef on_cbs_put_token_complete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         _logger.info("Token put complete with result: {}, status: {}, description: {}".format(result, status_code, status_description))
+        _logger.info("Token put complete with result: {}, status: {}, description: {}, connection: {}".format(result, status_code, status_description, self.connection_id))
 
 
 #### Callbacks
