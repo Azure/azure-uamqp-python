@@ -522,13 +522,13 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """Close down the client asynchronously. No further
         messages can be sent and the client cannot be re-opened.
 
-        All pending, unsent messages will be cleared.
+        All pending, unsent messages will remain uncleared to allow
+        them to be inspected and queued to a new client.
         """
         if self._message_sender:
             await self._message_sender.destroy_async()
             self._message_sender = None
         await super(SendClientAsync, self).close_async()
-        self._pending_messages = []
 
     async def wait_async(self):
         """Run the client asynchronously until all pending messages

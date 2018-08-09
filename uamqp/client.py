@@ -579,6 +579,10 @@ class SendClient(AMQPClient):
         self._connection.work()
         return True
 
+    @property
+    def pending_messages(self):
+        return [m for m in self._pending_messages if m.state in constants.PENDING_STATES]
+
     def redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
         response.
@@ -603,16 +607,16 @@ class SendClient(AMQPClient):
         """Close down the client. No further messages
         can be sent and the client cannot be re-opened.
 
-        All pending, unsent messages will be cleared.
+        All pending, unsent messages will remain uncleared to allow
+        them to be inspected and queued to a new client.
         """
         if self._message_sender:
             self._message_sender.destroy()
             self._message_sender = None
         super(SendClient, self).close()
-        self._pending_messages = []
 
-    def queue_message(self, messages):
-        """Add a message to the send queue.
+    def queue_message(self, *messages):
+        """Add one or more messages to the send queue.
         No further action will be taken until either SendClient.wait()
         or SendClient.send_all_messages() has been called.
         The client does not need to be open yet for messages to be added
@@ -623,9 +627,11 @@ class SendClient(AMQPClient):
          of ~uamqp.message.BatchMessage.
         :type message: ~uamqp.message.Message
         """
-        for message in messages.gather():
-            message.idle_time = self._counter.get_current_ms()
-            self._pending_messages.append(message)
+        for message in messages:
+            for internal_message in message.gather():
+                internal_message.idle_time = self._counter.get_current_ms()
+                internal_message.state = constants.MessageState.WaitingToBeSent
+                self._pending_messages.append(internal_message)
 
     def send_message(self, messages, close_on_done=False):
         """Send a single message or batched message.
