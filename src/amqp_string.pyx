@@ -36,7 +36,7 @@ cdef class AMQPString(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating AMQPString")
         self.destroy()
 
     def __str__(self):
@@ -64,7 +64,7 @@ cdef class AMQPString(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying AMQPString")
             c_strings.STRING_delete(self._c_value)
             self._c_value = <c_strings.STRING_HANDLE>NULL
 

@@ -35,7 +35,7 @@ cdef class cError(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cError")
         #self.destroy()
 
     cdef _create(self):
@@ -44,7 +44,7 @@ cdef class cError(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cError")
             c_amqp_definitions.error_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.ERROR_HANDLE>NULL
 
@@ -88,7 +88,6 @@ cdef class cError(StructBase):
         if  c_amqp_definitions.error_get_info(self._c_value, &info_value) != 0:
             return None
         try:
-            _logger.debug("Calling value factory from error info")
             info = value_factory(info_value)
             return copy.deepcopy(info.value)
         except TypeError:

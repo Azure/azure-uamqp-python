@@ -37,7 +37,7 @@ cdef class cProperties(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cProperties")
         self.destroy()
 
     cdef _validate(self):
@@ -46,7 +46,7 @@ cdef class cProperties(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cProperties")
             c_amqp_definitions.properties_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.PROPERTIES_HANDLE>NULL
 
@@ -66,7 +66,6 @@ cdef class cProperties(StructBase):
         _value = c_amqp_definitions.amqpvalue_create_properties(self._c_value)
         if <void*>_value is NULL:
             return None
-        _logger.debug("Calling value factory from get_properties")
         return value_factory(_value)
 
     cpdef clone(self):
@@ -84,7 +83,6 @@ cdef class cProperties(StructBase):
         if c_amqp_definitions.properties_get_message_id(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            _logger.debug("Calling value factory from message_id")
             return value_factory(_value)
         else:
             return None
@@ -118,7 +116,6 @@ cdef class cProperties(StructBase):
         if c_amqp_definitions.properties_get_to(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            _logger.debug("Calling value factory from properties to")
             return value_factory(_value)
         else:
             return None
@@ -151,7 +148,6 @@ cdef class cProperties(StructBase):
         if c_amqp_definitions.properties_get_reply_to(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            _logger.debug("Calling value factory from properties replyto")
             return value_factory(_value)
         else:
             return None
@@ -168,7 +164,6 @@ cdef class cProperties(StructBase):
         if c_amqp_definitions.properties_get_correlation_id(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            _logger.debug("Calling value factory from correlation_id")
             return value_factory(_value)
         else:
             return None

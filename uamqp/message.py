@@ -48,10 +48,13 @@ class Message:
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
     :type message: uamqp.c_uamqp.cMessage
-    :param settled: Internal only. This is used when wrapping an existing message
+    :param settler: Internal only. This is used when wrapping an existing message
      that has been received from an AMQP service. Should only be specified together
-     with `message` and is to determine receive-settled mode of the client.
-    :type settled: int
+     with `message` and is to settle the message.
+    :type settler: ~Callable
+    :param delivery_no: Internal only. This is used when wrapping an existing message
+     that has been received from an AMQP service. Should only be specified together
+     with `message` and specifies the messages client delivery number.
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -66,6 +69,7 @@ class Message:
                  msg_format=None,
                  message=None,
                  settler=None,
+                 delivery_no=None,
                  encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
@@ -73,6 +77,7 @@ class Message:
         self._response = None
         self._settler = None
         self._encoding = encoding
+        self._delivery_no = delivery_no
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -124,6 +129,7 @@ class Message:
         :param message: The received C message.
         :type message: uamqp.c_uamqp.cMessage
         """
+        _logger.debug("Parsing received message %r.", self._delivery_no)
         self._message = message
         body_type = message.body_type
         if body_type == c_uamqp.MessageBodyType.NoneType:
@@ -136,21 +142,27 @@ class Message:
             self._body = ValueBody(self._message)
         _props = self._message.properties
         if _props:
+            _logger.debug("Parsing received message properties %r.", self._delivery_no)
             self.properties = MessageProperties(properties=_props, encoding=self._encoding)
         _header = self._message.header
         if _header:
+            _logger.debug("Parsing received message header %r.", self._delivery_no)
             self.header = MessageHeader(header=_header)
         _footer = self._message.footer
         if _footer:
+            _logger.debug("Parsing received message footer %r.", self._delivery_no)
             self.footer = _footer.map
         _app_props = self._message.application_properties
         if _app_props:
+            _logger.debug("Parsing received message application properties %r.", self._delivery_no)
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
+            _logger.debug("Parsing received message annotations %r.", self._delivery_no)
             self.annotations = _ann.map
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
+            _logger.debug("Parsing received message delivery annotations %r.", self._delivery_no)
             self.delivery_annotations = _delivery_ann.map
 
     def _can_settle_message(self):

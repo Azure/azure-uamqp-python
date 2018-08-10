@@ -30,7 +30,7 @@ cdef class cTarget(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cTarget")
         self.destroy()
 
     cdef _validate(self):
@@ -39,7 +39,7 @@ cdef class cTarget(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cTarget")
             c_amqp_definitions.target_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.TARGET_HANDLE>NULL
 
@@ -54,7 +54,6 @@ cdef class cTarget(StructBase):
         _value = c_amqp_definitions.amqpvalue_create_target(self._c_value)
         if <void*>_value == NULL:
             self._null_error("Failed to create target.")
-        _logger.debug("Calling value factory from target value")
         return value_factory(_value)
 
     @property

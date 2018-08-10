@@ -51,7 +51,7 @@ cdef class Connection(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating Connection")
         self.destroy()
 
     def __enter__(self):
@@ -66,7 +66,7 @@ cdef class Connection(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying Connection")
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
 
@@ -156,7 +156,6 @@ cdef class Connection(StructBase):
         if c_connection.connection_get_properties(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            _logger.debug("Calling value factory from connection properties")
             return value_factory(_value)
         else:
             self._value_error()

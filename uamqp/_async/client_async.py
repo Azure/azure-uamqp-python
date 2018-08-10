@@ -117,13 +117,12 @@ class AMQPClientAsync(client.AMQPClient):
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.info("Keeping {} connection alive. {}".format(self.__class__.__name__, self._connection.container_id))
+                    _logger.info("Keeping %r connection alive. %r", self.__class__.__name__, self._connection.container_id)
                     await self._connection.work_async()
                     start_time = current_time
                 await asyncio.sleep(1)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.info("Connection keep-alive for {} failed: {}.".format(
-                self.__class__.__name__, e))
+            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
     async def _client_ready_async(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -236,10 +235,10 @@ class AMQPClientAsync(client.AMQPClient):
                 _logger.info("Closing non-CBS session.")
                 await self._session.destroy_async()
             else:
-                _logger.info("CBS session pending {}.".format(self._connection.container_id))
+                _logger.info("CBS session pending %r.", self._connection.container_id)
             self._session = None
             if not self._ext_connection:
-                _logger.info("Closing exclusive connection {}.".format(self._connection.container_id))
+                _logger.info("Closing exclusive connection %r.", self._connection.container_id)
                 await self._connection.destroy_async()
             else:
                 _logger.info("Shared connection remaining open.")
@@ -281,7 +280,7 @@ class AMQPClientAsync(client.AMQPClient):
             if self._connection.cbs:
                 timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout:
-                _logger.info("CBS authentication timeout on connection: {}.".format(self._connection.container_id))
+                _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
                 raise TimeoutError("Authorization timeout.")
             elif auth_in_progress:
                 await self._connection.work_async()
@@ -315,7 +314,7 @@ class AMQPClientAsync(client.AMQPClient):
         if self._shutdown:
             return False
         if timeout:
-            _logger.info("CBS authentication timeout on connection: {}.".format(self._connection.container_id))
+            _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
             raise TimeoutError("Authorization timeout.")
         elif auth_in_progress:
             await self._connection.work_async()
@@ -491,7 +490,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._waiting_messages = 0
         self._pending_messages = await self._filter_pending_async()
         if self._backoff and not self._waiting_messages:
-            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             await self._connection.sleep_async(self._backoff)
             self._backoff = 0
         await self._connection.work_async()
@@ -750,7 +749,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.info("Timeout reached, closing receiver: {}".format(self._remote_address))
+                    _logger.info("Timeout reached, closing receiver: %r", self._remote_address)
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now

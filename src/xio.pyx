@@ -39,7 +39,7 @@ cdef class XIO(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating XIO")
         self.destroy()
 
     cdef _create(self):
@@ -48,7 +48,7 @@ cdef class XIO(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying XIO")
             c_xio.xio_destroy(self._c_value)
             self._c_value = <c_xio.XIO_HANDLE>NULL
 

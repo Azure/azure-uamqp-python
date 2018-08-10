@@ -34,7 +34,7 @@ cdef class cMessageSender(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cMessageSender")
         self.destroy()
 
     def __enter__(self):
@@ -58,7 +58,7 @@ cdef class cMessageSender(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cMessageSender")
             c_message_sender.messagesender_destroy(self._c_value)
             self._c_value = <c_message_sender.MESSAGE_SENDER_HANDLE>NULL
 
@@ -91,7 +91,6 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
         wrapped = None
     else:
         send_data = c_amqpvalue.amqpvalue_clone(delivery_state)
-        _logger.debug("Calling value factory from on_message_send_complete")
         wrapped = copy.deepcopy(value_factory(send_data).value)
     if context != NULL:
         context_obj = <object>context

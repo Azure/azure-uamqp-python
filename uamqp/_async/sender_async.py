@@ -137,7 +137,7 @@ class MessageSenderAsync(sender.MessageSender):
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         c_message = message.get_message()
         message._on_message_sent = callback

@@ -142,13 +142,12 @@ class AMQPClient:
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    _logger.debug("Keeping %r connection alive.", self.__class__.__name__)
                     self._connection.work()
                     start_time = current_time
                 time.sleep(1)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.info("Connection keep-alive for {} failed: {}.".format(
-                self.__class__.__name__, e))
+            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -507,20 +506,18 @@ class SendClient(AMQPClient):
                 if exception.action.increment_retries:
                     message.retries += 1
                 self._backoff = exception.action.backoff
-                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(
-                    message.retries, exception))
+                _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message.retries, exception)
                 message.state = constants.MessageState.WaitingToBeSent
                 return
             elif exception.action.retry == errors.ErrorAction.retry:
-                _logger.info("Message error, {} retries exhausted. Error: {}".format(
-                    message.retries, exception))
+                _logger.info("Message error, %r retries exhausted. Error: %r", message.retries, exception)
             else:
-                _logger.info("Message error, not retrying. Error: {}".format(exception))
+                _logger.info("Message error, not retrying. Error: %r", exception)
             message.state = constants.MessageState.SendFailed
             message._response = exception
 
         else:
-            _logger.debug("Message sent: {}, {}".format(result, exception))
+            _logger.debug("Message sent: %r, %r", result, exception)
             message.state = constants.MessageState.SendComplete
             message._response = errors.MessageAlreadySettled()
         if message.on_send_complete:
@@ -573,7 +570,7 @@ class SendClient(AMQPClient):
         self._waiting_messages = 0
         self._pending_messages = self._filter_pending()
         if self._backoff and not self._waiting_messages:
-            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             self._connection.sleep(self._backoff)
             self._backoff = 0
         self._connection.work()

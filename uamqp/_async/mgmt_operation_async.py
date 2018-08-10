@@ -84,8 +84,9 @@ class MgmtOperationAsync(MgmtOperation):
         def on_complete(operation_result, status_code, description, wrapped_message):
             result = constants.MgmtExecuteResult(operation_result)
             if result != constants.MgmtExecuteResult.Ok:
-                _logger.error("Failed to complete mgmt operation.\nStatus code: {}\nMessage: {}".format(
-                    status_code, description))
+                _logger.error(
+                    "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
+                    status_code, description)
             self._responses[operation_id] = Message(message=wrapped_message)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)

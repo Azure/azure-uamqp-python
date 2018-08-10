@@ -57,20 +57,20 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
             await self._session.destroy_async()
             raise errors.AMQPConnectionError(
                 "Unable to open authentication session.\n"
-                "Please confirm target hostname exists: {}".format(connection.hostname)) from None
+                "Please confirm target hostname exists: %r", connection.hostname) from None
         return self._cbs_auth
 
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
-        _logger.info("Shutting down CBS session on connection: {}.".format(self._connection.container_id))
+        _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         await self._async_lock.acquire()
         try:
             await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
-            _logger.info("Auth closed, destroying session {}.".format(self._connection.container_id))
+            _logger.info("Auth closed, destroying session %r.", self._connection.container_id)
             await self._session.destroy_async()
         finally:
             self._async_lock.release()
-            _logger.info("Finished shutting down CBS session {}.".format(self._connection.container_id))
+            _logger.info("Finished shutting down CBS session %r.", self._connection.container_id)
 
     async def handle_token_async(self):
         """This coroutine is called periodically to check the status of the current
@@ -103,7 +103,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     error_code, error_description = self._cbs_auth.get_failure_info()
-                    _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
+                    _logger.info("Authentication status: %r, description: %r", error_code, error_description)
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     await asyncio.sleep(self._retry_policy.backoff)
@@ -118,7 +118,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token will expire soon - attempting to refresh {}.".format(self._connection.container_id))
+                _logger.info("Token will expire soon - attempting to refresh %r.", self._connection.container_id)
                 self.update_token()
                 await self.loop.run_in_executor(
                     None, functools.partial(

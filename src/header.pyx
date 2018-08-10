@@ -31,7 +31,7 @@ cdef class cHeader(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cHeader")
         self.destroy()
 
     cdef _validate(self):
@@ -40,7 +40,7 @@ cdef class cHeader(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cHeader")
             c_amqp_definitions.header_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.HEADER_HANDLE>NULL
 

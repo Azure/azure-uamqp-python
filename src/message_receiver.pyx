@@ -34,7 +34,7 @@ cdef class cMessageReceiver(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cMessageReceiver")
         self.destroy()
 
     cdef _validate(self):
@@ -58,7 +58,7 @@ cdef class cMessageReceiver(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cMessageReceiver")
             c_message_receiver.messagereceiver_destroy(self._c_value)
             self._c_value = <c_message_receiver.MESSAGE_RECEIVER_HANDLE>NULL
 

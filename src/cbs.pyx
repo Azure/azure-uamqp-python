@@ -71,13 +71,11 @@ cdef class CBSTokenAuth:
             raise ValueError("Unable to open CBS link.")
 
     def __dealloc__(self):
-        _logger.info("Deallocating {}".format(self.__class__.__name__))
-        _logger.info("Deallocating CBS auth for connection {}".format(self.connection_id))
+        _logger.info("Deallocating CBSTokenAuth")
 
     cpdef destroy(self):
         if <void*>self._cbs_handle is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
-            _logger.debug("Destroying CBS auth for connection {}".format(self.connection_id))
+            _logger.debug("Destroying CBSTokenAuth")
             c_cbs.cbs_destroy(self._cbs_handle)
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
 
@@ -148,8 +146,7 @@ cdef class CBSTokenAuth:
         self.on_cbs_open_complete(result)
 
     cpdef on_cbs_open_complete(self, result):
-        _logger.info("CBS completed opening with status: {}".format(result))
-        _logger.info("CBS for connection {} completed opening with status: {}".format(self.connection_id, result))
+        _logger.info("CBS for connection %r completed opening with status: %r", self.connection_id, result)
         if result == c_cbs.CBS_OPEN_COMPLETE_RESULT_TAG.CBS_OPEN_ERROR:
             self.state = AUTH_STATUS_FAILURE
 
@@ -157,8 +154,7 @@ cdef class CBSTokenAuth:
         self.on_cbs_error()
 
     cpdef on_cbs_error(self):
-        _logger.info("CBS error occured.")
-        _logger.info("CBS error occured on connection {}.".format(self.connection_id))
+        _logger.info("CBS error occured on connection %r.", self.connection_id)
 
     cpdef _cbs_put_token_compelete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         if result == CBS_OPERATION_RESULT_OK:
@@ -170,8 +166,7 @@ cdef class CBSTokenAuth:
         self.on_cbs_put_token_complete(result, status_code, status_description)
 
     cpdef on_cbs_put_token_complete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
-        _logger.info("Token put complete with result: {}, status: {}, description: {}".format(result, status_code, status_description))
-        _logger.info("Token put complete with result: {}, status: {}, description: {}, connection: {}".format(result, status_code, status_description, self.connection_id))
+        _logger.info("Token put complete with result: %r, status: %r, description: %r, connection: %r", result, status_code, status_description, self.connection_id)
 
 
 #### Callbacks

@@ -34,7 +34,7 @@ cdef class cLink(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cLink")
         self.destroy()
 
     def __enter__(self):
@@ -49,7 +49,7 @@ cdef class cLink(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cLink")
             c_link.link_destroy(self._c_value)
             self._c_value = <c_link.LINK_HANDLE>NULL
 

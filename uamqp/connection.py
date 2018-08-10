@@ -128,14 +128,14 @@ class Connection:
         return conn
 
     def _close(self):
-        _logger.info("Shutting down connection {}.".format(self.container_id))
+        _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
         if self.cbs:
             self.auth.close_authenticator()
             self.cbs = None
         self._conn.destroy()
         self.auth.close()
-        _logger.info("Connection shutdown complete {}.".format(self.container_id))
+        _logger.info("Connection shutdown complete %r.", self.container_id)
 
     def _close_received(self, error):
         """Callback called when a connection CLOSE frame is received.
@@ -153,8 +153,8 @@ class Connection:
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        _logger.info("Received Connection close event: {}\nConnection: {}\nDescription: {}\nDetails: {}".format(
-            condition, self.container_id, description, info))
+        _logger.info("Received Connection close event: %r\nConnection: %r\nDescription: %r\nDetails: %r",
+            condition, self.container_id, description, info)
         self._error = errors._process_connection_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
 
     def _state_changed(self, previous_state, new_state):
@@ -175,10 +175,11 @@ class Connection:
         except ValueError:
             _new_state = c_uamqp.ConnectionState.UNKNOWN
         self._state = _new_state
-        _logger.info("Connection {} state changed from {} to {}".format(self.container_id, _previous_state, _new_state))
+        _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
         if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
             if not self._closing and not self._error:
-                _logger.info("Connection with ID {} unexpectedly in an error state. Closing: {}, Error: {}".format(self.container_id, self._closing, self._error))
+                _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
+                    self.container_id, self._closing, self._error)
                 condition = b"amqp:unknown-error"
                 description = b"Connection in an unexpected error state."
                 self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
@@ -202,7 +203,7 @@ class Connection:
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         self._lock.acquire()
-        _logger.info("Redirecting connection {}.".format(self.container_id))
+        _logger.info("Redirecting connection %r.", self.container_id)
         try:
             if self.hostname == redirect_error.hostname:
                 return
@@ -215,7 +216,7 @@ class Connection:
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:
-            _logger.info("Finished redirecting connection {}.".format(self.container_id))
+            _logger.info("Finished redirecting connection %r.", self.container_id)
             self._lock.release()
 
     def work(self):
@@ -227,7 +228,7 @@ class Connection:
             except TypeError:
                 pass
             except Exception as e:
-                _logger.warning(str(e))
+                _logger.warning("%r", e)
                 raise
             self._conn.do_work()
         finally:

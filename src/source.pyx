@@ -30,7 +30,7 @@ cdef class cSource(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cSource")
         self.destroy()
 
     cdef _validate(self):
@@ -39,7 +39,7 @@ cdef class cSource(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cSource")
             c_amqp_definitions.source_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.SOURCE_HANDLE>NULL
 
@@ -54,7 +54,6 @@ cdef class cSource(StructBase):
         _value = c_amqp_definitions.amqpvalue_create_source(self._c_value)
         if <void*>_value == NULL:
             self._null_error("Failed to create source.")
-        _logger.debug("Calling value factory from source value")
         return value_factory(_value)
 
     @property
@@ -163,7 +162,6 @@ cdef class cSource(StructBase):
             self._value_error("Failed to get source filter_set")
         if <void*>_value == NULL:
             return None
-        _logger.debug("Calling value factory from source filter")
         return value_factory(_value)
 
     @filter_set.setter

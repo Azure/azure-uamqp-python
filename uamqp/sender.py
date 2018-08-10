@@ -128,8 +128,8 @@ class MessageSender():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}\nConnection: {}".format(
-            condition, self.name, description, info, self._error.action.retry, self._session._connection.container_id))
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r\nDetails: %r\nRetryable: %r\nConnection: %r",
+            condition, self.name, description, info, self._error.action.retry, self._session._connection.container_id)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -157,7 +157,7 @@ class MessageSender():
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         return self._state
 
@@ -204,7 +204,7 @@ class MessageSender():
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         c_message = message.get_message()
         message._on_message_sent = callback
@@ -222,8 +222,8 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        _logger.info("Message sender {} state changed from {} to {} on connection: {}".format(
-            self.name, previous_state, new_state, self._session._connection.container_id))
+        _logger.info("Message sender %r state changed from %r to %r on connection: %r",
+            self.name, previous_state, new_state, self._session._connection.container_id)
         self._state = new_state
 
     @property

@@ -27,7 +27,7 @@ cdef class AsyncOperation(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying AsyncOperation")
             c_async_operation.async_operation_destroy(self._c_value)
             self._c_value = <c_async_operation.ASYNC_OPERATION_HANDLE>NULL
 

@@ -92,15 +92,15 @@ class CBSAuthMixin:
 
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
-        _logger.info("Shutting down CBS session on connection: {}.".format(self._connection.container_id))
+        _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         self._lock.acquire()
         try:
             self._cbs_auth.destroy()
-            _logger.info("Auth closed, destroying session on connection: {}.".format(self._connection.container_id))
+            _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             self._session.destroy()
         finally:
             self._lock.release()
-            _logger.info("Finished shutting down CBS session on connection: {}.".format(self._connection.container_id))
+            _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     def handle_token(self):
         """This function is called periodically to check the status of the current
@@ -133,7 +133,7 @@ class CBSAuthMixin:
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     error_code, error_description = self._cbs_auth.get_failure_info()
-                    _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
+                    _logger.info("Authentication status: %r, description: %r", error_code, error_description)
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     time.sleep(self._retry_policy.backoff)
@@ -148,7 +148,7 @@ class CBSAuthMixin:
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token on connection {} will expire soon - attempting to refresh.".format(self._connection.container_id))
+                _logger.info("Token on connection %r will expire soon - attempting to refresh.", self._connection.container_id)
                 self.update_token()
                 self._cbs_auth.refresh(self.token, int(self.expires_at))
             elif auth_status == constants.CBSAuthStatus.Idle:
