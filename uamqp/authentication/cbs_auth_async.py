@@ -56,8 +56,8 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         except ValueError:
             await self._session.destroy_async()
             raise errors.AMQPConnectionError(
-                "Unable to open authentication session.\n" +
-                "Please confirm target hostname exists: %r", connection.hostname) from None
+                "Unable to open authentication session on connection {}.\n"
+                "Please confirm target hostname exists: {}".format(connection.container_id, connection.hostname)) from None
         return self._cbs_auth
 
     async def close_authenticator_async(self):
@@ -118,7 +118,8 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token will expire soon - attempting to refresh %r.", self._connection.container_id)
+                _logger.info("Token on connection %r will expire soon - attempting to refresh.",
+                             self._connection.container_id)
                 self.update_token()
                 await self.loop.run_in_executor(
                     None, functools.partial(
