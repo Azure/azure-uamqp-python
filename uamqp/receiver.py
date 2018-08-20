@@ -144,6 +144,7 @@ class MessageReceiver():
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
+        # pylint: disable=protected-access
         if error:
             condition = error.condition
             description = error.description
@@ -152,9 +153,11 @@ class MessageReceiver():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r\nDetails: %r\nRetryable: %r\nConnection: %r",
-            condition, self.name, description, info, self._error.action.retry, self._session._connection.container_id)
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+                     "\nDetails: %r\nRetryable: %r\nConnection: %r",
+                     condition, self.name, description, info, self._error.action.retry,
+                     self._session._connection.container_id)
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
@@ -192,6 +195,7 @@ class MessageReceiver():
         or iterator, the message will be added to an internal queue.
         :param message: c_uamqp.Message
         """
+        # pylint: disable=protected-access
         message_number = self._receiver.last_received_message_number()
         if self._settle_mode == constants.ReceiverSettleMode.ReceiveAndDelete:
             settler = None
@@ -206,11 +210,11 @@ class MessageReceiver():
             self.on_message_received(wrapped_message)
         except RuntimeError:
             condition = b"amqp:unknown-error"
-            self._error = errors._process_link_error(self.error_policy, condition, None, None)  # pylint: disable=protected-access
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)
             _logger.info("Unable to settle message no %r. Disconnecting.\nLink: %r\nConnection: %r",
-                message_number,
-                self.name,
-                self._session._connection.container_id)
+                         message_number,
+                         self.name,
+                         self._session._connection.container_id)
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message no %r: %r\nRejecting message.", message_number, e)
             self._receiver.settle_modified_message(message_number, True, True, None)
@@ -257,8 +261,9 @@ class MessageReceiver():
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
+        # pylint: disable=protected-access
         _logger.info("Message receiver %r state changed from %r to %r on connection: %r",
-            self.name, previous_state, new_state, self._session._connection.container_id)
+                     self.name, previous_state, new_state, self._session._connection.container_id)
         self._state = new_state
 
     @property

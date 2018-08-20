@@ -119,6 +119,7 @@ class MessageSender():
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
+        # pylint: disable=protected-access
         if error:
             condition = error.condition
             description = error.description
@@ -127,9 +128,11 @@ class MessageSender():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r\nDetails: %r\nRetryable: %r\nConnection: %r",
-            condition, self.name, description, info, self._error.action.retry, self._session._connection.container_id)
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+                     "\nDetails: %r\nRetryable: %r\nConnection: %r",
+                     condition, self.name, description, info, self._error.action.retry,
+                     self._session._connection.container_id)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
@@ -222,8 +225,9 @@ class MessageSender():
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
+        # pylint: disable=protected-access
         _logger.info("Message sender %r state changed from %r to %r on connection: %r",
-            self.name, previous_state, new_state, self._session._connection.container_id)
+                     self.name, previous_state, new_state, self._session._connection.container_id)
         self._state = new_state
 
     @property

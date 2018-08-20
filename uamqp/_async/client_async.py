@@ -117,7 +117,9 @@ class AMQPClientAsync(client.AMQPClient):
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.info("Keeping %r connection alive. %r", self.__class__.__name__, self._connection.container_id)
+                    _logger.info("Keeping %r connection alive. %r",
+                                 self.__class__.__name__,
+                                 self._connection.container_id)
                     await self._connection.work_async()
                     start_time = current_time
                 await asyncio.sleep(1)

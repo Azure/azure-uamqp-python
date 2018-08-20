@@ -148,7 +148,8 @@ class CBSAuthMixin:
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token on connection %r will expire soon - attempting to refresh.", self._connection.container_id)
+                _logger.info("Token on connection %r will expire soon - attempting to refresh.",
+                             self._connection.container_id)
                 self.update_token()
                 self._cbs_auth.refresh(self.token, int(self.expires_at))
             elif auth_status == constants.CBSAuthStatus.Idle:

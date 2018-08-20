@@ -75,7 +75,7 @@ cdef class CBSTokenAuth:
 
     cpdef destroy(self):
         if <void*>self._cbs_handle is not NULL:
-            _logger.debug("Destroying CBSTokenAuth")
+            _logger.debug("Destroying CBSTokenAuth for connection %r", self.connection_id)
             c_cbs.cbs_destroy(self._cbs_handle)
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
 
