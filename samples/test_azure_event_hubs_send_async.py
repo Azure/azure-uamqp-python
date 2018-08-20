@@ -51,7 +51,7 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=True)
    
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
@@ -75,6 +75,27 @@ async def test_event_hubs_async_sender_sync(live_eventhub_config):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
         send_client.send_message(message)
     send_client.close()
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_client_send_multiple_async(live_eventhub_config):
+    properties = {b"SendData": b"Property_String_Value_1"}
+    msg_content = b"hello world"
+    plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    assert not plain_auth.consumed
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=False)
+    messages = []
+    for i in range(10):
+        messages.append(uamqp.Message(msg_content, application_properties=properties))
+    send_client.queue_message(*messages)
+    assert len(send_client.pending_messages) == 10
+    results = await send_client.send_all_messages_async()
+    assert len(results) == 10
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+    assert plain_auth.consumed
+    assert send_client.pending_messages == []
 
 
 @pytest.mark.asyncio

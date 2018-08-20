@@ -41,7 +41,7 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
@@ -57,6 +57,36 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
         results = send_client.send_all_messages(close_on_done=False)
         assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
     send_client.close()
+
+def test_event_hubs_client_send_multiple_sync(live_eventhub_config):
+    annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    assert not sas_auth.consumed
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
+    messages = []
+    for _ in range(10):
+        header = uamqp.message.MessageHeader()
+        header.durable = True
+        props = uamqp.message.MessageProperties(message_id=b"message id")
+        msg_content = b"hello world"
+        message = uamqp.Message(
+            msg_content,
+            properties=props,
+            header=header,
+            application_properties=annotations,
+            annotations=annotations)
+        messages.append(message)
+    send_client.queue_message(*messages)
+    assert len(send_client.pending_messages) == 10
+    results = send_client.send_all_messages()
+    assert len(results) == 10
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+    assert sas_auth.consumed
+    assert send_client.pending_messages == []
 
 
 def test_event_hubs_single_send_sync(live_eventhub_config):
