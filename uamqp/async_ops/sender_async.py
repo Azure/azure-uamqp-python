@@ -22,13 +22,19 @@ class MessageSenderAsync(sender.MessageSender):
     :ivar link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :vartype link_credit: int
-    :ivar properties: Data to be sent in the Link ATTACH frame.
+    :ivar properties: Metadata to be sent in the Link ATTACH frame.
     :vartype properties: dict
     :ivar send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
      from the service that the message was successfully send. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :vartype send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :ivar receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :vartype receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :ivar max_message_size: The maximum allowed message size negotiated for the Link.
     :vartype max_message_size: int
 
@@ -45,12 +51,18 @@ class MessageSenderAsync(sender.MessageSender):
      from the service that the message was successfully send. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :type link_credit: int
-    :param properties: Data to be sent in the Link ATTACH frame.
+    :param properties: Metadata to be sent in the Link ATTACH frame.
     :type properties: dict
     :param error_policy: A policy for parsing errors on link, connection and message
      disposition to determine whether the error should be retryable.
@@ -120,6 +132,7 @@ class MessageSenderAsync(sender.MessageSender):
     async def send_async(self, message, callback, timeout=0):
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
+
         :param message: The message to send.
         :type message: ~uamqp.message.Message
         :param callback: The callback to be run once a disposition is received

@@ -34,8 +34,12 @@ class AMQPClientAsync(client.AMQPClient):
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
      or a receive source.
     :type remote_address: str, bytes or ~uamqp.address.Address
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -254,7 +258,7 @@ class AMQPClientAsync(client.AMQPClient):
         :param message: The message to send in the management request.
         :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes or str
         :param op_type: The type on which to carry out the operation. This will
@@ -334,8 +338,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :param target: The target AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Target object.
     :type target: str, bytes or ~uamqp.address.Target
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -364,7 +372,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
@@ -607,8 +615,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :param target: The source AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Source object.
     :type target: str, bytes or ~uamqp.address.Source
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -644,7 +656,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param prefetch: The receiver Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.

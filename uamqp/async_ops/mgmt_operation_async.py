@@ -23,7 +23,7 @@ class MgmtOperationAsync(MgmtOperation):
     for management tasks against a $management node, however any node name can be
     specified and the available options will depend on the target service.
 
-    :param session: The AMQP session to use for the operation. Nee send and
+    :param session: The AMQP session to use for the operation. New send and
      receive links will be created in this Session.
     :type session: ~uamqp.async_ops.session_async.SessionAsync
     :param target: The AMQP node to send the request to.
@@ -63,7 +63,7 @@ class MgmtOperationAsync(MgmtOperation):
         """Execute a request and wait on a response asynchronously.
 
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes
         :param op_type: The type on which to carry out the operation. This will

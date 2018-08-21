@@ -48,11 +48,11 @@ def send_message(target, data, auth=None, debug=False):
     :param data: The contents of the message to send.
     :type data: str, bytes or ~uamqp.message.Message
     :param auth: The authentication credentials for the endpoint.
-     This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
+     This should be one of the subclasses of uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
@@ -72,11 +72,11 @@ def receive_message(source, auth=None, timeout=0, debug=False):
     :param source: The AMQP source endpoint to receive from.
     :type source: str, bytes or ~uamqp.address.Source
     :param auth: The authentication credentials for the endpoint.
-     This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
+     This should be one of the subclasses of uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param timeout: The timeout in seconds after which to return None if no messages
@@ -101,9 +101,9 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     :param auth: The authentication credentials for the endpoint.
      This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param max_batch_size: The maximum number of messages to return in a batch. If the
