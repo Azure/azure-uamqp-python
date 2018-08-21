@@ -235,7 +235,7 @@ class MessageReceiver():
 
     def get_state(self):
         """Get the state of the MessageReceiver and its underlying Link.
-        
+
         :rtype: ~uamqp.constants.MessageReceiverState
         """
         try:
