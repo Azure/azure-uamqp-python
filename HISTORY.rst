@@ -18,6 +18,7 @@ Release History
     - `send_client.queue_message(*my_message_list)`
 
 - An authentication object will now raise a `ValueError` if one attempts to use it for more than one connection.
+- Renamed internal `_async` module to non-private `async_ops` to allow for docs generation.
 - Reformatted logging for better performance.
 - Added additional logging.
 

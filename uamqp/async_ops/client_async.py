@@ -19,10 +19,10 @@ from uamqp import errors
 from uamqp import address
 from uamqp import authentication
 
-from uamqp._async.connection_async import ConnectionAsync
-from uamqp._async.session_async import SessionAsync
-from uamqp._async.sender_async import MessageSenderAsync
-from uamqp._async.receiver_async import MessageReceiverAsync
+from uamqp.async_ops.connection_async import ConnectionAsync
+from uamqp.async_ops.session_async import SessionAsync
+from uamqp.async_ops.sender_async import MessageSenderAsync
+from uamqp.async_ops.receiver_async import MessageReceiverAsync
 
 
 _logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ class AMQPClientAsync(client.AMQPClient):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp._async.connection_async.ConnectionAsync
+        :type connetion: ~uamqp.async_ops.connection_async.ConnectionAsync
         """
         # pylint: disable=protected-access
         if self._session:
@@ -902,7 +902,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
     """Python 3.5 and 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
-    :type recv_client: ~uamqp._async.client_async.ReceiveClientAsync
+    :type recv_client: ~uamqp.async_ops.client_async.ReceiveClientAsync
     """
 
     def __init__(self, rcv_client, auto_complete=True):

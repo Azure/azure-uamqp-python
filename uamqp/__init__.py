@@ -19,11 +19,11 @@ from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
 
 try:
-    from uamqp._async import ConnectionAsync
-    from uamqp._async import SessionAsync
-    from uamqp._async import MessageSenderAsync
-    from uamqp._async import MessageReceiverAsync
-    from uamqp._async.client_async import (
+    from uamqp.async_ops import ConnectionAsync
+    from uamqp.async_ops import SessionAsync
+    from uamqp.async_ops import MessageSenderAsync
+    from uamqp.async_ops import MessageReceiverAsync
+    from uamqp.async_ops.client_async import (
         AMQPClientAsync,
         SendClientAsync,
         ReceiveClientAsync,

@@ -11,7 +11,7 @@ import functools
 from uamqp import constants
 from uamqp import errors
 from uamqp import c_uamqp
-from uamqp._async import SessionAsync
+from uamqp.async_ops import SessionAsync
 from .cbs_auth import CBSAuthMixin, SASTokenAuth
 
 
@@ -27,7 +27,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
 
         :param connection: The underlying AMQP connection on which
          to create the session.
-        :type connection: ~uamqp._async.connection_async.ConnectionAsync
+        :type connection: ~uamqp.async_ops.connection_async.ConnectionAsync
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
