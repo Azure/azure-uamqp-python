@@ -19,14 +19,14 @@ class Message:
 
     When sending, depending on the nature of the data,
     different body encoding will be used. If the data is str or bytes,
-    a single part DataBody will be sent. If the data is a list or str/bytes,
+    a single part DataBody will be sent. If the data is a list of str/bytes,
     a multipart DataBody will be sent. Any other type of list will be sent
     as a SequenceBody, where as any other type of data will be sent as
     a ValueBody. An empty payload will also be sent as a ValueBody.
 
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
-     a result (of type ~uamqp.constants.MessageSendResult) and an error (of type
+     a result (of type `MessageSendResult`) and an error (of type
      Exception). The error parameter may be None if no error ocurred or the error
      information was undetermined.
     :vartype on_send_complete: callable[~uamqp.constants.MessageSendResult, Exception]
@@ -38,7 +38,7 @@ class Message:
     :param application_properties: Service specific application properties.
     :type application_properties: dict
     :param annotations: Service specific message annotations. Keys in the dictionary
-     must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
+     must be `types.AMQPSymbol` or `types.AMQPuLong`.
     :type annotations: dict
     :param header: The message header.
     :type header: ~uamqp.message.MessageHeader
@@ -51,7 +51,7 @@ class Message:
     :param settler: Internal only. This is used when wrapping an existing message
      that has been received from an AMQP service. Should only be specified together
      with `message` and is to settle the message.
-    :type settler: ~Callable
+    :type settler: callable[~uamqp.errors.MessageResponse]
     :param delivery_no: Internal only. This is used when wrapping an existing message
      that has been received from an AMQP service. Should only be specified together
      with `message` and specifies the messages client delivery number.
@@ -311,7 +311,7 @@ class Message:
         """Send a response disposition to the service to indicate that
         a received message has been modified. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
-        be ignored. Returns `True` is message was released, or `False` if the message
+        be ignored. Returns `True` is message was modified, or `False` if the message
         was already settled.
 
         :param failed: Whether this delivery of this message failed. This does not
@@ -370,7 +370,7 @@ class BatchMessage(Message):
     :type application_properties: dict
     :param annotations: Service specific message annotations. If multiple messages are created
      these properties will be applied to each message. Keys in the dictionary
-     must be ~uamqp.types.AMQPSymbol or ~uamqp.types.AMQPuLong.
+     must be `types.AMQPSymbol` or `types.AMQPuLong`.
     :type annotations: dict
     :param header: The message header. This header will be applied to each message in the batch.
     :type header: ~uamqp.message.MessageHeader
@@ -459,7 +459,7 @@ class BatchMessage(Message):
 
     def gather(self):
         """Return all the messages represented by this object. This will convert
-        the batch data into individual ~uamqp.message.Message objects, which may be one
+        the batch data into individual Message objects, which may be one
         or more if multi_messages is set to `True`.
 
         :rtype: list[~uamqp.message.Message]
@@ -498,7 +498,7 @@ class MessageProperties:
      The message producer is usually responsible for setting the message-id in such a way that it
      is assured to be globally unique. A broker MAY discard a message as a duplicate if the value
      of the message-id matches that of a previously received message sent to the same node.
-    :vartype message_id: str or bytes, uuid.UUID, ~uamqp.types.AMQPType
+    :vartype message_id: str or bytes or uuid.UUID or ~uamqp.types.AMQPType
     :ivar user_id: The identity of the user responsible for producing the message. The client sets
      this value, and it MAY be authenticated by intermediaries.
     :vartype user_id: str or bytes
@@ -742,6 +742,10 @@ class MessageProperties:
             setattr(properties, attr, attr_value)
 
     def get_properties_obj(self):
+        """Get the underlying C reference from this object.
+
+        :rtype: uamqp.c_uamqp.cProperties
+        """
         properties = c_uamqp.cProperties()
         self._set_attr('message_id', properties)
         self._set_attr('user_id', properties)
@@ -786,12 +790,12 @@ class DataBody(MessageBody):
     """An AMQP message body of type Data. This represents
     a list of bytes sections.
 
-    :ivar type: The body type. This should always be DataType
+    :ivar type: The body type. This should always be `DataType`.
     :vartype type: uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each section in the body, where
      each section will be a byte string.
-    :vartype data: generator[bytes]
+    :vartype data: Generator[bytes]
     """
 
     def __str__(self):
@@ -807,10 +811,10 @@ class DataBody(MessageBody):
         return data.value
 
     def append(self, data):
-        """Addend a section to the body.
+        """Append a section to the body.
 
         :param data: The data to append.
-        :type data: str or bytes.
+        :type data: str or bytes
         """
         if isinstance(data, str):
             self._message.add_body_data(data.encode(self._encoding))
@@ -827,11 +831,11 @@ class SequenceBody(MessageBody):
     """An AMQP message body of type Sequence. This represents
     a list of encoded objects.
 
-    :ivar type: The body type. This should always be SequenceType
-    :vartype type: uamqp.c_uamqp.MessageBodyType
+    :ivar type: The body type. This should always be `SequenceType`.
+    :vartype type: ~uamqp.c_uamqp.MessageBodyType
     :ivar data: The data contained in the message body. This returns
      a generator to iterate over each item in the body.
-    :vartype data: generator
+    :vartype data: Generator
     """
 
     def __len__(self):
@@ -844,10 +848,10 @@ class SequenceBody(MessageBody):
         return data.value
 
     def append(self, value):
-        """Addend an item to the body. This can be any
+        """Append an item to the body. This can be any
         Python data type and it will be automatically encoded
         into an AMQP type. If a specific AMQP type is required, a
-        ~uamqp.types.AMQPType can be used.
+        `types.AMQPType` can be used.
 
         :param data: The data to append.
         :type data: ~uamqp.types.AMQPType
@@ -876,7 +880,7 @@ class ValueBody(MessageBody):
         """Set a value as the message body. This can be any
         Python data type and it will be automatically encoded
         into an AMQP type. If a specific AMQP type is required, a
-        ~uamqp.types.AMQPType can be used.
+        `types.AMQPType` can be used.
 
         :param data: The data to send in the body.
         :type data: ~uamqp.types.AMQPType
@@ -944,6 +948,10 @@ class MessageHeader:
             self.priority = header.priority
 
     def get_header_obj(self):
+        """Get the underlying C reference from this object.
+
+        :rtype: uamqp.c_uamqp.cHeader
+        """
         header = c_uamqp.create_header()
         if self.delivery_count is not None:
             header.delivery_count = self.delivery_count

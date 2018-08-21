@@ -14,8 +14,7 @@ from uamqp import c_uamqp
 
 def parse_connection_string(connect_str):
     """Parse a connection string such as those provided by the Azure portal.
-    Connection string should be formatted like:
-     Key=Value;Key=Value;Key=Value
+    Connection string should be formatted like: `Key=Value;Key=Value;Key=Value`.
     The connection string will be parsed into a dictionary.
 
     :param connect_str: The connection string.
@@ -56,7 +55,6 @@ def data_factory(value, encoding='UTF-8'):
     - int => c_uamqp.IntValue
     - str => c_uamqp.StringValue
     - bytes => c_uamqp.BinaryValue
-    - str (char) => c_uamqp.CharValue
     - list/set/tuple => c_uamqp.ListValue
     - dict => c_uamqp.DictValue (AMQP map)
     - float => c_uamqp.DoubleValue

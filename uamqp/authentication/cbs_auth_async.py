@@ -57,7 +57,8 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
             await self._session.destroy_async()
             raise errors.AMQPConnectionError(
                 "Unable to open authentication session on connection {}.\n"
-                "Please confirm target hostname exists: {}".format(connection.container_id, connection.hostname)) from None
+                "Please confirm target hostname exists: {}".format(
+                    connection.container_id, connection.hostname)) from None
         return self._cbs_auth
 
     async def close_authenticator_async(self):

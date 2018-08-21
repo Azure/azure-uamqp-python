@@ -64,6 +64,10 @@ class Address:
         return self.parsed_address.hostname.decode(self._encoding)
 
     @property
+    def scheme(self):
+        return self.parsed_address.scheme.decode(self._encoding)
+
+    @property
     def username(self):
         if self.parsed_address.username:
             return self.parsed_address.username.decode(self._encoding)

@@ -93,7 +93,7 @@ class AMQPClient:
                 password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
-        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(self._remote_address.scheme + self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._counter = c_uamqp.TickCounter()
@@ -614,14 +614,17 @@ class SendClient(AMQPClient):
 
     def queue_message(self, *messages):
         """Add one or more messages to the send queue.
-        No further action will be taken until either SendClient.wait()
-        or SendClient.send_all_messages() has been called.
+        No further action will be taken until either `SendClient.wait()`
+        or `SendClient.send_all_messages()` has been called.
         The client does not need to be open yet for messages to be added
-        to the queue.
+        to the queue. Multiple messages can be queued at once:
+
+            - `send_client.queue_message(my_message)`
+            - `send_client.queue_message(message_1, message_2, message_3)`
+            - `send_client.queue_message(*my_message_list)`
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.message.Message, or multiple messages wrapped in an instance
-         of ~uamqp.message.BatchMessage.
+         of `Message`, or multiple messages wrapped in an instance of `BatchMessage`.
         :type message: ~uamqp.message.Message
         """
         for message in messages:
@@ -634,8 +637,7 @@ class SendClient(AMQPClient):
         """Send a single message or batched message.
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.message.Message, or multiple messages wrapped in an instance
-         of ~uamqp.message.BatchMessage.
+         of `Message`, or multiple messages wrapped in an instance of `BatchMessage`.
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool

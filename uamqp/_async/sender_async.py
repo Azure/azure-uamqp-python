@@ -126,7 +126,7 @@ class MessageSenderAsync(sender.MessageSender):
          in receipt of the message. The callback must take three arguments, the message,
          the send result and the optional delivery condition (exception).
         :type callback:
-         Callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
+         callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
         :param timeout: An expiry time for the message added to the queue. If the
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.
