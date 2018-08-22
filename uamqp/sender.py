@@ -25,6 +25,12 @@ class MessageSender():
      from the service that the message was successfully send. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :vartype send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :ivar receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :vartype receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :ivar max_message_size: The maximum allowed message size negotiated for the Link.
     :vartype max_message_size: int
 
@@ -38,15 +44,21 @@ class MessageSender():
     :type name: str or bytes
     :param send_settle_mode: The mode by which to settle message send
      operations. If set to `Unsettled`, the client will wait for a confirmation
-     from the service that the message was successfully send. If set to 'Settled',
+     from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :type link_credit: int
-    :param properties: Data to be sent in the Link ATTACH frame.
+    :param properties: Metadata to be sent in the Link ATTACH frame.
     :type properties: dict
     :param error_policy: A policy for parsing errors on link, connection and message
      disposition to determine whether the error should be retryable.
@@ -115,10 +127,12 @@ class MessageSender():
         """Callback called when a link DETACH frame is received.
         This callback will process the received DETACH error to determine if
         the link is recoverable or whether it should be shutdown.
+
         :param error: The error information from the detach
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
+        # pylint: disable=protected-access
         if error:
             condition = error.condition
             description = error.description
@@ -127,14 +141,17 @@ class MessageSender():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
-            condition, self.name, description, info, self._error.action.retry))
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+                     "\nDetails: %r\nRetryable: %r\nConnection: %r",
+                     condition, self.name, description, info, self._error.action.retry,
+                     self._session._connection.container_id)
 
     def _state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
         of state. This function wraps the states as Enums to prepare for
         calling the public callback.
+
         :param previous_state: The previous Sender state.
         :type previous_state: int
         :param new_state: The new Sender state.
@@ -151,13 +168,16 @@ class MessageSender():
         self.on_state_changed(_previous_state, _new_state)
 
     def get_state(self):
-        """Get the state of the MessageSender and its underlying Link."""
+        """Get the state of the MessageSender and its underlying Link.
+
+        :rtype: ~uamqp.constants.MessageSenderState
+        """
         try:
             raise self._error
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         return self._state
 
@@ -187,13 +207,14 @@ class MessageSender():
     def send(self, message, callback, timeout=0):
         """Add a single message to the internal pending queue to be processed
         by the Connection without waiting for it to be sent.
+
         :param message: The message to send.
         :type message: ~uamqp.message.Message
         :param callback: The callback to be run once a disposition is received
          in receipt of the message. The callback must take three arguments, the message,
          the send result and the optional delivery condition (exception).
         :type callback:
-         Callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
+         callable[~uamqp.message.Message, ~uamqp.constants.MessageSendResult, ~uamqp.errors.MessageException]
         :param timeout: An expiry time for the message added to the queue. If the
          message is not sent within this timeout it will be discarded with an error
          state. If set to 0, the message will not expire. The default is 0.
@@ -204,7 +225,7 @@ class MessageSender():
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         c_message = message.get_message()
         message._on_message_sent = callback
@@ -217,13 +238,15 @@ class MessageSender():
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change
         of state. This function can be overridden.
+
         :param previous_state: The previous Sender state.
         :type previous_state: ~uamqp.constants.MessageSenderState
         :param new_state: The new Sender state.
         :type new_state: ~uamqp.constants.MessageSenderState
         """
-        _logger.debug("Message sender {} state changed from {} to {}".format(
-            self.name, previous_state, new_state))
+        # pylint: disable=protected-access
+        _logger.info("Message sender %r state changed from %r to %r on connection: %r",
+                     self.name, previous_state, new_state, self._session._connection.container_id)
         self._state = new_state
 
     @property

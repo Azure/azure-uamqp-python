@@ -37,8 +37,12 @@ class AMQPClient:
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
      or a receive source.
     :type remote_address: str, bytes or ~uamqp.address.Address
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -93,7 +97,7 @@ class AMQPClient:
                 password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
-        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(self._remote_address.scheme + self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._counter = c_uamqp.TickCounter()
@@ -142,13 +146,12 @@ class AMQPClient:
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    _logger.debug("Keeping %r connection alive.", self.__class__.__name__)
                     self._connection.work()
                     start_time = current_time
                 time.sleep(1)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.info("Connection keep-alive for {} failed: {}.".format(
-                self.__class__.__name__, e))
+            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
     def _client_ready(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -276,7 +279,7 @@ class AMQPClient:
         :param message: The message to send in the management request.
         :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes
         :param op_type: The type on which to carry out the operation. This will
@@ -355,8 +358,12 @@ class SendClient(AMQPClient):
     :param target: The target AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Target object.
     :type target: str, bytes or ~uamqp.address.Target
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -383,7 +390,7 @@ class SendClient(AMQPClient):
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
@@ -507,20 +514,18 @@ class SendClient(AMQPClient):
                 if exception.action.increment_retries:
                     message.retries += 1
                 self._backoff = exception.action.backoff
-                _logger.debug("Message error, retrying. Attempts: {}, Error: {}".format(
-                    message.retries, exception))
+                _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message.retries, exception)
                 message.state = constants.MessageState.WaitingToBeSent
                 return
             elif exception.action.retry == errors.ErrorAction.retry:
-                _logger.info("Message error, {} retries exhausted. Error: {}".format(
-                    message.retries, exception))
+                _logger.info("Message error, %r retries exhausted. Error: %r", message.retries, exception)
             else:
-                _logger.info("Message error, not retrying. Error: {}".format(exception))
+                _logger.info("Message error, not retrying. Error: %r", exception)
             message.state = constants.MessageState.SendFailed
             message._response = exception
 
         else:
-            _logger.debug("Message sent: {}, {}".format(result, exception))
+            _logger.debug("Message sent: %r, %r", result, exception)
             message.state = constants.MessageState.SendComplete
             message._response = errors.MessageAlreadySettled()
         if message.on_send_complete:
@@ -573,11 +578,15 @@ class SendClient(AMQPClient):
         self._waiting_messages = 0
         self._pending_messages = self._filter_pending()
         if self._backoff and not self._waiting_messages:
-            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             self._connection.sleep(self._backoff)
             self._backoff = 0
         self._connection.work()
         return True
+
+    @property
+    def pending_messages(self):
+        return [m for m in self._pending_messages if m.state in constants.PENDING_STATES]
 
     def redirect(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
@@ -603,36 +612,39 @@ class SendClient(AMQPClient):
         """Close down the client. No further messages
         can be sent and the client cannot be re-opened.
 
-        All pending, unsent messages will be cleared.
+        All pending, unsent messages will remain uncleared to allow
+        them to be inspected and queued to a new client.
         """
         if self._message_sender:
             self._message_sender.destroy()
             self._message_sender = None
         super(SendClient, self).close()
-        self._pending_messages = []
 
-    def queue_message(self, messages):
-        """Add a message to the send queue.
-        No further action will be taken until either SendClient.wait()
-        or SendClient.send_all_messages() has been called.
+    def queue_message(self, *messages):
+        """Add one or more messages to the send queue.
+        No further action will be taken until either `SendClient.wait()`
+        or `SendClient.send_all_messages()` has been called.
         The client does not need to be open yet for messages to be added
-        to the queue.
+        to the queue. Multiple messages can be queued at once:
+            - `send_client.queue_message(my_message)`
+            - `send_client.queue_message(message_1, message_2, message_3)`
+            - `send_client.queue_message(*my_message_list)`
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.message.Message, or multiple messages wrapped in an instance
-         of ~uamqp.message.BatchMessage.
+         of `Message`, or multiple messages wrapped in an instance of `BatchMessage`.
         :type message: ~uamqp.message.Message
         """
-        for message in messages.gather():
-            message.idle_time = self._counter.get_current_ms()
-            self._pending_messages.append(message)
+        for message in messages:
+            for internal_message in message.gather():
+                internal_message.idle_time = self._counter.get_current_ms()
+                internal_message.state = constants.MessageState.WaitingToBeSent
+                self._pending_messages.append(internal_message)
 
     def send_message(self, messages, close_on_done=False):
         """Send a single message or batched message.
 
         :param messages: A message to send. This can either be a single instance
-         of ~uamqp.message.Message, or multiple messages wrapped in an instance
-         of ~uamqp.message.BatchMessage.
+         of `Message`, or multiple messages wrapped in an instance of `BatchMessage`.
         :type message: ~uamqp.message.Message
         :param close_on_done: Close the client once the message is sent. Default is `False`.
         :type close_on_done: bool
@@ -718,8 +730,12 @@ class ReceiveClient(AMQPClient):
     :param target: The source AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Source object.
     :type target: str, bytes or ~uamqp.address.Source
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -753,7 +769,7 @@ class ReceiveClient(AMQPClient):
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param prefetch: The receiver Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.

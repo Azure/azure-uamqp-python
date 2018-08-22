@@ -25,6 +25,11 @@ class MessageReceiverAsync(receiver.MessageReceiver):
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :vartype receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :ivar send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :vartype send_settle_mode: ~uamqp.constants.SenderSettleMode
     :ivar max_message_size: The maximum allowed message size negotiated for the Link.
     :vartype max_message_size: int
 
@@ -42,12 +47,17 @@ class MessageReceiverAsync(receiver.MessageReceiver):
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param prefetch: The receiver Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :type prefetch: int
-    :param properties: Data to be sent in the Link ATTACH frame.
+    :param properties: Metadata to be sent in the Link ATTACH frame.
     :type properties: dict
     :param error_policy: A policy for parsing errors on link, connection and message
      disposition to determine whether the error should be retryable.

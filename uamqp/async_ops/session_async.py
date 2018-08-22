@@ -11,7 +11,7 @@ import functools
 from uamqp import session
 from uamqp import constants
 from uamqp import errors
-from uamqp._async.mgmt_operation_async import MgmtOperationAsync
+from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
 
 
 _logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class SessionAsync(session.Session):
     :vartype handle_max: int
 
     :param connection: The underlying Connection for the Session.
-    :type connection: ~uamqp._async.connection_async.ConnectionAsync
+    :type connection: ~uamqp.async_ops.connection_async.ConnectionAsync
     :param incoming_window: The size of the allowed window for incoming messages.
     :type incoming_window: int
     :param outgoing_window: The size of the allowed window for outgoing messages.
@@ -69,7 +69,7 @@ class SessionAsync(session.Session):
         :param message: The message to send in the management request.
         :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes or str
         :param op_type: The type on which to carry out the operation. This will

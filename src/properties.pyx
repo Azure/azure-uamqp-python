@@ -37,7 +37,7 @@ cdef class cProperties(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cProperties")
         self.destroy()
 
     cdef _validate(self):
@@ -46,7 +46,7 @@ cdef class cProperties(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cProperties")
             c_amqp_definitions.properties_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.PROPERTIES_HANDLE>NULL
 

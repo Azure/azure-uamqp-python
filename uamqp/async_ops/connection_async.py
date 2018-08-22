@@ -96,14 +96,14 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
 
     async def _close_async(self):
-        _logger.info("Shutting down connection.")
+        _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
         if self.cbs:
             await self.auth.close_authenticator_async()
             self.cbs = None
         await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
         self.auth.close()
-        _logger.debug("Connection shutdown complete.")
+        _logger.info("Connection shutdown complete %r.", self.container_id)
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
@@ -114,7 +114,7 @@ class ConnectionAsync(connection.Connection):
             except TypeError:
                 pass
             except Exception as e:
-                _logger.warning(str(e))
+                _logger.warning("%r", e)
                 raise
             await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         finally:
@@ -139,7 +139,7 @@ class ConnectionAsync(connection.Connection):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
-        _logger.info("Redirecting connection.")
+        _logger.info("Redirecting connection %r.", self.container_id)
         await self._async_lock.acquire()
         try:
             if self.hostname == redirect_error.hostname:
@@ -148,12 +148,7 @@ class ConnectionAsync(connection.Connection):
                 await self._close_async()
             self.hostname = redirect_error.hostname
             self.auth = auth
-            self._conn = c_uamqp.create_connection(
-                self.auth.sasl_client.get_client(),
-                self.hostname,
-                self.container_id,
-                self)
-            self._conn.set_trace(self._debug)
+            self._conn = self._create_connection(auth)
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
         finally:

@@ -71,7 +71,7 @@ cdef class SASLMechanism(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating SASLMechanism")
         self.destroy()
 
     cdef _create(self):
@@ -80,7 +80,7 @@ cdef class SASLMechanism(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying SASLMechanism")
             c_sasl_mechanism.saslmechanism_destroy(self._c_value)
             self._c_value = <c_sasl_mechanism.SASL_MECHANISM_HANDLE>NULL
 

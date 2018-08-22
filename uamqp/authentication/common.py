@@ -83,6 +83,7 @@ class AMQPAuth:
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
         self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
+        self.consumed = False
 
     def close(self):
         """Close the authentication layer and cleanup

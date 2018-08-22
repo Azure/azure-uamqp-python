@@ -68,7 +68,7 @@ class Session:
         :param message: The message to send in the management request.
         :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes
         :param op_type: The type on which to carry out the operation. This will

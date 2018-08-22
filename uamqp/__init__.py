@@ -19,11 +19,11 @@ from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
 
 try:
-    from uamqp._async import ConnectionAsync
-    from uamqp._async import SessionAsync
-    from uamqp._async import MessageSenderAsync
-    from uamqp._async import MessageReceiverAsync
-    from uamqp._async.client_async import (
+    from uamqp.async_ops import ConnectionAsync
+    from uamqp.async_ops import SessionAsync
+    from uamqp.async_ops import MessageSenderAsync
+    from uamqp.async_ops import MessageReceiverAsync
+    from uamqp.async_ops.client_async import (
         AMQPClientAsync,
         SendClientAsync,
         ReceiveClientAsync,
@@ -32,7 +32,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "0.2.1"
+__version__ = "1.0.0"
 
 
 _logger = logging.getLogger(__name__)
@@ -48,11 +48,11 @@ def send_message(target, data, auth=None, debug=False):
     :param data: The contents of the message to send.
     :type data: str, bytes or ~uamqp.message.Message
     :param auth: The authentication credentials for the endpoint.
-     This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
+     This should be one of the subclasses of uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
@@ -72,11 +72,11 @@ def receive_message(source, auth=None, timeout=0, debug=False):
     :param source: The AMQP source endpoint to receive from.
     :type source: str, bytes or ~uamqp.address.Source
     :param auth: The authentication credentials for the endpoint.
-     This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
+     This should be one of the subclasses of uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param timeout: The timeout in seconds after which to return None if no messages
@@ -101,9 +101,9 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     :param auth: The authentication credentials for the endpoint.
      This should be one of the subclasses of ~uamqp.authentication.AMQPAuth. Currently
      this includes:
-        - ~uamqp.authentication.SASLAnonymous
-        - ~uamqp.authentication.SASLPlain
-        - ~uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param max_batch_size: The maximum number of messages to return in a batch. If the

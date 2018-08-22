@@ -46,7 +46,7 @@ cdef class cMessage(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cMessage")
         self.destroy()
 
     cdef _create(self):
@@ -55,7 +55,7 @@ cdef class cMessage(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destorying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cMessage")
             c_message.message_destroy(self._c_value)
             self._c_value = <c_message.MESSAGE_HANDLE>NULL
 
@@ -334,7 +334,7 @@ cdef class Messaging:
 
     @staticmethod
     def delivery_modified(bint delivery_failed, bint undeliverable_here, cFields message_annotations):
-        _logger.debug("delivery modified: {} {}".format(delivery_failed, undeliverable_here))
+        _logger.debug("delivery modified: %r %r", delivery_failed, undeliverable_here)
         cdef c_amqpvalue.AMQP_VALUE _value
         _value = c_message.messaging_delivery_modified(delivery_failed, undeliverable_here, <c_amqp_definitions.fields>message_annotations._c_value)
         if <void*>_value == NULL:

@@ -79,7 +79,7 @@ cdef class cAnnotations(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating %r", self.__class__.__name__)
         self.destroy()
 
     cdef _validate(self):
@@ -88,7 +88,7 @@ cdef class cAnnotations(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying %r", self.__class__.__name__)
             c_amqpvalue.amqpvalue_destroy(<c_amqpvalue.AMQP_VALUE>self._c_value)
             self._c_value = <c_amqpvalue.AMQP_VALUE>NULL
 

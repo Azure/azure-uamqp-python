@@ -31,7 +31,7 @@ cdef class cSession(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cSession")
         self.destroy()
 
     def __enter__(self):
@@ -82,7 +82,7 @@ cdef class cSession(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cSession")
             c_session.session_destroy(self._c_value)
             self._c_value = <c_session.SESSION_HANDLE>NULL
 

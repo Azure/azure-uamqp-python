@@ -23,9 +23,9 @@ class MgmtOperationAsync(MgmtOperation):
     for management tasks against a $management node, however any node name can be
     specified and the available options will depend on the target service.
 
-    :param session: The AMQP session to use for the operation. Nee send and
+    :param session: The AMQP session to use for the operation. New send and
      receive links will be created in this Session.
-    :type session: ~uamqp._async.session_async.SessionAsync
+    :type session: ~uamqp.async_ops.session_async.SessionAsync
     :param target: The AMQP node to send the request to.
      The default is `b"$management"`
     :type target: bytes or str
@@ -63,7 +63,7 @@ class MgmtOperationAsync(MgmtOperation):
         """Execute a request and wait on a response asynchronously.
 
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes
         :param op_type: The type on which to carry out the operation. This will
@@ -84,8 +84,9 @@ class MgmtOperationAsync(MgmtOperation):
         def on_complete(operation_result, status_code, description, wrapped_message):
             result = constants.MgmtExecuteResult(operation_result)
             if result != constants.MgmtExecuteResult.Ok:
-                _logger.error("Failed to complete mgmt operation.\nStatus code: {}\nMessage: {}".format(
-                    status_code, description))
+                _logger.error(
+                    "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
+                    status_code, description)
             self._responses[operation_id] = Message(message=wrapped_message)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)

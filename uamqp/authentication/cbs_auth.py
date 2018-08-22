@@ -80,24 +80,27 @@ class CBSAuthMixin:
                 self.token,
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
-                self.timeout)
+                self.timeout,
+                self._connection.container_id)
             self._cbs_auth.set_trace(debug)
         except ValueError:
             self._session.destroy()
             raise errors.AMQPConnectionError(
-                "Unable to open authentication session.\n"
-                "Please confirm target hostname exists: {}".format(connection.hostname))
+                "Unable to open authentication session on connection {}.\n"
+                "Please confirm target hostname exists: {}".format(connection.container_id, connection.hostname))
         return self._cbs_auth
 
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
-        _logger.info("Shutting down CBS session.")
+        _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         self._lock.acquire()
         try:
             self._cbs_auth.destroy()
+            _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             self._session.destroy()
         finally:
             self._lock.release()
+            _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     def handle_token(self):
         """This function is called periodically to check the status of the current
@@ -130,7 +133,7 @@ class CBSAuthMixin:
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
                 else:
                     error_code, error_description = self._cbs_auth.get_failure_info()
-                    _logger.info("Authentication status: {}, description: {}".format(error_code, error_description))
+                    _logger.info("Authentication status: %r, description: %r", error_code, error_description)
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     time.sleep(self._retry_policy.backoff)
@@ -145,7 +148,8 @@ class CBSAuthMixin:
             elif auth_status == constants.CBSAuthStatus.InProgress:
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.RefreshRequired:
-                _logger.info("Token will expire soon - attempting to refresh.")
+                _logger.info("Token on connection %r will expire soon - attempting to refresh.",
+                             self._connection.container_id)
                 self.update_token()
                 self._cbs_auth.refresh(self.token, int(self.expires_at))
             elif auth_status == constants.CBSAuthStatus.Idle:
@@ -284,10 +288,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         as is used to connect to Azure services.
 
         :param uri: The AMQP endpoint URI. This must be provided as
-        a decoded string.
+         a decoded string.
         :type uri: str
         :param key_name: The SAS token username, also referred to as the key
-        name or policy name.
+         name or policy name.
         :type key_name: str
         :param shared_access_key: The SAS token password, also referred to as the key.
         :type shared_access_key: str
@@ -299,7 +303,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
          The default value is 10 seconds.
         :type timeout: int
         :param retry_policy: The retry policy for the PUT token request. The default
-        retry policy has 3 retries.
+         retry policy has 3 retries.
         :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
         :param verify: The path to a user-defined certificate.
         :type verify: str
@@ -308,7 +312,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
          keys are 'username' and 'password'.
         :type http_proxy: dict
         :param encoding: The encoding to use if hostname is provided as a str.
-        Default is 'UTF-8'.
+         Default is 'UTF-8'.
         :type encoding: str
         """
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)

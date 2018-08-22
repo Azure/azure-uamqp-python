@@ -30,7 +30,7 @@ cdef class cTarget(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cTarget")
         self.destroy()
 
     cdef _validate(self):
@@ -39,7 +39,7 @@ cdef class cTarget(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cTarget")
             c_amqp_definitions.target_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.TARGET_HANDLE>NULL
 

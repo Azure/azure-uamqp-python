@@ -34,7 +34,8 @@ cdef get_amqp_value_type(c_amqpvalue.AMQP_VALUE value):
     try:
         return AMQPType(type_val)
     except ValueError:
-        return AMQPType.UnknownType
+        _logger.info("Received unrecognized type value: %r", type_val)
+        return AMQPType.ErrorType
 
 
 cpdef enocde_batch_value(AMQPValue value, message_body):
@@ -69,11 +70,12 @@ class AMQPType(Enum):
     DescribedType = c_amqpvalue.AMQP_TYPE_TAG.AMQP_TYPE_DESCRIBED
     CompositeType = c_amqpvalue.AMQP_TYPE_TAG.AMQP_TYPE_COMPOSITE
     UnknownType = c_amqpvalue.AMQP_TYPE_TAG.AMQP_TYPE_UNKNOWN
+    ErrorType = 999
 
 
 cdef value_factory(c_amqpvalue.AMQP_VALUE value):
     type_val = get_amqp_value_type(value)
-    _logger.debug("Wrapping value type: {}".format(type_val))
+    _logger.debug("Wrapping value type: %r", type_val)
     if type_val == AMQPType.NullValue:
         new_obj = AMQPValue()
     elif type_val == AMQPType.BoolValue:
@@ -273,7 +275,7 @@ cdef class AMQPValue(StructBase):
 
     def __dealloc__(self):
         if _logger:
-            _logger.debug("Deallocating {}".format(self.__class__.__name__))
+            _logger.debug("Deallocating %r", self.__class__.__name__)
         self.destroy()
 
     def __eq__(self, AMQPValue other):
@@ -309,7 +311,7 @@ cdef class AMQPValue(StructBase):
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
             if _logger:
-                _logger.debug("Destroying {}".format(self.__class__.__name__))
+                _logger.debug("Destroying %r", self.__class__.__name__)
             c_amqpvalue.amqpvalue_destroy(self._c_value)
             self._c_value = <c_amqpvalue.AMQP_VALUE>NULL
 

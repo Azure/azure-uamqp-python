@@ -34,7 +34,7 @@ cdef class cMessageReceiver(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cMessageReceiver")
         self.destroy()
 
     cdef _validate(self):
@@ -58,7 +58,7 @@ cdef class cMessageReceiver(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cMessageReceiver")
             c_message_receiver.messagereceiver_destroy(self._c_value)
             self._c_value = <c_message_receiver.MESSAGE_RECEIVER_HANDLE>NULL
 
@@ -113,9 +113,12 @@ cdef class cMessageReceiver(StructBase):
 #### Callbacks
 
 cdef void on_message_receiver_state_changed(void* context, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG new_state, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG previous_state):
-    context_obj = <object>context
-    if hasattr(context_obj, '_state_changed'):
-        context_obj._state_changed(previous_state, new_state)
+    if context != NULL:
+        context_obj = <object>context
+        try:
+            context_obj._state_changed(previous_state, new_state)
+        except AttributeError:
+            _logger.info("Unknown MessageReceiver state changed: %r to %r", previous_state, new_state)
 
 
 cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE_HANDLE message):

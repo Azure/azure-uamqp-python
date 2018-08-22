@@ -28,6 +28,11 @@ class MessageReceiver():
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :vartype receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :ivar send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :vartype send_settle_mode: ~uamqp.constants.SenderSettleMode
     :ivar max_message_size: The maximum allowed message size negotiated for the Link.
     :vartype max_message_size: int
 
@@ -45,12 +50,17 @@ class MessageReceiver():
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param prefetch: The receiver Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
     :type prefetch: int
-    :param properties: Data to be sent in the Link ATTACH frame.
+    :param properties: Metadata to be sent in the Link ATTACH frame.
     :type properties: dict
     :param error_policy: A policy for parsing errors on link, connection and message
      disposition to determine whether the error should be retryable.
@@ -121,6 +131,7 @@ class MessageReceiver():
         """Callback called whenever the underlying Receiver undergoes a change
         of state. This function wraps the states as Enums to prepare for
         calling the public callback.
+
         :param previous_state: The previous Receiver state.
         :type previous_state: int
         :param new_state: The new Receiver state.
@@ -140,10 +151,12 @@ class MessageReceiver():
         """Callback called when a link DETACH frame is received.
         This callback will process the received DETACH error to determine if
         the link is recoverable or whether it should be shutdown.
+
         :param error: The error information from the detach
          frame.
         :type error: ~uamqp.errors.ErrorResponse
         """
+        # pylint: disable=protected-access
         if error:
             condition = error.condition
             description = error.description
@@ -152,12 +165,15 @@ class MessageReceiver():
             condition = b"amqp:unknown-error"
             description = None
             info = None
-        self._error = errors._process_link_error(self.error_policy, condition, description, info)  # pylint: disable=protected-access
-        _logger.info("Received Link detach event: {}\nLink: {}\nDescription: {}\nDetails: {}\nRetryable: {}".format(
-            condition, self.name, description, info, self._error.action.retry))
+        self._error = errors._process_link_error(self.error_policy, condition, description, info)
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+                     "\nDetails: %r\nRetryable: %r\nConnection: %r",
+                     condition, self.name, description, info, self._error.action.retry,
+                     self._session._connection.container_id)
 
     def _settle_message(self, message_number, response):
         """Send a settle dispostition for a received message.
+
         :param message_number: The delivery number of the message
          to settle.
         :type message_number: int
@@ -190,36 +206,44 @@ class MessageReceiver():
         a user-defined callback, this will be called.
         Additionally if the client is retrieving messages for a batch
         or iterator, the message will be added to an internal queue.
+
         :param message: c_uamqp.Message
         """
+        # pylint: disable=protected-access
         message_number = self._receiver.last_received_message_number()
         if self._settle_mode == constants.ReceiverSettleMode.ReceiveAndDelete:
             settler = None
         else:
             settler = functools.partial(self._settle_message, message_number)
-
-        wrapped_message = uamqp.Message(
-            message=message,
-            encoding=self.encoding,
-            settler=settler)
         try:
+            wrapped_message = uamqp.Message(
+                message=message,
+                encoding=self.encoding,
+                settler=settler,
+                delivery_no=message_number)
             self.on_message_received(wrapped_message)
         except RuntimeError:
             condition = b"amqp:unknown-error"
-            self._error = errors._process_link_error(self.error_policy, condition, None, None)  # pylint: disable=protected-access
-            _logger.info("Unable to settle message. Disconnecting.")
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)
+            _logger.info("Unable to settle message no %r. Disconnecting.\nLink: %r\nConnection: %r",
+                         message_number,
+                         self.name,
+                         self._session._connection.container_id)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.error("Error processing message: {}\nRejecting message.".format(e))
+            _logger.error("Error processing message no %r: %r\nRejecting message.", message_number, e)
             self._receiver.settle_modified_message(message_number, True, True, None)
 
     def get_state(self):
-        """Get the state of the MessageReceiver and its underlying Link."""
+        """Get the state of the MessageReceiver and its underlying Link.
+
+        :rtype: ~uamqp.constants.MessageReceiverState
+        """
         try:
             raise self._error
         except TypeError:
             pass
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.warning("%r", e)
             raise
         return self._state
 
@@ -249,13 +273,15 @@ class MessageReceiver():
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Receiver undergoes a change
         of state. This function can be overridden.
+
         :param previous_state: The previous Receiver state.
         :type previous_state: ~uamqp.constants.MessageReceiverState
         :param new_state: The new Receiver state.
         :type new_state: ~uamqp.constants.MessageReceiverState
         """
-        _logger.debug("Message receiver {} state changed from {} to {}".format(
-            self.name, previous_state, new_state))
+        # pylint: disable=protected-access
+        _logger.info("Message receiver %r state changed from %r to %r on connection: %r",
+                     self.name, previous_state, new_state, self._session._connection.container_id)
         self._state = new_state
 
     @property

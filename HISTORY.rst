@@ -3,6 +3,26 @@
 Release History
 ===============
 
+1.0.0 (2018-08-20)
+++++++++++++++++++
+
+- API settled.
+- **Behaviour change** When a SendClient or SendClientAsync is shutdown, any remaining pending messages (that is messages
+  in the states `WaitingToBeSent` and `WaitingForSendAck`) will no longer be cleared, but can be retrieved from a new
+  attribute `SendClient.pending_messages` in order to be re-processed as needed.
+- **Behaviour change** The function `SendClient.queue_message` now allows for queueing multiple messages at once by simply
+  passing in additional message instances:
+
+    - `send_client.queue_message(my_message)`
+    - `send_client.queue_message(message_1, message_2, message_3)`
+    - `send_client.queue_message(*my_message_list)`
+
+- An authentication object will now raise a `ValueError` if one attempts to use it for more than one connection.
+- Renamed internal `_async` module to non-private `async_ops` to allow for docs generation.
+- Reformatted logging for better performance.
+- Added additional logging.
+
+
 0.2.1 (2018-08-06)
 ++++++++++++++++++
 

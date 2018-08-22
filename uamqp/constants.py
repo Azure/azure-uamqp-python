@@ -37,6 +37,7 @@ class MessageState(Enum):
 
 DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
+PENDING_STATES = (MessageState.WaitingForSendAck, MessageState.WaitingToBeSent)
 
 
 # Error Codes

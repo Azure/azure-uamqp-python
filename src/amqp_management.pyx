@@ -29,7 +29,7 @@ cdef class cManagementOperation(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cManagementOperation")
         self.destroy()
 
     cdef _validate(self):
@@ -38,7 +38,7 @@ cdef class cManagementOperation(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cManagementOperation")
             c_amqp_management.amqp_management_destroy(self._c_value)
             self._c_value = <c_amqp_management.AMQP_MANAGEMENT_HANDLE>NULL
 
@@ -92,7 +92,7 @@ cdef class cManagementOperation(StructBase):
 #### Management Link Callbacks
 
 cdef void on_amqp_management_open_complete(void* context, c_amqp_management.AMQP_MANAGEMENT_OPEN_RESULT_TAG open_result):
-    _logger.debug("Management link open: {}".format(open_result))
+    _logger.debug("Management link open: %r", open_result)
     if context != NULL:
         context_obj = <object>context
         context_obj._management_open_complete(open_result)
@@ -106,7 +106,7 @@ cdef void on_amqp_management_error(void* context):
 cdef void on_execute_operation_complete(void* context, c_amqp_management.AMQP_MANAGEMENT_EXECUTE_OPERATION_RESULT_TAG execute_operation_result, unsigned int status_code, const char* status_description, c_message.MESSAGE_HANDLE message):
     cdef c_message.MESSAGE_HANDLE cloned
     description = "None" if <void*>status_description == NULL else status_description
-    _logger.debug("Management op complete: {}, status code: {}, description: {}".format(execute_operation_result, status_code, description))
+    _logger.debug("Management op complete: %r, status code: %r, description: %r", execute_operation_result, status_code, description)
     if context != NULL:
         context_obj = <object>context
         if status_code == 0:

@@ -34,7 +34,7 @@ cdef class cMessageSender(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cMessageSender")
         self.destroy()
 
     def __enter__(self):
@@ -58,7 +58,7 @@ cdef class cMessageSender(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cMessageSender")
             c_message_sender.messagesender_destroy(self._c_value)
             self._c_value = <c_message_sender.MESSAGE_SENDER_HANDLE>NULL
 
@@ -101,10 +101,10 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
 cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):
     if context != NULL:
         context_obj = <object>context
-        if hasattr(context_obj, '_state_changed'):
+        try:
             context_obj._state_changed(previous_state, new_state)
-        elif callable(context_obj):
-            context_obj(previous_state, new_state)
+        except AttributeError:
+            _logger.info("Unknown MessageSender state changed: %r to %r", previous_state, new_state)
 
 
 cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):

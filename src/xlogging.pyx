@@ -63,7 +63,6 @@ def _python_log(category, text, end, text_bldr=[], file=None, func=None, line=No
     while text_bldr:
         log_line += text_bldr.pop(0)
     if category == LogCategory.Debug or category == LogCategory.Info:
-        _logger.info(log_line)
+        _logger.info("%r", log_line)
     else:
-        _logger.info("{} ({}:{}:{})".format(
-            log_line, file, func, line))
+        _logger.info("%r (%r:%r:%r)", log_line, file, func, line)

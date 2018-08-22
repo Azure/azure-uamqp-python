@@ -19,10 +19,10 @@ from uamqp import errors
 from uamqp import address
 from uamqp import authentication
 
-from uamqp._async.connection_async import ConnectionAsync
-from uamqp._async.session_async import SessionAsync
-from uamqp._async.sender_async import MessageSenderAsync
-from uamqp._async.receiver_async import MessageReceiverAsync
+from uamqp.async_ops.connection_async import ConnectionAsync
+from uamqp.async_ops.session_async import SessionAsync
+from uamqp.async_ops.sender_async import MessageSenderAsync
+from uamqp.async_ops.receiver_async import MessageReceiverAsync
 
 
 _logger = logging.getLogger(__name__)
@@ -34,8 +34,12 @@ class AMQPClientAsync(client.AMQPClient):
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
      or a receive source.
     :type remote_address: str, bytes or ~uamqp.address.Address
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -117,13 +121,14 @@ class AMQPClientAsync(client.AMQPClient):
                 current_time = self._counter.get_current_ms()
                 elapsed_time = (current_time - start_time)/1000
                 if elapsed_time >= self._keep_alive_interval:
-                    _logger.debug("Keeping {} connection alive.".format(self.__class__.__name__))
+                    _logger.info("Keeping %r connection alive. %r",
+                                 self.__class__.__name__,
+                                 self._connection.container_id)
                     await self._connection.work_async()
                     start_time = current_time
                 await asyncio.sleep(1)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.info("Connection keep-alive for {} failed: {}.".format(
-                self.__class__.__name__, e))
+            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
     async def _client_ready_async(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
@@ -149,7 +154,7 @@ class AMQPClientAsync(client.AMQPClient):
         """
         # pylint: disable=protected-access
         if not self._connection.cbs:
-            _logger.debug("Closing non-CBS session.")
+            _logger.info("Closing non-CBS session.")
             await self._session.destroy_async()
         self._session = None
         self._auth = auth
@@ -180,13 +185,13 @@ class AMQPClientAsync(client.AMQPClient):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp._async.connection_async.ConnectionAsync
+        :type connetion: ~uamqp.async_ops.connection_async.ConnectionAsync
         """
         # pylint: disable=protected-access
         if self._session:
             return  # already open
         if connection:
-            _logger.debug("Using existing connection.")
+            _logger.info("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
         self._connection = connection or self.connection_type(
@@ -233,16 +238,16 @@ class AMQPClientAsync(client.AMQPClient):
             return  # already closed.
         else:
             if not self._connection.cbs:
-                _logger.debug("Closing non-CBS session.")
+                _logger.info("Closing non-CBS session.")
                 await self._session.destroy_async()
             else:
-                _logger.debug("CBS session pending.")
+                _logger.info("CBS session pending %r.", self._connection.container_id)
             self._session = None
             if not self._ext_connection:
-                _logger.debug("Closing exclusive connection.")
+                _logger.info("Closing exclusive connection %r.", self._connection.container_id)
                 await self._connection.destroy_async()
             else:
-                _logger.debug("Shared connection remaining open.")
+                _logger.info("Shared connection remaining open.")
             self._connection = None
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
@@ -253,7 +258,7 @@ class AMQPClientAsync(client.AMQPClient):
         :param message: The message to send in the management request.
         :type message: ~uamqp.message.Message
         :param operation: The type of operation to be performed. This value will
-         be service-specific, but common values incluse READ, CREATE and UPDATE.
+         be service-specific, but common values include READ, CREATE and UPDATE.
          This value will be added as an application property on the message.
         :type operation: bytes or str
         :param op_type: The type on which to carry out the operation. This will
@@ -281,6 +286,7 @@ class AMQPClientAsync(client.AMQPClient):
             if self._connection.cbs:
                 timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout:
+                _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
                 raise TimeoutError("Authorization timeout.")
             elif auth_in_progress:
                 await self._connection.work_async()
@@ -314,6 +320,7 @@ class AMQPClientAsync(client.AMQPClient):
         if self._shutdown:
             return False
         if timeout:
+            _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
             raise TimeoutError("Authorization timeout.")
         elif auth_in_progress:
             await self._connection.work_async()
@@ -331,8 +338,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :param target: The target AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Target object.
     :type target: str, bytes or ~uamqp.address.Target
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -361,7 +372,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param link_credit: The sender Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
@@ -489,7 +500,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         self._waiting_messages = 0
         self._pending_messages = await self._filter_pending_async()
         if self._backoff and not self._waiting_messages:
-            _logger.info("Client told to backoff - sleeping for {} seconds".format(self._backoff))
+            _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             await self._connection.sleep_async(self._backoff)
             self._backoff = 0
         await self._connection.work_async()
@@ -520,13 +531,13 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """Close down the client asynchronously. No further
         messages can be sent and the client cannot be re-opened.
 
-        All pending, unsent messages will be cleared.
+        All pending, unsent messages will remain uncleared to allow
+        them to be inspected and queued to a new client.
         """
         if self._message_sender:
             await self._message_sender.destroy_async()
             self._message_sender = None
         await super(SendClientAsync, self).close_async()
-        self._pending_messages = []
 
     async def wait_async(self):
         """Run the client asynchronously until all pending messages
@@ -604,8 +615,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :param target: The source AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Source object.
     :type target: str, bytes or ~uamqp.address.Source
-    :param auth: Authentication for the connection. If none is provided SASL Annoymous
-     authentication will be used.
+    :param auth: Authentication for the connection. This should be one of the subclasses of
+     uamqp.authentication.AMQPAuth. Currently this includes:
+        - uamqp.authentication.SASLAnonymous
+        - uamqp.authentication.SASLPlain
+        - uamqp.authentication.SASTokenAsync
+     If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
@@ -641,7 +656,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
-    :param link_properties: Data to be sent in the Link ATTACH frame.
+    :param link_properties: Metadata to be sent in the Link ATTACH frame.
     :type link_properties: dict
     :param prefetch: The receiver Link credit that determines how many
      messages the Link will attempt to handle per connection iteration.
@@ -748,7 +763,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.info("Timeout reached, closing receiver: {}".format(self._remote_address))
+                    _logger.info("Timeout reached, closing receiver: %r", self._remote_address)
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now
@@ -899,7 +914,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
     """Python 3.5 and 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
-    :type recv_client: ~uamqp._async.client_async.ReceiveClientAsync
+    :type recv_client: ~uamqp.async_ops.client_async.ReceiveClientAsync
     """
 
     def __init__(self, rcv_client, auto_complete=True):

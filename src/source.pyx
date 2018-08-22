@@ -30,7 +30,7 @@ cdef class cSource(StructBase):
         self._validate()
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating cSource")
         self.destroy()
 
     cdef _validate(self):
@@ -39,7 +39,7 @@ cdef class cSource(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying cSource")
             c_amqp_definitions.source_destroy(self._c_value)
             self._c_value = <c_amqp_definitions.SOURCE_HANDLE>NULL
 

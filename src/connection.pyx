@@ -51,7 +51,7 @@ cdef class Connection(StructBase):
         pass
 
     def __dealloc__(self):
-        _logger.debug("Deallocating {}".format(self.__class__.__name__))
+        _logger.debug("Deallocating Connection")
         self.destroy()
 
     def __enter__(self):
@@ -66,7 +66,7 @@ cdef class Connection(StructBase):
 
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying {}".format(self.__class__.__name__))
+            _logger.debug("Destroying Connection")
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
 
@@ -181,10 +181,10 @@ cdef class Connection(StructBase):
 cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STATE_TAG new_connection_state, c_connection.CONNECTION_STATE_TAG previous_connection_state):
     if <void*>context != NULL:
         context_obj = <object>context
-        if hasattr(context_obj, '_state_changed'):
+        try:
             context_obj._state_changed(previous_connection_state, new_connection_state)
-        elif callable(context_obj):
-            context_obj(previous_connection_state, new_connection_state)
+        except AttributeError:
+            _logger.info("Unknown connection state changed: %r to %r", previous_connection_state, new_connection_state)
 
 
 cdef void on_io_error(void* context):
