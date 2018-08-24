@@ -5,6 +5,10 @@
 #--------------------------------------------------------------------------
 
 import os
+try:
+    from urllib import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 import uamqp
 from uamqp import authentication
@@ -16,8 +20,8 @@ access_key = os.environ.get("AMQP_SERVICE_ACCESS_KEY")
 
 
 def uamqp_receive_simple():
-
-    plain_auth = authentication.SASLPlain(hostname, key_name, access_key)
+    parsed_uri = urlparse(uri)
+    plain_auth = authentication.SASLPlain(parsed_uri.hostname, key_name, access_key)
 
     message = uamqp.receive_message(uri, auth=plain_auth)
     print("Received: {}".format(message))
