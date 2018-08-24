@@ -79,7 +79,7 @@ def receive_message(source, auth=None, timeout=0, debug=False):
         - uamqp.authentication.SASTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
-    :param timeout: The timeout in seconds after which to return None if no messages
+    :param timeout: The timeout in milliseconds after which to return None if no messages
      are retrieved. If set to `0` (the default), the receiver will not timeout and
      will continue to wait for messages until interrupted.
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
@@ -110,7 +110,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
      receiver receives a smaller number than this, it will not wait to return them so
      the actual number returned can be anything up to this value. If the receiver reaches
      a timeout, an empty list will be returned.
-    :param timeout: The timeout in seconds after which to return if no messages
+    :param timeout: The timeout in milliseconds after which to return if no messages
      are retrieved. If set to `0` (the default), the receiver will not timeout and
      will continue to wait for messages until interrupted.
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
