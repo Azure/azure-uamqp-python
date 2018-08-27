@@ -29,13 +29,27 @@ def live_iothub_config():
     try:
         config = {}
         config['hostname'] = os.environ['IOTHUB_HOSTNAME']
+        config['hub_name'] = os.environ['IOTHUB_HUB_NAME']
         config['device'] = os.environ['IOTHUB_DEVICE']
+        config['endpoint'] = os.environ['IOTHUB_ENDPOINT']
         config['key_name'] = os.environ['IOTHUB_SAS_POLICY']
         config['access_key'] = os.environ['IOTHUB_SAS_KEY']
         config['consumer_group'] = "$Default"
         config['partition'] = "0"
     except KeyError:
         pytest.skip("Live IoTHub configuration not found.")
+    else:
+        return config
+
+
+@pytest.fixture()
+def rabbit_mq_config():
+    try:
+        config = {}
+        config['hostname'] = os.environ['RABBITMQ_HOSTNAME']
+        config['path'] = os.environ['RABBITMQ_PATH']
+    except KeyError:
+        pytest.skip("Live RabbitMQ configuration not found.")
     else:
         return config
 
