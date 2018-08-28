@@ -249,8 +249,11 @@ class MessageReceiver():
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
+        _logger.debug("Destroying receiver")
         self._receiver.destroy()
+        _logger.debug("Destroying Link")
         self._link.destroy()
+        _logger.debug("Finished destroy")
 
     def open(self):
         """Open the MessageReceiver in order to start processing messages.

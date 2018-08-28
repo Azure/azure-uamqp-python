@@ -184,15 +184,26 @@ class Connection:
                 description = b"Connection in an unexpected error state."
                 self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
+    def lock(self, timeout=10.0):
+        locked = self._lock.acquire(timeout=timeout)
+        if not locked:
+            raise TimeoutError("Failed to acquire connection lock.")
+
+    def release(self):
+        try:
+            self._async_lock.release()
+        except RuntimeError:
+            pass
+
     def destroy(self):
         """Close the connection, and close any associated
         CBS authentication session.
         """
-        self._lock.acquire()
         try:
+            self.lock(timeout=-1)
             self._close()
         finally:
-            self._lock.release()
+            self.release()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access
 
     def redirect(self, redirect_error, auth):
@@ -202,9 +213,9 @@ class Connection:
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
-        self._lock.acquire()
-        _logger.info("Redirecting connection %r.", self.container_id)
         try:
+            self.lock(timeout=-1)
+            _logger.info("Redirecting connection %r.", self.container_id)
             if self.hostname == redirect_error.hostname:
                 return
             if self._state != c_uamqp.ConnectionState.END:
@@ -217,22 +228,24 @@ class Connection:
                 setattr(self, setting, value)
         finally:
             _logger.info("Finished redirecting connection %r.", self.container_id)
-            self._lock.release()
+            self.release()
 
     def work(self):
         """Perform a single Connection iteration."""
-        self._lock.acquire()
         try:
-            try:
-                raise self._error
-            except TypeError:
-                pass
-            except Exception as e:
-                _logger.warning("%r", e)
-                raise
+            raise self._error
+        except TypeError:
+            pass
+        except Exception as e:
+            _logger.warning("%r", e)
+            raise
+        try:
+            self.lock()
             self._conn.do_work()
+        except TimeoutError:
+            _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            self._lock.release()
+            self.release()
 
     def sleep(self, seconds):
         """Lock the connection for a given number of seconds.
@@ -240,12 +253,13 @@ class Connection:
         :param seconds: Length of time to lock the connection.
         :type seconds: int
         """
-        self._lock.acquire()
         try:
+            self.lock()
             time.sleep(seconds)
+        except TimeoutError:
+            _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            self._lock.release()
-
+            self.release()
 
     @property
     def max_frame_size(self):

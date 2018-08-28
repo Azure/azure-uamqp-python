@@ -306,6 +306,8 @@ class AMQPClient:
         while True:
             if self._connection.cbs:
                 timeout, auth_in_progress = self._auth.handle_token()
+                if timeout is None and auth_in_progress is None:
+                    continue
             if timeout:
                 raise TimeoutError("Authorization timeout.")
             elif auth_in_progress:
@@ -337,6 +339,9 @@ class AMQPClient:
         auth_in_progress = False
         if self._connection.cbs:
             timeout, auth_in_progress = self._auth.handle_token()
+            if timeout is None and auth_in_progress is None:
+                _logger.debug("No work done.")
+                return True
         if self._shutdown:
             return False
         if timeout:

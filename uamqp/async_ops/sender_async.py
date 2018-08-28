@@ -155,10 +155,10 @@ class MessageSenderAsync(sender.MessageSender):
         c_message = message.get_message()
         message._on_message_sent = callback
         try:
-            await self._session._connection._async_lock.acquire()
+            await self._session._connection.lock(timeout=None)
             return self._sender.send(c_message, timeout, message)
         finally:
-            self._session._connection._async_lock.release()
+            self._session._connection.release()
 
     async def close_async(self):
         """Close the sender asynchronously, leaving the link intact."""

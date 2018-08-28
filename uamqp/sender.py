@@ -230,10 +230,10 @@ class MessageSender():
         c_message = message.get_message()
         message._on_message_sent = callback
         try:
-            self._session._connection._lock.acquire()
+            self._session._connection.lock(timeout=-1)
             return self._sender.send(c_message, timeout, message)
         finally:
-            self._session._connection._lock.release()
+            self._session._connection.release()
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change

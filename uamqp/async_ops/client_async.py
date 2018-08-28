@@ -285,6 +285,8 @@ class AMQPClientAsync(client.AMQPClient):
         while True:
             if self._connection.cbs:
                 timeout, auth_in_progress = await self._auth.handle_token_async()
+                if timeout is None and auth_in_progress is None:
+                    continue
             if timeout:
                 _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
                 raise TimeoutError("Authorization timeout.")
@@ -316,6 +318,9 @@ class AMQPClientAsync(client.AMQPClient):
         auth_in_progress = False
         if self._connection.cbs:
             timeout, auth_in_progress = await self._auth.handle_token_async()
+            if timeout is None and auth_in_progress is None:
+                _logger.warning("No work done.")
+                return True
 
         if self._shutdown:
             return False
@@ -763,7 +768,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._last_activity_timestamp and not self._was_message_received:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.info("Timeout reached, closing receiver: %r", self._remote_address)
+                    _logger.info("Timeout reached, closing receiver.")
                     self._shutdown = True
             else:
                 self._last_activity_timestamp = now
@@ -890,7 +895,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 "Clients with a shared connection cannot be "
                 "automatically redirected.")
         if self._message_receiver:
-            await self._message_receiver.destroy_async()
+            #await self._message_receiver.destroy_async()
+            self._message_receiver.destroy()
             self._message_receiver = None
         self._shutdown = False
         self._last_activity_timestamp = None
@@ -902,7 +908,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     async def close_async(self):
         """Asynchonously close the receive client."""
         if self._message_receiver:
-            await self._message_receiver.destroy_async()
+            #await self._message_receiver.destroy_async()
+            self._message_receiver.destroy()
             self._message_receiver = None
         await super(ReceiveClientAsync, self).close_async()
         self._shutdown = False
@@ -938,7 +945,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
                 self.current_message = message
                 return message
             else:
-                raise StopAsyncIteration("Message receive closing.")
+                raise StopAsyncIteration("Message receiver closing.")
         except:
             self.receiving = False
             raise
