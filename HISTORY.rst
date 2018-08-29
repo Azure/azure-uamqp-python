@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.0.1 (unreleased)
+1.0.1 (2018-08-29)
 ++++++++++++++++++
 
 - Added some more checks in place to prevent lock hanging on a keybaord interrupt.
