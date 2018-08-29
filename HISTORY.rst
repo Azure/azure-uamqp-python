@@ -4,9 +4,10 @@ Release History
 ===============
 
 1.0.1 (unreleased)
-+++++++++++++++++++
+++++++++++++++++++
 
 - Added some more checks in place to prevent lock hanging on a keybaord interrupt.
+- Fixed bug in setting MessageProperties.subject as string or bytes.
 
 
 1.0.0 (2018-08-20)

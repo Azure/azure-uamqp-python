@@ -45,7 +45,7 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
-        props = uamqp.message.MessageProperties(message_id=b"message id")
+        props = uamqp.message.MessageProperties(message_id=b"message id", subject="test_subject")
         msg_content = b"hello world"
         message = uamqp.Message(
             msg_content,

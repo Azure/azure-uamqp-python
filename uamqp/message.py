@@ -613,16 +613,15 @@ class MessageProperties:
 
     @property
     def subject(self):
-        if self._subject is not None:
-            return self._subject.value
-        return None
+        return self._subject
 
     @subject.setter
     def subject(self, value):
-        if value is None:
-            self._subject = None
-        else:
-            self._subject = utils.data_factory(value, encoding=self._encoding)
+        if isinstance(value, str):
+            value = value.encode(self._encoding)
+        elif value is not None and not isinstance(value, bytes):
+            raise TypeError("subject must be bytes or str.")
+        self._subject = value
 
     @property
     def reply_to(self):
