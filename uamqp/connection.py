@@ -191,7 +191,7 @@ class Connection:
 
     def release(self):
         try:
-            self._async_lock.release()
+            self._lock.release()
         except RuntimeError:
             pass
         except KeyboardInterrupt:

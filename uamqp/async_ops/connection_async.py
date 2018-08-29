@@ -106,16 +106,16 @@ class ConnectionAsync(connection.Connection):
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
-    async def lock(self, timeout=10.0):
+    async def lock_async(self, timeout=10.0):
         await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
 
-    def release(self):
+    def release_async(self):
         try:
             self._async_lock.release()
         except RuntimeError:
             pass
         except KeyboardInterrupt:
-            self.release()
+            self.release_async()
             raise
 
     async def work_async(self):
@@ -128,12 +128,12 @@ class ConnectionAsync(connection.Connection):
             _logger.warning("%r", e)
             raise
         try:
-            await self.lock()
+            await self.lock_async()
             await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            self.release()
+            self.release_async()
 
     async def sleep_async(self, seconds):
         """Lock the connection for a given number of seconds.
@@ -142,12 +142,12 @@ class ConnectionAsync(connection.Connection):
         :type seconds: int
         """
         try:
-            await self.lock()
+            await self.lock_async()
             await asyncio.sleep(seconds)
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            self.release()
+            self.release_async()
 
     async def redirect_async(self, redirect_error, auth):
         """Redirect the connection to an alternative endpoint.
@@ -158,7 +158,7 @@ class ConnectionAsync(connection.Connection):
         """
         _logger.info("Redirecting connection %r.", self.container_id)
         try:
-            await self.lock()
+            await self.lock_async()
             if self.hostname == redirect_error.hostname:
                 return
             if self._state != c_uamqp.ConnectionState.END:
@@ -171,16 +171,16 @@ class ConnectionAsync(connection.Connection):
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            self.release()
+            self.release_async()
 
     async def destroy_async(self):
         """Close the connection asynchronously, and close any associated
         CBS authentication session.
         """
         try:
-            await self.lock(timeout=None)
+            await self.lock_async(timeout=None)
             _logger.debug("Unlocked connection %r to close.", self.container_id)
             await self._close_async()
         finally:
-            self.release()
+            self.release_async()
         uamqp._Platform.deinitialize()  # pylint: disable=protected-access

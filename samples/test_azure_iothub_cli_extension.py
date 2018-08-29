@@ -7,13 +7,31 @@
 import asyncio
 import json
 import sys
+import os
+import logging
+import pytest
 from base64 import b64encode, b64decode
 from hashlib import sha256
 from hmac import HMAC
 from time import time
+from datetime import datetime
 from uuid import uuid4
 
 import uamqp
+
+
+def get_logger(level):
+    uamqp_logger = logging.getLogger("uamqp")
+    if not uamqp_logger.handlers:
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        uamqp_logger.addHandler(handler)
+    uamqp_logger.setLevel(level)
+    return uamqp_logger
+
+
+DEBUG = False
+logger = get_logger(logging.DEBUG)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):
@@ -70,8 +88,10 @@ def _parse_entity(entity, filter_none=False):
 def executor(target, consumer_group, enqueued_time, device_id=None, properties=None, timeout=0):
     coroutines = []
     coroutines.append(initiate_event_monitor(target, consumer_group, enqueued_time, device_id, properties, timeout))
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+
     future = asyncio.gather(*coroutines, loop=loop, return_exceptions=True)
     result = None
 
@@ -80,18 +100,26 @@ def executor(target, consumer_group, enqueued_time, device_id=None, properties=N
         if device_id:
             device_filter_txt = ' filtering on device: {},'.format(device_id)
 
+        def stop_and_suppress_eloop():
+            try:
+                loop.stop()
+            except Exception:  # pylint: disable=broad-except
+                pass
+
         print('Starting event monitor,{} use ctrl-c to stop...'.format(device_filter_txt if device_filter_txt else ''))
-        future.add_done_callback(lambda future: loop.stop())
+        future.add_done_callback(lambda future: stop_and_suppress_eloop())
         result = loop.run_until_complete(future)
     except KeyboardInterrupt:
         print('Stopping event monitor...')
-        future.cancel()
+        for t in asyncio.Task.all_tasks():
+            t.cancel()
         loop.run_forever()
     finally:
         if result:
             error = next(res for res in result if result)
             if error:
                 logger.error(error)
+                raise RuntimeError(error)
 
 
 async def initiate_event_monitor(target, consumer_group, enqueued_time, device_id=None, properties=None, timeout=0):
@@ -121,22 +149,24 @@ async def initiate_event_monitor(target, consumer_group, enqueued_time, device_i
         return
 
     coroutines = []
-
     auth = _build_auth_container(target)
     async with uamqp.ConnectionAsync(target['events']['endpoint'], sasl=auth,
-                                     debug=DEBUG, container_id=str(uuid4()), properties=_get_conn_props()) as conn:
+                                        debug=DEBUG, container_id=str(uuid4()), properties=_get_conn_props()) as conn:
         for p in partitions:
             coroutines.append(monitor_events(endpoint=target['events']['endpoint'],
-                                             connection=conn,
-                                             path=target['events']['path'],
-                                             auth=auth,
-                                             partition=p,
-                                             consumer_group=consumer_group,
-                                             enqueuedtimeutc=enqueued_time,
-                                             properties=properties,
-                                             device_id=device_id,
-                                             timeout=timeout))
-        await asyncio.gather(*coroutines)
+                                            connection=conn,
+                                            path=target['events']['path'],
+                                            auth=auth,
+                                            partition=p,
+                                            consumer_group=consumer_group,
+                                            enqueuedtimeutc=enqueued_time,
+                                            properties=properties,
+                                            device_id=device_id,
+                                            timeout=timeout))
+        results = await asyncio.gather(*coroutines, return_exceptions=True)
+        logger.info("Finished all event monitors")
+        if results:
+            logger.info("Got exceptions: {}".format(results))
 
 
 async def monitor_events(endpoint, connection, path, auth, partition, consumer_group, enqueuedtimeutc,
@@ -170,19 +200,17 @@ async def monitor_events(endpoint, connection, path, auth, partition, consumer_g
             if app_prop:
                 event_source['event']['properties']['application'] = _unicode_binary_map(app_prop)
 
-        print(event_source)
-
     exp_cancelled = False
     receive_client = uamqp.ReceiveClientAsync(source, auth=auth, timeout=timeout, prefetch=0, debug=DEBUG)
 
     try:
-        if connection:
-            await receive_client.open_async(connection=connection)
+        await receive_client.open_async(connection=connection)
 
-        async for msg in receive_client.receive_messages_iter_async():
+        msg_iter = receive_client.receive_messages_iter_async()
+        async for msg in msg_iter:
             _output_msg_kpi(msg)
 
-    except asyncio.CancelledError:
+    except (asyncio.CancelledError, KeyboardInterrupt):
         exp_cancelled = True
         await receive_client.close_async()
     except uamqp.errors.LinkDetach as ld:
@@ -192,6 +220,7 @@ async def monitor_events(endpoint, connection, path, auth, partition, consumer_g
     finally:
         if not exp_cancelled:
             await receive_client.close_async()
+        logger.warning("Finished MonitorEvents for partition {}".format(partition))
 
 
 def _build_auth_container(target):
@@ -250,7 +279,6 @@ def monitor_feedback(target, device_id, wait_on_id=None, token_duration=3600):
         for p in payload:
             if device_id and p.get('deviceId') and p['deviceId'].lower() != device_id.lower():
                 return None
-            print({'feedback': p})
             if wait_on_id:
                 msg_id = p['originalMessageId']
                 if msg_id == wait_on_id:
@@ -281,7 +309,7 @@ def monitor_feedback(target, device_id, wait_on_id=None, token_duration=3600):
     finally:
         client.close()
 
-def get_target(config)
+def get_target(config):
     target = {}
     target['cs'] = 'HostName={};SharedAccessKeyName={};SharedAccessKey={}'.format(
         config['hostname'],
@@ -300,7 +328,7 @@ def get_target(config)
 
 def test_iothub_monitor_events(live_iothub_config):
     properties = []
-    timeout = 300
+    timeout = 30000
     now = datetime.utcnow()
     epoch = datetime.utcfromtimestamp(0)
     enqueued_time = int(1000 * (now - epoch).total_seconds())
@@ -315,14 +343,14 @@ def test_iothub_monitor_events(live_iothub_config):
 
 
 def test_iothub_monitor_feedback(live_iothub_config):
-    pass
+    pytest.skip("Not yet implemented")
 
 
 def test_iothub_c2d_message_send(live_iothub_config):
-    pass
+    pytest.skip("Not yet implemented")
 
 
-if __name__ == __main__:
+if __name__ == '__main__':
     try:
         config = {}
         config['hostname'] = os.environ['IOTHUB_HOSTNAME']
