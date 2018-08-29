@@ -194,6 +194,9 @@ class Connection:
             self._async_lock.release()
         except RuntimeError:
             pass
+        except KeyboardInterrupt:
+            self.release()
+            raise
 
     def destroy(self):
         """Close the connection, and close any associated
@@ -201,6 +204,7 @@ class Connection:
         """
         try:
             self.lock(timeout=-1)
+            _logger.debug("Unlocked connection %r to close.", self.container_id)
             self._close()
         finally:
             self.release()

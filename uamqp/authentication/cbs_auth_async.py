@@ -22,13 +22,16 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
     async def lock(self, timeout=10.0):
-        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
+        await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
 
     def release(self):
         try:
             self._async_lock.release()
         except RuntimeError:
             pass
+        except KeyboardInterrupt:
+            self.release()
+            raise
 
     async def create_authenticator_async(self, connection, debug=False, loop=None):
         """Create the async AMQP session and the CBS channel with which
@@ -75,10 +78,13 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
             await self.lock(timeout=None)
+            _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
+            _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             await self._session.destroy_async()
         finally:
             self.release()
+            _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     async def handle_token_async(self):
         """This coroutine is called periodically to check the status of the current

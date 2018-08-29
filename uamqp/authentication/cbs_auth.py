@@ -57,6 +57,9 @@ class CBSAuthMixin:
             self._lock.release()
         except RuntimeError:
             pass
+        except KeyboardInterrupt:
+            self.release()
+            raise
 
     def update_token(self):
         """Update a token that is about to expire. This is specific
@@ -106,6 +109,7 @@ class CBSAuthMixin:
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
             self.lock(timeout=-1)
+            _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             self._cbs_auth.destroy()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             self._session.destroy()

@@ -107,13 +107,16 @@ class ConnectionAsync(connection.Connection):
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
     async def lock(self, timeout=10.0):
-        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
+        await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
 
     def release(self):
         try:
             self._async_lock.release()
         except RuntimeError:
             pass
+        except KeyboardInterrupt:
+            self.release()
+            raise
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
@@ -176,6 +179,7 @@ class ConnectionAsync(connection.Connection):
         """
         try:
             await self.lock(timeout=None)
+            _logger.debug("Unlocked connection %r to close.", self.container_id)
             await self._close_async()
         finally:
             self.release()
