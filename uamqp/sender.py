@@ -142,7 +142,7 @@ class MessageSender():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)
-        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r"
                      "\nDetails: %r\nRetryable: %r\nConnection: %r",
                      condition, self.name, description, info, self._error.action.retry,
                      self._session._connection.container_id)
@@ -230,10 +230,10 @@ class MessageSender():
         c_message = message.get_message()
         message._on_message_sent = callback
         try:
-            self._session._connection._lock.acquire()
+            self._session._connection.lock(timeout=-1)
             return self._sender.send(c_message, timeout, message)
         finally:
-            self._session._connection._lock.release()
+            self._session._connection.release()
 
     def on_state_changed(self, previous_state, new_state):
         """Callback called whenever the underlying Sender undergoes a change

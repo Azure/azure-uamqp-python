@@ -100,7 +100,6 @@ async def test_iothub_client_receive_async(live_iothub_config):
         messages = await asyncio.gather(*tasks)
 
 
-
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['IOTHUB_HOSTNAME']

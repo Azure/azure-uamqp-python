@@ -47,6 +47,19 @@ class TokenRetryPolicy:
 class CBSAuthMixin:
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
+    def lock(self, timeout=10.0):
+        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
+            raise TimeoutError("Failed to acquire lock")
+
+    def release(self):
+        try:
+            self._lock.release()
+        except RuntimeError:
+            pass
+        except KeyboardInterrupt:
+            self.release()
+            raise
+
     def update_token(self):
         """Update a token that is about to expire. This is specific
         to a particular token type, and therefore must be implemented
@@ -93,13 +106,14 @@ class CBSAuthMixin:
     def close_authenticator(self):
         """Close the CBS auth channel and session."""
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
-        self._lock.acquire()
         try:
+            self.lock(timeout=-1)
+            _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             self._cbs_auth.destroy()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             self._session.destroy()
         finally:
-            self._lock.release()
+            self.release()
             _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     def handle_token(self):
@@ -120,9 +134,9 @@ class CBSAuthMixin:
         # pylint: disable=protected-access
         timeout = False
         in_progress = False
-        self._lock.acquire()
-        self._connection._lock.acquire()
         try:
+            self.lock()
+            self._connection.lock()
             if self._connection._closing or self._connection._error:
                 return timeout, in_progress
             auth_status = self._cbs_auth.get_status()
@@ -157,14 +171,15 @@ class CBSAuthMixin:
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise errors.AuthenticationException("Invalid auth state.")
+        except TimeoutError:
+            _logger.debug("CBS auth timed out while waiting for lock acquisition.")
+            return None, None
         except ValueError as e:
             raise errors.AuthenticationException(
                 "Token authentication failed: {}".format(e))
-        except:
-            raise
         finally:
-            self._connection._lock.release()
-            self._lock.release()
+            self._connection.release()
+            self.release()
         return timeout, in_progress
 
 

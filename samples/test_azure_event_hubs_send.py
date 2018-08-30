@@ -31,7 +31,8 @@ def test_event_hubs_simple_send(live_eventhub_config):
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
+    result = uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
+    assert result == [uamqp.constants.MessageState.SendComplete]
 
 
 def test_event_hubs_client_send_sync(live_eventhub_config):
@@ -45,7 +46,7 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
-        props = uamqp.message.MessageProperties(message_id=b"message id")
+        props = uamqp.message.MessageProperties(message_id=b"message id", subject="test_subject")
         msg_content = b"hello world"
         message = uamqp.Message(
             msg_content,
@@ -116,7 +117,7 @@ def test_event_hubs_batch_send_sync(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
     for _ in range(10):
         message_batch = uamqp.message.BatchMessage(data_generator())
         send_client.queue_message(message_batch)
@@ -134,4 +135,4 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    test_event_hubs_client_send_sync(config)
+    test_event_hubs_batch_send_sync(config)

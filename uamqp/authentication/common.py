@@ -175,7 +175,7 @@ class _SASLClient:
 class _SASL:
 
     def __init__(self):
-        self._interface = self._get_interface()
+        self._interface = self._get_interface()  # pylint: disable=assignment-from-none
         self.mechanism = self._get_mechanism()
 
     def _get_interface(self):

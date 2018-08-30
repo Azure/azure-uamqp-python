@@ -97,7 +97,7 @@ class AMQPClient:
                 password = unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
-        self._auth = auth if auth else authentication.SASLAnonymous(self._remote_address.scheme + self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._counter = c_uamqp.TickCounter()
@@ -257,19 +257,18 @@ class AMQPClient:
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
+        if not self._connection.cbs:
+            _logger.debug("Closing non-CBS session.")
+            self._session.destroy()
         else:
-            if not self._connection.cbs:
-                _logger.debug("Closing non-CBS session.")
-                self._session.destroy()
-            else:
-                _logger.debug("CBS session pending.")
-            self._session = None
-            if not self._ext_connection:
-                _logger.debug("Closing exclusive connection.")
-                self._connection.destroy()
-            else:
-                _logger.debug("Shared connection remaining open.")
-            self._connection = None
+            _logger.debug("CBS session pending.")
+        self._session = None
+        if not self._ext_connection:
+            _logger.debug("Closing exclusive connection.")
+            self._connection.destroy()
+        else:
+            _logger.debug("Shared connection remaining open.")
+        self._connection = None
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
         """Run a request/response operation. These are frequently used for management
@@ -306,6 +305,8 @@ class AMQPClient:
         while True:
             if self._connection.cbs:
                 timeout, auth_in_progress = self._auth.handle_token()
+                if timeout is None and auth_in_progress is None:
+                    continue
             if timeout:
                 raise TimeoutError("Authorization timeout.")
             elif auth_in_progress:
@@ -337,6 +338,9 @@ class AMQPClient:
         auth_in_progress = False
         if self._connection.cbs:
             timeout, auth_in_progress = self._auth.handle_token()
+            if timeout is None and auth_in_progress is None:
+                _logger.debug("No work done.")
+                return True
         if self._shutdown:
             return False
         if timeout:
@@ -348,8 +352,7 @@ class AMQPClient:
             self._connection.work()
             return True
         else:
-            result = self._client_run()
-            return result
+            return self._client_run()
 
 
 class SendClient(AMQPClient):
@@ -471,12 +474,12 @@ class SendClient(AMQPClient):
                 encoding=self._encoding)
             self._message_sender.open()
             return False
-        elif self._message_sender.get_state() == constants.MessageSenderState.Error:
+        if self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.MessageHandlerError(
                 "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_sender.get_state() != constants.MessageSenderState.Open:
+        if self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
@@ -517,7 +520,7 @@ class SendClient(AMQPClient):
                 _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message.retries, exception)
                 message.state = constants.MessageState.WaitingToBeSent
                 return
-            elif exception.action.retry == errors.ErrorAction.retry:
+            if exception.action.retry == errors.ErrorAction.retry:
                 _logger.info("Message error, %r retries exhausted. Error: %r", message.retries, exception)
             else:
                 _logger.info("Message error, not retrying. Error: %r", exception)
@@ -662,9 +665,6 @@ class SendClient(AMQPClient):
         try:
             while running and any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
                 running = self.do_work()
-        except:
-            raise
-        else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
@@ -714,9 +714,6 @@ class SendClient(AMQPClient):
         try:
             messages = self._pending_messages[:]
             running = self.wait()
-        except:
-            raise
-        else:
             results = [m.state for m in messages]
             return results
         finally:
@@ -848,12 +845,12 @@ class ReceiveClient(AMQPClient):
                 encoding=self._encoding)
             self._message_receiver.open()
             return False
-        elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
+        if self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
                 "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
+        if self._message_receiver.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True
@@ -902,8 +899,6 @@ class ReceiveClient(AMQPClient):
                     self._received_messages.task_done()
                     yield message
                     self._complete_message(message, auto_complete)
-        except:
-            raise
         finally:
             self._complete_message(message, auto_complete)
             self.auto_complete = auto_complete
@@ -976,7 +971,7 @@ class ReceiveClient(AMQPClient):
 
         while receiving and not expired and len(batch) < max_batch_size:
             while receiving and self._received_messages.qsize() < max_batch_size:
-                if timeout > 0 and self._counter.get_current_ms() > timeout:
+                if timeout and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
                 before = self._received_messages.qsize()

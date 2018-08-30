@@ -3,6 +3,14 @@
 Release History
 ===============
 
+1.0.1 (2018-08-29)
+++++++++++++++++++
+
+- Added some more checks in place to prevent lock hanging on a keybaord interrupt.
+- Fixed bug in setting MessageProperties.subject as string or bytes.
+- `uamqp.send_message` now returns a list of `uamqp.constants.MessageState` to indicate the success of each message sent.
+
+
 1.0.0 (2018-08-20)
 ++++++++++++++++++
 

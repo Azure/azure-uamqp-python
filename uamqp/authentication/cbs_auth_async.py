@@ -21,6 +21,18 @@ _logger = logging.getLogger(__name__)
 class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
+    async def lock_async(self, timeout=10.0):
+        await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
+
+    def release_async(self):
+        try:
+            self._async_lock.release()
+        except RuntimeError:
+            pass
+        except KeyboardInterrupt:
+            self.release_async()
+            raise
+
     async def create_authenticator_async(self, connection, debug=False, loop=None):
         """Create the async AMQP session and the CBS channel with which
         to negotiate the token.
@@ -64,14 +76,15 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
     async def close_authenticator_async(self):
         """Close the CBS auth channel and session asynchronously."""
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
-        await self._async_lock.acquire()
         try:
+            await self.lock_async(timeout=None)
+            _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
-            _logger.info("Auth closed, destroying session %r.", self._connection.container_id)
+            _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             await self._session.destroy_async()
         finally:
-            self._async_lock.release()
-            _logger.info("Finished shutting down CBS session %r.", self._connection.container_id)
+            self.release_async()
+            _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     async def handle_token_async(self):
         """This coroutine is called periodically to check the status of the current
@@ -91,9 +104,9 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         # pylint: disable=protected-access
         timeout = False
         in_progress = False
-        await self._async_lock.acquire()
-        await self._connection._async_lock.acquire()
         try:
+            await self.lock_async()
+            await self._connection.lock_async()
             if self._connection._closing or self._connection._error:
                 return timeout, in_progress
             auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
@@ -128,19 +141,19 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                         self.token,
                         int(self.expires_at)))
             elif auth_status == constants.CBSAuthStatus.Idle:
-
                 await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise ValueError("Invalid auth state.")
+        except asyncio.TimeoutError:
+            _logger.debug("CBS auth timed out while waiting for lock acquisition.")
+            return None, None
         except ValueError as e:
             raise errors.AuthenticationException(
                 "Token authentication failed: {}".format(e))
-        except:
-            raise
         finally:
-            self._connection._async_lock.release()
-            self._async_lock.release()
+            self._connection.release_async()
+            self.release_async()
         return timeout, in_progress
 
 
