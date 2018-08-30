@@ -58,12 +58,13 @@ def send_message(target, data, auth=None, debug=False):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :rtype: None
+    :return: A list of states for each message sent.
+    :rtype: list[~uamqp.constants.MessageState]
     """
     message = data if isinstance(data, Message) else Message(body=data)
     with SendClient(target, auth=auth, debug=debug) as send_client:
         send_client.queue_message(message)
-        send_client.send_all_messages()
+        return send_client.send_all_messages()
 
 
 def receive_message(source, auth=None, timeout=0, debug=False):

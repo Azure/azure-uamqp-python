@@ -185,8 +185,7 @@ class Connection:
                 self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
     def lock(self, timeout=10.0):
-        locked = self._lock.acquire(timeout=timeout)
-        if not locked:
+        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
             raise TimeoutError("Failed to acquire connection lock.")
 
     def release(self):

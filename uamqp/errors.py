@@ -105,7 +105,7 @@ class ErrorPolicy:
     def on_connection_error(self, error):
         if error.condition in self.no_retry:
             return ErrorAction(retry=False)
-        elif error.condition == constants.ErrorCodes.ConnectionCloseForced:
+        if error.condition == constants.ErrorCodes.ConnectionCloseForced:
             return ErrorAction(retry=True)
         return ErrorAction(retry=True)
 

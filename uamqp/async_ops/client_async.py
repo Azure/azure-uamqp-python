@@ -236,19 +236,18 @@ class AMQPClientAsync(client.AMQPClient):
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
+        if not self._connection.cbs:
+            _logger.info("Closing non-CBS session.")
+            await asyncio.shield(self._session.destroy_async())
         else:
-            if not self._connection.cbs:
-                _logger.info("Closing non-CBS session.")
-                await asyncio.shield(self._session.destroy_async())
-            else:
-                _logger.info("CBS session pending %r.", self._connection.container_id)
-            self._session = None
-            if not self._ext_connection:
-                _logger.info("Closing exclusive connection %r.", self._connection.container_id)
-                await asyncio.shield(self._connection.destroy_async())
-            else:
-                _logger.info("Shared connection remaining open.")
-            self._connection = None
+            _logger.info("CBS session pending %r.", self._connection.container_id)
+        self._session = None
+        if not self._ext_connection:
+            _logger.info("Closing exclusive connection %r.", self._connection.container_id)
+            await asyncio.shield(self._connection.destroy_async())
+        else:
+            _logger.info("Shared connection remaining open.")
+        self._connection = None
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
         """Run an asynchronous request/response operation. These are frequently used
@@ -456,12 +455,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 loop=self.loop)
             await asyncio.shield(self._message_sender.open_async())
             return False
-        elif self._message_sender.get_state() == constants.MessageSenderState.Error:
+        if self._message_sender.get_state() == constants.MessageSenderState.Error:
             raise errors.MessageHandlerError(
                 "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_sender.get_state() != constants.MessageSenderState.Open:
+        if self._message_sender.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
@@ -573,9 +572,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         try:
             while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
                 await self.do_work_async()
-        except:
-            raise
-        else:
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
@@ -604,9 +600,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         try:
             messages = self._pending_messages[:]
             await self.wait_async()
-        except:
-            raise
-        else:
             results = [m.state for m in messages]
             return results
         finally:
@@ -745,12 +738,12 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 loop=self.loop)
             await asyncio.shield(self._message_receiver.open_async())
             return False
-        elif self._message_receiver.get_state() == constants.MessageReceiverState.Error:
+        if self._message_receiver.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
                 "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        elif self._message_receiver.get_state() != constants.MessageReceiverState.Open:
+        if self._message_receiver.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True
@@ -846,7 +839,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
         while receiving and not expired and len(batch) < max_batch_size:
             while receiving and self._received_messages.qsize() < max_batch_size:
-                if timeout > 0 and self._counter.get_current_ms() > timeout:
+                if timeout and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
                 before = self._received_messages.qsize()
@@ -942,8 +935,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
                 self._client._received_messages.task_done()
                 self.current_message = message
                 return message
-            else:
-                raise StopAsyncIteration("Message receiver closing.")
+            raise StopAsyncIteration("Message receiver closing.")
         except:
             self.receiving = False
             raise

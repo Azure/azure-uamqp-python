@@ -166,7 +166,7 @@ class MessageReceiver():
             description = None
             info = None
         self._error = errors._process_link_error(self.error_policy, condition, description, info)
-        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r" +
+        _logger.info("Received Link detach event: %r\nLink: %r\nDescription: %r"
                      "\nDetails: %r\nRetryable: %r\nConnection: %r",
                      condition, self.name, description, info, self._error.action.retry,
                      self._session._connection.container_id)
@@ -183,7 +183,7 @@ class MessageReceiver():
         """
         if not response or isinstance(response, errors.MessageAlreadySettled):
             return
-        elif isinstance(response, errors.MessageAccepted):
+        if isinstance(response, errors.MessageAccepted):
             self._receiver.settle_accepted_message(message_number)
         elif isinstance(response, errors.MessageReleased):
             self._receiver.settle_released_message(message_number)

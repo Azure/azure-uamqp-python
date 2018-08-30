@@ -48,8 +48,7 @@ class CBSAuthMixin:
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
     def lock(self, timeout=10.0):
-        locked = self._lock.acquire(timeout=timeout)
-        if not locked:
+        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
             raise TimeoutError("Failed to acquire lock")
 
     def release(self):
@@ -178,8 +177,6 @@ class CBSAuthMixin:
         except ValueError as e:
             raise errors.AuthenticationException(
                 "Token authentication failed: {}".format(e))
-        except:
-            raise
         finally:
             self._connection.release()
             self.release()
