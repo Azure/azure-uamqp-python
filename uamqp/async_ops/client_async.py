@@ -908,7 +908,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._was_message_received = False
 
 
-class AsyncMessageIter(collections.abc.AsyncIterator):
+class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-member
     """Python 3.5 and 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
@@ -935,7 +935,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):
                 self._client._received_messages.task_done()
                 self.current_message = message
                 return message
-            raise StopAsyncIteration("Message receiver closing.")
+            raise StopAsyncIteration("Message receiver closing.")  # pylint: disable=undefined-variable
         except:
             self.receiving = False
             raise
