@@ -109,7 +109,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
 
     async def destroy_async(self):
         """Asynchronously close both the Receiver and the Link. Clean up any C objects."""
-        await self.loop.run_in_executor(None, functools.partial(self.destroy))
+        self.destroy()
 
     async def open_async(self):
         """Asynchronously open the MessageReceiver in order to start
@@ -120,7 +120,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
          or the credentials are rejected.
         """
         try:
-            await self.loop.run_in_executor(None, functools.partial(self._receiver.open, self))
+            self._receiver.open(self)
         except ValueError:
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
@@ -128,4 +128,4 @@ class MessageReceiverAsync(receiver.MessageReceiver):
 
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
-        await self.loop.run_in_executor(None, functools.partial(self.close))
+        self.close()

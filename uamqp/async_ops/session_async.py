@@ -116,4 +116,4 @@ class SessionAsync(session.Session):
         """
         for _, link in self._mgmt_links.items():
             await link.destroy_async()
-        await self.loop.run_in_executor(None, functools.partial(self._session.destroy))
+        self._session.destroy()

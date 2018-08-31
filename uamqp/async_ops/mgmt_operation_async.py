@@ -103,4 +103,4 @@ class MgmtOperationAsync(MgmtOperation):
 
     async def destroy_async(self):
         """Close the send/receive links for this node asynchronously."""
-        await self.loop.run_in_executor(None, functools.partial(self._mgmt_op.destroy))
+        self._mgmt_op.destroy()

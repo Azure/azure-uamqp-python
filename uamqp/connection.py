@@ -184,7 +184,7 @@ class Connection:
                 description = b"Connection in an unexpected error state."
                 self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
-    def lock(self, timeout=10.0):
+    def lock(self, timeout=1.0):
         if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
             raise TimeoutError("Failed to acquire connection lock.")
 
@@ -193,7 +193,8 @@ class Connection:
             self._lock.release()
         except RuntimeError:
             pass
-        except KeyboardInterrupt:
+        except:
+            _logger.warning("Got error when attempting to release connection lock.")
             self.release()
             raise
 

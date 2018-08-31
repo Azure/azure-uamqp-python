@@ -139,7 +139,7 @@ cdef class cProperties(StructBase):
     @subject.setter
     def subject(self, char* value):
         if c_amqp_definitions.properties_set_subject(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'subject'.")
 
     @property
