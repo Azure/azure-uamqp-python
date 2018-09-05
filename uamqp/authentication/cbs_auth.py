@@ -9,7 +9,6 @@
 import logging
 import time
 import datetime
-import threading
 try:
     from urllib import parse as urllib_parse
 except ImportError:

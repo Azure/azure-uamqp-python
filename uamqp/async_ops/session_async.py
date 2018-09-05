@@ -6,7 +6,6 @@
 
 import asyncio
 import logging
-import functools
 
 from uamqp import session
 from uamqp import constants

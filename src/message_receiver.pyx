@@ -6,7 +6,6 @@
 
 # Python imports
 import logging
-import functools
 
 # C imports
 cimport c_message_receiver

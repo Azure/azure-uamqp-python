@@ -3,10 +3,10 @@
 Release History
 ===============
 
-1.0.2 (unreleased)
+1.0.2 (2018-09-05)
 ++++++++++++++++++
 
-- Fixed secondard bug in setting MessageProperties.subject as string or bytes.
+- Fixed secondary bug in setting MessageProperties.subject as string or bytes.
 - Removed auth locking to prevent locking issues on keyboard interrupt.
 
 
