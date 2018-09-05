@@ -115,7 +115,10 @@ class ConnectionAsync(connection.Connection):
             pass
         except:
             _logger.debug("Got error when attempting to release async connection lock.")
-            self.release_async()
+            try:
+                self._async_lock.release()
+            except RuntimeError:
+                pass
             raise
 
     async def work_async(self):

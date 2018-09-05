@@ -195,7 +195,10 @@ class Connection:
             pass
         except:
             _logger.debug("Got error when attempting to release connection lock.")
-            self.release()
+            try:
+                self._lock.release()
+            except RuntimeError:
+                pass
             raise
 
     def destroy(self):
