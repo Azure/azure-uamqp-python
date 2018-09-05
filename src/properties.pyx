@@ -187,7 +187,7 @@ cdef class cProperties(StructBase):
     @content_type.setter
     def content_type(self, char* value):
         if c_amqp_definitions.properties_set_content_type(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'content_type'.")
 
     @property
@@ -203,7 +203,7 @@ cdef class cProperties(StructBase):
     @content_encoding.setter
     def content_encoding(self, char* value):
         if c_amqp_definitions.properties_set_content_encoding(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'content_encoding'.")
 
     @property
@@ -219,7 +219,7 @@ cdef class cProperties(StructBase):
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, c_amqpvalue.timestamp value):
         if c_amqp_definitions.properties_set_absolute_expiry_time(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'absolute_expiry_time'.")
 
     @property
@@ -235,7 +235,7 @@ cdef class cProperties(StructBase):
     @creation_time.setter
     def creation_time(self, c_amqpvalue.timestamp value):
         if c_amqp_definitions.properties_set_creation_time(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'create_time'.")
 
     @property
@@ -267,7 +267,7 @@ cdef class cProperties(StructBase):
     @group_sequence.setter
     def group_sequence(self, c_amqp_definitions.sequence_no value):
         if c_amqp_definitions.properties_set_group_sequence(
-            self._c_value, value._c_value) != 0:
+            self._c_value, value) != 0:
                 self._value_error("Could not set 'group_Sequence'.")
 
     @property

@@ -106,12 +106,7 @@ class ConnectionAsync(connection.Connection):
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
     async def lock_async(self, timeout=1.0):
-        try:
-            await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
-        except:
-            _logger.warning("Got error when attempting to lock async conn lock.")
-            self.release_async()
-            raise
+        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
 
     def release_async(self):
         try:
@@ -119,10 +114,8 @@ class ConnectionAsync(connection.Connection):
         except RuntimeError:
             pass
         except:
-            _logger.warning("Got error when attempting to release async connection lock.")
+            _logger.debug("Got error when attempting to release async connection lock.")
             self.release_async()
-            self._async_lock = asyncio.Lock(loop=self.loop)
-            _logger.warning("Refreshed async conn lock.")
             raise
 
     async def work_async(self):

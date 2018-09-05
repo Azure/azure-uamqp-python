@@ -194,7 +194,7 @@ class Connection:
         except RuntimeError:
             pass
         except:
-            _logger.warning("Got error when attempting to release connection lock.")
+            _logger.debug("Got error when attempting to release connection lock.")
             self.release()
             raise
 

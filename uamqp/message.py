@@ -651,55 +651,47 @@ class MessageProperties:
 
     @property
     def content_type(self):
-        if self._content_type is not None:
-            return self._content_type.value
-        return None
+        return self._content_type
 
     @content_type.setter
     def content_type(self, value):
-        if value is None:
-            self._content_type = None
-        else:
-            self._content_type = utils.data_factory(value, encoding=self._encoding)
+        if isinstance(value, str):
+            value = value.encode(self._encoding)
+        elif value is not None and not isinstance(value, bytes):
+            raise TypeError("content_type must be bytes or str.")
+        self._content_type = value
 
     @property
     def content_encoding(self):
-        if self._content_encoding is not None:
-            return self._content_encoding.value
-        return None
+        return self._content_encoding
 
     @content_encoding.setter
     def content_encoding(self, value):
-        if value is None:
-            self._content_encoding = None
-        else:
-            self._content_encoding = utils.data_factory(value, encoding=self._encoding)
+        if isinstance(value, str):
+            value = value.encode(self._encoding)
+        elif value is not None and not isinstance(value, bytes):
+            raise TypeError("content_encoding must be bytes or str.")
+        self._content_encoding = value
 
     @property
     def absolute_expiry_time(self):
-        if self._absolute_expiry_time is not None:
-            return self._absolute_expiry_time.value
-        return None
+        return self._absolute_expiry_time
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        if value is None:
-            self._absolute_expiry_time = None
-        else:
-            self._absolute_expiry_time = utils.data_factory(value, encoding=self._encoding)
+        if value is not None and not isinstance(value, int):
+            raise TypeError("absolute_expiry_time must be an integer.")
+        self._absolute_expiry_time = value
 
     @property
     def creation_time(self):
-        if self._creation_time is not None:
-            return self._creation_time.value
-        return None
+        return self._creation_time
 
     @creation_time.setter
     def creation_time(self, value):
-        if value is None:
-            self._creation_time = None
-        else:
-            self._creation_time = utils.data_factory(value, encoding=self._encoding)
+        if value is not None and not isinstance(value, int):
+            raise TypeError("creation_time must be an integer.")
+        self._creation_time = value
 
     @property
     def group_id(self):
@@ -707,33 +699,33 @@ class MessageProperties:
 
     @group_id.setter
     def group_id(self, value):
+        if isinstance(value, str):
+            value = value.encode(self._encoding)
+        elif value is not None and not isinstance(value, bytes):
+            raise TypeError("group_id must be bytes or str.")
         self._group_id = value
 
     @property
     def group_sequence(self):
-        if self._group_sequence is not None:
-            return self._group_sequence.value
-        return None
+        return self._group_sequence
 
     @group_sequence.setter
     def group_sequence(self, value):
-        if value is None:
-            self._group_sequence = None
-        else:
-            self._group_sequence = utils.data_factory(value, encoding=self._encoding)
+        if value is not None and not isinstance(value, int):
+            raise TypeError("group_sequence must be an integer.")
+        self._group_sequence = value
 
     @property
     def reply_to_group_id(self):
-        if self._reply_to_group_id is not None:
-            return self._reply_to_group_id.value
-        return None
+        return self._reply_to_group_id
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        if value is None:
-            self._reply_to_group_id = None
-        else:
-            self._reply_to_group_id = utils.data_factory(value, encoding=self._encoding)
+        if isinstance(value, str):
+            value = value.encode(self._encoding)
+        elif value is not None and not isinstance(value, bytes):
+            raise TypeError("reply_to_group_id must be bytes or str.")
+        self._reply_to_group_id = value
 
     def _set_attr(self, attr, properties):
         attr_value = getattr(self, "_" + attr)
