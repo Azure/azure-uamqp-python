@@ -80,7 +80,8 @@ class ErrorPolicy:
         constants.ErrorCodes.SessionUnattachedHandle,
         constants.ErrorCodes.SessionHandleInUse,
         constants.ErrorCodes.SessionErrantLink,
-        constants.ErrorCodes.SessionWindowViolation
+        constants.ErrorCodes.SessionWindowViolation,
+        constants.ErrorCodes.ClientShutdown
     )
 
     def __init__(self, max_retries=3, on_error=None):

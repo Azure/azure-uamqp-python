@@ -67,7 +67,8 @@ class ErrorCodes(Enum):
     LinkDetachForced = b"amqp:link:detach-forced"
     LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
     LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
-    ClientError = b"amqp:client-eror"
+    ClientError = b"amqp:client-error"
+    ClientShutdown = b"amqp:client-shutdown"
     UnknownError = b"amqp:unknown-error"
     VendorError = b"amqp:vendor-error"
 

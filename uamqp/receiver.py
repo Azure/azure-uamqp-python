@@ -229,6 +229,11 @@ class MessageReceiver():
                          message_number,
                          self.name,
                          self._session._connection.container_id)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while processing message no %r\nRejecting message.", message_number)
+            self._receiver.settle_modified_message(message_number, True, True, None)
+            condition = b"amqp:client-shutdown"
+            self._error = errors._process_link_error(self.error_policy, condition, None, None)
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message no %r: %r\nRejecting message.", message_number, e)
             self._receiver.settle_modified_message(message_number, True, True, None)
