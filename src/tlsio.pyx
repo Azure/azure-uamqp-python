@@ -12,7 +12,7 @@ cimport c_xio
 DEFAULT_PORT = 5671
 
 
-cdef class TLSIOConfig:
+cdef class TLSIOConfig(object):
 
     cdef c_tlsio.TLSIO_CONFIG _c_value
 
@@ -42,7 +42,7 @@ cdef class TLSIOConfig:
         self._c_value.underlying_io_parameters = &underlying_io_parameters._c_value
 
 
-cdef class HTTPProxyConfig:
+cdef class HTTPProxyConfig(object):
 
     cdef c_tlsio.HTTP_PROXY_IO_CONFIG _c_value
 

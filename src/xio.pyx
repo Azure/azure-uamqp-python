@@ -74,7 +74,7 @@ cdef class XIO(StructBase):
             raise self._value_error("Failed to set certificates")
 
 
-cdef class IOInterfaceDescription:
+cdef class IOInterfaceDescription(object):
 
     cdef c_xio.IO_INTERFACE_DESCRIPTION* _c_value
 

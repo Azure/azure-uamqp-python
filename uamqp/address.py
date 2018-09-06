@@ -17,7 +17,7 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class Address:
+class Address(object):
     """Represents an AMQP endpoint.
 
     :ivar address: The endpoint URL.

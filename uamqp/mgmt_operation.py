@@ -17,7 +17,7 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class MgmtOperation:
+class MgmtOperation(object):
     """An AMQP request/response operation. These are frequently used
     for management tasks against a $management node, however any node name can be
     specified and the available options will depend on the target service.
@@ -128,7 +128,7 @@ class MgmtOperation:
             if timeout > 0:
                 now = self._counter.get_current_ms()
                 if (now - start_time) >= timeout:
-                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
+                    raise errors.ClientTimeout("Failed to receive mgmt response in {}ms".format(timeout))
             self.connection.work()
         if self.mgmt_error:
             raise self.mgmt_error

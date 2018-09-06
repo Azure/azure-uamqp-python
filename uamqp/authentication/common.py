@@ -16,7 +16,7 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class AMQPAuth:
+class AMQPAuth(object):
     """AMQP authentication mixin.
 
     :param hostname: The AMQP endpoint hostname.
@@ -158,7 +158,7 @@ class SASLAnonymous(AMQPAuth):
         self.set_tlsio(self.hostname, port, http_proxy)
 
 
-class _SASLClient:
+class _SASLClient(object):
 
     def __init__(self, tls_io, sasl):
         self._tls_io = tls_io
@@ -172,7 +172,7 @@ class _SASLClient:
         return self._xio
 
 
-class _SASL:
+class _SASL(object):
 
     def __init__(self):
         self._interface = self._get_interface()  # pylint: disable=assignment-from-none

@@ -282,7 +282,7 @@ cdef class cMessage(StructBase):
             self._value_error()
 
 
-cdef class Messaging:
+cdef class Messaging(object):
 
     @staticmethod
     def create_source(const char* address):

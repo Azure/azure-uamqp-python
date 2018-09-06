@@ -25,7 +25,7 @@ from .common import _SASL, AMQPAuth
 _logger = logging.getLogger(__name__)
 
 
-class TokenRetryPolicy:
+class TokenRetryPolicy(object):
     """Retry policy for sending authentication tokens
     for CBS authentication.
 
@@ -43,7 +43,7 @@ class TokenRetryPolicy:
         self.backoff = float(backoff)/1000
 
 
-class CBSAuthMixin:
+class CBSAuthMixin(object):
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
     def update_token(self):
@@ -153,7 +153,7 @@ class CBSAuthMixin:
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise errors.AuthenticationException("Invalid auth state.")
-        except TimeoutError:
+        except errors.ClientTimeout:
             _logger.debug("CBS auth timed out while waiting for lock acquisition.")
             return None, None
         except ValueError as e:

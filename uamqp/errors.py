@@ -47,7 +47,7 @@ def _process_connection_error(policy, condition, description=None, info=None):
     return exception
 
 
-class ErrorAction:
+class ErrorAction(object):
 
     retry = True
     fail = False
@@ -58,7 +58,7 @@ class ErrorAction:
         self.increment_retries = increment_retries
 
 
-class ErrorPolicy:
+class ErrorPolicy(object):
 
     no_retry = (
         constants.ErrorCodes.DecodeError,
@@ -172,6 +172,10 @@ class LinkRedirect(LinkDetach):
         super(LinkRedirect, self).__init__(condition, description, info, encoding)
 
 
+class ClientTimeout(AMQPError):
+    pass
+
+
 class AuthenticationException(AMQPError):
     pass
 
@@ -270,7 +274,7 @@ class MessageModified(MessageResponse):
         super(MessageModified, self).__init__()
 
 
-class ErrorResponse:
+class ErrorResponse(object):
 
     def __init__(self, error_info=None, condition=None, description=None, info=None):
         info = None

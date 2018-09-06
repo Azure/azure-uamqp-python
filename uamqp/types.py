@@ -10,7 +10,7 @@ from uamqp import c_uamqp
 from uamqp import utils
 
 
-class AMQPType:
+class AMQPType(object):
     """Base type for specific AMQP encoded type definitions.
 
     :ivar value: The Python value of the AMQP type.

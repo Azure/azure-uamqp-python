@@ -37,7 +37,7 @@ cpdef create_sas_token(const char* key, const char* scope, const char* keyname, 
     #return c_string
 
 
-cdef class CBSTokenAuth:
+cdef class CBSTokenAuth(object):
 
     cdef const char* audience
     cdef const char* token_type

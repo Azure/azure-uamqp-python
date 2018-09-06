@@ -18,7 +18,7 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class MessageReceiver():
+class MessageReceiver(object):
     """A Message Receiver that opens its own exclsuive Link on an
     existing Session.
 

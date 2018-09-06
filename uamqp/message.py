@@ -14,7 +14,7 @@ from uamqp import constants, errors
 _logger = logging.getLogger(__name__)
 
 
-class Message:
+class Message(object):
     """An AMQP message.
 
     When sending, depending on the nature of the data,
@@ -488,7 +488,7 @@ class BatchMessage(Message):
         return [new_message]
 
 
-class MessageProperties:
+class MessageProperties(object):
     """Message properties.
     The properties that are actually used will depend on the service implementation.
     Not all received messages will have all properties, and not all properties
@@ -754,7 +754,7 @@ class MessageProperties:
         return properties
 
 
-class MessageBody:
+class MessageBody(object):
     """Base class for an AMQP message body. This should
     not be used directly.
     """
@@ -887,7 +887,7 @@ class ValueBody(MessageBody):
         return None
 
 
-class MessageHeader:
+class MessageHeader(object):
     """The Message header. This is only used on received message, and not
     set on messages being sent. The properties set on any given message
     will depend on the Service and not all messages will have all properties.

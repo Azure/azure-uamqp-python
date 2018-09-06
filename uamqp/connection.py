@@ -17,7 +17,7 @@ from uamqp import utils, errors
 _logger = logging.getLogger(__name__)
 
 
-class Connection:
+class Connection(object):
     """An AMQP Connection. A single Connection can have multiple Sessions, and
     can be shared between multiple Clients.
 
@@ -186,7 +186,7 @@ class Connection:
 
     def lock(self, timeout=3.0):
         if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
-            raise TimeoutError("Failed to acquire connection lock.")
+            raise errors.ClientTimeout("Failed to acquire connection lock.")
 
     def release(self):
         try:
@@ -249,7 +249,7 @@ class Connection:
         try:
             self.lock()
             self._conn.do_work()
-        except TimeoutError:
+        except errors.ClientTimeout:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()
@@ -263,7 +263,7 @@ class Connection:
         try:
             self.lock()
             time.sleep(seconds)
-        except TimeoutError:
+        except errors.ClientTimeout:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()

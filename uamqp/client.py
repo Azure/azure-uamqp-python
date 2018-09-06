@@ -8,12 +8,13 @@
 
 import logging
 import uuid
-import queue
 import time
 import threading
 try:
     from urllib import unquote_plus
+    import Queue as queue
 except ImportError:
+    import queue
     from urllib.parse import unquote_plus
 
 from uamqp import (
@@ -31,7 +32,7 @@ from uamqp import (
 _logger = logging.getLogger(__name__)
 
 
-class AMQPClient:
+class AMQPClient(object):
     """An AMQP client.
 
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
@@ -308,7 +309,7 @@ class AMQPClient:
                 if timeout is None and auth_in_progress is None:
                     continue
             if timeout:
-                raise TimeoutError("Authorization timeout.")
+                raise errors.ClientTimeout("Authorization timeout.")
             elif auth_in_progress:
                 self._connection.work()
             else:
@@ -332,7 +333,7 @@ class AMQPClient:
         to be shut down.
 
         :rtype: bool
-        :raises: TimeoutError if CBS authentication timeout reached.
+        :raises: ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
         """
         timeout = False
         auth_in_progress = False
@@ -344,7 +345,7 @@ class AMQPClient:
         if self._shutdown:
             return False
         if timeout:
-            raise TimeoutError("Authorization timeout.")
+            raise errors.ClientTimeout("Authorization timeout.")
         elif auth_in_progress:
             self._connection.work()
             return True
