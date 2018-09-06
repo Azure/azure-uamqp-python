@@ -105,7 +105,7 @@ class ConnectionAsync(connection.Connection):
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
-    async def lock_async(self, timeout=1.0):
+    async def lock_async(self, timeout=3.0):
         await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
 
     def release_async(self):

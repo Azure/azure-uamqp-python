@@ -318,7 +318,7 @@ class AMQPClientAsync(client.AMQPClient):
         if self._connection.cbs:
             timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout is None and auth_in_progress is None:
-                _logger.warning("No work done.")
+                _logger.debug("No work done.")
                 return True
         if self._shutdown:
             return False
