@@ -89,7 +89,7 @@ class UAMQPExtension(Extension):
 
     def __init__(self, name):
         # don't invoke the original build_ext for this special extension
-        super(UAMQPExtension, self).__init__(name, sources=[])
+        Extension.__init__(self, name, sources=[])
 
 def create_folder_no_exception(foldername):
     try:
@@ -115,7 +115,7 @@ class build_ext(build_ext_orig):
                     cmake_build_dir + "/deps/azure-c-shared-utility/Debug/",
                     cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
-        super(build_ext, self).run()
+        build_ext_orig.run(self)
 
     def build_cmake(self, ext):
         cwd = os.getcwd()
@@ -215,9 +215,9 @@ extensions = [
     )
 ]
 
-with open('README.rst', encoding='utf-8') as f:
+with open('README.rst') as f:  # , encoding='utf-8'
     readme = f.read()
-with open('HISTORY.rst', encoding='utf-8') as f:
+with open('HISTORY.rst') as f:  # , encoding='utf-8'
     history = f.read()
 
 if USE_CYTHON:
