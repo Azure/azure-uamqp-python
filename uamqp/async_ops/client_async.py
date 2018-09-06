@@ -283,7 +283,7 @@ class AMQPClientAsync(client.AMQPClient):
         auth_in_progress = False
         while True:
             if self._connection.cbs:
-                timeout, auth_in_progress = await asyncio.shield(self._auth.handle_token_async())
+                timeout, auth_in_progress = await self._auth.handle_token_async()
                 if timeout is None and auth_in_progress is None:
                     continue
             if timeout:
@@ -316,11 +316,10 @@ class AMQPClientAsync(client.AMQPClient):
         timeout = False
         auth_in_progress = False
         if self._connection.cbs:
-            timeout, auth_in_progress = await asyncio.shield(self._auth.handle_token_async())
+            timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout is None and auth_in_progress is None:
-                _logger.warning("No work done.")
+                _logger.debug("No work done.")
                 return True
-
         if self._shutdown:
             return False
         if timeout:
@@ -755,7 +754,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
         :rtype: bool
         """
-        await asyncio.shield(self._connection.work_async())
+        await self._connection.work_async()
         if self._timeout > 0:
             now = self._counter.get_current_ms()
             if self._last_activity_timestamp and not self._was_message_received:
@@ -900,7 +899,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     async def close_async(self):
         """Asynchonously close the receive client."""
         if self._message_receiver:
-            await asyncio.shield(self._message_receiver.destroy_async())
+            await self._message_receiver.destroy_async()
             self._message_receiver = None
         await super(ReceiveClientAsync, self).close_async()
         self._shutdown = False

@@ -6,7 +6,6 @@
 
 import asyncio
 import logging
-import functools
 
 from uamqp import constants
 from uamqp import errors
@@ -20,18 +19,6 @@ _logger = logging.getLogger(__name__)
 
 class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
-
-    async def lock_async(self, timeout=10.0):
-        await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
-
-    def release_async(self):
-        try:
-            self._async_lock.release()
-        except RuntimeError:
-            pass
-        except KeyboardInterrupt:
-            self.release_async()
-            raise
 
     async def create_authenticator_async(self, connection, debug=False, loop=None):
         """Create the async AMQP session and the CBS channel with which
@@ -48,7 +35,6 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self.loop = loop or asyncio.get_event_loop()
-        self._async_lock = asyncio.Lock(loop=self.loop)
         self._connection = connection
         self._session = SessionAsync(
             connection,
@@ -77,13 +63,11 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """Close the CBS auth channel and session asynchronously."""
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
-            await self.lock_async(timeout=None)
             _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
-            await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.destroy))
+            self._cbs_auth.destroy()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             await self._session.destroy_async()
         finally:
-            self.release_async()
             _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     async def handle_token_async(self):
@@ -105,11 +89,10 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         timeout = False
         in_progress = False
         try:
-            await self.lock_async()
             await self._connection.lock_async()
             if self._connection._closing or self._connection._error:
                 return timeout, in_progress
-            auth_status = await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.get_status))
+            auth_status = self._cbs_auth.get_status()
             auth_status = constants.CBSAuthStatus(auth_status)
             if auth_status == constants.CBSAuthStatus.Error:
                 if self.retries >= self._retry_policy.retries:  # pylint: disable=no-member
@@ -121,7 +104,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                     _logger.info("Authentication Put-Token failed. Retrying.")
                     self.retries += 1  # pylint: disable=no-member
                     await asyncio.sleep(self._retry_policy.backoff)
-                    await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
+                    self._cbs_auth.authenticate()
                     in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
                 errors.AuthenticationException("Failed to open CBS authentication link.")
@@ -135,13 +118,9 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 _logger.info("Token on connection %r will expire soon - attempting to refresh.",
                              self._connection.container_id)
                 self.update_token()
-                await self.loop.run_in_executor(
-                    None, functools.partial(
-                        self._cbs_auth.refresh,
-                        self.token,
-                        int(self.expires_at)))
+                self._cbs_auth.refresh(self.token, int(self.expires_at))
             elif auth_status == constants.CBSAuthStatus.Idle:
-                await self.loop.run_in_executor(None, functools.partial(self._cbs_auth.authenticate))
+                self._cbs_auth.authenticate()
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise ValueError("Invalid auth state.")
@@ -153,7 +132,6 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 "Token authentication failed: {}".format(e))
         finally:
             self._connection.release_async()
-            self.release_async()
         return timeout, in_progress
 
 

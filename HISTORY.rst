@@ -3,6 +3,13 @@
 Release History
 ===============
 
+1.0.2 (2018-09-05)
+++++++++++++++++++
+
+- Fixed additional bugs in setting MessageProperties as string or bytes.
+- Removed auth locking to prevent locking issues on keyboard interrupt.
+
+
 1.0.1 (2018-08-29)
 ++++++++++++++++++
 

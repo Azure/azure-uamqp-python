@@ -46,7 +46,9 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
+        assert header.get_header_obj()
         props = uamqp.message.MessageProperties(message_id=b"message id", subject="test_subject")
+        assert props.get_properties_obj()
         msg_content = b"hello world"
         message = uamqp.Message(
             msg_content,
@@ -72,7 +74,26 @@ def test_event_hubs_client_send_multiple_sync(live_eventhub_config):
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
-        props = uamqp.message.MessageProperties(message_id=b"message id")
+        header.delivery_count = 5
+        header.time_to_live = 500000
+        header.first_acquirer = True
+        header.priority = 3
+        assert header.get_header_obj()
+        props = uamqp.message.MessageProperties(
+            message_id=b"message id",
+            user_id="user_id",
+            to="to",
+            subject="test",
+            reply_to="reply_to",
+            correlation_id="correlation_id",
+            content_type="content_type",
+            content_encoding="content_encoding",
+            creation_time=12345,
+            absolute_expiry_time=12345,
+            group_id="group_id",
+            group_sequence=1234,
+            reply_to_group_id="reply_to_group_id")
+        assert props.get_properties_obj()
         msg_content = b"hello world"
         message = uamqp.Message(
             msg_content,
@@ -135,4 +156,4 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    test_event_hubs_batch_send_sync(config)
+    test_event_hubs_client_send_multiple_sync(config)

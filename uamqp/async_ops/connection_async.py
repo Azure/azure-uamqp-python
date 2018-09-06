@@ -6,7 +6,6 @@
 
 import asyncio
 import logging
-import functools
 
 import uamqp
 from uamqp import c_uamqp
@@ -102,20 +101,24 @@ class ConnectionAsync(connection.Connection):
         if self.cbs:
             await self.auth.close_authenticator_async()
             self.cbs = None
-        await self.loop.run_in_executor(None, functools.partial(self._conn.destroy))
+        self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
-    async def lock_async(self, timeout=10.0):
-        await asyncio.wait_for(asyncio.shield(self._async_lock.acquire()), timeout=timeout, loop=self.loop)
+    async def lock_async(self, timeout=3.0):
+        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
 
     def release_async(self):
         try:
             self._async_lock.release()
         except RuntimeError:
             pass
-        except KeyboardInterrupt:
-            self.release_async()
+        except:
+            _logger.debug("Got error when attempting to release async connection lock.")
+            try:
+                self._async_lock.release()
+            except RuntimeError:
+                pass
             raise
 
     async def work_async(self):
@@ -129,7 +132,7 @@ class ConnectionAsync(connection.Connection):
             raise
         try:
             await self.lock_async()
-            await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
+            self._conn.do_work()
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:

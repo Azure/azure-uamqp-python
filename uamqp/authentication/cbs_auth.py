@@ -9,7 +9,6 @@
 import logging
 import time
 import datetime
-import threading
 try:
     from urllib import parse as urllib_parse
 except ImportError:
@@ -47,19 +46,6 @@ class TokenRetryPolicy:
 class CBSAuthMixin:
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
-    def lock(self, timeout=10.0):
-        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
-            raise TimeoutError("Failed to acquire lock")
-
-    def release(self):
-        try:
-            self._lock.release()
-        except RuntimeError:
-            pass
-        except KeyboardInterrupt:
-            self.release()
-            raise
-
     def update_token(self):
         """Update a token that is about to expire. This is specific
         to a particular token type, and therefore must be implemented
@@ -80,7 +66,6 @@ class CBSAuthMixin:
         :type debug: bool
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
-        self._lock = threading.Lock()
         self._connection = connection
         self._session = Session(
             connection,
@@ -107,13 +92,11 @@ class CBSAuthMixin:
         """Close the CBS auth channel and session."""
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
-            self.lock(timeout=-1)
             _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             self._cbs_auth.destroy()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             self._session.destroy()
         finally:
-            self.release()
             _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 
     def handle_token(self):
@@ -135,7 +118,6 @@ class CBSAuthMixin:
         timeout = False
         in_progress = False
         try:
-            self.lock()
             self._connection.lock()
             if self._connection._closing or self._connection._error:
                 return timeout, in_progress
@@ -179,7 +161,6 @@ class CBSAuthMixin:
                 "Token authentication failed: {}".format(e))
         finally:
             self._connection.release()
-            self.release()
         return timeout, in_progress
 
 
