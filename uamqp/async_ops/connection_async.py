@@ -6,6 +6,7 @@
 
 import asyncio
 import logging
+import functools
 
 import uamqp
 from uamqp import c_uamqp
@@ -132,7 +133,7 @@ class ConnectionAsync(connection.Connection):
             raise
         try:
             await self.lock_async()
-            self._conn.do_work()
+            await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
