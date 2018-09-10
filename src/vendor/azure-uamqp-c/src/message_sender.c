@@ -361,38 +361,46 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                 }
                 else
                 {
-                    for (i = 0; i < body_data_count; i++)
+                    if (body_data_count == 0)
                     {
-                        if (message_get_body_amqp_data_in_place(message, i, &binary_data) != 0)
+                        LogError("Body data count is zero");
+                        result = SEND_ONE_MESSAGE_ERROR;
+                    }
+                    else
+                    {
+                        for (i = 0; i < body_data_count; i++)
                         {
-                            LogError("Cannot get body AMQP data %u", (unsigned int)i);
-                            result = SEND_ONE_MESSAGE_ERROR;
-                        }
-                        else
-                        {
-                            AMQP_VALUE body_amqp_data;
-                            amqp_binary binary_value;
-                            binary_value.bytes = binary_data.bytes;
-                            binary_value.length = (uint32_t)binary_data.length;
-                            body_amqp_data = amqpvalue_create_data(binary_value);
-                            if (body_amqp_data == NULL)
+                            if (message_get_body_amqp_data_in_place(message, i, &binary_data) != 0)
                             {
-                                LogError("Cannot create body AMQP data");
+                                LogError("Cannot get body AMQP data %u", (unsigned int)i);
                                 result = SEND_ONE_MESSAGE_ERROR;
                             }
                             else
                             {
-                                if (amqpvalue_get_encoded_size(body_amqp_data, &encoded_size) != 0)
+                                AMQP_VALUE body_amqp_data;
+                                amqp_binary binary_value;
+                                binary_value.bytes = binary_data.bytes;
+                                binary_value.length = (uint32_t)binary_data.length;
+                                body_amqp_data = amqpvalue_create_data(binary_value);
+                                if (body_amqp_data == NULL)
                                 {
-                                    LogError("Cannot get body AMQP data encoded size");
+                                    LogError("Cannot create body AMQP data");
                                     result = SEND_ONE_MESSAGE_ERROR;
                                 }
                                 else
                                 {
-                                    total_encoded_size += encoded_size;
-                                }
+                                    if (amqpvalue_get_encoded_size(body_amqp_data, &encoded_size) != 0)
+                                    {
+                                        LogError("Cannot get body AMQP data encoded size");
+                                        result = SEND_ONE_MESSAGE_ERROR;
+                                    }
+                                    else
+                                    {
+                                        total_encoded_size += encoded_size;
+                                    }
 
-                                amqpvalue_destroy(body_amqp_data);
+                                    amqpvalue_destroy(body_amqp_data);
+                                }
                             }
                         }
                     }
@@ -521,7 +529,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                     LINK_TRANSFER_RESULT link_transfer_error;
                     MESSAGE_WITH_CALLBACK* message_with_callback = GET_ASYNC_OPERATION_CONTEXT(MESSAGE_WITH_CALLBACK, pending_send);
                     message_with_callback->message_send_state = MESSAGE_SEND_STATE_PENDING;
-                    
+
                     transfer_async_operation = link_transfer_async(message_sender->link, message_format, &payload, 1, on_delivery_settled, pending_send, &link_transfer_error, message_with_callback->timeout);
                     if (transfer_async_operation == NULL)
                     {
@@ -690,9 +698,9 @@ static void on_link_state_changed(void* context, LINK_STATE new_link_state, LINK
         if ((message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN) ||
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_CLOSING))
         {
-            /* User initiated transition, we should be good */
-            set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_IDLE);
+            /* switch to closing so that no more requests should be accepted */
             indicate_all_messages_as_error(message_sender);
+            set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_IDLE);
         }
         else if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_IDLE)
         {
@@ -703,8 +711,8 @@ static void on_link_state_changed(void* context, LINK_STATE new_link_state, LINK
     case LINK_STATE_ERROR:
         if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_ERROR)
         {
-            set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_ERROR);
             indicate_all_messages_as_error(message_sender);
+            set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_ERROR);
         }
         break;
     }
@@ -745,8 +753,8 @@ void messagesender_destroy(MESSAGE_SENDER_HANDLE message_sender)
     }
     else
     {
-        (void)messagesender_close(message_sender);
         indicate_all_messages_as_error(message_sender);
+        (void)messagesender_close(message_sender);
 
         free(message_sender);
     }

@@ -331,32 +331,37 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 (attach_get_initial_delivery_count(attach_handle, &link_instance->delivery_count) != 0))
             {
                 LogError("Cannot get initial delivery count");
+                remove_all_pending_deliveries(link_instance, true);
+                set_link_state(link_instance, LINK_STATE_DETACHED);
             }
-            if (attach_get_max_message_size(attach_handle, &link_instance->peer_max_message_size) != 0)
+            else
             {
-                LogError("Could not retrieve peer_max_message_size from attach frame");
-            }
-
-            if ((link_instance->link_state == LINK_STATE_DETACHED) ||
-                (link_instance->link_state == LINK_STATE_HALF_ATTACHED_ATTACH_SENT))
-            {
-                if (link_instance->role == role_receiver)
+                if (attach_get_max_message_size(attach_handle, &link_instance->peer_max_message_size) != 0)
                 {
-                    link_instance->current_link_credit = link_instance->max_link_credit;
-                    send_flow(link_instance);
-                }
-                else
-                {
-                    link_instance->current_link_credit = 0;
+                    LogError("Could not retrieve peer_max_message_size from attach frame");
                 }
 
-                if (link_instance->link_state == LINK_STATE_DETACHED)
+                if ((link_instance->link_state == LINK_STATE_DETACHED) ||
+                    (link_instance->link_state == LINK_STATE_HALF_ATTACHED_ATTACH_SENT))
                 {
-                    set_link_state(link_instance, LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED);
-                }
-                else
-                {
-                    set_link_state(link_instance, LINK_STATE_ATTACHED);
+                    if (link_instance->role == role_receiver)
+                    {
+                        link_instance->current_link_credit = link_instance->max_link_credit;
+                        send_flow(link_instance);
+                    }
+                    else
+                    {
+                        link_instance->current_link_credit = 0;
+                    }
+
+                    if (link_instance->link_state == LINK_STATE_DETACHED)
+                    {
+                        set_link_state(link_instance, LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED);
+                    }
+                    else
+                    {
+                        set_link_state(link_instance, LINK_STATE_ATTACHED);
+                    }
                 }
             }
 
@@ -439,7 +444,7 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                         is_error = true;
                     }
                 }
-                    
+
                 if (!is_error)
                 {
                     /* If this is a continuation transfer or if this is the first chunk of a multi frame transfer */
@@ -633,7 +638,7 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 set_link_state(link_instance, LINK_STATE_ERROR);
                 error_destroy(error);
             }
-            else 
+            else
             {
                 set_link_state(link_instance, LINK_STATE_DETACHED);
             }
@@ -1304,7 +1309,7 @@ static void link_transfer_cancel_handler(ASYNC_OPERATION_HANDLE link_transfer_op
     {
         pending_delivery->on_delivery_settled(pending_delivery->callback_context, pending_delivery->delivery_id, LINK_DELIVERY_SETTLE_REASON_CANCELLED, NULL);
     }
-    
+
     (void)singlylinkedlist_remove_if(((LINK_HANDLE)pending_delivery->link)->pending_deliveries, remove_pending_delivery_condition_function, pending_delivery);
 
     async_operation_destroy(link_transfer_operation);
