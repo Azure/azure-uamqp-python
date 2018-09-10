@@ -7,7 +7,7 @@
 #define REFCOUNT_OS_H__LINUX
 
 
-// This Linux-specific header offers 3 strategies: 
+// This Linux-specific header offers 3 strategies:
 //   REFCOUNT_ATOMIC_DONTCARE     -- no atomicity guarantee
 //   REFCOUNT_USE_STD_ATOMIC      -- C11 atomicity
 //   REFCOUNT_USE_GNU_C_ATOMIC    -- GNU-specific atomicity
@@ -59,17 +59,20 @@ gcc
 #define DEC_RETURN_ZERO (0)
 #define INC_REF(type, var) ++((((REFCOUNT_TYPE(type)*)var)->count))
 #define DEC_REF(type, var) --((((REFCOUNT_TYPE(type)*)var)->count))
+#define INIT_REF(type, var) do { ((REFCOUNT_TYPE(type)*)var)->count = 1; } while((void)0,0)
 
 #elif defined(REFCOUNT_USE_STD_ATOMIC)
 #include <stdatomic.h>
 #define DEC_RETURN_ZERO (1)
 #define INC_REF(type, var) atomic_fetch_add((&((REFCOUNT_TYPE(type)*)var)->count), 1)
 #define DEC_REF(type, var) atomic_fetch_sub((&((REFCOUNT_TYPE(type)*)var)->count), 1)
+#define INIT_REF(type, var) atomic_store(&((REFCOUNT_TYPE(type)*)var)->count, 1)
 
 #elif defined(REFCOUNT_USE_GNU_C_ATOMIC)
 #define DEC_RETURN_ZERO (0)
 #define INC_REF(type, var) __sync_add_and_fetch((&((REFCOUNT_TYPE(type)*)var)->count), 1)
 #define DEC_REF(type, var) __sync_sub_and_fetch((&((REFCOUNT_TYPE(type)*)var)->count), 1)
+#define INIT_REF(type, var) do { ((REFCOUNT_TYPE(type)*)var)->count = 1; __sync_synchronize(); } while((void)0,0)
 
 #endif /*defined(REFCOUNT_USE_GNU_C_ATOMIC)*/
 

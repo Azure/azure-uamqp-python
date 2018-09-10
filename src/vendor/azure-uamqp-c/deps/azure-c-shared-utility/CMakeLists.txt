@@ -47,7 +47,7 @@ else()
     else()
         option(use_openssl "set use_openssl to ON if openssl is to be used, set to OFF to not use openssl" ON)
         option(use_socketio "set use_socketio to ON if socketio is to be included in the library, set to OFF if a different implementation will be provided" ON)
-    endif()    
+    endif()
     option(use_wolfssl "set use_wolfssl to ON if wolfssl is to be used, set to OFF to not use wolfssl" OFF)
 endif()
 
@@ -65,12 +65,12 @@ if (MACOSX)
     endif()
 endif()
 
-if(${use_etw}) 
+if(${use_etw})
     #create res folder
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/res)
-    
+
     #populate res folder with the ETW resources
-    execute_process(COMMAND  ${CMAKE_CURRENT_LIST_DIR}/src/etw_provider_generate.cmd 
+    execute_process(COMMAND  ${CMAKE_CURRENT_LIST_DIR}/src/etw_provider_generate.cmd
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/src
     )
 endif()
@@ -87,7 +87,11 @@ if(${use_openssl})
         set(OPENSSL_ROOT_DIR $ENV{OpenSSLDir} CACHE PATH "")
     endif()
 
-    find_package(OpenSSL REQUIRED)
+    # If OpenSSL::SSL OR OpenSSL::Crypto are not set then you need to run
+    # the find package for openssl
+    if (NOT TARGET OpenSSL::SSL OR NOT TARGET OpenSSL::Crypto OR NOT ${OPENSSL_INCLUDE_DIR})
+        find_package(OpenSSL REQUIRED)
+    endif()
     include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
 
@@ -124,6 +128,10 @@ if(MSVC)
         if(${use_wolfssl})
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_WOLFSSL")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_WOLFSSL")
+
+            # Disables error if a bit-field is used on non-integer variable
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /wd4214")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4 /wd4214")
         endif()
 
     endif()
@@ -255,6 +263,7 @@ set(source_h_files
 ./inc/azure_c_shared_utility/const_defines.h
 ${LOGGING_H_FILE}
 ./inc/azure_c_shared_utility/doublylinkedlist.h
+./inc/azure_c_shared_utility/envvariable.h
 ./inc/azure_c_shared_utility/gballoc.h
 ./inc/azure_c_shared_utility/gbnetwork.h
 ./inc/azure_c_shared_utility/gb_stdio.h
@@ -280,6 +289,7 @@ ${LOGGING_H_FILE}
 ./inc/azure_c_shared_utility/strings_types.h
 ./inc/azure_c_shared_utility/string_tokenizer.h
 ./inc/azure_c_shared_utility/string_tokenizer_types.h
+./inc/azure_c_shared_utility/tlsio_options.h
 ./inc/azure_c_shared_utility/tickcounter.h
 ./inc/azure_c_shared_utility/threadapi.h
 ./inc/azure_c_shared_utility/xio.h
@@ -374,9 +384,25 @@ endif()
 
 
 if(${build_as_dynamic})
+
+    # need to create a def file from existing def files due to cmake
+    # not letting us build more than one file
+    file(READ ./src/aziotsharedutil.def DEF_FILE_CONTENT)
+    file(WRITE "${CMAKE_BINARY_DIR}/shared_util.def" ${DEF_FILE_CONTENT})
+    file(READ ./src/aziotsharedutil_http.def DEF_FILE_CONTENT)
+    file(APPEND "${CMAKE_BINARY_DIR}/shared_util.def" ${DEF_FILE_CONTENT})
+    file(READ ./src/aziotsharedutil_wsio.def DEF_FILE_CONTENT)
+    file(APPEND "${CMAKE_BINARY_DIR}/shared_util.def" ${DEF_FILE_CONTENT})
+
+    set(def_files "${CMAKE_BINARY_DIR}/shared_util.def")
+
     #make sure we can link as dll/so
-    add_library(aziotsharedutil_dll SHARED ./src/aziotsharedutil.def ${source_c_files} ${source_h_files})
-    set_target_properties(aziotsharedutil_dll PROPERTIES OUTPUT_NAME "aziotsharedutil")
+    add_library(aziotsharedutil_dll SHARED
+        ${source_c_files}
+        ${source_h_files}
+        ${def_files}
+    )
+    set_target_properties(aziotsharedutil_dll PROPERTIES OUTPUT_NAME "aziotsharedutil_dll")
 endif()
 
 set(aziotsharedutil_target_libs)
@@ -534,13 +560,13 @@ if(${use_installed_dependencies})
 
     # Install Azure C Shared Utility
     set(package_location "cmake")
-    
+
     if(${build_as_dynamic})
         set(targets aziotsharedutil aziotsharedutil_dll)
     else(${build_as_dynamic})
         set(targets aziotsharedutil)
     endif(${build_as_dynamic})
-    
+
     install (TARGETS ${targets} EXPORT aziotsharedutilTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -582,8 +608,8 @@ else()
         aziotsharedutil
     )
     install(FILES ${source_h_files}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_c_shared_utility) 
-    install(TARGETS ${install_staticlibs} 
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_c_shared_utility)
+    install(TARGETS ${install_staticlibs}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()

@@ -37,7 +37,7 @@ static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 #define UUID_STRING_LENGTH  36
 #define UUID_STRING_SIZE    (UUID_STRING_LENGTH + 1)
 
-static UUID TEST_UUID = { 222, 193, 74, 152, 197, 252, 67, 14, 180, 227, 51, 193, 196, 52, 220, 175 };
+static UUID_T TEST_UUID = { 222, 193, 74, 152, 197, 252, 67, 14, 180, 227, 51, 193, 196, 52, 220, 175 };
 static char* TEST_UUID_STRING = "dec14a98-c5fc-430e-b4e3-33c1c434dcaf";
 
 static UNIQUEID_RESULT mock_UniqueId_Generate_result;
@@ -124,12 +124,12 @@ TEST_FUNCTION(UUID_generate_NULL_uuid)
 }
 
 // Tests_SRS_UUID_09_002: [ UUID_generate shall obtain an UUID string from UniqueId_Generate ]
-// Tests_SRS_UUID_09_004: [ The UUID string shall be parsed into an UUID type (16 unsigned char array) and filled in `uuid` ]  
+// Tests_SRS_UUID_09_004: [ The UUID string shall be parsed into an UUID_T type (16 unsigned char array) and filled in `uuid` ]
 // Tests_SRS_UUID_09_006: [ If no failures occur, UUID_generate shall return zero ]
 TEST_FUNCTION(UUID_generate_succeed)
 {
     //Arrange
-    UUID uuid;
+    UUID_T uuid;
     int result;
     char uuid_string[UUID_STRING_SIZE];
 
@@ -160,7 +160,7 @@ TEST_FUNCTION(UUID_generate_succeed)
 TEST_FUNCTION(UUID_generate_failure_checks)
 {
     //Arrange
-    UUID uuid;
+    UUID_T uuid;
     int result;
     size_t i;
     char uuid_string[UUID_STRING_SIZE];
@@ -196,7 +196,7 @@ TEST_FUNCTION(UUID_generate_failure_checks)
     umock_c_negative_tests_deinit();
 }
 
-// Tests_SRS_UUID_09_011: [ If `uuid` is NULL, UUID_to_string shall return a non-zero value ]  
+// Tests_SRS_UUID_09_011: [ If `uuid` is NULL, UUID_to_string shall return a non-zero value ]
 TEST_FUNCTION(UUID_to_string_NULL_uuid)
 {
     //Arrange
@@ -208,9 +208,9 @@ TEST_FUNCTION(UUID_to_string_NULL_uuid)
     ASSERT_IS_NULL(result);
 }
 
-// Tests_SRS_UUID_09_012: [ UUID_to_string shall allocate a valid UUID string (`uuid_string`) as per RFC 4122 ]  
-// Tests_SRS_UUID_09_014: [ Each character in `uuid` shall be written in the respective positions of `uuid_string` as a 2-digit HEX value ]  
-// Tests_SRS_UUID_09_016: [ If no failures occur, UUID_to_string shall return `uuid_string` ] 
+// Tests_SRS_UUID_09_012: [ UUID_to_string shall allocate a valid UUID string (`uuid_string`) as per RFC 4122 ]
+// Tests_SRS_UUID_09_014: [ Each character in `uuid` shall be written in the respective positions of `uuid_string` as a 2-digit HEX value ]
+// Tests_SRS_UUID_09_016: [ If no failures occur, UUID_to_string shall return `uuid_string` ]
 TEST_FUNCTION(UUID_to_string_succeed)
 {
     //Arrange
@@ -229,8 +229,8 @@ TEST_FUNCTION(UUID_to_string_succeed)
     ASSERT_ARE_EQUAL(char_ptr, TEST_UUID_STRING, result);
 }
 
-// Tests_SRS_UUID_09_013: [ If `uuid_string` fails to be allocated, UUID_to_string shall return NULL ]  
-// Tests_SRS_UUID_09_015: [ If `uuid_string` fails to be set, UUID_to_string shall return NULL ]  
+// Tests_SRS_UUID_09_013: [ If `uuid_string` fails to be allocated, UUID_to_string shall return NULL ]
+// Tests_SRS_UUID_09_015: [ If `uuid_string` fails to be set, UUID_to_string shall return NULL ]
 TEST_FUNCTION(UUID_to_string_failure_checks)
 {
     //Arrange
@@ -271,7 +271,7 @@ TEST_FUNCTION(UUID_from_string_NULL_uuid_string)
 {
     //Arrange
     int result;
-    UUID uuid;
+    UUID_T uuid;
 
     umock_c_reset_all_calls();
 
@@ -299,13 +299,13 @@ TEST_FUNCTION(UUID_from_string_NULL_uuid)
     ASSERT_ARE_NOT_EQUAL(int, 0, result);
 }
 
-// Tests_SRS_UUID_09_008: [ Each pair of digits in `uuid_string`, excluding dashes, shall be read as a single HEX value and saved on the respective position in `uuid` ]  
+// Tests_SRS_UUID_09_008: [ Each pair of digits in `uuid_string`, excluding dashes, shall be read as a single HEX value and saved on the respective position in `uuid` ]
 // Tests_SRS_UUID_09_010: [ If no failures occur, UUID_from_string shall return zero ]
 TEST_FUNCTION(UUID_from_string_succeed)
 {
     //Arrange
     int result;
-    UUID uuid;
+    UUID_T uuid;
 
     umock_c_reset_all_calls();
 
@@ -315,7 +315,7 @@ TEST_FUNCTION(UUID_from_string_succeed)
     //Assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
     ASSERT_ARE_EQUAL(int, 0, result);
-    
+
     {
         int i;
         for (i = 0; i < UUID_OCTET_COUNT; i++)
