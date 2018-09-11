@@ -870,6 +870,9 @@ class ReceiveClient(AMQPClient):
                 if timespan >= self._timeout:
                     _logger.info("Timeout reached, closing receiver.")
                     self._shutdown = True
+                else:
+                    # If no messages are coming through, back off a little to keep CPU use low.
+                    time.sleep(0.05)
             else:
                 self._last_activity_timestamp = now
         self._was_message_received = False

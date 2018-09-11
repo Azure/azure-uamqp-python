@@ -165,7 +165,10 @@ class MessageSender():
             _new_state = constants.MessageSenderState(new_state)
         except ValueError:
             _new_state = new_state
-        self.on_state_changed(_previous_state, _new_state)
+        if _previous_state == constants.MessageSenderState.Opening and _new_state == constants.MessageSenderState.Error:
+            _logger.info("Send link failed to open - expecting to receive DETACH frame.")
+        else:
+            self.on_state_changed(_previous_state, _new_state)
 
     def get_state(self):
         """Get the state of the MessageSender and its underlying Link.
