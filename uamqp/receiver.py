@@ -145,7 +145,10 @@ class MessageReceiver(object):
             _new_state = constants.MessageReceiverState(new_state)
         except ValueError:
             _new_state = new_state
-        self.on_state_changed(_previous_state, _new_state)
+        if _previous_state == constants.MessageReceiverState.Opening and _new_state == constants.MessageReceiverState.Error:
+            _logger.info("Receiver link failed to open - expecting to receive DETACH frame.")
+        else:
+            self.on_state_changed(_previous_state, _new_state)
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.

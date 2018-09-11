@@ -246,8 +246,8 @@ static int my_messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
     if (saved_on_message_sender_state_changed != NULL)
     {
         saved_on_message_sender_state_changed(
-            saved_on_message_sender_state_changed_context, 
-            messagesender_close_on_message_sender_state_changed_new_state, 
+            saved_on_message_sender_state_changed_context,
+            messagesender_close_on_message_sender_state_changed_new_state,
             messagesender_close_on_message_sender_state_changed_previous_state);
     }
 
@@ -1858,7 +1858,7 @@ TEST_FUNCTION(on_message_send_complete_with_NULL_context_does_nothing)
     umock_c_reset_all_calls();
 
     // act
-    saved_on_message_send_complete(NULL, MESSAGE_SEND_OK);
+    saved_on_message_send_complete(NULL, MESSAGE_SEND_OK, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -1892,7 +1892,7 @@ TEST_FUNCTION(when_on_message_send_complete_indicates_ERROR_the_pending_operatio
     STRICT_EXPECTED_CALL(free(IGNORED_PTR_ARG));
 
     // act
-    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_ERROR);
+    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_ERROR, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -1926,7 +1926,7 @@ TEST_FUNCTION(when_on_message_send_complete_indicates_CANCELLED_the_pending_oper
     STRICT_EXPECTED_CALL(free(IGNORED_PTR_ARG));
 
     // act
-    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_CANCELLED);
+    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_CANCELLED, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -1956,7 +1956,7 @@ TEST_FUNCTION(when_obtaining_the_list_item_payload_fails_an_error_is_indicated_t
     STRICT_EXPECTED_CALL(test_on_amqp_management_error((void*)0x4243));
 
     // act
-    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_CANCELLED);
+    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_CANCELLED, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -1981,7 +1981,7 @@ TEST_FUNCTION(when_on_send_message_complete_indicates_success_it_returns)
     umock_c_reset_all_calls();
 
     // act
-    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_OK);
+    saved_on_message_send_complete(saved_on_message_send_complete_context, MESSAGE_SEND_OK, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -2084,7 +2084,7 @@ TEST_FUNCTION(on_message_received_with_a_valid_message_indicates_the_operation_c
     STRICT_EXPECTED_CALL(singlylinkedlist_get_head_item(test_singlylinkedlist_handle));
     STRICT_EXPECTED_CALL(singlylinkedlist_item_get_value(IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(test_on_amqp_management_execute_operation_complete((void*)0x4244, AMQP_MANAGEMENT_EXECUTE_OPERATION_OK, 200, "my error ...", test_message));
-    
+
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(singlylinkedlist_remove(test_singlylinkedlist_handle, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(messaging_delivery_accepted());
@@ -3209,7 +3209,7 @@ TEST_FUNCTION(on_message_sender_state_changed_when_a_new_SENDER_OPEN_state_is_de
 
     messagesender_close_on_message_sender_state_changed_previous_state = MESSAGE_SENDER_STATE_OPEN;
     messagesender_close_on_message_sender_state_changed_new_state = MESSAGE_SENDER_STATE_OPENING;
-    
+
     STRICT_EXPECTED_CALL(messagesender_close(test_message_sender));
     STRICT_EXPECTED_CALL(test_on_amqp_management_error((void*)0x4243));
     STRICT_EXPECTED_CALL(messagereceiver_close(test_message_receiver));

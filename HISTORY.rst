@@ -3,6 +3,13 @@
 Release History
 ===============
 
+1.0.3 (unreleased)
+++++++++++++++++++
+
+- Reduced CPU load during idle receive.
+- Updated Azure uAMQP C and Azure C Shared Utility dependencies.
+
+
 1.0.2 (2018-09-05)
 ++++++++++++++++++
 

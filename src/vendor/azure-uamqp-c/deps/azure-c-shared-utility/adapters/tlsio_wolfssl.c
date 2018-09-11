@@ -54,6 +54,7 @@ typedef struct TLS_IO_INSTANCE_TAG
 } TLS_IO_INSTANCE;
 
 STATIC_VAR_UNUSED const char* const OPTION_WOLFSSL_SET_DEVICE_ID = "SetDeviceId";
+static const size_t SOCKET_READ_LIMIT = 5;
 
 /*this function will clone an option given by name and value*/
 static void* tlsio_wolfssl_CloneOption(const char* name, const void* value)
@@ -225,8 +226,8 @@ static int decode_ssl_received_bytes(TLS_IO_INSTANCE* tls_io_instance)
     int result = 0;
     unsigned char buffer[64];
 
-    int rcv_bytes = 1;
-    while (rcv_bytes > 0)
+    int rcv_bytes = 0;
+    do
     {
         rcv_bytes = wolfSSL_read(tls_io_instance->ssl, buffer, sizeof(buffer));
         if (rcv_bytes > 0)
@@ -236,8 +237,7 @@ static int decode_ssl_received_bytes(TLS_IO_INSTANCE* tls_io_instance)
                 tls_io_instance->on_bytes_received(tls_io_instance->on_bytes_received_context, buffer, rcv_bytes);
             }
         }
-    }
-
+    } while (rcv_bytes > 0);
     return result;
 }
 
@@ -351,15 +351,17 @@ static int on_io_recv(WOLFSSL *ssl, char *buf, int sz, void *context)
     {
         TLS_IO_INSTANCE* tls_io_instance = (TLS_IO_INSTANCE*)context;
         unsigned char* new_socket_io_read_bytes;
+        size_t socket_reads = 0;
 
         AZURE_UNREFERENCED_PARAMETER(ssl);
-        while (tls_io_instance->socket_io_read_byte_count == 0)
+        while (tls_io_instance->socket_io_read_byte_count == 0 && socket_reads < SOCKET_READ_LIMIT)
         {
             xio_dowork(tls_io_instance->socket_io);
             if (tls_io_instance->tlsio_state != TLSIO_STATE_IN_HANDSHAKE)
             {
                 break;
             }
+            socket_reads++;
         }
 
         result = tls_io_instance->socket_io_read_byte_count;
@@ -388,7 +390,11 @@ static int on_io_recv(WOLFSSL *ssl, char *buf, int sz, void *context)
             }
         }
 
-        if ((result == 0) && (tls_io_instance->tlsio_state == TLSIO_STATE_OPEN))
+        if (tls_io_instance->tlsio_state == TLSIO_STATE_ERROR)
+        {
+            result = WOLFSSL_CBIO_ERR_GENERAL;
+        }
+        else if ( (result == 0) && (tls_io_instance->tlsio_state == TLSIO_STATE_OPEN))
         {
             result = WOLFSSL_CBIO_ERR_WANT_READ;
         }
@@ -486,7 +492,7 @@ static int x509_wolfssl_add_credentials(WOLFSSL* ssl, char* x509certificate, cha
         LogError("unable to enable secure renegotiation");
         result = __FAILURE__;
     }
-#endif 
+#endif
     else
     {
         result = 0;
@@ -503,7 +509,6 @@ static void destroy_wolfssl_instance(TLS_IO_INSTANCE* tls_io_instance)
 static int create_wolfssl_instance(TLS_IO_INSTANCE* tls_io_instance)
 {
     int result;
-
     tls_io_instance->ssl = wolfSSL_new(tls_io_instance->ssl_context);
     if (tls_io_instance->ssl == NULL)
     {
@@ -521,8 +526,6 @@ static int create_wolfssl_instance(TLS_IO_INSTANCE* tls_io_instance)
 #endif
 
         wolfSSL_set_using_nonblock(tls_io_instance->ssl, 1);
-        wolfSSL_SetIOSend(tls_io_instance->ssl_context, on_io_send);
-        wolfSSL_SetIORecv(tls_io_instance->ssl_context, on_io_recv);
         wolfSSL_SetHsDoneCb(tls_io_instance->ssl, on_handshake_done, tls_io_instance);
         wolfSSL_SetIOWriteCtx(tls_io_instance->ssl, tls_io_instance);
         wolfSSL_SetIOReadCtx(tls_io_instance->ssl, tls_io_instance);
@@ -575,7 +578,7 @@ int tlsio_wolfssl_init(void)
 void tlsio_wolfssl_deinit(void)
 {
 }
- 
+
 CONCRETE_IO_HANDLE tlsio_wolfssl_create(void* io_create_parameters)
 {
     TLS_IO_INSTANCE* result;
@@ -608,6 +611,10 @@ CONCRETE_IO_HANDLE tlsio_wolfssl_create(void* io_create_parameters)
             }
             else
             {
+                // Set the recv and send function on the wolfssl context object
+                wolfSSL_SetIOSend(result->ssl_context, on_io_send);
+                wolfSSL_SetIORecv(result->ssl_context, on_io_recv);
+
                 SOCKETIO_CONFIG socketio_config;
                 const IO_INTERFACE_DESCRIPTION* underlying_io_interface;
                 void* io_interface_parameters;
@@ -854,10 +861,6 @@ void tlsio_wolfssl_dowork(CONCRETE_IO_HANDLE tls_io)
     }
 }
 
-const IO_INTERFACE_DESCRIPTION* tlsio_wolfssl_get_interface_description(void)
-{
-    return &tlsio_wolfssl_interface_description;
-}
 
 static int process_option(char** destination, const char* name, const char* value)
 {
@@ -943,4 +946,8 @@ int tlsio_wolfssl_setoption(CONCRETE_IO_HANDLE tls_io, const char* optionName, c
     }
 
     return result;
+}
+const IO_INTERFACE_DESCRIPTION* tlsio_wolfssl_get_interface_description(void)
+{
+    return &tlsio_wolfssl_interface_description;
 }
