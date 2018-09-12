@@ -288,10 +288,20 @@ cdef class AMQPValue(StructBase):
         return self._as_string()
 
     def __str__(self):
+        as_bytes = self._as_string()
+        if six.PY3:
+            try:
+                return as_bytes.decode('UTF-8')
+            except UnicodeDecodeError:
+                pass
+        return str(as_bytes)
+
+    def __unicode__(self):
+        as_bytes = self._as_string()
         try:
-            return bytes(self).decode('UTF-8')
+            return six.text_type(as_bytes.decode('UTF-8'))
         except UnicodeDecodeError:
-            return str(bytes(self))
+            return six.text_type(as_bytes)
 
     cpdef _as_string(self):
         cdef c_amqpvalue.AMQP_VALUE value

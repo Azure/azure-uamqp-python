@@ -9,6 +9,8 @@ import uuid
 import threading
 import time
 
+import six
+
 import uamqp
 from uamqp import c_uamqp
 from uamqp import utils, errors
@@ -73,9 +75,9 @@ class Connection(object):
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        if isinstance(self.container_id, str):
+        if isinstance(self.container_id, six.text_type):
             self.container_id = self.container_id.encode(encoding)
-        self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
+        self.hostname = hostname.encode(encoding) if isinstance(hostname, six.text_type) else hostname
         self.auth = sasl
         self.cbs = None
         self.error_policy = error_policy or errors.ErrorPolicy()
@@ -185,19 +187,22 @@ class Connection(object):
                 self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
 
     def lock(self, timeout=3.0):
-        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
-            raise errors.ClientTimeout("Failed to acquire connection lock.")
+        try:
+            if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
+                raise errors.ClientTimeout("Failed to acquire connection lock.")
+        except TypeError:  # Timeout isn't supported in Py2.7
+            self._lock.acquire()
 
     def release(self):
         try:
             self._lock.release()
-        except RuntimeError:
+        except (RuntimeError, threading.ThreadError):
             pass
         except:
             _logger.debug("Got error when attempting to release connection lock.")
             try:
                 self._lock.release()
-            except RuntimeError:
+            except (RuntimeError, threading.ThreadError):
                 pass
             raise
 
@@ -206,7 +211,7 @@ class Connection(object):
         CBS authentication session.
         """
         try:
-            self.lock(timeout=-1)
+            self.lock()
             _logger.debug("Unlocked connection %r to close.", self.container_id)
             self._close()
         finally:
@@ -221,7 +226,7 @@ class Connection(object):
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         try:
-            self.lock(timeout=-1)
+            self.lock()
             _logger.info("Redirecting connection %r.", self.container_id)
             if self.hostname == redirect_error.hostname:
                 return

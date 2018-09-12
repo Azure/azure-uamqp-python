@@ -9,6 +9,8 @@ from datetime import timedelta
 import time
 import base64
 
+import six
+
 from uamqp import c_uamqp
 
 
@@ -47,12 +49,39 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
     return c_uamqp.create_sas_token(shared_access_key, scope, key_name, abs_expiry)
 
 
+def _convert_py_number(value):
+    """Convert a Python integer value into equivalent C object.
+    Will attempt to use the smallest possible conversion, starting with int, then long
+    then double. Unsigned versions will be sent be default unless the value is negative.
+    """
+    if value < 0:
+        try:
+            return c_uamqp.int_value(value)
+        except OverflowError:
+            pass
+        try:
+            return c_uamqp.long_value(value)
+        except OverflowError:
+            pass
+    else:
+        try:
+            return c_uamqp.uint_value(value)
+        except OverflowError:
+            pass
+        try:
+            return c_uamqp.ulong_value(value)
+        except OverflowError:
+            pass
+    return c_uamqp.double_value(value)
+
+
+
 def data_factory(value, encoding='UTF-8'):
     """Wrap a Python type in the equivalent C AMQP type.
     If the Python type has already been wrapped in a ~uamqp.types.AMQPType
     object - then this will be used to select the appropriate C type.
     - bool => c_uamqp.BoolValue
-    - int => c_uamqp.IntValue
+    - int => c_uamqp.IntValue, LongValue, DoubleValue
     - str => c_uamqp.StringValue
     - bytes => c_uamqp.BinaryValue
     - list/set/tuple => c_uamqp.ListValue
@@ -73,18 +102,18 @@ def data_factory(value, encoding='UTF-8'):
         result = value
     elif isinstance(value, bool):
         result = c_uamqp.bool_value(value)
-    elif isinstance(value, str):
+    elif isinstance(value, six.text_type):
         result = c_uamqp.string_value(value.encode(encoding))
-    elif isinstance(value, bytes):
+    elif isinstance(value, six.binary_type):
         result = c_uamqp.string_value(value)
     elif isinstance(value, uuid.UUID):
         result = c_uamqp.uuid_value(value)
     elif isinstance(value, bytearray):
         result = c_uamqp.binary_value(value)
+    elif isinstance(value, six.integer_types):
+        result = _convert_py_number(value)
     elif isinstance(value, float):
         result = c_uamqp.double_value(value)
-    elif isinstance(value, int):
-        result = c_uamqp.int_value(value)
     elif isinstance(value, dict):
         wrapped_dict = c_uamqp.dict_value()
         for key, item in value.items():

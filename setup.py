@@ -189,6 +189,8 @@ else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
+    if sys.version_info <= (3,):
+        kwargs['libraries'].append('rt')
     if not supress_link_flags:
         kwargs['libraries'].extend(['ssl', 'crypto'])
 
@@ -236,6 +238,8 @@ setup(
         'Development Status :: 3 - Alpha',
         'Programming Language :: Cython',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
@@ -249,6 +253,8 @@ setup(
     ext_modules = extensions,
     install_requires=[
         "certifi>=2017.4.17",
+        "six~=1.0",
+        "enum34; python_version < '3.4'"
     ],
     cmdclass={
         'build_ext': build_ext,

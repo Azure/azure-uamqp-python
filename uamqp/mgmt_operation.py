@@ -48,20 +48,17 @@ class MgmtOperation(object):
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
                  encoding='UTF-8'):
+        self._encoding = encoding
         self.connection = session._connection  # pylint: disable=protected-access
         # self.session = Session(
         #     connection,
         #     incoming_window=constants.MAX_FRAME_SIZE_BYTES,
         #     outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
-        self.target = target or constants.MGMT_TARGET
-        if isinstance(self.target, str):
-            self.target = self.target.encode(encoding)
-        if isinstance(status_code_field, str):
-            status_code_field = status_code_field.encode(encoding)
-        if isinstance(description_fields, str):
-            description_fields = description_fields.encode(encoding)
+        self.target = self._encode(target or constants.MGMT_TARGET)
+        status_code_field = self._encode(status_code_field)
+        description_fields = self._encode(description_fields)
         self._responses = {}
-        self._encoding = encoding
+        
         self._counter = c_uamqp.TickCounter()
         self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
@@ -75,6 +72,9 @@ class MgmtOperation(object):
                 "Please confirm URI namespace exists.")
         else:
             self.mgmt_error = None
+
+    def _encode(self, value):
+        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def _management_open_complete(self, result):
         """Callback run when the send/receive links are open and ready
@@ -110,10 +110,8 @@ class MgmtOperation(object):
         start_time = self._counter.get_current_ms()
         operation_id = str(uuid.uuid4())
         self._responses[operation_id] = None
-        if isinstance(operation, str):
-            operation = operation.encode(self._encoding)
-        if isinstance(op_type, str):
-            op_type = op_type.encode(self._encoding)
+        operation = self._encode(operation)
+        op_type = self._encode(op_type)
 
         def on_complete(operation_result, status_code, description, wrapped_message):
             result = constants.MgmtExecuteResult(operation_result)

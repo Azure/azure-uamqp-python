@@ -8,6 +8,8 @@ import logging
 import uuid
 import functools
 
+import six
+
 import uamqp
 from uamqp import utils
 from uamqp import errors
@@ -86,10 +88,10 @@ class MessageReceiver(object):
                  encoding='UTF-8'):
         # pylint: disable=protected-access
         if name:
-            self.name = name.encode(encoding) if isinstance(name, str) else name
+            self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
         else:
             self.name = str(uuid.uuid4()).encode(encoding)
-        target = target.encode(encoding) if isinstance(target, str) else target
+        target = target.encode(encoding) if isinstance(target, six.text_type) else target
         role = constants.Role.Receiver
 
         self.source = source._address.value

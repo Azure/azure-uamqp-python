@@ -9,6 +9,8 @@
 import logging
 import certifi
 
+import six
+
 from uamqp import constants
 from uamqp import c_uamqp
 
@@ -36,7 +38,7 @@ class AMQPAuth(object):
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
-        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
+        self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASL()
         self.set_tlsio(self.hostname, port, http_proxy)
@@ -46,7 +48,7 @@ class AMQPAuth(object):
         config.hostname = hostname
         config.port = port
         for key, value in proxy_settings.items():
-            proxy_settings[key] = value.encode(self._encoding) if isinstance(value, str) else value
+            proxy_settings[key] = self._encode(value)
         config.proxy_hostname = proxy_settings['proxy_hostname']
         config.proxy_port = proxy_settings['proxy_port']
         username = proxy_settings.get('username')
@@ -56,6 +58,9 @@ class AMQPAuth(object):
         if password:
             config.password = password
         return config
+
+    def _encode(self, value):
+        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def set_tlsio(self, hostname, port, http_proxy):
         """Setup the default underlying TLS IO layer. On Windows this is
@@ -121,11 +126,11 @@ class SASLPlain(AMQPAuth):
             self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
             verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
-        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
-        self.username = username.encode(self._encoding) if isinstance(username, str) else username
-        self.password = password.encode(self._encoding) if isinstance(password, str) else password
+        self.hostname = self._encode(hostname)
+        self.username = self._encode(username)
+        self.password = self._encode(password)
         self.cert_file = verify
-        self.sasl = _SASLPlain(self.username, self.password, encoding=self._encoding)
+        self.sasl = _SASLPlain(self.username, self.password)
         self.set_tlsio(self.hostname, port, http_proxy)
 
 
@@ -152,7 +157,7 @@ class SASLAnonymous(AMQPAuth):
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
         self._encoding = encoding
-        self.hostname = hostname.encode(self._encoding) if isinstance(hostname, str) else hostname
+        self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASLAnonymous()
         self.set_tlsio(self.hostname, port, http_proxy)
@@ -196,12 +201,11 @@ class _SASLAnonymous(_SASL):
 
 class _SASLPlain(_SASL):
 
-    def __init__(self, authcid, passwd, authzid=None, encoding='UTF-8'):
+    def __init__(self, authcid, passwd, authzid=None):
         self._sasl_config = c_uamqp.SASLPlainConfig()
         self._sasl_config.authcid = authcid
         self._sasl_config.passwd = passwd
-        if authzid:
-            self._sasl_config.authzid = authzid.encode(encoding) if isinstance(authzid, str) else authzid
+        self._sasl_config.authzid = authzid
         super(_SASLPlain, self).__init__()
 
     def _get_interface(self):
