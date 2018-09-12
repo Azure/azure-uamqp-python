@@ -6,6 +6,8 @@
 
 import logging
 
+import six
+
 from uamqp import c_uamqp
 from uamqp import utils
 from uamqp import constants, errors
@@ -97,17 +99,18 @@ class Message(object):
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
-            if isinstance(body, (bytes, str)):
+            if isinstance(body, (six.text_type, six.binary_type)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b, (bytes, str)) for b in body]):
-                self._body = DataBody(self._message)
-                for value in body:
-                    self._body.append(value)
             elif isinstance(body, list):
-                self._body = SequenceBody(self._message)
-                for value in body:
-                    self._body.append(value)
+                if all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+                    self._body = DataBody(self._message)
+                    for value in body:
+                        self._body.append(value)
+                else:
+                    self._body = SequenceBody(self._message)
+                    for value in body:
+                        self._body.append(value)
             else:
                 self._body = ValueBody(self._message)
                 self._body.set(body)
@@ -436,7 +439,7 @@ class BatchMessage(Message):
             try:
                 for data in self._body_gen:
                     message_segment = []
-                    if isinstance(data, str):
+                    if isinstance(data, six.text_type):
                         data = data.encode(self._encoding)
                     batch_data = c_uamqp.create_data(data)
                     c_uamqp.enocde_batch_value(batch_data, message_segment)
@@ -473,7 +476,7 @@ class BatchMessage(Message):
 
         for data in self._body_gen:
             message_segment = []
-            if isinstance(data, str):
+            if isinstance(data, six.text_type):
                 data = data.encode(self._encoding)
             batch_data = c_uamqp.create_data(data)
             c_uamqp.enocde_batch_value(batch_data, message_segment)
@@ -592,9 +595,9 @@ class MessageProperties(object):
 
     @user_id.setter
     def user_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("user_id must be bytes or str.")
         self._user_id = value
 
@@ -617,9 +620,9 @@ class MessageProperties(object):
 
     @subject.setter
     def subject(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("subject must be bytes or str.")
         self._subject = value
 
@@ -655,9 +658,9 @@ class MessageProperties(object):
 
     @content_type.setter
     def content_type(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("content_type must be bytes or str.")
         self._content_type = value
 
@@ -667,9 +670,9 @@ class MessageProperties(object):
 
     @content_encoding.setter
     def content_encoding(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("content_encoding must be bytes or str.")
         self._content_encoding = value
 
@@ -699,9 +702,9 @@ class MessageProperties(object):
 
     @group_id.setter
     def group_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("group_id must be bytes or str.")
         self._group_id = value
 
@@ -721,9 +724,9 @@ class MessageProperties(object):
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("reply_to_group_id must be bytes or str.")
         self._reply_to_group_id = value
 
@@ -763,11 +766,6 @@ class MessageBody(object):
         self._message = c_message
         self._encoding = encoding
 
-    def __str__(self):
-        if self.type == c_uamqp.MessageBodyType.NoneType:
-            return ""
-        return str(self.data)
-
     @property
     def type(self):
         return self._message.body_type
@@ -790,7 +788,15 @@ class DataBody(MessageBody):
     """
 
     def __str__(self):
-        return "".join(d.decode(self._encoding) for d in self.data)
+        if six.PY3:
+            return "".join(d.decode(self._encoding) for d in self.data)
+        return "".join(self.data)
+
+    def __unicode__(self):
+        return u"".join(d.decode(self._encoding) for d in self.data)
+
+    def __bytes__(self):
+        return b"".join(self.data)
 
     def __len__(self):
         return self._message.count_body_data()
@@ -807,9 +813,9 @@ class DataBody(MessageBody):
         :param data: The data to append.
         :type data: str or bytes
         """
-        if isinstance(data, str):
+        if isinstance(data, six.text_type):
             self._message.add_body_data(data.encode(self._encoding))
-        elif isinstance(data, bytes):
+        elif isinstance(data, six.binary_type):
             self._message.add_body_data(data)
 
     @property
@@ -866,6 +872,28 @@ class ValueBody(MessageBody):
      of the encoded object
     :vartype data: object
     """
+
+    def __str__(self):
+        data = self.data
+        if not data:
+            return ""
+        elif six.PY3 and isinstance(data, six.binary_type):
+            return data.decode(self._encoding)
+        return str(data)
+
+    def __unicode__(self):
+        data = self.data
+        if not data:
+            return u""
+        elif isinstance(data, six.binary_type):
+            return data.decode(self._encoding)
+        return unicode(data)
+
+    def __bytes__(self):
+        data = self.data
+        if not data:
+            return b""
+        return bytes(data)
 
     def set(self, value):
         """Set a value as the message body. This can be any
