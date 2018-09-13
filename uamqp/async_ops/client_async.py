@@ -755,17 +755,17 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :rtype: bool
         """
         await self._connection.work_async()
+        now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:
             # If no messages are coming through, back off a little to keep CPU use low.
             await asyncio.sleep(0.05)
             if self._timeout > 0:
-                now = self._counter.get_current_ms()
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
                     _logger.info("Timeout reached, closing receiver.")
                     self._shutdown = True
-                else:
-                    self._last_activity_timestamp = now
+        else:
+            self._last_activity_timestamp = now
         self._was_message_received = False
         return True
 

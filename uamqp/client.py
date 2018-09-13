@@ -863,17 +863,17 @@ class ReceiveClient(AMQPClient):
         :rtype: bool
         """
         self._connection.work()
+        now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:
             # If no messages are coming through, back off a little to keep CPU use low.
             time.sleep(0.05)
             if self._timeout > 0:
-                now = self._counter.get_current_ms()
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
                     _logger.info("Timeout reached, closing receiver.")
                     self._shutdown = True
-                else:
-                    self._last_activity_timestamp = now
+        else:
+            self._last_activity_timestamp = now
         self._was_message_received = False
         return True
 
