@@ -123,9 +123,7 @@ class ConnectionAsync(connection.Connection):
                 self._async_lock.release()
             except RuntimeError:
                 pass
-            finally:
-                self._async_lock = asyncio.Lock(loop=self.loop)
-                raise
+            raise
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
@@ -196,7 +194,9 @@ class ConnectionAsync(connection.Connection):
             _logger.debug("Unlocked connection %r to close.", self.container_id)
             await self._close_async()
         except asyncio.TimeoutError:
-            _logger.debug("Connection %r timed out while waiting for lock acquisition on destroy. Destroying anyway.", self.container_id)
+            _logger.debug(
+                "Connection %r timed out while waiting for lock acquisition on destroy. Destroying anyway.",
+                self.container_id)
             await self._close_async()
         finally:
             self.release_async()
