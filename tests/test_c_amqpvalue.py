@@ -131,9 +131,9 @@ def test_uuid_value():
 
 
 def test_binary_value():
-    value = c_uamqp.binary_value(bytes([50]))
+    value = c_uamqp.binary_value(bytearray([50]))
     assert len(value) == 1
-    assert value.value == bytes([50])
+    assert value.value == bytearray([50])
     assert value.type == c_uamqp.AMQPType.BinaryValue
     assert str(value) == "<32>"
     
