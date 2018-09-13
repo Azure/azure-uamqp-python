@@ -123,9 +123,7 @@ class ConnectionAsync(connection.Connection):
                 self._async_lock.release()
             except RuntimeError:
                 pass
-            finally:
-                self._async_lock = asyncio.Lock(loop=self.loop)
-                raise
+            raise
 
     async def work_async(self):
         """Perform a single Connection iteration asynchronously."""
