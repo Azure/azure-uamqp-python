@@ -23,10 +23,6 @@ If you are running a Linux distro that does not support `ManyLinux1 <https://www
     $ pip3 install uamqp --no-binary
 
 
-Python 2.7 support
-++++++++++++++++++
-Coming soon...
-
 Documentation
 +++++++++++++
 Reference documentation can be found here: `docs.microsoft.com/python/api/uamqp/uamqp <https://docs.microsoft.com/python/api/uamqp/uamqp>`__.
