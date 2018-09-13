@@ -1,5 +1,13 @@
 uAMQP for Python
 ================
+.. image:: https://img.shields.io/pypi/v/uamqp.svg?maxAge=2592000
+    :target: https://pypi.python.org/pypi/uamqp/
+
+.. image:: https://img.shields.io/pypi/pyversions/uamqp.svg?maxAge=2592000
+    :target: https://pypi.python.org/pypi/uamqp/
+
+.. image:: https://travis-ci.org/Azure/azure-uamqp-python.svg?branch=master
+    :target: https://travis-ci.org/Azure/azure-uamqp-python
 
 An AMQP 1.0 client library for Python.
 
