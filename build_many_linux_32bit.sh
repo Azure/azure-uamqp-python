@@ -11,6 +11,8 @@ export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"
 export OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl"
 
 # Make sure Cython and Wheel are available in all env
+/opt/python/cp27-cp27m/bin/python -m pip install cython==0.28.4 wheel
+/opt/python/cp27-cp27mu/bin/python -m pip install cython==0.28.4 wheel
 /opt/python/cp34-cp34m/bin/python -m pip install cython==0.28.4 wheel
 /opt/python/cp35-cp35m/bin/python -m pip install cython==0.28.4 wheel
 /opt/python/cp36-cp36m/bin/python -m pip install cython==0.28.4 wheel
@@ -18,6 +20,12 @@ export OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl"
 
 # Build the wheels
 pushd /data
+/opt/python/cp27-cp27m/bin/python setup.py bdist_wheel
+auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp27-cp27m-linux_i686.whl
+
+/opt/python/cp27-cp27mu/bin/python setup.py bdist_wheel
+auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp27-cp27mu-linux_i686.whl
+
 /opt/python/cp34-cp34m/bin/python setup.py bdist_wheel
 auditwheel repair dist/uamqp-${UAMQP_VERSION}-cp34-cp34m-linux_i686.whl
 
