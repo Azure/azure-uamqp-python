@@ -7,6 +7,8 @@
 import logging
 import uuid
 
+import six
+
 # from uamqp.session import Session
 from uamqp import Message
 from uamqp import constants

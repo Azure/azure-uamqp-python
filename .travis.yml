@@ -4,6 +4,10 @@ dist: xenial
 matrix:
   include:
     - os: linux
+      python: "2.7"
+      dist: trusty
+      env: UAMQP_ENV=LINUX27
+    - os: linux
       python: "3.4"
       dist: trusty
       env: UAMQP_ENV=LINUX34

@@ -205,7 +205,8 @@ class _SASLPlain(_SASL):
         self._sasl_config = c_uamqp.SASLPlainConfig()
         self._sasl_config.authcid = authcid
         self._sasl_config.passwd = passwd
-        self._sasl_config.authzid = authzid
+        if authzid:
+            self._sasl_config.authzid = authzid
         super(_SASLPlain, self).__init__()
 
     def _get_interface(self):
