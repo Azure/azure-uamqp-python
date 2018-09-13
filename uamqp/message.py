@@ -887,7 +887,7 @@ class ValueBody(MessageBody):
             return u""
         elif isinstance(data, six.binary_type):
             return data.decode(self._encoding)
-        return unicode(data)
+        return unicode(data)  # pylint: disable=undefined-variable
 
     def __bytes__(self):
         data = self.data

@@ -60,7 +60,7 @@ class MgmtOperation(object):
         status_code_field = self._encode(status_code_field)
         description_fields = self._encode(description_fields)
         self._responses = {}
-        
+
         self._counter = c_uamqp.TickCounter()
         self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)

@@ -12,10 +12,13 @@ import time
 import threading
 try:
     from urllib import unquote_plus
+except ImportError:
+    from urllib.parse import unquote_plus
+try:
     import Queue as queue
 except ImportError:
     import queue
-    from urllib.parse import unquote_plus
+
 
 from uamqp import (
     authentication,

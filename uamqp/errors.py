@@ -134,7 +134,8 @@ class ConnectionClose(AMQPConnectionError):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
+        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+            else condition.decode(encoding)
         if self.description:
             if isinstance(self.description, six.text_type):
                 message += u": {}".format(self.description)
@@ -155,7 +156,8 @@ class LinkDetach(AMQPConnectionError):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
+        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+            else condition.decode(encoding)
         if self.description:
             if isinstance(self.description, six.text_type):
                 message += u": {}".format(self.description)
@@ -194,7 +196,8 @@ class TokenExpired(AuthenticationException):
 
 class TokenAuthFailure(AuthenticationException):
 
-    def __init__(self, status_code, description):
+    def __init__(self, status_code, description, encoding="UTF-8"):
+        self._encoding = encoding
         self.status_code = status_code
         self.description = description
         message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
@@ -221,7 +224,8 @@ class MessageException(MessageResponse):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) else condition.decode(encoding)
+        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+            else condition.decode(encoding)
         if self.description:
             if isinstance(self.description, six.text_type):
                 message += u": {}".format(self.description)
@@ -266,7 +270,8 @@ class MessageRejected(MessageResponse):
             self.error_condition = b"amqp:internal-error"
         self.error_description = None
         if description:
-            self.error_description = description.encode(encoding) if isinstance(description, six.text_type) else description
+            self.error_description = description.encode(encoding) if isinstance(description, six.text_type) \
+                else description
         else:
             self.error_description = b""
         super(MessageRejected, self).__init__()
