@@ -877,7 +877,7 @@ class ValueBody(MessageBody):
         data = self.data
         if not data:
             return ""
-        elif six.PY3 and isinstance(data, six.binary_type):
+        if six.PY3 and isinstance(data, six.binary_type):
             return data.decode(self._encoding)
         return str(data)
 
@@ -885,7 +885,7 @@ class ValueBody(MessageBody):
         data = self.data
         if not data:
             return u""
-        elif isinstance(data, six.binary_type):
+        if isinstance(data, six.binary_type):
             return data.decode(self._encoding)
         return unicode(data)  # pylint: disable=undefined-variable
 
