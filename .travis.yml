@@ -7,20 +7,29 @@ matrix:
       python: "2.7"
       dist: trusty
       env: UAMQP_ENV=LINUX27
+      script:
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp --ignore=async_ops,cbs_auth_async.py uamqp
     - os: linux
       python: "3.4"
       dist: trusty
       env: UAMQP_ENV=LINUX34
+      script:
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
     - os: linux
       python: "3.5"
       env: UAMQP_ENV=LINUX35
+      script:
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
     - os: linux
       python: "3.6"
       env: UAMQP_ENV=LINUX36
+      script:
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
     - os: linux
       python: "3.7"
       env: UAMQP_ENV=LINUX37
-# command to install dependencies
+      script:
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
 sudo: required
 services:
   - docker
@@ -31,4 +40,3 @@ install:
 script: 
   - pytest
   - python ./setup.py check -r -s
-  - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
