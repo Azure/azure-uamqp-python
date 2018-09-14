@@ -267,7 +267,7 @@ static CURLcode ssl_ctx_callback(CURL *curl, void *ssl_ctx, void *userptr)
             result = CURLE_SSL_CERTPROBLEM;
         }
         else if (
-            (httpHandleData->certificates != NULL) && 
+            (httpHandleData->certificates != NULL) &&
             (wolfSSL_CTX_load_verify_buffer(ssl_ctx, (const unsigned char*)httpHandleData->certificates, strlen(httpHandleData->certificates), SSL_FILETYPE_PEM) != SSL_SUCCESS)
             )
         {
@@ -397,6 +397,25 @@ HTTPAPI_RESULT HTTPAPI_ExecuteRequest(HTTP_HANDLE handle, HTTPAPI_REQUEST_TYPE r
                             result = HTTPAPI_SET_OPTION_FAILED;
                             LogError("(result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
                         }
+                    }
+
+                    break;
+
+                case HTTPAPI_REQUEST_HEAD:
+                    if (curl_easy_setopt(httpHandleData->curl, CURLOPT_HTTPGET, 1L) != CURLE_OK)
+                    {
+                        result = HTTPAPI_SET_OPTION_FAILED;
+                        LogError("(result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+                    }
+                    else if (curl_easy_setopt(httpHandleData->curl, CURLOPT_NOBODY, 1L) != CURLE_OK)
+                    {
+                        result = HTTPAPI_SET_OPTION_FAILED;
+                        LogError("(result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+                    }
+                    else if (curl_easy_setopt(httpHandleData->curl, CURLOPT_CUSTOMREQUEST, NULL) != CURLE_OK)
+                    {
+                        result = HTTPAPI_SET_OPTION_FAILED;
+                        LogError("(result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
                     }
 
                     break;

@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 
-/*this header contains macros for ref_counting a variable. 
+/*this header contains macros for ref_counting a variable.
 
 There are no upper bound checks related to uint32_t overflow because we expect that bigger issues are in
 the system when more than 4 billion references exist to the same variable. In the case when such an overflow
@@ -20,7 +20,7 @@ will interact with deallocated memory / resources resulting in an undefined beha
 #ifdef __cplusplus
 #include <cstdlib>
 #include <cstdint>
-extern "C" 
+extern "C"
 {
 #else
 #include <stdlib.h>
@@ -48,14 +48,14 @@ C2(REFCOUNT_, type)
 REFCOUNT_TYPE(type)                                                                                  \
 {                                                                                                    \
     type counted;                                                                                    \
-    COUNT_TYPE count;                                                                                  \
+    COUNT_TYPE count;                                                                                \
 };                                                                                                   \
 static type* REFCOUNT_TYPE_DECLARE_CREATE(type) (void)                                               \
 {                                                                                                    \
     REFCOUNT_TYPE(type)* result = (REFCOUNT_TYPE(type)*)malloc(sizeof(REFCOUNT_TYPE(type)));         \
     if (result != NULL)                                                                              \
     {                                                                                                \
-        result->count = 1;                                                                           \
+        INIT_REF(type, result);                                                                      \
     }                                                                                                \
     return (type*)result;                                                                            \
 }                                                                                                    \
@@ -69,6 +69,9 @@ static type* REFCOUNT_TYPE_DECLARE_CREATE(type) (void)                          
 #ifndef DEC_REF
 #error refcount_os.h does not define DEC_REF
 #endif // !DEC_REF
+#ifndef INIT_REF
+#error refcount_os.h does not define INIT_REF
+#endif // !INIT_REF
 
 #ifdef __cplusplus
 }

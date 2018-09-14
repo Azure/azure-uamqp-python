@@ -78,9 +78,12 @@ typedef struct SERVER_INSTANCE_TAG
     XIO_HANDLE underlying_io;
 } SERVER_INSTANCE;
 
-static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_result)
+static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_result, AMQP_VALUE delivery_state)
 {
     size_t* sent_messages = (size_t*)context;
+
+    (void)delivery_state;
+
     if (send_result == MESSAGE_SEND_OK)
     {
         (*sent_messages)++;
@@ -91,9 +94,12 @@ static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_res
     }
 }
 
-static void on_message_send_cancelled(void* context, MESSAGE_SEND_RESULT send_result)
+static void on_message_send_cancelled(void* context, MESSAGE_SEND_RESULT send_result, AMQP_VALUE delivery_state)
 {
     size_t* cancelled_messages = (size_t*)context;
+
+    (void)delivery_state;
+
     if (send_result == MESSAGE_SEND_CANCELLED)
     {
         (*cancelled_messages)++;
@@ -671,7 +677,7 @@ TEST_FUNCTION(destroying_one_out_of_2_senders_works)
     ASSERT_IS_NOT_NULL_WITH_MSG(send_async_operation, "cannot send message");
     message_destroy(client_send_message);
 
-    // wait for 
+    // wait for
     start_time = time(NULL);
     while ((now_time = time(NULL)),
         (difftime(now_time, start_time) < TEST_TIMEOUT))
@@ -1572,7 +1578,7 @@ TEST_FUNCTION(client_and_server_connect_and_send_one_message_with_all_message_pa
     amqpvalue_destroy(message_annotations_key_1);
     amqpvalue_destroy(message_annotations_value_1);
 
-    // add message properties 
+    // add message properties
     message_properties = properties_create();
     ASSERT_IS_NOT_NULL_WITH_MSG(message_properties, "Could not create message properties");
     message_id = amqpvalue_create_string("msg-X");

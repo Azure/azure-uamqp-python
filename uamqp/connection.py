@@ -233,6 +233,8 @@ class Connection:
             self._conn = self._create_connection(auth)
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
+            self._error = None
+            self._closing = False
         finally:
             _logger.info("Finished redirecting connection %r.", self.container_id)
             self.release()

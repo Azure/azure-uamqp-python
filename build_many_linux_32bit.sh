@@ -4,7 +4,7 @@ set -e
 # To execute this script:
 # docker run --rm -v $PWD:/data local/manylinux_crypto32 /data/build_many_linux_32bit.sh
 
-export UAMQP_VERSION="1.0.2"
+export UAMQP_VERSION="1.0.3"
 
 export CPATH="/opt/pyca/cryptography/openssl/include"
 export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"

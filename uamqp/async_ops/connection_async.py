@@ -7,6 +7,7 @@
 import asyncio
 import logging
 import functools
+import concurrent
 
 import uamqp
 from uamqp import c_uamqp
@@ -86,6 +87,7 @@ class ConnectionAsync(connection.Connection):
             debug=debug,
             encoding=encoding)
         self._async_lock = asyncio.Lock(loop=self.loop)
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
@@ -95,6 +97,7 @@ class ConnectionAsync(connection.Connection):
         """Close the Connection when exiting an async context manager."""
         _logger.debug("Exiting connection %r context.", self.container_id)
         await self.destroy_async()
+        _logger.debug("Finished exiting connection %r context.", self.container_id)
 
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
@@ -133,7 +136,10 @@ class ConnectionAsync(connection.Connection):
             raise
         try:
             await self.lock_async()
-            await self.loop.run_in_executor(None, functools.partial(self._conn.do_work))
+            if self._closing:
+                _logger.debug("Connection unlocked but shutting down.")
+                return
+            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
@@ -172,6 +178,8 @@ class ConnectionAsync(connection.Connection):
             self._conn = self._create_connection(auth)
             for setting, value in self._settings.items():
                 setattr(self, setting, value)
+            self._error = None
+            self._closing = False
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
@@ -182,8 +190,13 @@ class ConnectionAsync(connection.Connection):
         CBS authentication session.
         """
         try:
-            await self.lock_async(timeout=None)
+            await self.lock_async()
             _logger.debug("Unlocked connection %r to close.", self.container_id)
+            await self._close_async()
+        except asyncio.TimeoutError:
+            _logger.debug(
+                "Connection %r timed out while waiting for lock acquisition on destroy. Destroying anyway.",
+                self.container_id)
             await self._close_async()
         finally:
             self.release_async()

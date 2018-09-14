@@ -63,7 +63,6 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """Close the CBS auth channel and session asynchronously."""
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
-            _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
             self._cbs_auth.destroy()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
             await self._session.destroy_async()
