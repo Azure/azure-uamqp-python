@@ -235,7 +235,7 @@ setup(
     author_email='azpysdkhelp@microsoft.com',
     url='https://github.com/Azure/azure-uamqp-python',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Programming Language :: Cython',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
@@ -253,9 +253,11 @@ setup(
     ext_modules = extensions,
     install_requires=[
         "certifi>=2017.4.17",
-        "six~=1.0",
-        "enum34; python_version < '3.4'"
+        "six~=1.0"
     ],
+    extras_require={
+        ":python_version<'3.4'": ['enum34>=1.0.4']
+    },
     cmdclass={
         'build_ext': build_ext,
     }    
