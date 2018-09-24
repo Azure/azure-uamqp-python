@@ -116,7 +116,7 @@ class Connection(object):
 
     def _create_connection(self, sasl):
         if sasl.consumed:
-            raise ValueError("The supplied authentication has already been consumed by"
+            raise ValueError("The supplied authentication has already been consumed by "
                              "another connection. Please create a fresh instance.")
         else:
             sasl.consumed = True

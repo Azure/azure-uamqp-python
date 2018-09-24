@@ -13,6 +13,7 @@ import platform
 from setuptools import find_packages, setup, Extension
 from setuptools.command.build_ext import build_ext as build_ext_orig
 from distutils.extension import Extension
+from distutils.version import LooseVersion
 from distutils import log as logger
 
 try:
@@ -25,6 +26,8 @@ except ImportError:
 if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
     raise ValueError("You need to install cython==0.27.3 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
 
+is_27 = sys.version_info < (3,)
+is_x64 = platform.architecture()[0] == '64bit'
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
@@ -48,10 +51,15 @@ include_dirs = [
     # azure-c-shared-utility inc
     "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/inc",
     "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/windows" if is_win else "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/linux",
     # azure-uamqp-c inc
     "./src/vendor/azure-uamqp-c/inc",
 ]
+if is_win:
+    include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/windows")
+    include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc/azure_c_shared_utility/windowsce")
+else:
+    include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/linux")
+
 
 # Build unique source pyx
 
@@ -73,13 +81,64 @@ def get_build_env():
 
 
 def get_generator():
-    if is_win and platform.architecture()[0] == '64bit':
-        return "Visual Studio 14 2015 Win64"
-    elif is_win:
-        return "Visual Studio 14 2015"
-    else:
-        return "Unix Makefiles"
+    if is_win:
+        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 14 2015"
+        if is_x64:
+            return generator + " Win64"
+        else:
+            return generator
+    return "Unix Makefiles"
 
+
+def get_latest_windows_sdk():
+    """The Windows SDK that ships with VC++ 9.0 is not new enough to include schannel support.
+    So we need to check the OS to see if a newer Windows SDK is available to link to.
+
+    This is only run on Windows if using Python 2.7.
+    """
+
+    if not is_win or not is_27:
+        return []
+
+    from _winreg import ConnectRegistry, OpenKey, EnumKey, QueryValueEx, HKEY_LOCAL_MACHINE
+    installed_sdks = {}
+    key_path = "SOFTWARE\\Wow6432Node\\Microsoft\\Microsoft SDKs\\Windows" if is_x64 else \
+        "SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows"
+    try: 
+        with ConnectRegistry(None, HKEY_LOCAL_MACHINE) as hklm:
+            with OpenKey(hklm, key_path) as handler:
+                for i in range(1024):
+                    try:
+                        asubkey_name=EnumKey(handler, i)
+                        with OpenKey(handler, asubkey_name) as asubkey:
+                            location = QueryValueEx(asubkey, "InstallationFolder")
+                            if not location or not os.path.isdir(location[0]):
+                                continue
+                            version = QueryValueEx(asubkey, "ProductVersion")
+                            if not version:
+                                continue
+                            installed_sdks[version[0].lstrip('v')] = location[0]
+                    except EnvironmentError:
+                        break
+    except EnvironmentError:
+        print("Warning - build may fail: No Windows SDK found.")
+        return []
+
+    installed_versions = sorted([LooseVersion(k) for k in installed_sdks.keys()])
+    if installed_versions[-1] < LooseVersion("8.1"):
+        print("Warning - build may fail: Cannot find Windows SDK 8.1 or greater.")
+        return []
+
+    lib_path = os.path.join(installed_sdks[installed_versions[-1].vstring], "lib")
+    sdk_path = os.path.join(lib_path, os.listdir(lib_path)[-1], "um", 'x64' if is_x64 else 'x86')
+    if not os.path.isdir(sdk_path):
+        print("Warning - build may fail: Windows SDK v{} not found at path {}.".format(
+            installed_versions[-1].vstring, sdk_path))
+    else:
+        print("Adding Windows SDK v{} to search path, installed at {}".format(
+            installed_versions[-1].vstring, sdk_path))
+
+    return [sdk_path]
 
 
 # Compile uamqp
@@ -115,6 +174,7 @@ class build_ext(build_ext_orig):
                     cmake_build_dir + "/deps/azure-c-shared-utility/Debug/",
                     cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
+        ext.library_dirs.extend(get_latest_windows_sdk())
         build_ext_orig.run(self)
 
     def build_cmake(self, ext):
@@ -133,6 +193,7 @@ class build_ext(build_ext_orig):
 
         generator = get_generator()
         logger.info("Building with generator: {}".format(generator))
+
         # Configure
         configure_command = [
             "cmake",
@@ -145,6 +206,7 @@ class build_ext(build_ext_orig):
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
             "-DCMAKE_BUILD_TYPE=Release"
         ]
+        
         build_env = get_build_env()
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
