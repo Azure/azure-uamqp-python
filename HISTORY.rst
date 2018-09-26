@@ -3,6 +3,15 @@
 Release History
 ===============
 
+1.1.0 (release-candidate)
++++++++++++++++++++++++++
+
+- Support for Python 2.7 \(>_<)/
+- Added new error `errors.AMQPClientShutdown` as a wrapper for `KeyboardInterrupt` to better handle interrupt handling.
+- Added better handling of keyboard interrupts during C callbacks to better facilitate clean client shutdown.
+- Added additional handling of keyboard interrupt at the C level to clean up annoying warnings.
+
+
 1.0.3 (2018-09-14)
 ++++++++++++++++++
 
