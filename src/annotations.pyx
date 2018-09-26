@@ -87,9 +87,13 @@ cdef class cAnnotations(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying %r", self.__class__.__name__)
-            c_amqpvalue.amqpvalue_destroy(<c_amqpvalue.AMQP_VALUE>self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                _logger.debug("Destroying %r", self.__class__.__name__)
+                c_amqpvalue.amqpvalue_destroy(<c_amqpvalue.AMQP_VALUE>self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_amqpvalue.AMQP_VALUE>NULL
 
     cpdef clone(self):

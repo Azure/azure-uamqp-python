@@ -140,18 +140,23 @@ class MessageReceiver(object):
         :type new_state: int
         """
         try:
-            _previous_state = constants.MessageReceiverState(previous_state)
-        except ValueError:
-            _previous_state = previous_state
-        try:
-            _new_state = constants.MessageReceiverState(new_state)
-        except ValueError:
-            _new_state = new_state
-        if _previous_state == constants.MessageReceiverState.Opening \
-                and _new_state == constants.MessageReceiverState.Error:
-            _logger.info("Receiver link failed to open - expecting to receive DETACH frame.")
-        else:
-            self.on_state_changed(_previous_state, _new_state)
+            try:
+                _previous_state = constants.MessageReceiverState(previous_state)
+            except ValueError:
+                _previous_state = previous_state
+            try:
+                _new_state = constants.MessageReceiverState(new_state)
+            except ValueError:
+                _new_state = new_state
+            if _previous_state == constants.MessageReceiverState.Opening \
+                    and _new_state == constants.MessageReceiverState.Error:
+                _logger.info("Receiver link failed to open - expecting to receive DETACH frame.")
+            else:
+                self.on_state_changed(_previous_state, _new_state)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating receiver state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
@@ -238,8 +243,7 @@ class MessageReceiver(object):
         except KeyboardInterrupt:
             _logger.error("Received shutdown signal while processing message no %r\nRejecting message.", message_number)
             self._receiver.settle_modified_message(message_number, True, True, None)
-            condition = b"amqp:client-shutdown"
-            self._error = errors._process_link_error(self.error_policy, condition, None, None)
+            self._error = errors.AMQPClientShutdown()
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message no %r: %r\nRejecting message.", message_number, e)
             self._receiver.settle_modified_message(message_number, True, True, None)

@@ -82,8 +82,7 @@ class ErrorPolicy(object):
         constants.ErrorCodes.SessionUnattachedHandle,
         constants.ErrorCodes.SessionHandleInUse,
         constants.ErrorCodes.SessionErrantLink,
-        constants.ErrorCodes.SessionWindowViolation,
-        constants.ErrorCodes.ClientShutdown
+        constants.ErrorCodes.SessionWindowViolation
     )
 
     def __init__(self, max_retries=3, on_error=None):
@@ -116,6 +115,13 @@ class ErrorPolicy(object):
 
 class AMQPError(Exception):
     pass
+
+
+class AMQPClientShutdown(KeyboardInterrupt):
+
+    def __init__(self):
+        message = "Client shutdown with keyboard interrupt."
+        super(AMQPClientShutdown, self).__init__(message)
 
 
 class AMQPConnectionError(AMQPError):

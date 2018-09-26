@@ -188,12 +188,16 @@ cdef void on_cbs_put_token_complete(void* context, c_cbs.CBS_OPERATION_RESULT_TA
     cdef const char* verified_description
     if <void*>context != NULL:
         context_obj = <object>context
-        if <void*>status_code != NULL:
-            verified_status_code = status_code
-        else:
-            verified_status_code = 0
-        if <void*>status_description != NULL:
-            verified_description = status_description
-        else:
-            verified_description = b"CBS Session closed."
-        context_obj._cbs_put_token_compelete(complete_result, verified_status_code, verified_description)
+        try:
+            if <void*>status_code != NULL:
+                verified_status_code = status_code
+            else:
+                verified_status_code = 0
+            if <void*>status_description != NULL:
+                verified_description = status_description
+            else:
+                verified_description = b"CBS Session closed."
+            context_obj._cbs_put_token_compelete(complete_result, verified_status_code, verified_description)
+        except KeyboardInterrupt:
+            context_obj._cbs_put_token_compelete(
+                CBS_OPERATION_RESULT_INSTANCE_CLOSED, 1, b"Client shutdown with keyboard interrupt.")

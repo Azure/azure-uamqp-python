@@ -117,8 +117,4 @@ cdef void on_execute_operation_complete(void* context, c_amqp_management.AMQP_MA
                 wrapped_message = message_factory(cloned)
             else:
                 wrapped_message = None
-            
-            if hasattr(context_obj, "_management_operation_complete"):
-                context_obj._management_operation_complete(execute_operation_result, status_code, description, wrapped_message)
-            elif callable(context_obj):
-                context_obj(execute_operation_result, status_code, description, wrapped_message)
+            context_obj(execute_operation_result, status_code, description, wrapped_message)

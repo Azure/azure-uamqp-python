@@ -26,6 +26,12 @@ cpdef create_message_sender(cLink link, callback_context):
     return sender
 
 
+cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):
+    sender = cMessageSender()
+    sender.create(<c_link.LINK_HANDLE>link._c_value, callback, callback_context)
+    return sender
+
+
 cdef class cMessageSender(StructBase):
 
     cdef c_message_sender.MESSAGE_SENDER_HANDLE _c_value
@@ -105,9 +111,3 @@ cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAG
             context_obj._state_changed(previous_state, new_state)
         except AttributeError:
             _logger.info("Unknown MessageSender state changed: %r to %r", previous_state, new_state)
-
-
-cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):
-    sender = cMessageSender()
-    sender.create(<c_link.LINK_HANDLE>link._c_value, callback, callback_context)
-    return sender

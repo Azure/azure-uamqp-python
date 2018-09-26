@@ -169,22 +169,27 @@ class Connection(object):
         :type new_state: int
         """
         try:
-            _previous_state = c_uamqp.ConnectionState(previous_state)
-        except ValueError:
-            _previous_state = c_uamqp.ConnectionState.UNKNOWN
-        try:
-            _new_state = c_uamqp.ConnectionState(new_state)
-        except ValueError:
-            _new_state = c_uamqp.ConnectionState.UNKNOWN
-        self._state = _new_state
-        _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
-        if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
-            if not self._closing and not self._error:
-                _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
-                             self.container_id, self._closing, self._error)
-                condition = b"amqp:unknown-error"
-                description = b"Connection in an unexpected error state."
-                self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
+            try:
+                _previous_state = c_uamqp.ConnectionState(previous_state)
+            except ValueError:
+                _previous_state = c_uamqp.ConnectionState.UNKNOWN
+            try:
+                _new_state = c_uamqp.ConnectionState(new_state)
+            except ValueError:
+                _new_state = c_uamqp.ConnectionState.UNKNOWN
+            self._state = _new_state
+            _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
+            if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
+                if not self._closing and not self._error:
+                    _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
+                                self.container_id, self._closing, self._error)
+                    condition = b"amqp:unknown-error"
+                    description = b"Connection in an unexpected error state."
+                    self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating connection state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def lock(self, timeout=3.0):
         try:

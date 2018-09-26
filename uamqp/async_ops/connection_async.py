@@ -99,6 +99,12 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
         _logger.debug("Finished exiting connection %r context.", self.container_id)
 
+    def _do_work_threadsafe(self):
+        try:
+            self._conn.do_work()
+        except KeyboardInterrupt:
+            pass
+
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
@@ -139,7 +145,7 @@ class ConnectionAsync(connection.Connection):
             if self._closing:
                 _logger.debug("Connection unlocked but shutting down.")
                 return
-            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
+            await self.loop.run_in_executor(self._executor, functools.partial(self._do_work_threadsafe))
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:

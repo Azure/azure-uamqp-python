@@ -501,42 +501,48 @@ class SendClient(AMQPClient):
         :type error: ~Exception
         """
         # pylint: disable=protected-access
-        exception = delivery_state
-        result = constants.MessageSendResult(result)
-        if result == constants.MessageSendResult.Error:
-            if isinstance(delivery_state, Exception):
-                exception = errors.ClientMessageError(delivery_state, info=delivery_state)
-                exception.action = errors.ErrorAction(retry=True)
-            elif delivery_state:
-                error = errors.ErrorResponse(delivery_state)
-                exception = errors._process_send_error(
-                    self._error_policy,
-                    error.condition,
-                    error.description,
-                    error.info)
-            else:
-                exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
-                exception.action = errors.ErrorAction(retry=True)
-            if exception.action.retry == errors.ErrorAction.retry and message.retries < self._error_policy.max_retries:
-                if exception.action.increment_retries:
-                    message.retries += 1
-                self._backoff = exception.action.backoff
-                _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message.retries, exception)
-                message.state = constants.MessageState.WaitingToBeSent
-                return
-            if exception.action.retry == errors.ErrorAction.retry:
-                _logger.info("Message error, %r retries exhausted. Error: %r", message.retries, exception)
-            else:
-                _logger.info("Message error, not retrying. Error: %r", exception)
-            message.state = constants.MessageState.SendFailed
-            message._response = exception
+        try:
+            exception = delivery_state
+            result = constants.MessageSendResult(result)
+            if result == constants.MessageSendResult.Error:
+                if isinstance(delivery_state, Exception):
+                    exception = errors.ClientMessageError(delivery_state, info=delivery_state)
+                    exception.action = errors.ErrorAction(retry=True)
+                elif delivery_state:
+                    error = errors.ErrorResponse(delivery_state)
+                    exception = errors._process_send_error(
+                        self._error_policy,
+                        error.condition,
+                        error.description,
+                        error.info)
+                else:
+                    exception = errors.MessageSendFailed(constants.ErrorCodes.UnknownError)
+                    exception.action = errors.ErrorAction(retry=True)
 
-        else:
-            _logger.debug("Message sent: %r, %r", result, exception)
-            message.state = constants.MessageState.SendComplete
-            message._response = errors.MessageAlreadySettled()
-        if message.on_send_complete:
-            message.on_send_complete(result, exception)
+                if exception.action.retry == errors.ErrorAction.retry \
+                        and message.retries < self._error_policy.max_retries:
+                    if exception.action.increment_retries:
+                        message.retries += 1
+                    self._backoff = exception.action.backoff
+                    _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message.retries, exception)
+                    message.state = constants.MessageState.WaitingToBeSent
+                    return
+                if exception.action.retry == errors.ErrorAction.retry:
+                    _logger.info("Message error, %r retries exhausted. Error: %r", message.retries, exception)
+                else:
+                    _logger.info("Message error, not retrying. Error: %r", exception)
+                message.state = constants.MessageState.SendFailed
+                message._response = exception
+
+            else:
+                _logger.debug("Message sent: %r, %r", result, exception)
+                message.state = constants.MessageState.SendComplete
+                message._response = errors.MessageAlreadySettled()
+            if message.on_send_complete:
+                message.on_send_complete(result, exception)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while processing message send completion.")
+            self._message_sender._error = errors.AMQPClientShutdown()
 
     def _get_msg_timeout(self, message):
         current_time = self._counter.get_current_ms()

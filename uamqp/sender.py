@@ -160,18 +160,23 @@ class MessageSender(object):
         :type new_state: int
         """
         try:
-            _previous_state = constants.MessageSenderState(previous_state)
-        except ValueError:
-            _previous_state = previous_state
-        try:
-            _new_state = constants.MessageSenderState(new_state)
-        except ValueError:
-            _new_state = new_state
-        if _previous_state == constants.MessageSenderState.Opening \
-                and _new_state == constants.MessageSenderState.Error:
-            _logger.info("Send link failed to open - expecting to receive DETACH frame.")
-        else:
-            self.on_state_changed(_previous_state, _new_state)
+            try:
+                _previous_state = constants.MessageSenderState(previous_state)
+            except ValueError:
+                _previous_state = previous_state
+            try:
+                _new_state = constants.MessageSenderState(new_state)
+            except ValueError:
+                _new_state = new_state
+            if _previous_state == constants.MessageSenderState.Opening \
+                    and _new_state == constants.MessageSenderState.Error:
+                _logger.info("Send link failed to open - expecting to receive DETACH frame.")
+            else:
+                self.on_state_changed(_previous_state, _new_state)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating sender state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def get_state(self):
         """Get the state of the MessageSender and its underlying Link.
