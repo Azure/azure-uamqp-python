@@ -31,6 +31,10 @@ from uamqp import (
     Connection,
     Session)
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
@@ -312,7 +316,7 @@ class AMQPClient(object):
                 if timeout is None and auth_in_progress is None:
                     continue
             if timeout:
-                raise errors.ClientTimeout("Authorization timeout.")
+                raise TimeoutException("Authorization timeout.")
             elif auth_in_progress:
                 self._connection.work()
             else:
@@ -336,7 +340,7 @@ class AMQPClient(object):
         to be shut down.
 
         :rtype: bool
-        :raises: ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
+        :raises: TimeoutError or ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
         """
         timeout = False
         auth_in_progress = False
@@ -348,7 +352,7 @@ class AMQPClient(object):
         if self._shutdown:
             return False
         if timeout:
-            raise errors.ClientTimeout("Authorization timeout.")
+            raise TimeoutException("Authorization timeout.")
         elif auth_in_progress:
             self._connection.work()
             return True

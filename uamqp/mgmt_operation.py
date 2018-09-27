@@ -15,6 +15,11 @@ from uamqp import constants
 from uamqp import errors
 from uamqp import c_uamqp
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
+
 
 _logger = logging.getLogger(__name__)
 
@@ -128,7 +133,7 @@ class MgmtOperation(object):
             if timeout > 0:
                 now = self._counter.get_current_ms()
                 if (now - start_time) >= timeout:
-                    raise errors.ClientTimeout("Failed to receive mgmt response in {}ms".format(timeout))
+                    raise TimeoutException("Failed to receive mgmt response in {}ms".format(timeout))
             self.connection.work()
         if self.mgmt_error:
             raise self.mgmt_error

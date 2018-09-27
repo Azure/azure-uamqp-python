@@ -13,6 +13,10 @@ from uamqp.mgmt_operation import MgmtOperation
 from uamqp import Message
 from uamqp import constants, errors
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
@@ -93,7 +97,7 @@ class MgmtOperationAsync(MgmtOperation):
             if timeout > 0:
                 now = self._counter.get_current_ms()
                 if (now - start_time) >= timeout:
-                    raise errors.ClientTimeout("Failed to receive mgmt response in {}ms".format(timeout))
+                    raise TimeoutException("Failed to receive mgmt response in {}ms".format(timeout))
             await self.connection.work_async()
         if self.mgmt_error:
             raise self.mgmt_error

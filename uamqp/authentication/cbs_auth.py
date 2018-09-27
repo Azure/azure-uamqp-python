@@ -22,6 +22,10 @@ from uamqp import errors
 from uamqp import c_uamqp
 from .common import _SASL, AMQPAuth
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
@@ -154,7 +158,7 @@ class CBSAuthMixin(object):
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise errors.AuthenticationException("Invalid auth state.")
-        except errors.ClientTimeout:
+        except TimeoutException:
             _logger.debug("CBS auth timed out while waiting for lock acquisition.")
             return None, None
         except ValueError as e:
