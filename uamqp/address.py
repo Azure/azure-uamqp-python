@@ -5,10 +5,12 @@
 #--------------------------------------------------------------------------
 
 try:
-    from urllib import urlparse
+    from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 import logging
+
+import six
 
 from uamqp import constants
 from uamqp import c_uamqp
@@ -17,7 +19,7 @@ from uamqp import c_uamqp
 _logger = logging.getLogger(__name__)
 
 
-class Address:
+class Address(object):
     """Represents an AMQP endpoint.
 
     :ivar address: The endpoint URL.
@@ -38,7 +40,7 @@ class Address:
     """
 
     def __init__(self, address, encoding='UTF-8'):
-        address = address.encode(encoding) if isinstance(address, str) else address
+        address = address.encode(encoding) if isinstance(address, six.text_type) else address
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
@@ -121,7 +123,7 @@ class Address:
 
     @distribution_mode.setter
     def distribution_mode(self, value):
-        mode = value.encode(self._encoding) if isinstance(value, str) else value
+        mode = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         self._address.distribution_mode = mode
 
     def _validate_address(self, address):
@@ -179,7 +181,7 @@ class Source(Address):
          By default this is set to b'apache.org:selector-filter:string'.
         :type name: bytes
         """
-        value = value.encode(self._encoding) if isinstance(value, str) else value
+        value = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(name)
         descriptor = c_uamqp.symbol_value(name)

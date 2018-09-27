@@ -24,6 +24,10 @@ from uamqp.async_ops.session_async import SessionAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
@@ -288,7 +292,7 @@ class AMQPClientAsync(client.AMQPClient):
                     continue
             if timeout:
                 _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
-                raise TimeoutError("Authorization timeout.")
+                raise TimeoutException("Authorization timeout.")
             elif auth_in_progress:
                 await asyncio.shield(self._connection.work_async())
             else:
@@ -311,7 +315,7 @@ class AMQPClientAsync(client.AMQPClient):
         to be shut down.
 
         :rtype: bool
-        :raises: TimeoutError if CBS authentication timeout reached.
+        :raises: TimeoutError or ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
         """
         timeout = False
         auth_in_progress = False
@@ -324,7 +328,7 @@ class AMQPClientAsync(client.AMQPClient):
             return False
         if timeout:
             _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
-            raise TimeoutError("Authorization timeout.")
+            raise TimeoutException("Authorization timeout.")
         elif auth_in_progress:
             await asyncio.shield(self._connection.work_async())
             return True

@@ -6,6 +6,7 @@
 
 # Python imports
 import logging
+import six
 
 # C imports
 cimport c_strings
@@ -20,7 +21,7 @@ cpdef create_empty_string():
 
 
 cpdef create_string_from_value(value, encoding='UTF-8'):
-    if isinstance(value, str):
+    if isinstance(value, six.text_type):
         value = value.encode(encoding)
     new_string = AMQPString()
     new_string.construct(<const char*>value)
@@ -39,14 +40,24 @@ cdef class AMQPString(StructBase):
         _logger.debug("Deallocating AMQPString")
         self.destroy()
 
-    def __str__(self):
-        try:
-            return bytes(self).decode('UTF-8')
-        except UnicodeDecodeError:
-            return str(bytes(self))
-
     def __bytes__(self):
         return c_strings.STRING_c_str(self._c_value)
+
+    def __str__(self):
+        as_bytes = c_strings.STRING_c_str(self._c_value)
+        if six.PY3:
+            try:
+                return as_bytes.decode('UTF-8')
+            except UnicodeDecodeError:
+                pass
+        return str(as_bytes)
+
+    def __unicode__(self):
+        as_bytes = c_strings.STRING_c_str(self._c_value)
+        try:
+            return six.text_type(as_bytes.decode('UTF-8'))
+        except UnicodeDecodeError:
+            return six.text_type(as_bytes)
 
     def __eq__(self, AMQPString other):
         if c_strings.STRING_compare(self._c_value, other._c_value) == 0:
@@ -63,9 +74,13 @@ cdef class AMQPString(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying AMQPString")
-            c_strings.STRING_delete(self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                _logger.debug("Destroying AMQPString")
+                c_strings.STRING_delete(self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_strings.STRING_HANDLE>NULL
 
     cdef wrap(self, c_strings.STRING_HANDLE value):

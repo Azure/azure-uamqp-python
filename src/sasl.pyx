@@ -100,7 +100,7 @@ cdef class SASLMechanism(StructBase):
         self._create()
 
 
-cdef class SASLMechanismInterfaceDescription:
+cdef class SASLMechanismInterfaceDescription(object):
 
     cdef c_sasl_mechanism.SASL_MECHANISM_INTERFACE_DESCRIPTION* _c_value
 
@@ -111,7 +111,7 @@ cdef class SASLMechanismInterfaceDescription:
         self._c_value = value
 
 
-cdef class SASLClientIOConfig:
+cdef class SASLClientIOConfig(object):
 
     cdef c_sasl_mechanism.SASLCLIENTIO_CONFIG _c_value
 
@@ -143,7 +143,7 @@ cdef class SASLClientIOConfig:
         self._c_value.sasl_mechanism = value._c_value
 
 
-cdef class SASLPlainConfig:
+cdef class SASLPlainConfig(object):
 
     cdef c_sasl_mechanism.SASL_PLAIN_CONFIG _c_value
 

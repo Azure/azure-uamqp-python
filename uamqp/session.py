@@ -15,7 +15,7 @@ from uamqp import errors
 _logger = logging.getLogger(__name__)
 
 
-class Session:
+class Session(object):
     """An AMQP Session. A Connection can have multiple Sessions, and each
     Session can have multiple Links.
 

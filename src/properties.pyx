@@ -45,9 +45,13 @@ cdef class cProperties(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying cProperties")
-            c_amqp_definitions.properties_destroy(self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                _logger.debug("Destroying cProperties")
+                c_amqp_definitions.properties_destroy(self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_amqp_definitions.PROPERTIES_HANDLE>NULL
 
     cdef wrap(self, c_amqp_definitions.PROPERTIES_HANDLE value):

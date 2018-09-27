@@ -43,11 +43,16 @@ cdef void custom_logging_function(c_xlogging.LOG_CATEGORY_TAG log_category, cons
     cdef c_xlogging.va_list args
     cdef char* text
     c_xlogging.va_start(args, format)
-    text = vprintf_alloc(format, args)
-    if <void*>text != NULL:
-        _python_log(log_level, text, bool(options), file=file, func=func, line=line)
-    c_xlogging.va_end(args)
-    free(text)
+    try:
+        text = vprintf_alloc(format, args)
+        if <void*>text != NULL:
+            _python_log(log_level, text, bool(options), file=file, func=func, line=line)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        c_xlogging.va_end(args)
+        if <void*>text != NULL:
+            free(text)
 
 
 cpdef set_python_logger():

@@ -32,7 +32,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "1.0.3"
+__version__ = "1.1.0rc1"
 
 
 _logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
             max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)  # pylint: disable=protected-access
 
 
-class _Platform:
+class _Platform(object):
     """Runs any platform preparatory steps for the AMQP C
     library. This is primarily used for OpenSSL setup.
 

@@ -128,6 +128,4 @@ cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE
 
     if hasattr(context_obj, '_message_received'):
         context_obj._message_received(wrapped_message)
-    elif callable(context_obj):
-        context_obj(wrapped_message)
     return <c_amqpvalue.AMQP_VALUE>NULL

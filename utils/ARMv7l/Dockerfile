@@ -1,9 +1,10 @@
-FROM resin/raspberrypi3-debian:stretch
+FROM resin/raspberrypi3-debian:wheezy
 
 RUN apt-get update && \
-    apt-get install -y build-essential tk-dev libncurses5-dev libncursesw5-dev libreadline6-dev && \
+    apt-get install -y build-essential tk-dev libncurses5-dev libncursesw5-dev libreadline6-dev unzip && \
     apt-get install -y libdb5.3-dev libgdbm-dev libsqlite3-dev libssl-dev libbz2-dev wget && \
     apt-get install -y libexpat1-dev liblzma-dev zlib1g-dev cmake curl libffi-dev tk-dev libc6-dev
+# TODO:  patchelf
 
 # Build OpenSSL 1.0.2g
 ENV OPENSSL_VERSION 1.0.2g
@@ -11,7 +12,7 @@ RUN curl -O https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz && \
     tar -xvzf openssl-$OPENSSL_VERSION.tar.gz && \
     mv openssl-$OPENSSL_VERSION openssl_armv7l_src && \
     cd openssl_armv7l_src && \
-    ./Configure linux-armv4 shared --openssldir=/etc/ssl --prefix=/opt/uamqp/openssl && \
+    ./Configure linux-armv4 no-shared -static --openssldir=/opt/uamqp/openssl --prefix=/opt/uamqp/openssl && \
     make && \
     make install
 
@@ -40,7 +41,7 @@ RUN curl -O https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz && \
     sudo make altinstall
 
 # Build Python 3.7
-RUN apt install -y libffi-dev tk-dev libc6-dev
+RUN apt-get install -y libffi-dev tk-dev libc6-dev
 RUN curl -O https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tar.xz && \
     tar xf Python-3.7.0.tar.xz && \
     cd Python-3.7.0 && \
@@ -62,10 +63,22 @@ RUN wget https://files.pythonhosted.org/packages/2a/fb/aefe5d5dbc3f4fe1e815bcdb0
     tar xf wheel-0.31.1.tar.gz && \
     cd wheel-0.31.1 && \
     python3.4 setup.py install
+RUN wget https://files.pythonhosted.org/packages/cf/f7/21e21195874e85718ae2826774023a4601170199ebb32db451e447d19d91/auditwheel-1.9.0.tar.gz#sha256=fe8cbf74d16e7d1a89fd96b689f8e16f196edfb66cc98eb8a345bc03e28fed63 && \
+    tar xf auditwheel-1.9.0.tar.gz && \
+    cd auditwheel-1.9.0 && \
+    python3.4 setup.py install
 
 # Install setup for Python 3.5, 3.6, 3.7
-RUN pip3.5 install cython==0.28.5 wheel
-RUN pip3.6 install cython==0.28.5 wheel
-RUN pip3.7 install cython==0.28.5 wheel
+RUN pip3.5 install cython wheel auditwheel
+RUN pip3.6 install cython wheel auditwheel
+#RUN pip3.7 install cython wheel auditwheel
+
+# Build cmake 2.8.11
+RUN curl -O https://cmake.org/files/v2.8/cmake-2.8.11.tar.gz && \
+    tar xvf cmake-2.8.11.tar.gz && \
+    cd cmake-2.8.11 && \
+    ./bootstrap && \
+    make && \
+    make install
 
 ENTRYPOINT /bin/bash

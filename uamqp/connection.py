@@ -9,15 +9,21 @@ import uuid
 import threading
 import time
 
+import six
+
 import uamqp
 from uamqp import c_uamqp
 from uamqp import utils, errors
 
+try:
+    TimeoutException = TimeoutError
+except NameError:
+    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
 
-class Connection:
+class Connection(object):
     """An AMQP Connection. A single Connection can have multiple Sessions, and
     can be shared between multiple Clients.
 
@@ -73,9 +79,9 @@ class Connection:
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        if isinstance(self.container_id, str):
+        if isinstance(self.container_id, six.text_type):
             self.container_id = self.container_id.encode(encoding)
-        self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
+        self.hostname = hostname.encode(encoding) if isinstance(hostname, six.text_type) else hostname
         self.auth = sasl
         self.cbs = None
         self.error_policy = error_policy or errors.ErrorPolicy()
@@ -114,7 +120,7 @@ class Connection:
 
     def _create_connection(self, sasl):
         if sasl.consumed:
-            raise ValueError("The supplied authentication has already been consumed by"
+            raise ValueError("The supplied authentication has already been consumed by "
                              "another connection. Please create a fresh instance.")
         else:
             sasl.consumed = True
@@ -167,37 +173,45 @@ class Connection:
         :type new_state: int
         """
         try:
-            _previous_state = c_uamqp.ConnectionState(previous_state)
-        except ValueError:
-            _previous_state = c_uamqp.ConnectionState.UNKNOWN
-        try:
-            _new_state = c_uamqp.ConnectionState(new_state)
-        except ValueError:
-            _new_state = c_uamqp.ConnectionState.UNKNOWN
-        self._state = _new_state
-        _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
-        if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
-            if not self._closing and not self._error:
-                _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
-                             self.container_id, self._closing, self._error)
-                condition = b"amqp:unknown-error"
-                description = b"Connection in an unexpected error state."
-                self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
+            try:
+                _previous_state = c_uamqp.ConnectionState(previous_state)
+            except ValueError:
+                _previous_state = c_uamqp.ConnectionState.UNKNOWN
+            try:
+                _new_state = c_uamqp.ConnectionState(new_state)
+            except ValueError:
+                _new_state = c_uamqp.ConnectionState.UNKNOWN
+            self._state = _new_state
+            _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
+            if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
+                if not self._closing and not self._error:
+                    _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
+                                 self.container_id, self._closing, self._error)
+                    condition = b"amqp:unknown-error"
+                    description = b"Connection in an unexpected error state."
+                    self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating connection state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def lock(self, timeout=3.0):
-        if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
-            raise TimeoutError("Failed to acquire connection lock.")
+        try:
+            if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
+                raise TimeoutException("Failed to acquire connection lock.")
+        except TypeError:  # Timeout isn't supported in Py2.7
+            self._lock.acquire()
 
     def release(self):
         try:
             self._lock.release()
-        except RuntimeError:
+        except (RuntimeError, threading.ThreadError):
             pass
         except:
             _logger.debug("Got error when attempting to release connection lock.")
             try:
                 self._lock.release()
-            except RuntimeError:
+            except (RuntimeError, threading.ThreadError):
                 pass
             raise
 
@@ -206,7 +220,7 @@ class Connection:
         CBS authentication session.
         """
         try:
-            self.lock(timeout=-1)
+            self.lock()
             _logger.debug("Unlocked connection %r to close.", self.container_id)
             self._close()
         finally:
@@ -221,7 +235,7 @@ class Connection:
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         try:
-            self.lock(timeout=-1)
+            self.lock()
             _logger.info("Redirecting connection %r.", self.container_id)
             if self.hostname == redirect_error.hostname:
                 return
@@ -251,7 +265,7 @@ class Connection:
         try:
             self.lock()
             self._conn.do_work()
-        except TimeoutError:
+        except TimeoutException:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()
@@ -265,7 +279,7 @@ class Connection:
         try:
             self.lock()
             time.sleep(seconds)
-        except TimeoutError:
+        except TimeoutException:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()

@@ -6,11 +6,18 @@
 
 # pylint: disable=super-init-not-called,arguments-differ
 
+import six
+
 from uamqp import c_uamqp
 from uamqp import utils
 
+try:
+    long_type = long
+except NameError:
+    long_type = int
 
-class AMQPType:
+
+class AMQPType(object):
     """Base type for specific AMQP encoded type definitions.
 
     :ivar value: The Python value of the AMQP type.
@@ -50,7 +57,7 @@ class AMQPSymbol(AMQPType):
         self._c_type = self._c_wrapper(value, encoding)
 
     def _c_wrapper(self, value, encoding='UTF-8'):
-        value = value.encode(encoding) if isinstance(value, str) else value
+        value = value.encode(encoding) if isinstance(value, six.text_type) else value
         return c_uamqp.symbol_value(value)
 
 
@@ -74,7 +81,7 @@ class AMQPChar(AMQPType):
     def _c_wrapper(self, value, encoding='UTF-8'):
         if len(value) > 1:
             raise ValueError("Value must be a single character.")
-        value = value.encode(encoding) if isinstance(value, str) else value
+        value = value.encode(encoding) if isinstance(value, six.text_type) else value
         return c_uamqp.char_value(value)
 
 
@@ -92,7 +99,7 @@ class AMQPLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.long_value(int(value))
+            return c_uamqp.long_value(long_type(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:
@@ -113,7 +120,7 @@ class AMQPuLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.ulong_value(int(value))
+            return c_uamqp.ulong_value(long_type(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:

@@ -54,9 +54,13 @@ cdef class cMessage(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying cMessage")
-            c_message.message_destroy(self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                _logger.debug("Destroying cMessage")
+                c_message.message_destroy(self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_message.MESSAGE_HANDLE>NULL
 
     cdef wrap(self, c_message.MESSAGE_HANDLE value):
@@ -282,7 +286,7 @@ cdef class cMessage(StructBase):
             self._value_error()
 
 
-cdef class Messaging:
+cdef class Messaging(object):
 
     @staticmethod
     def create_source(const char* address):

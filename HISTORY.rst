@@ -3,6 +3,19 @@
 Release History
 ===============
 
+1.1.0 (release-candidate)
++++++++++++++++++++++++++
+
+- Support for Python 2.7 \(>_<)/
+
+    - Where ever a `TimeoutError` is raised in Python 3.x, this will be replaced with a new ~uamqp.errors.ClientTimeout exception in Python 2.7.
+    - A Python 2 `str` object will be treated as `bytes` in Python 3 and a Python 2 `unicode` object will be treated like a Python 3 `str`.
+
+- Added new error `errors.AMQPClientShutdown` as a wrapper for `KeyboardInterrupt` to better handle interrupt handling.
+- Added better handling of keyboard interrupts during C callbacks to better facilitate clean client shutdown.
+- Added additional handling of keyboard interrupt at the C level to clean up annoying warnings.
+
+
 1.0.3 (2018-09-14)
 ++++++++++++++++++
 
