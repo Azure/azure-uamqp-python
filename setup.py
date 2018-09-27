@@ -252,7 +252,7 @@ else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
-    if is_27:
+    if sys.version_info < (3, 5):
         kwargs['libraries'].append('rt')
     if not supress_link_flags:
         kwargs['libraries'].extend(['ssl', 'crypto'])

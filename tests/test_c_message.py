@@ -8,9 +8,6 @@ import os
 import sys
 import pytest
 
-root_path = os.path.realpath('.')
-sys.path.append(root_path)
-
 from uamqp import c_uamqp
 
 
