@@ -33,7 +33,13 @@ If you are running a Linux distro that does not support `ManyLinux1 <https://www
 
 Python 2.7 support
 ++++++++++++++++++
-Coming soon...
+
+Python 2.7 will be supported in v1.1.0, which is currently available as a pre-release:
+
+.. code:: shell
+
+    $ pip install uamqp --pre
+
 
 Documentation
 +++++++++++++
