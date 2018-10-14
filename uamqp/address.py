@@ -4,15 +4,9 @@
 # license information.
 #--------------------------------------------------------------------------
 
-try:
-    from urllib import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 import logging
 
-from uamqp import constants
-from uamqp import c_uamqp
-
+from uamqp import c_uamqp, constants, compat
 
 _logger = logging.getLogger(__name__)
 
@@ -132,7 +126,7 @@ class Address:
         :type address: str
         :rtype: ~urllib.parse.ParseResult
         """
-        parsed = urlparse(address)
+        parsed = compat.urlparse(address)
         if not parsed.scheme.startswith(b'amqp'):
             raise ValueError("Source scheme must be amqp or amqps.")
         if not parsed.netloc or not parsed.path:
