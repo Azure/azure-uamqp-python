@@ -7,26 +7,13 @@
 # pylint: disable=too-many-lines
 
 import logging
-import uuid
 import queue
-import time
 import threading
-try:
-    from urllib import unquote_plus
-except ImportError:
-    from urllib.parse import unquote_plus
+import time
+import uuid
 
-from uamqp import (
-    authentication,
-    constants,
-    sender,
-    receiver,
-    address,
-    errors,
-    c_uamqp,
-    Connection,
-    Session)
-
+from uamqp import (Connection, Session, address, authentication, c_uamqp,
+                   compat, constants, errors, receiver, sender)
 
 _logger = logging.getLogger(__name__)
 
@@ -93,8 +80,8 @@ class AMQPClient:
             username = self._remote_address.username
             password = self._remote_address.password
             if username and password:
-                username = unquote_plus(username)
-                password = unquote_plus(password)
+                username = compat.unquote_plus(username)
+                password = compat.unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
