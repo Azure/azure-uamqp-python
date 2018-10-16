@@ -10,11 +10,7 @@ import six
 
 from uamqp import c_uamqp
 from uamqp import utils
-
-try:
-    long_type = long
-except NameError:
-    long_type = int
+from uamqp import compat
 
 
 class AMQPType(object):
@@ -99,7 +95,7 @@ class AMQPLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.long_value(long_type(value))
+            return c_uamqp.long_value(compat.long(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:
@@ -120,7 +116,7 @@ class AMQPuLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.ulong_value(long_type(value))
+            return c_uamqp.ulong_value(compat.long(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:

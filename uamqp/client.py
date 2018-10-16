@@ -10,14 +10,6 @@ import logging
 import uuid
 import time
 import threading
-try:
-    from urllib import unquote_plus
-except ImportError:
-    from urllib.parse import unquote_plus
-try:
-    import Queue as queue
-except ImportError:
-    import queue
 
 
 from uamqp import (
@@ -29,12 +21,9 @@ from uamqp import (
     errors,
     c_uamqp,
     Connection,
-    Session)
+    Session,
+    compat)
 
-try:
-    TimeoutException = TimeoutError
-except NameError:
-    TimeoutException = errors.ClientTimeout
 
 _logger = logging.getLogger(__name__)
 
@@ -101,8 +90,8 @@ class AMQPClient(object):
             username = self._remote_address.username
             password = self._remote_address.password
             if username and password:
-                username = unquote_plus(username)
-                password = unquote_plus(password)
+                username = compat.unquote_plus(username)
+                password = compat.unquote_plus(password)
                 auth = authentication.SASLPlain(self._hostname, username, password)
 
         self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
@@ -316,7 +305,7 @@ class AMQPClient(object):
                 if timeout is None and auth_in_progress is None:
                     continue
             if timeout:
-                raise TimeoutException("Authorization timeout.")
+                raise compat.TimeoutException("Authorization timeout.")
             elif auth_in_progress:
                 self._connection.work()
             else:
@@ -352,7 +341,7 @@ class AMQPClient(object):
         if self._shutdown:
             return False
         if timeout:
-            raise TimeoutException("Authorization timeout.")
+            raise compat.TimeoutException("Authorization timeout.")
         elif auth_in_progress:
             self._connection.work()
             return True
@@ -975,7 +964,7 @@ class ReceiveClient(AMQPClient):
                 'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or queue.Queue()
+        self._received_messages = self._received_messages or compat.queue.Queue()
         self.open()
         receiving = True
         batch = []
@@ -1040,7 +1029,7 @@ class ReceiveClient(AMQPClient):
         :type on_message_received: callable[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = queue.Queue()
+        self._received_messages = compat.queue.Queue()
         return self._message_generator()
 
     def redirect(self, redirect, auth):
