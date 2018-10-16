@@ -4,13 +4,12 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import base64
+import time
 import uuid
 from datetime import timedelta
-import time
-import base64
 
 import six
-
 from uamqp import c_uamqp
 
 

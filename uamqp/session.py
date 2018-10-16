@@ -6,11 +6,7 @@
 
 import logging
 
-from uamqp import c_uamqp
-from uamqp import mgmt_operation
-from uamqp import constants
-from uamqp import errors
-
+from uamqp import c_uamqp, constants, errors, mgmt_operation
 
 _logger = logging.getLogger(__name__)
 

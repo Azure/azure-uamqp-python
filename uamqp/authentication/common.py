@@ -7,13 +7,10 @@
 # pylint: disable=super-init-not-called,no-self-use
 
 import logging
+
 import certifi
-
 import six
-
-from uamqp import constants
-from uamqp import c_uamqp
-
+from uamqp import c_uamqp, constants
 
 _logger = logging.getLogger(__name__)
 

@@ -5,20 +5,13 @@
 #--------------------------------------------------------------------------
 
 import logging
-import uuid
 import threading
 import time
+import uuid
 
 import six
-
 import uamqp
-from uamqp import c_uamqp
-from uamqp import utils, errors
-
-try:
-    TimeoutException = TimeoutError
-except NameError:
-    TimeoutException = errors.ClientTimeout
+from uamqp import c_uamqp, compat, errors, utils
 
 _logger = logging.getLogger(__name__)
 
@@ -198,7 +191,7 @@ class Connection(object):
     def lock(self, timeout=3.0):
         try:
             if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
-                raise TimeoutException("Failed to acquire connection lock.")
+                raise compat.TimeoutException("Failed to acquire connection lock.")
         except TypeError:  # Timeout isn't supported in Py2.7
             self._lock.acquire()
 
@@ -265,7 +258,7 @@ class Connection(object):
         try:
             self.lock()
             self._conn.do_work()
-        except TimeoutException:
+        except compat.TimeoutException:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()
@@ -279,7 +272,7 @@ class Connection(object):
         try:
             self.lock()
             time.sleep(seconds)
-        except TimeoutException:
+        except compat.TimeoutException:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
             self.release()

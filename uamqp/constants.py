@@ -8,7 +8,6 @@ from enum import Enum
 
 from uamqp import c_uamqp
 
-
 DEFAULT_AMQPS_PORT = 5671
 AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS

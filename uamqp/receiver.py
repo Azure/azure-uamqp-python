@@ -4,18 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import functools
 import logging
 import uuid
-import functools
 
 import six
-
 import uamqp
-from uamqp import utils
-from uamqp import errors
-from uamqp import constants
-from uamqp import c_uamqp
-
+from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
 
