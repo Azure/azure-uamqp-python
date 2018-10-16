@@ -4,7 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-# pylint: disable=no-name-in-module,unused-import
+# pylint: disable=no-name-in-module,unused-import,redefined-builtin,import-error,undefined-variable,ungrouped-imports
 
 import sys
 
