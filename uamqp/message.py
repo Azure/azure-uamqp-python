@@ -117,6 +117,18 @@ class Message(object):
             self.annotations = annotations
             self.header = header
 
+    @classmethod
+    def decode_from_bytes(cls, data):
+        """Decode an AMQP message from a bytearray.
+        The returned message will not have a delivery context and
+        therefore will be considered to be in an "already settled" state.
+
+        :param data: The AMQP wire-encoded bytes to decode.
+        :type data: bytes or bytearray
+        """
+        decoded_message = c_uamqp.decode_message(len(data), data)
+        return cls(message=decoded_message)
+
     def __str__(self):
         if not self._message:
             return ""

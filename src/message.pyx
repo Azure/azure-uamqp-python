@@ -413,3 +413,142 @@ cpdef size_t get_encoded_message_size(cMessage message):
                     total_encoded_size += encoded_size
 
         return total_encoded_size
+
+
+cdef class cMessageDecoder(object):
+
+    cdef c_message.MESSAGE_HANDLE decoded_message
+    cdef const char* decode_error
+
+    def __cinit__(self):
+        self.decoded_message = c_message.message_create()
+        if <void*>self.decoded_message == NULL:
+            raise MemoryError("Failed to create message decoder.")
+        self.decode_error = <const char*>NULL
+
+    def __dealloc__(self):
+        _logger.debug("Deallocating cMessageDecoder")
+
+
+cpdef cMessage decode_message(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
+    cdef c_amqpvalue.AMQPVALUE_DECODER_HANDLE amqpvalue_decoder
+    cdef c_message.MESSAGE_HANDLE result
+    message_decoder = cMessageDecoder()
+
+    amqpvalue_decoder = c_amqpvalue.amqpvalue_decoder_create(<c_amqpvalue.ON_VALUE_DECODED>decode_message_data, <void*>message_decoder);
+    if <void*>amqpvalue_decoder == NULL:
+        raise MemoryError("Cannot create AMQP value decoder")
+    else:
+        if c_amqpvalue.amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0:
+            raise ValueError("Cannot decode bytes")
+        else:
+            if <void*>message_decoder.decode_error != NULL:
+                raise ValueError(message_decoder.decode_error.decode('UTF-8'))
+            else:
+                result = message_decoder.decoded_message
+
+        c_amqpvalue.amqpvalue_decoder_destroy(amqpvalue_decoder)
+    return message_factory(result)
+
+
+cdef void decode_message_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
+    message_decoder = <cMessageDecoder>context
+    cdef c_message.MESSAGE_HANDLE decoded_message
+    cdef c_amqpvalue.AMQP_VALUE descriptor
+    cdef c_amqp_definitions.PROPERTIES_HANDLE properties
+    cdef c_amqp_definitions.annotations delivery_annotations
+    cdef c_amqp_definitions.annotations message_annotations
+    cdef c_amqp_definitions.HEADER_HANDLE header
+    cdef c_amqp_definitions.annotations footer
+    cdef c_message.MESSAGE_BODY_TYPE_TAG body_type
+    cdef c_amqpvalue.AMQP_VALUE body_amqp_value
+    cdef c_amqpvalue.AMQP_VALUE body_data_value
+    cdef c_amqp_definitions.data data_value
+    cdef c_message.BINARY_DATA binary_data
+
+    decoded_message = message_decoder.decoded_message
+    descriptor = c_amqpvalue.amqpvalue_get_inplace_descriptor(decoded_value)
+
+    if c_amqp_definitions.is_application_properties_type_by_descriptor(descriptor):
+        if c_message.message_set_application_properties(decoded_message, decoded_value) != 0:
+            message_decoder.decode_error = b"Error setting application properties on received message"
+
+    elif c_amqp_definitions.is_properties_type_by_descriptor(descriptor):
+        if c_amqp_definitions.amqpvalue_get_properties(decoded_value, &properties) != 0:
+            message_decoder.decode_error = b"Error getting message properties"
+
+        else:
+            if c_message.message_set_properties(decoded_message, properties) != 0:
+                message_decoder.decode_error = b"Error setting message properties on received message"
+            c_amqp_definitions.properties_destroy(properties)
+
+    elif c_amqp_definitions.is_delivery_annotations_type_by_descriptor(descriptor):
+        delivery_annotations = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value)
+        if <void*>delivery_annotations == NULL:
+            message_decoder.decode_error = b"Error getting delivery annotations"
+        else:
+            if c_message.message_set_delivery_annotations(decoded_message, delivery_annotations) != 0:
+                message_decoder.decode_error = b"Error setting delivery annotations on received message"
+
+    elif c_amqp_definitions.is_message_annotations_type_by_descriptor(descriptor):
+        message_annotations = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value)
+        if <void*>message_annotations == NULL:
+            message_decoder.decode_error = b"Error getting message annotations"
+        else:
+            if c_message.message_set_message_annotations(decoded_message, message_annotations) != 0:
+                message_decoder.decode_error = b"Error setting message annotations on received message"
+
+    elif c_amqp_definitions.is_header_type_by_descriptor(descriptor):
+        if c_amqp_definitions.amqpvalue_get_header(decoded_value, &header) != 0:
+            message_decoder.decode_error = b"Error getting message header"
+        else:
+            if c_message.message_set_header(decoded_message, header) != 0:
+                message_decoder.decode_error = b"Error setting message header on received message"
+            c_amqp_definitions.header_destroy(header)
+
+    elif c_amqp_definitions.is_footer_type_by_descriptor(descriptor):
+        footer = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value);
+        if <void*>footer == NULL:
+            message_decoder.decode_error = b"Error getting message footer"
+        else:
+            if c_message.message_set_footer(decoded_message, footer) != 0:
+                message_decoder.decode_error = b"Error setting message footer on received message"
+
+    elif c_amqp_definitions.is_amqp_value_type_by_descriptor(descriptor):
+        if c_message.message_get_body_type(decoded_message, &body_type) != 0:
+            message_decoder.decode_error = b"Error getting message body type"
+
+        else:
+            if body_type != c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_NONE:
+                message_decoder.decode_error = b"Body already set on received message"
+
+            else:
+                body_amqp_value = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value)
+                if <void*>body_amqp_value == NULL:
+                    message_decoder.decode_error = b"Error getting body AMQP value"
+                else:
+                    if c_message.message_set_body_amqp_value(decoded_message, body_amqp_value) != 0:
+                        message_decoder.decode_error = b"Error setting body AMQP value on received message"
+
+    elif c_amqp_definitions.is_data_type_by_descriptor(descriptor):
+        if c_message.message_get_body_type(decoded_message, &body_type) != 0:
+            message_decoder.decode_error = b"Error getting message body type"
+
+        else:
+            if (body_type != c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_NONE) and (body_type != c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_DATA):
+                message_decoder.decode_error = b"Message body type already set to something different than AMQP DATA"
+
+            else:
+                body_data_value = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value)
+                if <void*>body_data_value == NULL:
+                    message_decoder.decode_error = b"Error getting body DATA value"
+
+                else:
+                    if c_amqpvalue.amqpvalue_get_binary(body_data_value, &data_value) != 0:
+                        message_decoder.decode_error = b"Error getting body DATA AMQP value"
+
+                    else:
+                        binary_data.bytes = <const unsigned char*>data_value.bytes
+                        binary_data.length = data_value.length
+                        if c_message.message_add_body_amqp_data(decoded_message, binary_data) != 0:
+                            message_decoder.decode_error = b"Error adding body DATA to received message"
