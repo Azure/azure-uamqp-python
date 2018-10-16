@@ -105,7 +105,7 @@ def get_latest_windows_sdk():
     installed_sdks = {}
     key_path = "SOFTWARE\\Wow6432Node\\Microsoft\\Microsoft SDKs\\Windows" if is_x64 else \
         "SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows"
-    try: 
+    try:
         with ConnectRegistry(None, HKEY_LOCAL_MACHINE) as hklm:
             with OpenKey(hklm, key_path) as handler:
                 for i in range(1024):
@@ -207,7 +207,7 @@ class build_ext(build_ext_orig):
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
             "-DCMAKE_BUILD_TYPE=Release"
         ]
-        
+
         build_env = get_build_env()
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
@@ -313,7 +313,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     packages=find_packages(exclude=["tests"]),
-    ext_modules = extensions,
+    ext_modules=extensions,
     install_requires=[
         "certifi>=2017.4.17",
         "six~=1.0"
@@ -323,5 +323,6 @@ setup(
     },
     cmdclass={
         'build_ext': build_ext,
-    }    
+    },
+    python_requires=">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*",
 )
