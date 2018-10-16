@@ -116,7 +116,8 @@ class MgmtOperation(object):
                 _logger.error(
                     "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
                     status_code, description)
-            self._responses[operation_id] = Message(message=wrapped_message)
+            message = Message(message=wrapped_message) if wrapped_message else None
+            self._responses[operation_id] = (status_code, message, description)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)
         while not self._responses[operation_id] and not self.mgmt_error:
