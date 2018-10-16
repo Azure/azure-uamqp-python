@@ -5,16 +5,13 @@
 #--------------------------------------------------------------------------
 
 import logging
-import uuid
 import threading
 import time
+import uuid
 
 import six
-
 import uamqp
-from uamqp import c_uamqp
-from uamqp import utils, errors, compat
-
+from uamqp import c_uamqp, compat, errors, utils
 
 _logger = logging.getLogger(__name__)
 

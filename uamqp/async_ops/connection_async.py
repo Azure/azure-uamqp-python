@@ -5,14 +5,12 @@
 #--------------------------------------------------------------------------
 
 import asyncio
-import logging
-import functools
 import concurrent
+import functools
+import logging
 
 import uamqp
-from uamqp import c_uamqp
-from uamqp import connection
-
+from uamqp import c_uamqp, connection
 
 _logger = logging.getLogger(__name__)
 

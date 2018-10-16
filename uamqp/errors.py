@@ -5,9 +5,7 @@
 #--------------------------------------------------------------------------
 
 import six
-
-from uamqp import c_uamqp
-from uamqp import utils, constants
+from uamqp import c_uamqp, constants, utils
 
 
 def _process_send_error(policy, condition, description=None, info=None):

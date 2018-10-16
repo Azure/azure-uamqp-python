@@ -7,11 +7,7 @@
 import logging
 
 import six
-
-from uamqp import constants
-from uamqp import c_uamqp
-from uamqp import compat
-
+from uamqp import c_uamqp, compat, constants
 
 _logger = logging.getLogger(__name__)
 

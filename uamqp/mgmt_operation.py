@@ -8,14 +8,8 @@ import logging
 import uuid
 
 import six
-
 # from uamqp.session import Session
-from uamqp import Message
-from uamqp import constants
-from uamqp import errors
-from uamqp import c_uamqp
-from uamqp import compat
-
+from uamqp import Message, c_uamqp, compat, constants, errors
 
 _logger = logging.getLogger(__name__)
 

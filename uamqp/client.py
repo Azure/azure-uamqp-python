@@ -7,23 +7,12 @@
 # pylint: disable=too-many-lines
 
 import logging
-import uuid
-import time
 import threading
+import time
+import uuid
 
-
-from uamqp import (
-    authentication,
-    constants,
-    sender,
-    receiver,
-    address,
-    errors,
-    c_uamqp,
-    Connection,
-    Session,
-    compat)
-
+from uamqp import (Connection, Session, address, authentication, c_uamqp,
+                   compat, constants, errors, receiver, sender)
 
 _logger = logging.getLogger(__name__)
 

@@ -10,7 +10,6 @@ import sys
 
 from uamqp import errors
 
-
 PY2 = (2, 7) <= sys.version_info < (3, 0)
 PY3 = (3, 4) <= sys.version_info < (4, 0)
 

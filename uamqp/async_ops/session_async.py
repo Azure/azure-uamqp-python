@@ -7,11 +7,8 @@
 import asyncio
 import logging
 
-from uamqp import session
-from uamqp import constants
-from uamqp import errors
+from uamqp import constants, errors, session
 from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
-
 
 _logger = logging.getLogger(__name__)
 

@@ -10,19 +10,14 @@
 import asyncio
 import collections.abc
 import logging
-import uuid
 import queue
+import uuid
 
-from uamqp import client
-from uamqp import constants
-from uamqp import errors
-from uamqp import address
-from uamqp import authentication
-
+from uamqp import address, authentication, client, constants, errors
 from uamqp.async_ops.connection_async import ConnectionAsync
-from uamqp.async_ops.session_async import SessionAsync
-from uamqp.async_ops.sender_async import MessageSenderAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
+from uamqp.async_ops.sender_async import MessageSenderAsync
+from uamqp.async_ops.session_async import SessionAsync
 
 try:
     TimeoutException = TimeoutError

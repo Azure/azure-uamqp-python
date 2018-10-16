@@ -6,18 +6,13 @@
 
 # pylint: disable=super-init-not-called,no-self-use
 
+import datetime
 import logging
 import time
-import datetime
 
-from uamqp import Session
-from uamqp import utils
-from uamqp import constants
-from uamqp import errors
-from uamqp import c_uamqp
-from uamqp import compat
+from uamqp import Session, c_uamqp, compat, constants, errors, utils
+
 from .common import _SASL, AMQPAuth
-
 
 _logger = logging.getLogger(__name__)
 

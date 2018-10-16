@@ -7,12 +7,10 @@
 import asyncio
 import logging
 
-from uamqp import constants
-from uamqp import errors
-from uamqp import c_uamqp
+from uamqp import c_uamqp, constants, errors
 from uamqp.async_ops import SessionAsync
-from .cbs_auth import CBSAuthMixin, SASTokenAuth
 
+from .cbs_auth import CBSAuthMixin, SASTokenAuth
 
 _logger = logging.getLogger(__name__)
 

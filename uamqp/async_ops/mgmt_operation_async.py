@@ -4,14 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import logging
 import asyncio
+import logging
 import uuid
 
+from uamqp import Message, constants, errors
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
-from uamqp import Message
-from uamqp import constants, errors
 
 try:
     TimeoutException = TimeoutError
