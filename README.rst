@@ -81,7 +81,7 @@ Next, run the build command:
 
 .. code:: shell
 
-    $ python setup.py built_ext --inplace
+    $ python setup.py build_ext --inplace
 
 Tests
 +++++
