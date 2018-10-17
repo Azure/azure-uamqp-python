@@ -49,6 +49,7 @@ class MgmtOperationAsync(MgmtOperation):
     def __init__(self,
                  session,
                  target=None,
+                 debug=False,
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
                  encoding='UTF-8',
@@ -57,6 +58,7 @@ class MgmtOperationAsync(MgmtOperation):
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,
+            debug=debug,
             status_code_field=status_code_field,
             description_fields=description_fields,
             encoding=encoding)

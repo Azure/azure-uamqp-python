@@ -110,6 +110,7 @@ class AMQPClient(object):
         self._handle_max = kwargs.pop('handle_max', None)
 
         # AMQP object settings
+        self.message_handler = None
         self.connection_type = Connection
         self.session_type = Session
 
@@ -237,6 +238,9 @@ class AMQPClient(object):
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        if self.message_handler:
+            self.message_handler.destroy()
+            self.message_handler = None
         self._shutdown = True
         if self._keep_alive_thread:
             self._keep_alive_thread.join()
@@ -256,7 +260,7 @@ class AMQPClient(object):
             _logger.debug("Shared connection remaining open.")
         self._connection = None
 
-    def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+    def mgmt_request(self, message, operation, op_type=None, node=None, callback=None, **kwargs):
         """Run a request/response operation. These are frequently used for management
         tasks against a $management node, however any node name can be specified
         and the available options will depend on the target service.
@@ -276,6 +280,11 @@ class AMQPClient(object):
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
+        :param callback: The function to process the returned parameters of the management
+         request including status code and a description if available. This can be used
+         to reformat the response or raise an error based on content. The function must
+         take 3 arguments - status code, response message and description.
+        :type callback: ~callable[int, bytes, ~uamqp.message.Message]
         :param status_code_field: Provide an alternate name for the status code in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusCode"`.
@@ -286,30 +295,53 @@ class AMQPClient(object):
         :type description_fields: bytes
         :rtype: ~uamqp.message.Message
         """
-        timeout = False
-        auth_in_progress = False
-        while True:
-            if self._connection.cbs:
-                timeout, auth_in_progress = self._auth.handle_token()
-                if timeout is None and auth_in_progress is None:
-                    continue
-            if timeout:
-                raise compat.TimeoutException("Authorization timeout.")
-            elif auth_in_progress:
-                self._connection.work()
-            else:
-                break
-        if not self._session:
-            raise ValueError("Session not yet open")
+        while not self.auth_complete():
+            time.sleep(0.05)
         response = self._session.mgmt_request(
             message,
             operation,
             op_type=op_type,
             node=node,
+            callback=callback,
             encoding=self._encoding,
             debug=self._debug_trace,
             **kwargs)
         return response
+
+    def auth_complete(self):
+        """Whether the authentication handshake is complete during
+        connection initialization.
+
+        :rtype: bool
+        """
+        timeout = False
+        auth_in_progress = False
+        if self._connection.cbs:
+            timeout, auth_in_progress = self._auth.handle_token()
+            if timeout is None and auth_in_progress is None:
+                _logger.debug("No work done.")
+                return False
+        if timeout:
+            raise compat.TimeoutException("Authorization timeout.")
+        if auth_in_progress:
+            self._connection.work()
+            return False
+        return True
+
+    def client_ready(self):
+        """
+        Whether the handler has completed all start up processes such as
+        establishing the connection, session, link and authentication, and
+        is not ready to process messages.
+
+        :rtype: bool
+        """
+        if not self.auth_complete():
+            return False
+        if not self._client_ready():
+            self._connection.work()
+            return False
+        return True
 
     def do_work(self):
         """Run a single connection iteration.
@@ -320,22 +352,9 @@ class AMQPClient(object):
         :rtype: bool
         :raises: TimeoutError or ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
         """
-        timeout = False
-        auth_in_progress = False
-        if self._connection.cbs:
-            timeout, auth_in_progress = self._auth.handle_token()
-            if timeout is None and auth_in_progress is None:
-                _logger.debug("No work done.")
-                return True
         if self._shutdown:
             return False
-        if timeout:
-            raise compat.TimeoutException("Authorization timeout.")
-        elif auth_in_progress:
-            self._connection.work()
-            return True
-        elif not self._client_ready():
-            self._connection.work()
+        if not self.client_ready():
             return True
         else:
             return self._client_run()
@@ -415,7 +434,6 @@ class SendClient(AMQPClient):
         self._msg_timeout = msg_timeout
         self._pending_messages = []
         self._waiting_messages = []
-        self._message_sender = None
         self._shutdown = None
 
         # Sender and Link settings
@@ -447,8 +465,8 @@ class SendClient(AMQPClient):
          goes into an error state.
         """
         # pylint: disable=protected-access
-        if not self._message_sender:
-            self._message_sender = self.sender_type(
+        if not self.message_handler:
+            self.message_handler = self.sender_type(
                 self._session, self._name, self._remote_address,
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
@@ -458,14 +476,14 @@ class SendClient(AMQPClient):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding)
-            self._message_sender.open()
+            self.message_handler.open()
             return False
-        if self._message_sender.get_state() == constants.MessageSenderState.Error:
+        if self.message_handler.get_state() == constants.MessageSenderState.Error:
             raise errors.MessageHandlerError(
                 "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        if self._message_sender.get_state() != constants.MessageSenderState.Open:
+        if self.message_handler.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
@@ -524,7 +542,7 @@ class SendClient(AMQPClient):
                 message.on_send_complete(result, exception)
         except KeyboardInterrupt:
             _logger.error("Received shutdown signal while processing message send completion.")
-            self._message_sender._error = errors.AMQPClientShutdown()
+            self.message_handler._error = errors.AMQPClientShutdown()
 
     def _get_msg_timeout(self, message):
         current_time = self._counter.get_current_ms()
@@ -534,7 +552,7 @@ class SendClient(AMQPClient):
         return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0
 
     def _transfer_message(self, message, timeout):
-        sent = self._message_sender.send(message, self._on_message_sent, timeout=timeout)
+        sent = self.message_handler.send(message, self._on_message_sent, timeout=timeout)
         if not sent:
             _logger.info("Message not sent, raising RuntimeError.")
             raise RuntimeError("Message sender failed to add message data to outgoing queue.")
@@ -580,6 +598,13 @@ class SendClient(AMQPClient):
         return True
 
     @property
+    def _message_sender(self):
+        """Temporary property to support backwards compatibility
+        with EventHubs.
+        """
+        return self.message_handler
+
+    @property
     def pending_messages(self):
         return [m for m in self._pending_messages if m.state in constants.PENDING_STATES]
 
@@ -596,9 +621,9 @@ class SendClient(AMQPClient):
             raise ValueError(
                 "Clients with a shared connection cannot be "
                 "automatically redirected.")
-        if self._message_sender:
-            self._message_sender.destroy()
-            self._message_sender = None
+        if self.message_handler:
+            self.message_handler.destroy()
+            self.message_handler = None
         self._pending_messages = []
         self._remote_address = address.Target(redirect.address)
         self._redirect(redirect, auth)
@@ -610,9 +635,6 @@ class SendClient(AMQPClient):
         All pending, unsent messages will remain uncleared to allow
         them to be inspected and queued to a new client.
         """
-        if self._message_sender:
-            self._message_sender.destroy()
-            self._message_sender = None
         super(SendClient, self).close()
 
     def queue_message(self, *messages):
@@ -793,7 +815,6 @@ class ReceiveClient(AMQPClient):
             auto_complete=True, error_policy=None, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
-        self._message_receiver = None
         self._last_activity_timestamp = None
         self._was_message_received = False
         self._message_received_callback = None
@@ -812,6 +833,13 @@ class ReceiveClient(AMQPClient):
         super(ReceiveClient, self).__init__(
             source, auth=auth, client_name=client_name, error_policy=error_policy, debug=debug, **kwargs)
 
+    @property
+    def _message_receiver(self):
+        """Temporary property to support backwards compatibility
+        with EventHubs.
+        """
+        return self.message_handler
+
     def _client_ready(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
@@ -823,8 +851,8 @@ class ReceiveClient(AMQPClient):
          goes into an error state.
         """
         # pylint: disable=protected-access
-        if not self._message_receiver:
-            self._message_receiver = self.receiver_type(
+        if not self.message_handler:
+            self.message_handler = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
                 name='receiver-link-{}'.format(uuid.uuid4()),
@@ -835,14 +863,14 @@ class ReceiveClient(AMQPClient):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding)
-            self._message_receiver.open()
+            self.message_handler.open()
             return False
-        if self._message_receiver.get_state() == constants.MessageReceiverState.Error:
+        if self.message_handler.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
                 "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        if self._message_receiver.get_state() != constants.MessageReceiverState.Open:
+        if self.message_handler.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True
@@ -1034,9 +1062,9 @@ class ReceiveClient(AMQPClient):
             raise ValueError(
                 "Clients with a shared connection cannot be "
                 "automatically redirected.")
-        if self._message_receiver:
-            self._message_receiver.destroy()
-            self._message_receiver = None
+        if self.message_handler:
+            self.message_handler.destroy()
+            self.message_handler = None
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
@@ -1050,10 +1078,4 @@ class ReceiveClient(AMQPClient):
         Connection (unless an external Conneciton was supplied on opening,
         which will be left open).
         """
-        if self._message_receiver:
-            self._message_receiver.destroy()
-            self._message_receiver = None
         super(ReceiveClient, self).close()
-        self._shutdown = False
-        self._last_activity_timestamp = None
-        self._was_message_received = False
