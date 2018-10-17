@@ -16,6 +16,7 @@ from hmac import HMAC
 from time import time
 from datetime import datetime
 from uuid import uuid4
+import concurrent
 
 import uamqp
 
@@ -30,8 +31,8 @@ def get_logger(level):
     return uamqp_logger
 
 
-DEBUG = False
-logger = get_logger(logging.DEBUG)
+DEBUG = True
+logger = get_logger(logging.WARNING)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):
@@ -107,19 +108,23 @@ def executor(target, consumer_group, enqueued_time, device_id=None, properties=N
                 pass
 
         print('Starting event monitor,{} use ctrl-c to stop...'.format(device_filter_txt if device_filter_txt else ''))
-        future.add_done_callback(lambda future: stop_and_suppress_eloop())
         result = loop.run_until_complete(future)
     except KeyboardInterrupt:
         print('Stopping event monitor...')
-        for t in asyncio.Task.all_tasks():
-            t.cancel()
-        loop.run_forever()
+        remaining_tasks = [t for t in asyncio.Task.all_tasks() if not t.done()]
+        remaining_future = asyncio.gather(*remaining_tasks, loop=loop, return_exceptions=True)
+        try:
+            loop.run_until_complete(asyncio.wait_for(remaining_future, 5))
+        except concurrent.futures.TimeoutError:
+            print("Timed out before tasks could finish. Shutting down anyway.")
+        print("Finished event monitor shutdown.")
     finally:
         if result:
             error = next(res for res in result if result)
             if error:
                 logger.error(error)
                 raise RuntimeError(error)
+        loop.close()
 
 
 async def initiate_event_monitor(target, consumer_group, enqueued_time, device_id=None, properties=None, timeout=0):
@@ -164,9 +169,8 @@ async def initiate_event_monitor(target, consumer_group, enqueued_time, device_i
                                             device_id=device_id,
                                             timeout=timeout))
         results = await asyncio.gather(*coroutines, return_exceptions=True)
-        logger.info("Finished all event monitors")
-        if results:
-            logger.info("Got exceptions: {}".format(results))
+        logger.warning("Finished all event monitors")
+    logger.warning("Finished initiate_event_monitor")
 
 
 async def monitor_events(endpoint, connection, path, auth, partition, consumer_group, enqueuedtimeutc,
@@ -210,9 +214,14 @@ async def monitor_events(endpoint, connection, path, auth, partition, consumer_g
         async for msg in msg_iter:
             _output_msg_kpi(msg)
 
-    except (asyncio.CancelledError, KeyboardInterrupt):
+    except asyncio.CancelledError:
         exp_cancelled = True
         await receive_client.close_async()
+    except KeyboardInterrupt:
+        logger.warning("Keyboard interrupt, closing monitor {}.".format(partition))
+        exp_cancelled = True
+        await receive_client.close_async()
+        raise
     except uamqp.errors.LinkDetach as ld:
         if isinstance(ld.description, bytes):
             ld.description = str(ld.description, 'utf8')
@@ -322,13 +331,13 @@ def get_target(config):
     events['endpoint'] = config['endpoint']
     events['partition_count'] = config.get('partition_count', 4)
     events['path'] = config['hub_name']
-    events['partition_ids'] = config.get('partition_ids', ["0", "1", "2", "3"])
+    events['partition_ids'] = config.get('partition_ids', ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
     target['events'] = events
     return target
 
 def test_iothub_monitor_events(live_iothub_config):
     properties = []
-    timeout = 30000
+    timeout = 30
     now = datetime.utcnow()
     epoch = datetime.utcfromtimestamp(0)
     enqueued_time = int(1000 * (now - epoch).total_seconds())
