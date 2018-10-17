@@ -19,6 +19,8 @@ Release History
 - Added better handling of keyboard interrupts during C callbacks to better facilitate clean client shutdown.
 - Added additional handling of keyboard interrupt at the C level to clean up annoying warnings.
 - Added classmethod `Message.decode_from_bytes` to create a message from AMQP wire-encoded data.
+- Added `Message.encode_message` method to retrieve the AMQP wire-encoded byte representation of the current message.
+- Fixed behaviour of `Message.get_message_encoded_size()` to return accurate size.
 - Added new optional `callback` argument to `client.mgmt_request` to allow for custom handling of different status codes.
 - Added new client methods `auto_complete()` and `client_ready()` to allow for more fine-tuned monitoring or the client opening stages.
 - Client message handler is now a public attribute `client.message_handler` (`SendClient._message_sender` and `ReceiveClient._message_receiver` are now deprecated).

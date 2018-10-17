@@ -183,6 +183,23 @@ class Message(object):
             return False
         return True
 
+    def _populate_message_attributes(self, c_message):
+        if self.properties:
+            c_message.properties = self.properties.get_properties_obj()
+        if self.application_properties:
+            if not isinstance(self.application_properties, dict):
+                raise TypeError("Application properties must be a dictionary.")
+            amqp_props = utils.data_factory(self.application_properties, encoding=self._encoding)
+            c_message.application_properties = amqp_props
+        if self.annotations:
+            if not isinstance(self.annotations, dict):
+                raise TypeError("Message annotations must be a dictionary.")
+            ann_props = c_uamqp.create_message_annotations(
+                utils.data_factory(self.annotations, encoding=self._encoding))
+            c_message.message_annotations = ann_props
+        if self.header:
+            c_message.header = self.header.get_header_obj()
+
     @property
     def settled(self):
         """Whether the message transaction for this message has been completed.
@@ -202,13 +219,33 @@ class Message(object):
         to go over the wire so we can raise an error if the message will be
         rejected for being to large.
 
+        This method is not available for messages that have been received.
+
         :rtype: int
         """
         if self.state in constants.RECEIVE_STATES:
-            # We only need this for messages being sent.
-            return None
-        # TODO: This no longer calculates the metadata accurately.
-        return 0  # c_uamqp.get_encoded_message_size(self._message)
+            raise TypeError("Only new messages can be encoded.")
+        if not self._message:
+            raise ValueError("No message data to encode.")
+        cloned_data = self._message.clone()
+        self._populate_message_attributes(cloned_data)
+        encoded_data = []
+        return c_uamqp.get_encoded_message_size(cloned_data, encoded_data)
+
+    def encode_message(self):
+        """Encode message to AMQP wire-encoded bytearray.
+
+        :rtype: bytearray
+        """
+        if self.state in constants.RECEIVE_STATES:
+            raise TypeError("Only new messages can be encoded.")
+        if not self._message:
+            raise ValueError("No message data to encode.")
+        cloned_data = self._message.clone()
+        self._populate_message_attributes(cloned_data)
+        encoded_data = []
+        c_uamqp.get_encoded_message_size(cloned_data, encoded_data)
+        return b"".join(encoded_data)
 
     def get_data(self):
         """Get the body data of the message. The format may vary depending
@@ -228,6 +265,8 @@ class Message(object):
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
+        elif not self._message:
+            raise ValueError("Message data already consumed.")
         try:
             raise self._response
         except TypeError:
@@ -241,21 +280,7 @@ class Message(object):
         """
         if not self._message:
             return None
-        if self.properties:
-            self._message.properties = self.properties.get_properties_obj()
-        if self.application_properties:
-            if not isinstance(self.application_properties, dict):
-                raise TypeError("Application properties must be a dictionary.")
-            amqp_props = utils.data_factory(self.application_properties, encoding=self._encoding)
-            self._message.application_properties = amqp_props
-        if self.annotations:
-            if not isinstance(self.annotations, dict):
-                raise TypeError("Message annotations must be a dictionary.")
-            ann_props = c_uamqp.create_message_annotations(
-                utils.data_factory(self.annotations, encoding=self._encoding))
-            self._message.message_annotations = ann_props
-        if self.header:
-            self._message.header = self.header.get_header_obj()
+        self._populate_message_attributes(self._message)
         return self._message
 
     def accept(self):

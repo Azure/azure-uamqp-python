@@ -23,7 +23,7 @@ cimport c_amqp_definitions
 _logger = logging.getLogger(__name__)
 
 
-cdef int batch_encode_callback(void* context, const unsigned char* encoded_bytes, size_t length):
+cdef int encode_bytes_callback(void* context, const unsigned char* encoded_bytes, size_t length):
     context_obj = <object>context
     context_obj.append(encoded_bytes[:length])
     return 0
@@ -40,7 +40,7 @@ cdef get_amqp_value_type(c_amqpvalue.AMQP_VALUE value):
 
 cpdef enocde_batch_value(AMQPValue value, message_body):
     if c_amqpvalue.amqpvalue_encode(<c_amqpvalue.AMQP_VALUE>value._c_value,
-                                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>batch_encode_callback,
+                                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                                      <void*>message_body) != 0:
         raise ValueError("Failed to encode batched message data.")
 
