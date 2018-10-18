@@ -38,8 +38,9 @@ class Session(object):
                  handle_max=None):
         self._connection = connection
         self._conn = connection._conn  # pylint: disable=protected-access
-        self._session = c_uamqp.create_session(self._conn)
+        self._session = c_uamqp.create_session(self._conn, self)
         self._mgmt_links = {}
+        self._link_error = None
 
         if incoming_window:
             self.incoming_window = incoming_window
@@ -55,6 +56,10 @@ class Session(object):
     def __exit__(self, *args):
         """Close and destroy sesion on exiting context manager."""
         self._session.destroy()
+
+    def _failed_attach(self, message):
+        """Callback run if link ATTACH frame contains errorous data."""
+        self._link_error = errors.AMQPConnectionError(message)
 
     def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
         """Run a request/response operation. These are frequently used for management
@@ -90,6 +95,7 @@ class Session(object):
         :rtype: ~uamqp.message.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
@@ -102,7 +108,9 @@ class Session(object):
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
-        response = mgmt_link.execute(operation, op_type, message, timeout=timeout)
+        status, response, description = mgmt_link.execute(operation, op_type, message, timeout=timeout)
+        if parse_response:
+            return parse_response(status, response, description)
         return response
 
     def destroy(self):

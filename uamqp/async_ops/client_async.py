@@ -229,6 +229,9 @@ class AMQPClientAsync(client.AMQPClient):
         If the client was opened using an external Connection,
         this will be left intact.
         """
+        if self.message_handler:
+            await self.message_handler.destroy_async()
+            self.message_handler = None
         self._shutdown = True
         if self._keep_alive_thread:
             await self._keep_alive_thread
@@ -248,7 +251,7 @@ class AMQPClientAsync(client.AMQPClient):
             _logger.info("Shared connection remaining open.")
         self._connection = None
 
-    async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
+    async def mgmt_request_async(self, message, operation, op_type=None, node=None, callback=None, **kwargs):
         """Run an asynchronous request/response operation. These are frequently used
         for management tasks against a $management node, however any node name can be
         specified and the available options will depend on the target service.
@@ -268,6 +271,11 @@ class AMQPClientAsync(client.AMQPClient):
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
         :type timeout: int
+        :param callback: The function to process the returned parameters of the management
+         request including status code and a description if available. This can be used
+         to reformat the response or raise an error based on content. The function must
+         take 3 arguments - status code, response message and description.
+        :type callback: ~callable[int, bytes, ~uamqp.message.Message]
         :param status_code_field: Provide an alternate name for the status code in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusCode"`.
@@ -278,30 +286,54 @@ class AMQPClientAsync(client.AMQPClient):
         :type description_fields: bytes or str
         :rtype: ~uamqp.message.Message
         """
-        timeout = False
-        auth_in_progress = False
-        while True:
-            if self._connection.cbs:
-                timeout, auth_in_progress = await self._auth.handle_token_async()
-                if timeout is None and auth_in_progress is None:
-                    continue
-            if timeout:
-                _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
-                raise TimeoutException("Authorization timeout.")
-            elif auth_in_progress:
-                await asyncio.shield(self._connection.work_async())
-            else:
-                break
-        if not self._session:
-            raise ValueError("Session not yet open")
+        while not await self.auth_complete_async():
+            await asyncio.sleep(0.05)
         response = await asyncio.shield(self._session.mgmt_request_async(
             message,
             operation,
             op_type=op_type,
             node=node,
+            callback=callback,
             encoding=self._encoding,
+            debug=self._debug_trace,
             **kwargs))
         return response
+
+    async def auth_complete_async(self):
+        """Whether the authentication handshake is complete during
+        connection initialization.
+
+        :rtype: bool
+        """
+        timeout = False
+        auth_in_progress = False
+        if self._connection.cbs:
+            timeout, auth_in_progress = await self._auth.handle_token_async()
+            if timeout is None and auth_in_progress is None:
+                _logger.debug("No work done.")
+                return False
+        if timeout:
+            _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
+            raise TimeoutException("Authorization timeout.")
+        if auth_in_progress:
+            await self._connection.work_async()
+            return False
+        return True
+
+    async def client_ready_async(self):
+        """
+        Whether the handler has completed all start up processes such as
+        establishing the connection, session, link and authentication, and
+        is not ready to process messages.
+
+        :rtype: bool
+        """
+        if not await self.auth_complete_async():
+            return False
+        if not await self._client_ready_async():
+            await self._connection.work_async()
+            return False
+        return True
 
     async def do_work_async(self):
         """Run a single connection iteration asynchronously.
@@ -312,26 +344,11 @@ class AMQPClientAsync(client.AMQPClient):
         :rtype: bool
         :raises: TimeoutError or ~uamqp.errors.ClientTimeout if CBS authentication timeout reached.
         """
-        timeout = False
-        auth_in_progress = False
-        if self._connection.cbs:
-            timeout, auth_in_progress = await self._auth.handle_token_async()
-            if timeout is None and auth_in_progress is None:
-                _logger.debug("No work done.")
-                return True
         if self._shutdown:
             return False
-        if timeout:
-            _logger.info("CBS authentication timeout on connection: %r.", self._connection.container_id)
-            raise TimeoutException("Authorization timeout.")
-        elif auth_in_progress:
-            await asyncio.shield(self._connection.work_async())
+        if not await self.client_ready_async():
             return True
-        elif not await self._client_ready_async():
-            await asyncio.shield(self._connection.work_async())
-            return True
-        else:
-            return await self._client_run_async()
+        return await self._client_run_async()
 
 
 class SendClientAsync(client.SendClient, AMQPClientAsync):
@@ -440,8 +457,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
          goes into an error state.
         """
         # pylint: disable=protected-access
-        if not self._message_sender:
-            self._message_sender = self.sender_type(
+        if not self.message_handler:
+            self.message_handler = self.sender_type(
                 self._session, self._name, self._remote_address,
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
@@ -451,19 +468,19 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
-            await asyncio.shield(self._message_sender.open_async())
+            await asyncio.shield(self.message_handler.open_async())
             return False
-        if self._message_sender.get_state() == constants.MessageSenderState.Error:
+        if self.message_handler.get_state() == constants.MessageSenderState.Error:
             raise errors.MessageHandlerError(
                 "Message Sender Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        if self._message_sender.get_state() != constants.MessageSenderState.Open:
+        if self.message_handler.get_state() != constants.MessageSenderState.Open:
             return False
         return True
 
     async def _transfer_message_async(self, message, timeout):
-        sent = await asyncio.shield(self._message_sender.send_async(message, self._on_message_sent, timeout=timeout))
+        sent = await asyncio.shield(self.message_handler.send_async(message, self._on_message_sent, timeout=timeout))
         if not sent:
             _logger.info("Message not sent, raising RuntimeError.")
             raise RuntimeError("Message sender failed to add message data to outgoing queue.")
@@ -521,9 +538,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             raise ValueError(
                 "Clients with a shared connection cannot be "
                 "automatically redirected.")
-        if self._message_sender:
-            await asyncio.shield(self._message_sender.destroy_async())
-            self._message_sender = None
+        if self.message_handler:
+            await self.message_handler.destroy_async()
+            self.message_handler = None
         self._pending_messages = []
 
         self._remote_address = address.Target(redirect.address)
@@ -536,9 +553,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         All pending, unsent messages will remain uncleared to allow
         them to be inspected and queued to a new client.
         """
-        if self._message_sender:
-            await asyncio.shield(self._message_sender.destroy_async())
-            self._message_sender = None
         await super(SendClientAsync, self).close_async()
 
     async def wait_async(self):
@@ -721,8 +735,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          goes into an error state.
         """
         # pylint: disable=protected-access
-        if not self._message_receiver:
-            self._message_receiver = self.receiver_type(
+        if not self.message_handler:
+            self.message_handler = self.receiver_type(
                 self._session, self._remote_address, self._name,
                 on_message_received=self._message_received,
                 name='receiver-link-{}'.format(uuid.uuid4()),
@@ -734,14 +748,14 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 loop=self.loop)
-            await asyncio.shield(self._message_receiver.open_async())
+            await asyncio.shield(self.message_handler.open_async())
             return False
-        if self._message_receiver.get_state() == constants.MessageReceiverState.Error:
+        if self.message_handler.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
                 "Message Receiver Client is in an error state. "
                 "Please confirm credentials and access permissions."
                 "\nSee debug trace for more details.")
-        if self._message_receiver.get_state() != constants.MessageReceiverState.Open:
+        if self.message_handler.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
         return True
@@ -887,9 +901,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             raise ValueError(
                 "Clients with a shared connection cannot be "
                 "automatically redirected.")
-        if self._message_receiver:
-            await asyncio.shield(self._message_receiver.destroy_async())
-            self._message_receiver = None
+        if self.message_handler:
+            await self.message_handler.destroy_async()
+            self.message_handler = None
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
@@ -899,13 +913,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
     async def close_async(self):
         """Asynchonously close the receive client."""
-        if self._message_receiver:
-            await self._message_receiver.destroy_async()
-            self._message_receiver = None
         await super(ReceiveClientAsync, self).close_async()
-        self._shutdown = False
-        self._last_activity_timestamp = None
-        self._was_message_received = False
 
 
 class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-member

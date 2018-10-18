@@ -7,7 +7,7 @@
 import base64
 import time
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 import six
 from uamqp import c_uamqp
@@ -51,28 +51,17 @@ def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=
 def _convert_py_number(value):
     """Convert a Python integer value into equivalent C object.
     Will attempt to use the smallest possible conversion, starting with int, then long
-    then double. Unsigned versions will be sent be default unless the value is negative.
+    then double.
     """
-    if value < 0:
-        try:
-            return c_uamqp.int_value(value)
-        except OverflowError:
-            pass
-        try:
-            return c_uamqp.long_value(value)
-        except OverflowError:
-            pass
-    else:
-        try:
-            return c_uamqp.uint_value(value)
-        except OverflowError:
-            pass
-        try:
-            return c_uamqp.ulong_value(value)
-        except OverflowError:
-            pass
+    try:
+        return c_uamqp.int_value(value)
+    except OverflowError:
+        pass
+    try:
+        return c_uamqp.long_value(value)
+    except OverflowError:
+        pass
     return c_uamqp.double_value(value)
-
 
 
 def data_factory(value, encoding='UTF-8'):
@@ -124,4 +113,7 @@ def data_factory(value, encoding='UTF-8'):
         for index, item in enumerate(value):
             wrapped_list[index] = data_factory(item, encoding=encoding)
         result = wrapped_list
+    elif isinstance(value, datetime):
+        timestamp = (time.mktime(value.timetuple()) * 1000) + (value.microsecond/1000)
+        result = c_uamqp.timestamp_value(timestamp)
     return result

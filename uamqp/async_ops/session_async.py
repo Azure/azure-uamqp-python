@@ -91,6 +91,7 @@ class SessionAsync(session.Session):
         :rtype: ~uamqp.message.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
@@ -103,7 +104,9 @@ class SessionAsync(session.Session):
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
-        response = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)
+        status, response, description = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)
+        if parse_response:
+            return parse_response(status, response, description)
         return response
 
     async def destroy_async(self):

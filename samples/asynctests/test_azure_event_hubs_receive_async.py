@@ -157,6 +157,17 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
             await partition_0.close_async()
             await partition_1.close_async()
 
+async def receive_ten(partition, receiver):
+    messages = []
+    count = 0
+    while count < 10:
+        print("Receiving {} on partition {}".format(count, partition))
+        batch = await receiver.receive_message_batch_async(1)
+        print("Received {} messages on partition {}".format(len(batch), partition))
+        messages.extend(batch)
+        count += 1
+    print("Finished receiving on partition {}".format(partition))
+    return messages
 
 @pytest.mark.asyncio
 async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
@@ -176,10 +187,14 @@ async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
         await partition_0.open_async()
         await partition_1.open_async()
         tasks = [
-            partition_0.receive_message_batch_async(1),
-            partition_1.receive_message_batch_async(1)
+            receive_ten("0", partition_0),
+            receive_ten("1", partition_1)
         ]
         messages = await asyncio.gather(*tasks)
+        assert len(messages) == 2
+        assert len(messages[0]) >= 10
+        assert len(messages[1]) >= 10
+        print(messages)
     finally:
         await partition_0.close_async()
         await partition_1.close_async()

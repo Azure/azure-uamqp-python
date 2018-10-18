@@ -16,9 +16,9 @@ cimport c_connection
 _logger = logging.getLogger(__name__)
 
 
-cpdef create_session(Connection connection):
+cpdef create_session(Connection connection, on_link_attached_context):
     session = cSession()
-    session.create(connection._c_value, NULL, NULL)
+    session.create(connection._c_value, <c_session.ON_LINK_ATTACHED>on_link_attached, <void*>on_link_attached_context)
     return session
 
 
@@ -103,3 +103,13 @@ cdef class cSession(StructBase):
     cpdef end(self, const char* condition_value, const char* description):
         if c_session.session_end(self._c_value, condition_value, description) != 0:
             self._value_error()
+
+
+#### Callback
+
+cdef bint on_link_attached(void* context, c_session.LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target):
+    context_obj = <object>context
+    if <void*>source == NULL or <void*>target == NULL:
+        _logger.info("Link ATTACH frame missing source and/or target. DETACH pending.")
+        context_obj._failed_attach("ATTACH frame Source and/or Target is NULL")
+    return True

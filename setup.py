@@ -30,6 +30,7 @@ is_27 = sys.version_info < (3,)
 is_x64 = platform.architecture()[0] == '64bit'
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
+rebuild_pyx = os.environ.get('UAMQP_REBUILD_PYX', False)
 use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
 supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 
@@ -261,7 +262,7 @@ else:
 # If the C file doesn't exist, build the "c_uamqp.c" file
 # That's not perfect, since we build it on a "--help", but should be if cloned from source only.
 c_uamqp_src = "uamqp/c_uamqp.c"
-if not os.path.exists(c_uamqp_src):
+if not os.path.exists(c_uamqp_src) or rebuild_pyx:
     c_uamqp_src = create_cython_file()
 
 sources = [

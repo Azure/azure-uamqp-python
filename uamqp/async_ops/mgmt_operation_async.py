@@ -49,6 +49,7 @@ class MgmtOperationAsync(MgmtOperation):
     def __init__(self,
                  session,
                  target=None,
+                 debug=False,
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
                  encoding='UTF-8',
@@ -57,6 +58,7 @@ class MgmtOperationAsync(MgmtOperation):
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,
+            debug=debug,
             status_code_field=status_code_field,
             description_fields=description_fields,
             encoding=encoding)
@@ -89,7 +91,8 @@ class MgmtOperationAsync(MgmtOperation):
                 _logger.error(
                     "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
                     status_code, description)
-            self._responses[operation_id] = Message(message=wrapped_message)
+            message = Message(message=wrapped_message) if wrapped_message else None
+            self._responses[operation_id] = (status_code, message, description)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)
         while not self._responses[operation_id] and not self.mgmt_error:

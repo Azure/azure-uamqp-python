@@ -56,9 +56,11 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
             header=header,
             application_properties=annotations,
             annotations=annotations)
+        assert message.get_message_encoded_size() == 147
+        assert message.encode_message() == b'\x00Sp\xc0\x02\x01A\x00Sr\xc1(\x02\xa1\x13x-opt-partition-key\xa1\x10PartitionKeyInfo\x00Ss\xc0\x1d\x04\xa1\nmessage id@@\xa1\x0ctest_subject\x00St\xc1(\x02\xa1\x13x-opt-partition-key\xa1\x10PartitionKeyInfo\x00Su\xa0\x0bhello world'
         send_client.queue_message(message)
-        results = send_client.send_all_messages(close_on_done=False)
-        assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+    results = send_client.send_all_messages(close_on_done=False)
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
     send_client.close()
 
 def test_event_hubs_client_send_multiple_sync(live_eventhub_config):
