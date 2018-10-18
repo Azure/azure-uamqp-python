@@ -287,7 +287,7 @@ class AMQPClientAsync(client.AMQPClient):
         :rtype: ~uamqp.message.Message
         """
         while not await self.auth_complete_async():
-            time.sleep(0.05)
+            await asyncio.sleep(0.05)
         response = await asyncio.shield(self._session.mgmt_request_async(
             message,
             operation,
@@ -348,8 +348,7 @@ class AMQPClientAsync(client.AMQPClient):
             return False
         if not await self.client_ready_async():
             return True
-        else:
-            return await self._client_run_async()
+        return await self._client_run_async()
 
 
 class SendClientAsync(client.SendClient, AMQPClientAsync):

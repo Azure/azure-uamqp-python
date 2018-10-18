@@ -166,7 +166,7 @@ class MessageSender(object):
             if _previous_state == constants.MessageSenderState.Opening \
                     and _new_state == constants.MessageSenderState.Error:
                 _logger.info("Sender link failed to open - expecting to receive DETACH frame.")
-            elif self._session._link_error:
+            elif self._session._link_error:  # pylint: disable=protected-access
                 _logger.info("Sender link ATTACH frame invalid - expecting to receive DETACH frame.")
             else:
                 self.on_state_changed(_previous_state, _new_state)

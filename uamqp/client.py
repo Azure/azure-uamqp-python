@@ -237,6 +237,12 @@ class AMQPClient(object):
         and CBS authentication layer as well as the Connection.
         If the client was opened using an external Connection,
         this will be left intact.
+
+        No further messages can be sent or received and the client
+        cannot be re-opened.
+
+        All pending, unsent messages will remain uncleared to allow
+        them to be inspected and queued to a new client.
         """
         if self.message_handler:
             self.message_handler.destroy()
@@ -356,8 +362,7 @@ class AMQPClient(object):
             return False
         if not self.client_ready():
             return True
-        else:
-            return self._client_run()
+        return self._client_run()
 
 
 class SendClient(AMQPClient):
@@ -627,15 +632,6 @@ class SendClient(AMQPClient):
         self._pending_messages = []
         self._remote_address = address.Target(redirect.address)
         self._redirect(redirect, auth)
-
-    def close(self):
-        """Close down the client. No further messages
-        can be sent and the client cannot be re-opened.
-
-        All pending, unsent messages will remain uncleared to allow
-        them to be inspected and queued to a new client.
-        """
-        super(SendClient, self).close()
 
     def queue_message(self, *messages):
         """Add one or more messages to the send queue.
@@ -1072,10 +1068,3 @@ class ReceiveClient(AMQPClient):
 
         self._remote_address = address.Source(redirect.address)
         self._redirect(redirect, auth)
-
-    def close(self):
-        """Close the ReceiverClient, shutting down the Link, Session and
-        Connection (unless an external Conneciton was supplied on opening,
-        which will be left open).
-        """
-        super(ReceiveClient, self).close()
