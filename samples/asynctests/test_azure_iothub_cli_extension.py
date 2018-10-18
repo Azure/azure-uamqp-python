@@ -124,7 +124,6 @@ def executor(target, consumer_group, enqueued_time, device_id=None, properties=N
             if error:
                 logger.error(error)
                 raise RuntimeError(error)
-        loop.close()
 
 
 async def initiate_event_monitor(target, consumer_group, enqueued_time, device_id=None, properties=None, timeout=0):
