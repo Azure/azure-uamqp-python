@@ -4,9 +4,9 @@ set -e
 # Inspired by https://github.com/pypa/python-manylinux-demo/blob/a615d78e5042c01a03e1bbb1ca78603c90dbce1f/travis/build-wheels.sh
 
 # To build 32bit wheels, run:
-# docker run --rm -v $PWD:/data local/manylinux_crypto32 /data/build_many_linux.sh
+# docker run --rm -v $PWD:/data -e "UAMQP_REBUILD_PYX=True" local/manylinux_crypto32 /data/build_many_linux.sh
 # To build 64bit wheels, run:
-# docker run --rm -v $PWD:/data local/manylinux_crypto64 /data/build_many_linux.sh
+# docker run --rm -v $PWD:/data -e "UAMQP_REBUILD_PYX=True" local/manylinux_crypto64 /data/build_many_linux.sh
 
 export CPATH="/opt/pyca/cryptography/openssl/include"
 export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"

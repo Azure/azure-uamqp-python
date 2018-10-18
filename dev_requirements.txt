@@ -1,4 +1,4 @@
-cython==0.28.4
+cython==0.28.5
 pytest>=3.4.1
 pytest-asyncio>=0.8.0; python_version > '3.4'
 docutils>=0.14
