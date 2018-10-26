@@ -73,14 +73,14 @@ static unsigned char* convert_cert_to_binary(const char* crypt_value, DWORD* cry
 static unsigned char* decode_crypt_object(unsigned char* private_key, DWORD key_length, DWORD* blob_size, x509_CERT_TYPE* cert_type)
 {
     unsigned char* result;
-
+    
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable: 4306)
 #endif // _MSC_VER
 
     LPCSTR key_type = PKCS_RSA_PRIVATE_KEY;
-
+    
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif // _MSC_VER

@@ -192,6 +192,7 @@ ${LOGGING_C_FILE}
 ./src/sha224.c
 ./src/sha384-512.c
 ./src/strings.c
+./src/string_token.c
 ./src/string_tokenizer.c
 ./src/uuid.c
 ./src/urlencode.c
@@ -287,6 +288,7 @@ ${LOGGING_H_FILE}
 ./inc/azure_c_shared_utility/stdint_ce6.h
 ./inc/azure_c_shared_utility/strings.h
 ./inc/azure_c_shared_utility/strings_types.h
+./inc/azure_c_shared_utility/string_token.h
 ./inc/azure_c_shared_utility/string_tokenizer.h
 ./inc/azure_c_shared_utility/string_tokenizer_types.h
 ./inc/azure_c_shared_utility/tlsio_options.h
@@ -318,12 +320,14 @@ if(${use_wsio})
         ./inc/azure_c_shared_utility/uws_client.h
         ./inc/azure_c_shared_utility/uws_frame_encoder.h
         ./inc/azure_c_shared_utility/utf8_checker.h
+        ./inc/azure_c_shared_utility/ws_url.h
     )
     set(source_c_files ${source_c_files}
         ./src/wsio.c
         ./src/uws_client.c
         ./src/uws_frame_encoder.c
         ./src/utf8_checker.c
+        ./src/ws_url.c
     )
 endif()
 
