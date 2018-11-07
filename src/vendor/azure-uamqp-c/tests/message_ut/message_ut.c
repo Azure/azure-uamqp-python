@@ -69,7 +69,6 @@ static const AMQP_VALUE cloned_sequence_2 = (AMQP_VALUE)0x4260;
 static const HEADER_HANDLE another_test_header = (HEADER_HANDLE)0x4261;
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
@@ -103,7 +102,6 @@ BEGIN_TEST_SUITE(message_ut)
 
 TEST_SUITE_INITIALIZE(suite_init)
 {
-    TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
     g_testByTest = TEST_MUTEX_CREATE();
     ASSERT_IS_NOT_NULL(g_testByTest);
 
@@ -125,7 +123,6 @@ TEST_SUITE_CLEANUP(suite_cleanup)
     umock_c_deinit();
 
     TEST_MUTEX_DESTROY(g_testByTest);
-    TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
 }
 
 TEST_FUNCTION_INITIALIZE(test_init)
@@ -179,8 +176,8 @@ TEST_FUNCTION(message_create_2_times_yields_2_different_message_instances)
     message2 = message_create();
 
     // assert
-    ASSERT_IS_NOT_NULL_WITH_MSG(message1, "Creating the first message failed");
-    ASSERT_IS_NOT_NULL_WITH_MSG(message2, "Creating the second message failed");
+    ASSERT_IS_NOT_NULL(message1, "Creating the first message failed");
+    ASSERT_IS_NOT_NULL(message2, "Creating the second message failed");
     ASSERT_ARE_NOT_EQUAL(void_ptr, message1, message2);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
@@ -461,7 +458,7 @@ TEST_FUNCTION(when_any_clone_operations_fails_message_clone_for_a_message_with_d
         message = message_clone(source_message);
 
         // assert
-        ASSERT_IS_NULL_WITH_MSG(message, tmp_msg);
+        ASSERT_IS_NULL(message, tmp_msg);
     }
 
     // cleanup
@@ -529,7 +526,7 @@ TEST_FUNCTION(when_any_clone_operations_fails_message_clone_for_a_message_with_v
         message = message_clone(source_message);
 
         // assert
-        ASSERT_IS_NULL_WITH_MSG(message, tmp_msg);
+        ASSERT_IS_NULL(message, tmp_msg);
     }
 
     // cleanup
@@ -598,7 +595,7 @@ TEST_FUNCTION(when_any_clone_operations_fails_message_clone_for_a_message_with_s
         message = message_clone(source_message);
 
         // assert
-        ASSERT_IS_NULL_WITH_MSG(message, tmp_msg);
+        ASSERT_IS_NULL(message, tmp_msg);
     }
 
     // cleanup

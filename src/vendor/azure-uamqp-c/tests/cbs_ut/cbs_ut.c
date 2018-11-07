@@ -43,7 +43,6 @@ static void my_gballoc_free(void* ptr)
 #include "azure_uamqp_c/cbs.h"
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 static SESSION_HANDLE test_session_handle = (SESSION_HANDLE)0x4242;
 static AMQP_MANAGEMENT_HANDLE test_amqp_management_handle = (AMQP_MANAGEMENT_HANDLE)0x4243;
@@ -189,7 +188,6 @@ TEST_SUITE_INITIALIZE(suite_init)
 {
     int result;
 
-    TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
     g_testByTest = TEST_MUTEX_CREATE();
     ASSERT_IS_NOT_NULL(g_testByTest);
 
@@ -239,7 +237,6 @@ TEST_SUITE_CLEANUP(suite_cleanup)
     umock_c_deinit();
 
     TEST_MUTEX_DESTROY(g_testByTest);
-    TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
 }
 
 TEST_FUNCTION_INITIALIZE(test_init)
@@ -339,7 +336,7 @@ TEST_FUNCTION(when_one_of_the_functions_called_by_cbs_create_fails_then_cbs_crea
         cbs = cbs_create(test_session_handle);
 
         // assert
-        ASSERT_IS_NULL_WITH_MSG(cbs, tmp_msg);
+        ASSERT_IS_NULL(cbs, tmp_msg);
     }
 
     // cleanup
@@ -1079,7 +1076,7 @@ TEST_FUNCTION(when_any_underlying_call_fails_cbs_put_token_async_fails)
         result = cbs_put_token_async(cbs, "some_type", "my_audience", "blah_token", test_on_cbs_put_token_complete, NULL);
 
         // assert
-        ASSERT_ARE_NOT_EQUAL_WITH_MSG(int, 0, result, tmp_msg);
+        ASSERT_ARE_NOT_EQUAL(int, 0, result, tmp_msg);
     }
 
     // cleanup
@@ -1406,7 +1403,7 @@ TEST_FUNCTION(when_any_underlying_call_fails_cbs_delete_token_async_fails)
         result = cbs_delete_token_async(cbs, "some_type", "my_audience", test_on_cbs_put_token_complete, NULL);
 
         // assert
-        ASSERT_ARE_NOT_EQUAL_WITH_MSG(int, 0, result, tmp_msg);
+        ASSERT_ARE_NOT_EQUAL(int, 0, result, tmp_msg);
     }
 
     // cleanup

@@ -349,7 +349,6 @@ MOCK_FUNCTION_WITH_CODE(, void, test_on_io_close_complete, void*, context)
 MOCK_FUNCTION_END()
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 TEST_DEFINE_ENUM_TYPE(IO_OPEN_RESULT, IO_OPEN_RESULT_VALUES);
@@ -606,20 +605,19 @@ TEST_SUITE_INITIALIZE(suite_init)
 {
     int result;
 
-    TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
     g_testByTest = TEST_MUTEX_CREATE();
     ASSERT_IS_NOT_NULL(g_testByTest);
 
     umock_c_init(on_umock_c_error);
 
     result = umocktypes_stdint_register_types();
-    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "Failed registering stdint types");
+    ASSERT_ARE_EQUAL(int, 0, result, "Failed registering stdint types");
 
     result = umocktypes_charptr_register_types();
-    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "Failed registering charptr types");
+    ASSERT_ARE_EQUAL(int, 0, result, "Failed registering charptr types");
 
     result = umocktypes_bool_register_types();
-    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, result, "Failed registering bool types");
+    ASSERT_ARE_EQUAL(int, 0, result, "Failed registering bool types");
 
     REGISTER_GLOBAL_MOCK_HOOK(gballoc_malloc, my_gballoc_malloc);
     REGISTER_GLOBAL_MOCK_HOOK(gballoc_free, my_gballoc_free);
@@ -688,7 +686,6 @@ TEST_SUITE_CLEANUP(suite_cleanup)
     umock_c_deinit();
 
     TEST_MUTEX_DESTROY(g_testByTest);
-    TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
 }
 
 TEST_FUNCTION_INITIALIZE(method_init)
