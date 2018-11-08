@@ -176,11 +176,33 @@ class AMQPArray(AMQPType):
     """
 
     def _c_wrapper(self, value_array):
-        value_type = type(value_array[0])
-        if not all(isinstance(x, value_type) for x in value_array):
-            raise ValueError("All Array values must be the same type.")
+        if value_array:
+            value_type = type(value_array[0])
+            if not all(isinstance(x, value_type) for x in value_array):
+                raise ValueError("All Array values must be the same type.")
 
         c_array = c_uamqp.array_value()
         for value in value_array:
             c_array.append(utils.data_factory(value))
         return c_array
+
+class AMQPDescribedType(AMQPType):
+    """An AMQP Described object. All the values in the array
+    must be of the same type.
+
+    :ivar value: The Python values of the AMQP array.
+    :vartype value: list
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: uamqp.c_uamqp.ArrayValue
+    :param value: The value to encode as an AMQP array.
+    :type value: int
+    :raises: ValueError if all values are not the same type.
+    """
+
+    def __init__(self, descriptor, described):
+        self._c_type = self._c_wrapper(descriptor, described)
+
+    def _c_wrapper(self, descriptor, described):
+        descriptor = utils.data_factory(descriptor)
+        described = utils.data_factory(described)
+        return c_uamqp.described_value(descriptor, described)
