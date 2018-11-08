@@ -10,6 +10,8 @@ import logging
 import uuid
 import copy
 
+import six
+
 # C improts
 from libc cimport stdint
 from libc.stdlib cimport malloc, realloc, free
@@ -223,9 +225,10 @@ cpdef uuid_value(value):
     return new_obj
 
 
-cpdef binary_value(char* value):
+cpdef binary_value(value):
+    bytes_value = six.binary_type(value)
     new_obj = BinaryValue()
-    new_obj.create(value)
+    new_obj.create(<bytes>bytes_value)
     return new_obj
 
 
@@ -625,11 +628,11 @@ cdef class BinaryValue(AMQPValue):
 
     _type = AMQPType.BinaryValue
 
-    def create(self, char* value):
+    def create(self, bytes value):
         cdef c_amqpvalue.amqp_binary _binary
         length = len(list(value))
         _binary.length = length
-        _binary.bytes = value
+        _binary.bytes = <char*>value
         new_value = c_amqpvalue.amqpvalue_create_binary(_binary)
         self.wrap(new_value)
 
