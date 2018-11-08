@@ -21,6 +21,12 @@ cpdef create_target():
     return target
 
 
+cdef target_factory(c_amqp_definitions.TARGET_HANDLE c_target):
+    target = cTarget()
+    target.wrap(c_target)
+    return target
+
+
 cdef class cTarget(StructBase):
 
     cdef c_amqp_definitions.TARGET_HANDLE _c_value

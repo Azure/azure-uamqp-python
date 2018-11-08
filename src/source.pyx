@@ -21,6 +21,12 @@ cpdef create_source():
     return source
 
 
+cdef source_factory(c_amqp_definitions.SOURCE_HANDLE c_source):
+    source = cSource()
+    source.wrap(c_source)
+    return source
+
+
 cdef class cSource(StructBase):
 
     cdef c_amqp_definitions.SOURCE_HANDLE _c_value
