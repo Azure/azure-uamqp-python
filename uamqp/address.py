@@ -159,9 +159,16 @@ class Source(Address):
 
     def __init__(self, address, encoding='UTF-8'):
         super(Source, self).__init__(address, encoding)
+        self.filter_key = constants.STRING_FILTER
         self._filters = []
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
+
+    def get_filter(self, name=constants.STRING_FILTER):
+        try:
+            return self._address.filter_set[name]
+        except TypeError:
+            return None
 
     def set_filter(self, value, name=constants.STRING_FILTER):
         """Set a filter on the endpoint. Only one filter
@@ -178,10 +185,10 @@ class Source(Address):
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(name)
         descriptor = c_uamqp.symbol_value(name)
-        filter_value = c_uamqp.string_value(value)
-        described_filter_value = c_uamqp.described_value(descriptor, filter_value)
-        self._filters.append((descriptor, filter_value))
-        filter_set[filter_key] = described_filter_value
+        filter_value = utils.data_factory(value, encoding=self._encoding)
+        if value is not None:
+            filter_value = c_uamqp.described_value(descriptor, filter_value)
+        filter_set[filter_key] = filter_value
         self._address.filter_set = filter_set
 
 
