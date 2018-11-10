@@ -163,6 +163,10 @@ class AMQPClientAsync(client.AMQPClient):
             self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
                 self._connection,
                 debug=self._debug_trace,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                on_attach=self._on_attach,
                 loop=self.loop))
             self._session = self._auth._session
         elif self._connection.cbs:
@@ -209,6 +213,10 @@ class AMQPClientAsync(client.AMQPClient):
             self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
                 self._connection,
                 debug=self._debug_trace,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                on_attach=self._on_attach,
                 loop=self.loop))
             self._session = self._auth._session
         elif self._connection.cbs:

@@ -18,7 +18,7 @@ cdef extern from "azure_uamqp_c/session.h":
     ctypedef struct LINK_ENDPOINT_HANDLE:
         pass
 
-    ctypedef bint (*ON_LINK_ATTACHED)(void* context, LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target)
+    ctypedef bint (*ON_LINK_ATTACHED)(void* context, LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target, c_amqp_definitions.fields properties)
 
     SESSION_HANDLE session_create(c_connection.CONNECTION_HANDLE connection, ON_LINK_ATTACHED on_link_attached, void* callback_context)
     int session_set_incoming_window(SESSION_HANDLE session, stdint.uint32_t incoming_window)

@@ -18,7 +18,7 @@ _logger = logging.getLogger(__name__)
 class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
-    async def create_authenticator_async(self, connection, debug=False, loop=None):
+    async def create_authenticator_async(self, connection, debug=False, loop=None, **kwargs):
         """Create the async AMQP session and the CBS channel with which
         to negotiate the token.
 
@@ -34,11 +34,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         """
         self.loop = loop or asyncio.get_event_loop()
         self._connection = connection
-        self._session = SessionAsync(
-            connection,
-            incoming_window=constants.MAX_FRAME_SIZE_BYTES,
-            outgoing_window=constants.MAX_FRAME_SIZE_BYTES,
-            loop=self.loop)
+        self._session = SessionAsync(connection, loop=self.loop, **kwargs)
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
