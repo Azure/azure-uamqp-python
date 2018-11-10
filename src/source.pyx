@@ -69,11 +69,10 @@ cdef class cSource(StructBase):
             self._value_error("Failed to get source address")
         if <void*>_value == NULL:
             return None
-        return copy.deepcopy(_value.value)
+        return value_factory(_value).value
 
     @address.setter
     def address(self, AMQPValue value):
-        cdef c_amqpvalue.AMQP_VALUE c_address
         if c_amqp_definitions.source_set_address(self._c_value, <c_amqpvalue.AMQP_VALUE>value._c_value) != 0:
             self._value_error("Failed to set source address")
 

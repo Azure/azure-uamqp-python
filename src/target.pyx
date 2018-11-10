@@ -69,7 +69,7 @@ cdef class cTarget(StructBase):
             self._value_error("Failed to get target address")
         if <void*>_value == NULL:
             return None
-        return copy.deepcopy(_value.value)
+        return value_factory(_value).value
 
     @address.setter
     def address(self, AMQPValue value):

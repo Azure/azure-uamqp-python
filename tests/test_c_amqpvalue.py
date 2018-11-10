@@ -143,6 +143,25 @@ def test_binary_value():
     assert value.type == c_uamqp.AMQPType.BinaryValue
     assert str(value) == "<54 65 73 74>"
 
+    value = c_uamqp.binary_value(bytearray(b'Test'))
+    assert len(value) == 4
+    assert value.value == b'Test'
+    assert value.type == c_uamqp.AMQPType.BinaryValue
+    assert str(value) == "<54 65 73 74>"
+
+    payload_hex = [
+        '00', '53', '72', 'c1', '28', '02', 'a3', '1c', '78', '2d', '6f', '70', '74', '2d', '73', '63', '68', '65', '64',
+        '75', '6c', '65', '64', '2d', '65', '6e', '71', '75', '65', '75', '65', '2d', '74', '69', '6d', '65', '83', '00',
+        '00', '01', '66', 'cc', '90', 'e5', 'a0', '00', '53', '73', 'c0', '27', '01', 'a1', '24', '65', '33', '61', '39',
+        '38', '63', '32', '35', '2d', '34', '35', '37', '34', '2d', '34', '64', '62', '66', '2d', '61', '35', '62', '66',
+        '2d', '32', '65', '35', '63', '64', '37', '66', '31', '39', '38', '38', '32', '00', '53', '75', 'a0', '0a', '68',
+        '61', '6c', '6c', '6f', '77', '65', '65', '6e', '32']
+    payload = bytearray.fromhex(''.join(payload_hex))
+    value = c_uamqp.binary_value(payload)
+    assert str(value) == "<{}>".format(' '.join(payload_hex)).upper()
+    assert len(value) == 104
+    assert value.value == b"\x00Sr\xc1(\x02\xa3\x1cx-opt-scheduled-enqueue-time\x83\x00\x00\x01f\xcc\x90\xe5\xa0\x00Ss\xc0\'\x01\xa1$e3a98c25-4574-4dbf-a5bf-2e5cd7f19882\x00Su\xa0\nhalloween2"
+
 
 def test_string_value():
     value = c_uamqp.string_value('Test'.encode('utf-8'))
