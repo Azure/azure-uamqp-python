@@ -7,7 +7,7 @@
 import logging
 
 import six
-from uamqp import c_uamqp, compat, constants
+from uamqp import c_uamqp, compat, constants, utils
 
 _logger = logging.getLogger(__name__)
 
@@ -37,8 +37,20 @@ class Address(object):
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
-        addr = self.parsed_address.scheme + b"://" + self.parsed_address.hostname + self.parsed_address.path
+        addr = self.parsed_address.path
+        if self.parsed_address.hostname:
+            addr = self.parsed_address.hostname + addr
+        if self.parsed_address.scheme:
+            addr = self.parsed_address.scheme + b"://" + addr
         self._c_address = c_uamqp.string_value(addr)
+
+    @classmethod
+    def from_c_obj(cls, c_value, encoding='UTF-8'):
+        address = c_value.address
+        py_obj = cls(address, encoding=encoding)
+        py_obj._address = c_value
+        return py_obj
+
 
     def __repr__(self):
         """Get the Address as a URL.
@@ -128,9 +140,7 @@ class Address(object):
         :rtype: ~urllib.parse.ParseResult
         """
         parsed = compat.urlparse(address)
-        if not parsed.scheme.startswith(b'amqp'):
-            raise ValueError("Source scheme must be amqp or amqps.")
-        if not parsed.netloc or not parsed.path:
+        if not parsed.path:
             raise ValueError("Invalid {} address: {}".format(
                 self.__class__.__name__, parsed))
         return parsed
@@ -166,11 +176,12 @@ class Source(Address):
 
     def get_filter(self, name=constants.STRING_FILTER):
         try:
-            return self._address.filter_set[name]
-        except TypeError:
+            filter_key = c_uamqp.symbol_value(name)
+            return self._address.filter_set[filter_key].value
+        except (TypeError, KeyError):
             return None
 
-    def set_filter(self, value, name=constants.STRING_FILTER):
+    def set_filter(self, value, name=constants.STRING_FILTER, descriptor=constants.STRING_FILTER):
         """Set a filter on the endpoint. Only one filter
         can be applied to an endpoint.
 
@@ -184,9 +195,9 @@ class Source(Address):
         value = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(name)
-        descriptor = c_uamqp.symbol_value(name)
         filter_value = utils.data_factory(value, encoding=self._encoding)
-        if value is not None:
+        if value is not None and descriptor is not None:
+            descriptor = c_uamqp.symbol_value(descriptor)
             filter_value = c_uamqp.described_value(descriptor, filter_value)
         filter_set[filter_key] = filter_value
         self._address.filter_set = filter_set

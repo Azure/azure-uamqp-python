@@ -114,6 +114,6 @@ def data_factory(value, encoding='UTF-8'):
             wrapped_list[index] = data_factory(item, encoding=encoding)
         result = wrapped_list
     elif isinstance(value, datetime):
-        timestamp = (time.mktime(value.timetuple()) * 1000) + (value.microsecond/1000)
+        timestamp = int((time.mktime(value.utctimetuple()) * 1000) + (value.microsecond/1000))
         result = c_uamqp.timestamp_value(timestamp)
     return result
