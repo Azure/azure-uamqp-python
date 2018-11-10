@@ -7,6 +7,7 @@
 # pylint: disable=too-many-lines
 
 import logging
+import json
 
 import six
 from uamqp import c_uamqp, constants, errors, utils
@@ -77,7 +78,7 @@ class Message(object):
         self._response = None
         self._settler = None
         self._encoding = encoding
-        self._delivery_no = delivery_no
+        self.delivery_no = delivery_no
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -100,15 +101,10 @@ class Message(object):
             if isinstance(body, (six.text_type, six.binary_type)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list):
-                if all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
-                    self._body = DataBody(self._message)
-                    for value in body:
-                        self._body.append(value)
-                else:
-                    self._body = SequenceBody(self._message)
-                    for value in body:
-                        self._body.append(value)
+            elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+                self._body = DataBody(self._message)
+                for value in body:
+                    self._body.append(value)
             else:
                 self._body = ValueBody(self._message)
                 self._body.set(body)
@@ -142,7 +138,7 @@ class Message(object):
         :param message: The received C message.
         :type message: uamqp.c_uamqp.cMessage
         """
-        _logger.debug("Parsing received message %r.", self._delivery_no)
+        _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
         body_type = message.body_type
         if body_type == c_uamqp.MessageBodyType.NoneType:
@@ -155,27 +151,27 @@ class Message(object):
             self._body = ValueBody(self._message)
         _props = self._message.properties
         if _props:
-            _logger.debug("Parsing received message properties %r.", self._delivery_no)
+            _logger.debug("Parsing received message properties %r.", self.delivery_no)
             self.properties = MessageProperties(properties=_props, encoding=self._encoding)
         _header = self._message.header
         if _header:
-            _logger.debug("Parsing received message header %r.", self._delivery_no)
+            _logger.debug("Parsing received message header %r.", self.delivery_no)
             self.header = MessageHeader(header=_header)
         _footer = self._message.footer
         if _footer:
-            _logger.debug("Parsing received message footer %r.", self._delivery_no)
+            _logger.debug("Parsing received message footer %r.", self.delivery_no)
             self.footer = _footer.map
         _app_props = self._message.application_properties
         if _app_props:
-            _logger.debug("Parsing received message application properties %r.", self._delivery_no)
+            _logger.debug("Parsing received message application properties %r.", self.delivery_no)
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
-            _logger.debug("Parsing received message annotations %r.", self._delivery_no)
+            _logger.debug("Parsing received message annotations %r.", self.delivery_no)
             self.annotations = _ann.map
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
-            _logger.debug("Parsing received message delivery annotations %r.", self._delivery_no)
+            _logger.debug("Parsing received message delivery annotations %r.", self.delivery_no)
             self.delivery_annotations = _delivery_ann.map
 
     def _can_settle_message(self):
@@ -225,8 +221,6 @@ class Message(object):
 
         :rtype: int
         """
-        if self.state in constants.RECEIVE_STATES:
-            raise TypeError("Only new messages can be encoded.")
         if not self._message:
             raise ValueError("No message data to encode.")
         cloned_data = self._message.clone()
@@ -239,8 +233,6 @@ class Message(object):
 
         :rtype: bytearray
         """
-        if self.state in constants.RECEIVE_STATES:
-            raise TypeError("Only new messages can be encoded.")
         if not self._message:
             raise ValueError("No message data to encode.")
         cloned_data = self._message.clone()
@@ -425,7 +417,7 @@ class BatchMessage(Message):
 
     batch_format = 0x80013700
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
-    _size_buffer = 65000
+    size_offset = 0
 
     def __init__(self,
                  data=None,
@@ -469,7 +461,7 @@ class BatchMessage(Message):
         """
         while True:
             new_message = self._create_batch_message()
-            message_size = new_message.get_message_encoded_size() + self._size_buffer
+            message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
             try:
                 for data in self._body_gen:
@@ -506,7 +498,7 @@ class BatchMessage(Message):
             return self._multi_message_generator()
 
         new_message = self._create_batch_message()
-        message_size = new_message.get_message_encoded_size() + self._size_buffer
+        message_size = new_message.get_message_encoded_size() + self.size_offset
         body_size = 0
 
         for data in self._body_gen:
@@ -517,6 +509,7 @@ class BatchMessage(Message):
             c_uamqp.enocde_batch_value(batch_data, message_segment)
             combined = b"".join(message_segment)
             body_size += len(combined)
+            
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
                     "Data set too large for a single message."
@@ -610,6 +603,23 @@ class MessageProperties(object):
             self.group_id = group_id
             self.group_sequence = group_sequence
             self.reply_to_group_id = reply_to_group_id
+    
+    def __str__(self):
+        return str({
+            'message_id': self.message_id,
+            'user_id': self.user_id,
+            'to': self.to,
+            'subject': self.subject,
+            'reply_to': self.reply_to,
+            'correlation_id': self.correlation_id,
+            'content_type': self.content_type,
+            'content_encoding': self.content_encoding,
+            'absolute_expiry_time': self.absolute_expiry_time,
+            'creation_time': self.creation_time,
+            'group_id': self.group_id,
+            'group_sequence': self.group_sequence,
+            'reply_to_group_id': self.reply_to_group_id
+        })
 
     @property
     def message_id(self):
@@ -859,44 +869,6 @@ class DataBody(MessageBody):
             yield self._message.get_body_data(i)
 
 
-class SequenceBody(MessageBody):
-    """An AMQP message body of type Sequence. This represents
-    a list of encoded objects.
-
-    :ivar type: The body type. This should always be `SequenceType`.
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
-    :ivar data: The data contained in the message body. This returns
-     a generator to iterate over each item in the body.
-    :vartype data: Generator
-    """
-
-    def __len__(self):
-        return self._message.count_body_sequence()
-
-    def __getitem__(self, index):
-        if index >= len(self):
-            raise IndexError("Index is out of range.")
-        data = self._message.get_body_sequence(index)
-        return data.value
-
-    def append(self, value):
-        """Append an item to the body. This can be any
-        Python data type and it will be automatically encoded
-        into an AMQP type. If a specific AMQP type is required, a
-        `types.AMQPType` can be used.
-
-        :param data: The data to append.
-        :type data: ~uamqp.types.AMQPType
-        """
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._message.add_body_sequence(value)
-
-    @property
-    def data(self):
-        for i in range(len(self)):  # pylint: disable=consider-using-enumerate
-            yield self[i]
-
-
 class ValueBody(MessageBody):
     """An AMQP message body of type Value. This represents
     a single encoded object.
@@ -1000,6 +972,15 @@ class MessageHeader(object):
             self.first_acquirer = header.first_acquirer
             self.durable = header.durable
             self.priority = header.priority
+
+    def __str__(self):
+        return str({
+            'delivery_count': self.delivery_count,
+            'time_to_live': self.time_to_live,
+            'first_acquirer': self.first_acquirer,
+            'durable': self.durable,
+            'priority': self.priority
+        })
 
     def get_header_obj(self):
         """Get the underlying C reference from this object.
