@@ -46,7 +46,7 @@ class CBSAuthMixin(object):
         raise errors.TokenExpired(
             "Unable to refresh token - no refresh logic implemented.")
 
-    def create_authenticator(self, connection, debug=False):
+    def create_authenticator(self, connection, debug=False, **kwargs):
         """Create the AMQP session and the CBS channel with which
         to negotiate the token.
 
@@ -59,10 +59,7 @@ class CBSAuthMixin(object):
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self._connection = connection
-        self._session = Session(
-            connection,
-            incoming_window=constants.MAX_FRAME_SIZE_BYTES,
-            outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
+        self._session = Session(connection, **kwargs)
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
