@@ -75,6 +75,9 @@ class AMQPClientAsync(client.AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -177,6 +180,7 @@ class AMQPClientAsync(client.AMQPClient):
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
+                on_attach=self._on_attach,
                 loop=self.loop)
 
     async def open_async(self, connection=None):
@@ -227,6 +231,7 @@ class AMQPClientAsync(client.AMQPClient):
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
+                on_attach=self._on_attach,
                 loop=self.loop)
         if self._keep_alive_interval:
             self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
@@ -423,6 +428,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -699,6 +707,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
