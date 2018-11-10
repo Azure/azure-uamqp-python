@@ -905,9 +905,15 @@ cdef class DescribedValue(AMQPValue):
     _type = AMQPType.DescribedType
 
     def create(self, AMQPValue descriptor, AMQPValue value):
-        new_value = c_amqpvalue.amqpvalue_create_described(
-            <c_amqpvalue.AMQP_VALUE>descriptor._c_value,
-            <c_amqpvalue.AMQP_VALUE>value._c_value)
+        cdef c_amqpvalue.AMQP_VALUE cloned_descriptor
+        cdef c_amqpvalue.AMQP_VALUE cloned_value
+        cloned_descriptor = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>descriptor._c_value)
+        if <void*>cloned_descriptor == NULL:
+            self._value_error()
+        cloned_value = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>value._c_value)
+        if <void*>cloned_value == NULL:
+            self._value_error()
+        new_value = c_amqpvalue.amqpvalue_create_described(cloned_descriptor, cloned_value)
         self.wrap(new_value)
 
     @property

@@ -186,7 +186,8 @@ class AMQPArray(AMQPType):
             c_array.append(utils.data_factory(value))
         return c_array
 
-class AMQPDescribedType(AMQPType):
+
+class AMQPDescribed(AMQPType):
     """An AMQP Described object. All the values in the array
     must be of the same type.
 

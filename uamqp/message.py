@@ -7,7 +7,6 @@
 # pylint: disable=too-many-lines
 
 import logging
-import json
 
 import six
 from uamqp import c_uamqp, constants, errors, utils
@@ -21,9 +20,9 @@ class Message(object):
     When sending, depending on the nature of the data,
     different body encoding will be used. If the data is str or bytes,
     a single part DataBody will be sent. If the data is a list of str/bytes,
-    a multipart DataBody will be sent. Any other type of list will be sent
-    as a SequenceBody, where as any other type of data will be sent as
-    a ValueBody. An empty payload will also be sent as a ValueBody.
+    a multipart DataBody will be sent. Any other type of list or any other
+    type of data will be sent as a ValueBody.
+    An empty payload will also be sent as a ValueBody.
 
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
@@ -146,7 +145,7 @@ class Message(object):
         elif body_type == c_uamqp.MessageBodyType.DataType:
             self._body = DataBody(self._message)
         elif body_type == c_uamqp.MessageBodyType.SequenceType:
-            self._body = SequenceBody(self._message)
+            raise TypeError("Message body type Sequence not supported.")
         else:
             self._body = ValueBody(self._message)
         _props = self._message.properties
@@ -509,7 +508,7 @@ class BatchMessage(Message):
             c_uamqp.enocde_batch_value(batch_data, message_segment)
             combined = b"".join(message_segment)
             body_size += len(combined)
-            
+
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
                     "Data set too large for a single message."
@@ -603,7 +602,7 @@ class MessageProperties(object):
             self.group_id = group_id
             self.group_sequence = group_sequence
             self.reply_to_group_id = reply_to_group_id
-    
+
     def __str__(self):
         return str({
             'message_id': self.message_id,

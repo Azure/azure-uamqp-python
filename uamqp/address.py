@@ -48,7 +48,7 @@ class Address(object):
     def from_c_obj(cls, c_value, encoding='UTF-8'):
         address = c_value.address
         py_obj = cls(address, encoding=encoding)
-        py_obj._address = c_value
+        py_obj._address = c_value  # pylint: disable=protected-access
         return py_obj
 
 
@@ -170,11 +170,16 @@ class Source(Address):
     def __init__(self, address, encoding='UTF-8'):
         super(Source, self).__init__(address, encoding)
         self.filter_key = constants.STRING_FILTER
-        self._filters = []
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
 
     def get_filter(self, name=constants.STRING_FILTER):
+        """Get the filter on the source.
+
+        :param name: The name of the filter. This will be encoded as
+         an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
+        :type name: bytes
+        """
         try:
             filter_key = c_uamqp.symbol_value(name)
             return self._address.filter_set[filter_key].value
@@ -185,12 +190,15 @@ class Source(Address):
         """Set a filter on the endpoint. Only one filter
         can be applied to an endpoint.
 
-        :param value: The filter to apply to the endpoint.
-        :type value: bytes or str
+        :param value: The filter to apply to the endpoint. Set to None for a NULL filter.
+        :type value: bytes or str or None
         :param name: The name of the filter. This will be encoded as
-         an AMQP Symbol and will also be used as the filter descriptor.
-         By default this is set to b'apache.org:selector-filter:string'.
+         an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
         :type name: bytes
+        :param descriptor: The descriptor used if the filter is to be encoded as a described value.
+         This will be encoded as an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
+         Set to None if the filter should not be encoded as a described value.
+        :type descriptor: bytes or None
         """
         value = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         filter_set = c_uamqp.dict_value()
@@ -199,6 +207,7 @@ class Source(Address):
         if value is not None and descriptor is not None:
             descriptor = c_uamqp.symbol_value(descriptor)
             filter_value = c_uamqp.described_value(descriptor, filter_value)
+
         filter_set[filter_key] = filter_value
         self._address.filter_set = filter_set
 

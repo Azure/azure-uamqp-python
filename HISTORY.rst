@@ -3,8 +3,8 @@
 Release History
 ===============
 
-1.1.0 (release-candidate)
-+++++++++++++++++++++++++
+1.1.0 (2018-11-12)
+++++++++++++++++++
 
 - Support for Python 2.7 \(>_<)/
 
@@ -14,7 +14,7 @@ Release History
 
 - AMQP encoding of an integer type will now automatically failover into a Long type or a double type if the value is too large.
 - Improved support for promptly detecting invalid ATTACH handles and raising the appropriate error.
-- Added types for AMQPInt and AMQPuInt for explicit handling of int and unsigned int encoding.
+- Added types for AMQPDescribed, AMQPInt and AMQPuInt for explicit handling of int and unsigned int encoding.
 - Added new error `errors.AMQPClientShutdown` as a wrapper for `KeyboardInterrupt` to better handle interrupt handling.
 - Added better handling of keyboard interrupts during C callbacks to better facilitate clean client shutdown.
 - Added additional handling of keyboard interrupt at the C level to clean up annoying warnings.
@@ -25,6 +25,12 @@ Release History
 - Added new client methods `auth_complete()` and `client_ready()` to allow for more fine-tuned monitoring or the client opening stages.
 - Client message handler is now a public attribute `client.message_handler` (`SendClient._message_sender` and `ReceiveClient._message_receiver` are now deprecated).
 - Added automatic encoding of `datetime.datetime` objects into AMQP timestamp.
+- Better support for Source filters with optional `descriptor` argument in `Source.set_filter()` and new `Source.get_filter()` method.
+- Fixed Session settings not being passed to CBS session.
+- Added support for a callback on receipt on a Link ATTACH frame. Can be supplied to a client through the `on_attach` keyword argument.
+- Removed unsued message.SequenceBody class.
+- Exposed BatchMessage.size_offset property for batch size customization.
+
 
 
 1.0.3 (2018-09-14)
