@@ -63,6 +63,9 @@ class AMQPClient(object):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -108,6 +111,7 @@ class AMQPClient(object):
         self._outgoing_window = kwargs.pop('outgoing_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._incoming_window = kwargs.pop('incoming_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
+        self._on_attach = kwargs.pop('on_attach', None)
 
         # AMQP object settings
         self.message_handler = None
@@ -173,7 +177,11 @@ class AMQPClient(object):
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
             self._connection.cbs = self._auth.create_authenticator(
                 self._connection,
-                debug=self._debug_trace)
+                debug=self._debug_trace,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                on_attach=self._on_attach)
             self._session = self._auth._session
         elif self._connection.cbs:
             self._session = self._auth._session
@@ -182,7 +190,8 @@ class AMQPClient(object):
                 self._connection,
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max)
+                handle_max=self._handle_max,
+                on_attach=self._on_attach)
 
     def open(self, connection=None):
         """Open the client. The client can create a new Connection
@@ -218,7 +227,11 @@ class AMQPClient(object):
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
             self._connection.cbs = self._auth.create_authenticator(
                 self._connection,
-                debug=self._debug_trace)
+                debug=self._debug_trace,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                on_attach=self._on_attach)
             self._session = self._auth._session
         elif self._connection.cbs:
             self._session = self._auth._session
@@ -227,7 +240,8 @@ class AMQPClient(object):
                 self._connection,
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max)
+                handle_max=self._handle_max,
+                on_attach=self._on_attach)
         if self._keep_alive_interval:
             self._keep_alive_thread = threading.Thread(target=self._keep_alive)
             self._keep_alive_thread.start()
@@ -427,6 +441,9 @@ class SendClient(AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -801,6 +818,9 @@ class ReceiveClient(AMQPClient):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str

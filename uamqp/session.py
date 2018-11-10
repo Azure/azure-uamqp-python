@@ -7,6 +7,7 @@
 import logging
 
 from uamqp import c_uamqp, constants, errors, mgmt_operation
+from uamqp.address import Source, Target
 
 _logger = logging.getLogger(__name__)
 
@@ -30,17 +31,22 @@ class Session(object):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     """
 
     def __init__(self, connection,
                  incoming_window=None,
                  outgoing_window=None,
-                 handle_max=None):
+                 handle_max=None,
+                 on_attach=None):
         self._connection = connection
         self._conn = connection._conn  # pylint: disable=protected-access
         self._session = c_uamqp.create_session(self._conn, self)
         self._mgmt_links = {}
         self._link_error = None
+        self._on_attach = on_attach
 
         if incoming_window:
             self.incoming_window = incoming_window
@@ -57,11 +63,18 @@ class Session(object):
         """Close and destroy sesion on exiting context manager."""
         self._session.destroy()
 
-    def _failed_attach(self, message):
-        """Callback run if link ATTACH frame contains errorous data."""
-        self._link_error = errors.AMQPConnectionError(message)
+    def _attach_received(self, source, target, properties, error=None):
+        if error:
+            self._link_error = errors.AMQPConnectionError(error)
+        if self._on_attach:
+            if source and target:
+                source = Source.from_c_obj(source)
+                target = Target.from_c_obj(target)
+            if properties:
+                properties = properties.value
+            self._on_attach(source, target, properties, self._link_error)
 
-    def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+    def mgmt_request(self, message, operation, op_type=None, node=b'$management', **kwargs):
         """Run a request/response operation. These are frequently used for management
         tasks against a $management node, however any node name can be specified
         and the available options will depend on the target service.
