@@ -36,17 +36,3 @@ def test_body_value():
     
     body = message.get_body_value()
     assert body.type == c_uamqp.AMQPType.StringValue
-
-
-def test_body_sequence():
-    message = c_uamqp.create_message()
-    message.add_body_sequence(c_uamqp.int_value(1))
-    message.add_body_sequence(c_uamqp.int_value(2))
-    message.add_body_sequence(c_uamqp.int_value(3))
-
-    assert message.count_body_sequence() == 3
-    assert message.body_type == c_uamqp.MessageBodyType.SequenceType
-
-    seq_value = message.get_body_sequence(2)
-    assert seq_value.type == c_uamqp.AMQPType.IntValue
-    assert seq_value.value == 3
