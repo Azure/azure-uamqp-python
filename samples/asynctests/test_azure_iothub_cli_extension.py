@@ -330,13 +330,13 @@ def get_target(config):
     events['endpoint'] = config['endpoint']
     events['partition_count'] = config.get('partition_count', 4)
     events['path'] = config['hub_name']
-    events['partition_ids'] = config.get('partition_ids', ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
+    events['partition_ids'] = config.get('partition_ids', ["0", "1", "2"])#, "3", "4", "5", "6", "7", "8", "9", "10"])
     target['events'] = events
     return target
 
 def test_iothub_monitor_events(live_iothub_config):
     properties = []
-    timeout = 30
+    timeout = 30000
     now = datetime.utcnow()
     epoch = datetime.utcfromtimestamp(0)
     enqueued_time = int(1000 * (now - epoch).total_seconds())
