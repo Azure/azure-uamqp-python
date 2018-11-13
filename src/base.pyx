@@ -15,7 +15,7 @@ cimport c_utils
 _logger = logging.getLogger(__name__)
 
 
-cdef class StructBase:
+cdef class StructBase(object):
     """Base class for wrapped C structs."""
 
     def _memory_error(self):
@@ -37,7 +37,7 @@ cdef class StructBase:
         raise ValueError(message)
 
 
-cdef class TickCounter:
+cdef class TickCounter(object):
 
     cdef c_utils.TICK_COUNTER_HANDLE _c_value
 

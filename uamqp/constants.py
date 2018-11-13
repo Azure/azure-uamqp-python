@@ -8,7 +8,6 @@ from enum import Enum
 
 from uamqp import c_uamqp
 
-
 DEFAULT_AMQPS_PORT = 5671
 AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS
@@ -67,7 +66,7 @@ class ErrorCodes(Enum):
     LinkDetachForced = b"amqp:link:detach-forced"
     LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
     LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
-    ClientError = b"amqp:client-eror"
+    ClientError = b"amqp:client-error"
     UnknownError = b"amqp:unknown-error"
     VendorError = b"amqp:vendor-error"
 

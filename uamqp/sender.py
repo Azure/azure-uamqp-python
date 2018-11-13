@@ -7,16 +7,13 @@
 import logging
 import uuid
 
-from uamqp import utils
-from uamqp import errors
-from uamqp import constants
-from uamqp import c_uamqp
-
+import six
+from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
 
 
-class MessageSender():
+class MessageSender(object):
     """A Message Sender that opens its own exclsuive Link on an
     existing Session.
 
@@ -83,10 +80,10 @@ class MessageSender():
                  encoding='UTF-8'):
         # pylint: disable=protected-access
         if name:
-            self.name = name.encode(encoding) if isinstance(name, str) else name
+            self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
         else:
             self.name = str(uuid.uuid4()).encode(encoding)
-        source = source.encode(encoding) if isinstance(source, str) else source
+        source = source.encode(encoding) if isinstance(source, six.text_type) else source
         role = constants.Role.Sender
 
         self.source = c_uamqp.Messaging.create_source(source)
@@ -158,18 +155,25 @@ class MessageSender():
         :type new_state: int
         """
         try:
-            _previous_state = constants.MessageSenderState(previous_state)
-        except ValueError:
-            _previous_state = previous_state
-        try:
-            _new_state = constants.MessageSenderState(new_state)
-        except ValueError:
-            _new_state = new_state
-        if _previous_state == constants.MessageSenderState.Opening \
-                and _new_state == constants.MessageSenderState.Error:
-            _logger.info("Send link failed to open - expecting to receive DETACH frame.")
-        else:
-            self.on_state_changed(_previous_state, _new_state)
+            try:
+                _previous_state = constants.MessageSenderState(previous_state)
+            except ValueError:
+                _previous_state = previous_state
+            try:
+                _new_state = constants.MessageSenderState(new_state)
+            except ValueError:
+                _new_state = new_state
+            if _previous_state == constants.MessageSenderState.Opening \
+                    and _new_state == constants.MessageSenderState.Error:
+                _logger.info("Sender link failed to open - expecting to receive DETACH frame.")
+            elif self._session._link_error:  # pylint: disable=protected-access
+                _logger.info("Sender link ATTACH frame invalid - expecting to receive DETACH frame.")
+            else:
+                self.on_state_changed(_previous_state, _new_state)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating sender state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def get_state(self):
         """Get the state of the MessageSender and its underlying Link.

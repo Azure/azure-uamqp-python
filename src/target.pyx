@@ -21,6 +21,12 @@ cpdef create_target():
     return target
 
 
+cdef target_factory(c_amqp_definitions.TARGET_HANDLE c_target):
+    target = cTarget()
+    target.wrap(c_target)
+    return target
+
+
 cdef class cTarget(StructBase):
 
     cdef c_amqp_definitions.TARGET_HANDLE _c_value
@@ -63,7 +69,7 @@ cdef class cTarget(StructBase):
             self._value_error("Failed to get target address")
         if <void*>_value == NULL:
             return None
-        return copy.deepcopy(_value.value)
+        return value_factory(_value).value
 
     @address.setter
     def address(self, AMQPValue value):

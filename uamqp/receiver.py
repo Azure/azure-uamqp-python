@@ -4,21 +4,18 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import functools
 import logging
 import uuid
-import functools
 
+import six
 import uamqp
-from uamqp import utils
-from uamqp import errors
-from uamqp import constants
-from uamqp import c_uamqp
-
+from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
 
 
-class MessageReceiver():
+class MessageReceiver(object):
     """A Message Receiver that opens its own exclsuive Link on an
     existing Session.
 
@@ -86,10 +83,10 @@ class MessageReceiver():
                  encoding='UTF-8'):
         # pylint: disable=protected-access
         if name:
-            self.name = name.encode(encoding) if isinstance(name, str) else name
+            self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
         else:
             self.name = str(uuid.uuid4()).encode(encoding)
-        target = target.encode(encoding) if isinstance(target, str) else target
+        target = target.encode(encoding) if isinstance(target, six.text_type) else target
         role = constants.Role.Receiver
 
         self.source = source._address.value
@@ -138,18 +135,25 @@ class MessageReceiver():
         :type new_state: int
         """
         try:
-            _previous_state = constants.MessageReceiverState(previous_state)
-        except ValueError:
-            _previous_state = previous_state
-        try:
-            _new_state = constants.MessageReceiverState(new_state)
-        except ValueError:
-            _new_state = new_state
-        if _previous_state == constants.MessageReceiverState.Opening \
-                and _new_state == constants.MessageReceiverState.Error:
-            _logger.info("Receiver link failed to open - expecting to receive DETACH frame.")
-        else:
-            self.on_state_changed(_previous_state, _new_state)
+            try:
+                _previous_state = constants.MessageReceiverState(previous_state)
+            except ValueError:
+                _previous_state = previous_state
+            try:
+                _new_state = constants.MessageReceiverState(new_state)
+            except ValueError:
+                _new_state = new_state
+            if _previous_state == constants.MessageReceiverState.Opening \
+                    and _new_state == constants.MessageReceiverState.Error:
+                _logger.info("Receiver link failed to open - expecting to receive DETACH frame.")
+            elif self._session._link_error:  # pylint: disable=protected-access
+                _logger.info("Receiver link ATTACH frame invalid - expecting to receive DETACH frame.")
+            else:
+                self.on_state_changed(_previous_state, _new_state)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while updating receiver state from {} to {}".format(
+                previous_state, new_state))
+            self._error = errors.AMQPClientShutdown()
 
     def _detach_received(self, error):
         """Callback called when a link DETACH frame is received.
@@ -233,6 +237,10 @@ class MessageReceiver():
                          message_number,
                          self.name,
                          self._session._connection.container_id)
+        except KeyboardInterrupt:
+            _logger.error("Received shutdown signal while processing message no %r\nRejecting message.", message_number)
+            self._receiver.settle_modified_message(message_number, True, True, None)
+            self._error = errors.AMQPClientShutdown()
         except Exception as e:  # pylint: disable=broad-except
             _logger.error("Error processing message no %r: %r\nRejecting message.", message_number, e)
             self._receiver.settle_modified_message(message_number, True, True, None)

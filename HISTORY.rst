@@ -3,6 +3,36 @@
 Release History
 ===============
 
+1.1.0 (2018-11-12)
+++++++++++++++++++
+
+- Support for Python 2.7 \(>_<)/
+
+    - Where ever a `TimeoutError` is raised in Python 3.x, this will be replaced with a new ~uamqp.errors.ClientTimeout exception in Python 2.7.
+    - A Python 2 `str` object will be treated as `bytes` in Python 3 and a Python 2 `unicode` object will be treated like a Python 3 `str`.
+    - Added uamqp.compat module for handling Py 2 vs 3 imports and types (PR#46, Thanks to maxkrivich).
+
+- AMQP encoding of an integer type will now automatically failover into a Long type or a double type if the value is too large.
+- Improved support for promptly detecting invalid ATTACH handles and raising the appropriate error.
+- Added types for AMQPDescribed, AMQPInt and AMQPuInt for explicit handling of int and unsigned int encoding.
+- Added new error `errors.AMQPClientShutdown` as a wrapper for `KeyboardInterrupt` to better handle interrupt handling.
+- Added better handling of keyboard interrupts during C callbacks to better facilitate clean client shutdown.
+- Added additional handling of keyboard interrupt at the C level to clean up annoying warnings.
+- Added classmethod `Message.decode_from_bytes` to create a message from AMQP wire-encoded data.
+- Added `Message.encode_message` method to retrieve the AMQP wire-encoded byte representation of the current message.
+- Fixed behaviour of `Message.get_message_encoded_size()` to return accurate size.
+- Added new optional `callback` argument to `client.mgmt_request` to allow for custom handling of different status codes.
+- Added new client methods `auth_complete()` and `client_ready()` to allow for more fine-tuned monitoring or the client opening stages.
+- Client message handler is now a public attribute `client.message_handler` (`SendClient._message_sender` and `ReceiveClient._message_receiver` are now deprecated).
+- Added automatic encoding of `datetime.datetime` objects into AMQP timestamp.
+- Better support for Source filters with optional `descriptor` argument in `Source.set_filter()` and new `Source.get_filter()` method.
+- Fixed Session settings not being passed to CBS session.
+- Added support for a callback on receipt on a Link ATTACH frame. Can be supplied to a client through the `on_attach` keyword argument.
+- Removed unsued message.SequenceBody class.
+- Exposed BatchMessage.size_offset property for batch size customization.
+
+
+
 1.0.3 (2018-09-14)
 ++++++++++++++++++
 

@@ -6,26 +6,18 @@
 
 # pylint: disable=super-init-not-called,no-self-use
 
+import datetime
 import logging
 import time
-import datetime
-try:
-    from urllib import parse as urllib_parse
-except ImportError:
-    import urllib as urllib_parse  # Py2
 
-from uamqp import Session
-from uamqp import utils
-from uamqp import constants
-from uamqp import errors
-from uamqp import c_uamqp
+from uamqp import Session, c_uamqp, compat, constants, errors, utils
+
 from .common import _SASL, AMQPAuth
-
 
 _logger = logging.getLogger(__name__)
 
 
-class TokenRetryPolicy:
+class TokenRetryPolicy(object):
     """Retry policy for sending authentication tokens
     for CBS authentication.
 
@@ -43,7 +35,7 @@ class TokenRetryPolicy:
         self.backoff = float(backoff)/1000
 
 
-class CBSAuthMixin:
+class CBSAuthMixin(object):
     """Mixin to handle sending and refreshing CBS auth tokens."""
 
     def update_token(self):
@@ -54,7 +46,7 @@ class CBSAuthMixin:
         raise errors.TokenExpired(
             "Unable to refresh token - no refresh logic implemented.")
 
-    def create_authenticator(self, connection, debug=False):
+    def create_authenticator(self, connection, debug=False, **kwargs):
         """Create the AMQP session and the CBS channel with which
         to negotiate the token.
 
@@ -67,10 +59,7 @@ class CBSAuthMixin:
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
         self._connection = connection
-        self._session = Session(
-            connection,
-            incoming_window=constants.MAX_FRAME_SIZE_BYTES,
-            outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
+        self._session = Session(connection, **kwargs)
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
@@ -153,7 +142,7 @@ class CBSAuthMixin:
                 in_progress = True
             elif auth_status != constants.CBSAuthStatus.Ok:
                 raise errors.AuthenticationException("Invalid auth state.")
-        except TimeoutError:
+        except compat.TimeoutException:
             _logger.debug("CBS auth timed out while waiting for lock acquisition.")
             return None, None
         except ValueError as e:
@@ -224,18 +213,18 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self._retry_policy = retry_policy
         self._encoding = encoding
         self.uri = uri
-        parsed = urllib_parse.urlparse(uri)  # pylint: disable=no-member
+        parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
         self.hostname = parsed.hostname.encode(self._encoding)
-        self.username = urllib_parse.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
-        self.password = urllib_parse.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
+        self.username = compat.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
+        self.password = compat.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
 
         self.username = username or self.username
         self.password = password or self.password
-        self.audience = audience if isinstance(audience, bytes) else audience.encode(self._encoding)
-        self.token_type = token_type if isinstance(token_type, bytes) else token_type.encode(self._encoding)
-        self.token = token if isinstance(token, bytes) else token.encode(self._encoding)
+        self.audience = self._encode(audience)
+        self.token_type = self._encode(token_type)
+        self.token = self._encode(token)
         if not expires_at and not expires_in:
             raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
         elif not expires_at:
@@ -258,8 +247,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         """
         if not self.username or not self.password:
             raise errors.TokenExpired("Unable to refresh token - no username or password.")
-        encoded_uri = urllib_parse.quote_plus(self.uri).encode(self._encoding)  # pylint: disable=no-member
-        encoded_key = urllib_parse.quote_plus(self.username).encode(self._encoding)  # pylint: disable=no-member
+        encoded_uri = compat.quote_plus(self.uri).encode(self._encoding)  # pylint: disable=no-member
+        encoded_key = compat.quote_plus(self.username).encode(self._encoding)  # pylint: disable=no-member
         self.expires_at = time.time() + self.expires_in.seconds
         self.token = utils.create_sas_token(
             encoded_key,
@@ -312,8 +301,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :type encoding: str
         """
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
-        encoded_uri = urllib_parse.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
-        encoded_key = urllib_parse.quote_plus(key_name).encode(encoding)  # pylint: disable=no-member
+        encoded_uri = compat.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
+        encoded_key = compat.quote_plus(key_name).encode(encoding)  # pylint: disable=no-member
         expires_at = time.time() + expires_in.seconds
         token = utils.create_sas_token(
             encoded_key,

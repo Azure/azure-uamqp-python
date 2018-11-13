@@ -10,6 +10,8 @@ import logging
 import uuid
 import copy
 
+import six
+
 # C improts
 from libc cimport stdint
 from libc.stdlib cimport malloc, realloc, free
@@ -23,7 +25,7 @@ cimport c_amqp_definitions
 _logger = logging.getLogger(__name__)
 
 
-cdef int batch_encode_callback(void* context, const unsigned char* encoded_bytes, size_t length):
+cdef int encode_bytes_callback(void* context, const unsigned char* encoded_bytes, size_t length):
     context_obj = <object>context
     context_obj.append(encoded_bytes[:length])
     return 0
@@ -40,7 +42,7 @@ cdef get_amqp_value_type(c_amqpvalue.AMQP_VALUE value):
 
 cpdef enocde_batch_value(AMQPValue value, message_body):
     if c_amqpvalue.amqpvalue_encode(<c_amqpvalue.AMQP_VALUE>value._c_value,
-                                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>batch_encode_callback,
+                                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                                      <void*>message_body) != 0:
         raise ValueError("Failed to encode batched message data.")
 
@@ -223,9 +225,10 @@ cpdef uuid_value(value):
     return new_obj
 
 
-cpdef binary_value(char* value):
+cpdef binary_value(value):
+    bytes_value = six.binary_type(value)
     new_obj = BinaryValue()
-    new_obj.create(value)
+    new_obj.create(<bytes>bytes_value)
     return new_obj
 
 
@@ -288,10 +291,20 @@ cdef class AMQPValue(StructBase):
         return self._as_string()
 
     def __str__(self):
+        as_bytes = self._as_string()
+        if six.PY3:
+            try:
+                return as_bytes.decode('UTF-8')
+            except UnicodeDecodeError:
+                pass
+        return str(as_bytes)
+
+    def __unicode__(self):
+        as_bytes = self._as_string()
         try:
-            return bytes(self).decode('UTF-8')
+            return six.text_type(as_bytes.decode('UTF-8'))
         except UnicodeDecodeError:
-            return str(bytes(self))
+            return six.text_type(as_bytes)
 
     cpdef _as_string(self):
         cdef c_amqpvalue.AMQP_VALUE value
@@ -309,10 +322,14 @@ cdef class AMQPValue(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            if _logger:
-                _logger.debug("Destroying %r", self.__class__.__name__)
-            c_amqpvalue.amqpvalue_destroy(self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                if _logger:
+                    _logger.debug("Destroying %r", self.__class__.__name__)
+                c_amqpvalue.amqpvalue_destroy(self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_amqpvalue.AMQP_VALUE>NULL
 
     cdef wrap(self, c_amqpvalue.AMQP_VALUE value):
@@ -611,11 +628,11 @@ cdef class BinaryValue(AMQPValue):
 
     _type = AMQPType.BinaryValue
 
-    def create(self, char* value):
+    def create(self, bytes value):
         cdef c_amqpvalue.amqp_binary _binary
         length = len(list(value))
         _binary.length = length
-        _binary.bytes = value
+        _binary.bytes = <char*>value
         new_value = c_amqpvalue.amqpvalue_create_binary(_binary)
         self.wrap(new_value)
 
@@ -888,9 +905,15 @@ cdef class DescribedValue(AMQPValue):
     _type = AMQPType.DescribedType
 
     def create(self, AMQPValue descriptor, AMQPValue value):
-        new_value = c_amqpvalue.amqpvalue_create_described(
-            <c_amqpvalue.AMQP_VALUE>descriptor._c_value,
-            <c_amqpvalue.AMQP_VALUE>value._c_value)
+        cdef c_amqpvalue.AMQP_VALUE cloned_descriptor
+        cdef c_amqpvalue.AMQP_VALUE cloned_value
+        cloned_descriptor = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>descriptor._c_value)
+        if <void*>cloned_descriptor == NULL:
+            self._value_error()
+        cloned_value = c_amqpvalue.amqpvalue_clone(<c_amqpvalue.AMQP_VALUE>value._c_value)
+        if <void*>cloned_value == NULL:
+            self._value_error()
+        new_value = c_amqpvalue.amqpvalue_create_described(cloned_descriptor, cloned_value)
         self.wrap(new_value)
 
     @property

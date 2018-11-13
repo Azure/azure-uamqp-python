@@ -52,7 +52,6 @@ extern "C" {
 #endif
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 static char expected_encoded_str[256];
 static char actual_encoded_str[256];
@@ -89,7 +88,6 @@ BEGIN_TEST_SUITE(uws_frame_encoder_ut)
 
 TEST_SUITE_INITIALIZE(suite_init)
 {
-    TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
     g_testByTest = TEST_MUTEX_CREATE();
     ASSERT_IS_NOT_NULL(g_testByTest);
 
@@ -108,7 +106,6 @@ TEST_SUITE_CLEANUP(suite_cleanup)
     umock_c_deinit();
 
     TEST_MUTEX_DESTROY(g_testByTest);
-    TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
 }
 
 TEST_FUNCTION_INITIALIZE(method_init)
@@ -1130,7 +1127,7 @@ TEST_FUNCTION(uws_frame_encoder_encode_encodes_a_65535_byte_long_binary_frame)
     // assert
     ASSERT_IS_NOT_NULL(result);
     ASSERT_ARE_EQUAL(size_t, 65535 + 4, real_BUFFER_length(result));
-    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, memcmp(expected_bytes, real_BUFFER_u_char(result), real_BUFFER_length(result)), "Memory compare failed");
+    ASSERT_ARE_EQUAL(int, 0, memcmp(expected_bytes, real_BUFFER_u_char(result), real_BUFFER_length(result)), "Memory compare failed");
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
@@ -1181,7 +1178,7 @@ TEST_FUNCTION(uws_frame_encoder_encode_encodes_a_65536_byte_long_binary_frame)
     // assert
     ASSERT_IS_NOT_NULL(result);
     ASSERT_ARE_EQUAL(size_t, 65536 + 10, real_BUFFER_length(result));
-    ASSERT_ARE_EQUAL_WITH_MSG(int, 0, memcmp(expected_bytes, real_BUFFER_u_char(result), real_BUFFER_length(result)), "Memory compare failed");
+    ASSERT_ARE_EQUAL(int, 0, memcmp(expected_bytes, real_BUFFER_u_char(result), real_BUFFER_length(result)), "Memory compare failed");
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup

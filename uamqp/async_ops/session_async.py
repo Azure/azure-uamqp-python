@@ -7,11 +7,8 @@
 import asyncio
 import logging
 
-from uamqp import session
-from uamqp import constants
-from uamqp import errors
+from uamqp import constants, errors, session
 from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
-
 
 _logger = logging.getLogger(__name__)
 
@@ -36,6 +33,9 @@ class SessionAsync(session.Session):
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     :param loop: A user specified event loop.
     :type loop: ~asycnio.AbstractEventLoop
     """
@@ -44,13 +44,15 @@ class SessionAsync(session.Session):
                  incoming_window=None,
                  outgoing_window=None,
                  handle_max=None,
+                 on_attach=None,
                  loop=None):
         self.loop = loop or asyncio.get_event_loop()
         super(SessionAsync, self).__init__(
             connection,
             incoming_window=incoming_window,
             outgoing_window=outgoing_window,
-            handle_max=handle_max)
+            handle_max=handle_max,
+            on_attach=on_attach)
 
     async def __aenter__(self):
         """Run Session in an async context manager."""
@@ -60,7 +62,7 @@ class SessionAsync(session.Session):
         """Close and destroy sesion on exiting  an async context manager."""
         await self.destroy_async()
 
-    async def mgmt_request_async(self, message, operation, op_type=None, node=None, **kwargs):
+    async def mgmt_request_async(self, message, operation, op_type=None, node=b'$management', **kwargs):
         """Asynchronously run a request/response operation. These are frequently used
         for management tasks against a $management node, however any node name can be
         specified and the available options will depend on the target service.
@@ -94,6 +96,7 @@ class SessionAsync(session.Session):
         :rtype: ~uamqp.message.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
@@ -106,7 +109,9 @@ class SessionAsync(session.Session):
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
-        response = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)
+        status, response, description = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)
+        if parse_response:
+            return parse_response(status, response, description)
         return response
 
     async def destroy_async(self):

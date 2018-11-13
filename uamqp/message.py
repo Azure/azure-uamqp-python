@@ -4,25 +4,25 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=too-many-lines
+
 import logging
 
-from uamqp import c_uamqp
-from uamqp import utils
-from uamqp import constants, errors
-
+import six
+from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
 
 
-class Message:
+class Message(object):
     """An AMQP message.
 
     When sending, depending on the nature of the data,
     different body encoding will be used. If the data is str or bytes,
     a single part DataBody will be sent. If the data is a list of str/bytes,
-    a multipart DataBody will be sent. Any other type of list will be sent
-    as a SequenceBody, where as any other type of data will be sent as
-    a ValueBody. An empty payload will also be sent as a ValueBody.
+    a multipart DataBody will be sent. Any other type of list or any other
+    type of data will be sent as a ValueBody.
+    An empty payload will also be sent as a ValueBody.
 
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
@@ -77,7 +77,7 @@ class Message:
         self._response = None
         self._settler = None
         self._encoding = encoding
-        self._delivery_no = delivery_no
+        self.delivery_no = delivery_no
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -97,15 +97,11 @@ class Message:
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
-            if isinstance(body, (bytes, str)):
+            if isinstance(body, (six.text_type, six.binary_type)):
                 self._body = DataBody(self._message)
                 self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b, (bytes, str)) for b in body]):
+            elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
                 self._body = DataBody(self._message)
-                for value in body:
-                    self._body.append(value)
-            elif isinstance(body, list):
-                self._body = SequenceBody(self._message)
                 for value in body:
                     self._body.append(value)
             else:
@@ -118,6 +114,18 @@ class Message:
             self.annotations = annotations
             self.header = header
 
+    @classmethod
+    def decode_from_bytes(cls, data):
+        """Decode an AMQP message from a bytearray.
+        The returned message will not have a delivery context and
+        therefore will be considered to be in an "already settled" state.
+
+        :param data: The AMQP wire-encoded bytes to decode.
+        :type data: bytes or bytearray
+        """
+        decoded_message = c_uamqp.decode_message(len(data), data)
+        return cls(message=decoded_message)
+
     def __str__(self):
         if not self._message:
             return ""
@@ -129,7 +137,7 @@ class Message:
         :param message: The received C message.
         :type message: uamqp.c_uamqp.cMessage
         """
-        _logger.debug("Parsing received message %r.", self._delivery_no)
+        _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
         body_type = message.body_type
         if body_type == c_uamqp.MessageBodyType.NoneType:
@@ -137,32 +145,32 @@ class Message:
         elif body_type == c_uamqp.MessageBodyType.DataType:
             self._body = DataBody(self._message)
         elif body_type == c_uamqp.MessageBodyType.SequenceType:
-            self._body = SequenceBody(self._message)
+            raise TypeError("Message body type Sequence not supported.")
         else:
             self._body = ValueBody(self._message)
         _props = self._message.properties
         if _props:
-            _logger.debug("Parsing received message properties %r.", self._delivery_no)
+            _logger.debug("Parsing received message properties %r.", self.delivery_no)
             self.properties = MessageProperties(properties=_props, encoding=self._encoding)
         _header = self._message.header
         if _header:
-            _logger.debug("Parsing received message header %r.", self._delivery_no)
+            _logger.debug("Parsing received message header %r.", self.delivery_no)
             self.header = MessageHeader(header=_header)
         _footer = self._message.footer
         if _footer:
-            _logger.debug("Parsing received message footer %r.", self._delivery_no)
+            _logger.debug("Parsing received message footer %r.", self.delivery_no)
             self.footer = _footer.map
         _app_props = self._message.application_properties
         if _app_props:
-            _logger.debug("Parsing received message application properties %r.", self._delivery_no)
+            _logger.debug("Parsing received message application properties %r.", self.delivery_no)
             self.application_properties = _app_props.map
         _ann = self._message.message_annotations
         if _ann:
-            _logger.debug("Parsing received message annotations %r.", self._delivery_no)
+            _logger.debug("Parsing received message annotations %r.", self.delivery_no)
             self.annotations = _ann.map
         _delivery_ann = self._message.delivery_annotations
         if _delivery_ann:
-            _logger.debug("Parsing received message delivery annotations %r.", self._delivery_no)
+            _logger.debug("Parsing received message delivery annotations %r.", self.delivery_no)
             self.delivery_annotations = _delivery_ann.map
 
     def _can_settle_message(self):
@@ -171,6 +179,23 @@ class Message:
         elif self.settled:
             return False
         return True
+
+    def _populate_message_attributes(self, c_message):
+        if self.properties:
+            c_message.properties = self.properties.get_properties_obj()
+        if self.application_properties:
+            if not isinstance(self.application_properties, dict):
+                raise TypeError("Application properties must be a dictionary.")
+            amqp_props = utils.data_factory(self.application_properties, encoding=self._encoding)
+            c_message.application_properties = amqp_props
+        if self.annotations:
+            if not isinstance(self.annotations, dict):
+                raise TypeError("Message annotations must be a dictionary.")
+            ann_props = c_uamqp.create_message_annotations(
+                utils.data_factory(self.annotations, encoding=self._encoding))
+            c_message.message_annotations = ann_props
+        if self.header:
+            c_message.header = self.header.get_header_obj()
 
     @property
     def settled(self):
@@ -191,13 +216,29 @@ class Message:
         to go over the wire so we can raise an error if the message will be
         rejected for being to large.
 
+        This method is not available for messages that have been received.
+
         :rtype: int
         """
-        if self.state in constants.RECEIVE_STATES:
-            # We only need this for messages being sent.
-            return None
-        # TODO: This no longer calculates the metadata accurately.
-        return 0  # c_uamqp.get_encoded_message_size(self._message)
+        if not self._message:
+            raise ValueError("No message data to encode.")
+        cloned_data = self._message.clone()
+        self._populate_message_attributes(cloned_data)
+        encoded_data = []
+        return c_uamqp.get_encoded_message_size(cloned_data, encoded_data)
+
+    def encode_message(self):
+        """Encode message to AMQP wire-encoded bytearray.
+
+        :rtype: bytearray
+        """
+        if not self._message:
+            raise ValueError("No message data to encode.")
+        cloned_data = self._message.clone()
+        self._populate_message_attributes(cloned_data)
+        encoded_data = []
+        c_uamqp.get_encoded_message_size(cloned_data, encoded_data)
+        return b"".join(encoded_data)
 
     def get_data(self):
         """Get the body data of the message. The format may vary depending
@@ -217,6 +258,8 @@ class Message:
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
+        elif not self._message:
+            raise ValueError("Message data already consumed.")
         try:
             raise self._response
         except TypeError:
@@ -230,21 +273,7 @@ class Message:
         """
         if not self._message:
             return None
-        if self.properties:
-            self._message.properties = self.properties.get_properties_obj()
-        if self.application_properties:
-            if not isinstance(self.application_properties, dict):
-                raise TypeError("Application properties must be a dictionary.")
-            amqp_props = utils.data_factory(self.application_properties, encoding=self._encoding)
-            self._message.application_properties = amqp_props
-        if self.annotations:
-            if not isinstance(self.annotations, dict):
-                raise TypeError("Message annotations must be a dictionary.")
-            ann_props = c_uamqp.create_message_annotations(
-                utils.data_factory(self.annotations, encoding=self._encoding))
-            self._message.message_annotations = ann_props
-        if self.header:
-            self._message.header = self.header.get_header_obj()
+        self._populate_message_attributes(self._message)
         return self._message
 
     def accept(self):
@@ -387,7 +416,7 @@ class BatchMessage(Message):
 
     batch_format = 0x80013700
     max_message_length = constants.MAX_MESSAGE_LENGTH_BYTES
-    _size_buffer = 65000
+    size_offset = 0
 
     def __init__(self,
                  data=None,
@@ -431,12 +460,12 @@ class BatchMessage(Message):
         """
         while True:
             new_message = self._create_batch_message()
-            message_size = new_message.get_message_encoded_size() + self._size_buffer
+            message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
             try:
                 for data in self._body_gen:
                     message_segment = []
-                    if isinstance(data, str):
+                    if isinstance(data, six.text_type):
                         data = data.encode(self._encoding)
                     batch_data = c_uamqp.create_data(data)
                     c_uamqp.enocde_batch_value(batch_data, message_segment)
@@ -468,17 +497,18 @@ class BatchMessage(Message):
             return self._multi_message_generator()
 
         new_message = self._create_batch_message()
-        message_size = new_message.get_message_encoded_size() + self._size_buffer
+        message_size = new_message.get_message_encoded_size() + self.size_offset
         body_size = 0
 
         for data in self._body_gen:
             message_segment = []
-            if isinstance(data, str):
+            if isinstance(data, six.text_type):
                 data = data.encode(self._encoding)
             batch_data = c_uamqp.create_data(data)
             c_uamqp.enocde_batch_value(batch_data, message_segment)
             combined = b"".join(message_segment)
             body_size += len(combined)
+
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
                     "Data set too large for a single message."
@@ -488,7 +518,7 @@ class BatchMessage(Message):
         return [new_message]
 
 
-class MessageProperties:
+class MessageProperties(object):
     """Message properties.
     The properties that are actually used will depend on the service implementation.
     Not all received messages will have all properties, and not all properties
@@ -573,6 +603,23 @@ class MessageProperties:
             self.group_sequence = group_sequence
             self.reply_to_group_id = reply_to_group_id
 
+    def __str__(self):
+        return str({
+            'message_id': self.message_id,
+            'user_id': self.user_id,
+            'to': self.to,
+            'subject': self.subject,
+            'reply_to': self.reply_to,
+            'correlation_id': self.correlation_id,
+            'content_type': self.content_type,
+            'content_encoding': self.content_encoding,
+            'absolute_expiry_time': self.absolute_expiry_time,
+            'creation_time': self.creation_time,
+            'group_id': self.group_id,
+            'group_sequence': self.group_sequence,
+            'reply_to_group_id': self.reply_to_group_id
+        })
+
     @property
     def message_id(self):
         if self._message_id:
@@ -592,9 +639,9 @@ class MessageProperties:
 
     @user_id.setter
     def user_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("user_id must be bytes or str.")
         self._user_id = value
 
@@ -617,9 +664,9 @@ class MessageProperties:
 
     @subject.setter
     def subject(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("subject must be bytes or str.")
         self._subject = value
 
@@ -655,9 +702,9 @@ class MessageProperties:
 
     @content_type.setter
     def content_type(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("content_type must be bytes or str.")
         self._content_type = value
 
@@ -667,9 +714,9 @@ class MessageProperties:
 
     @content_encoding.setter
     def content_encoding(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("content_encoding must be bytes or str.")
         self._content_encoding = value
 
@@ -699,9 +746,9 @@ class MessageProperties:
 
     @group_id.setter
     def group_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("group_id must be bytes or str.")
         self._group_id = value
 
@@ -721,9 +768,9 @@ class MessageProperties:
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        if isinstance(value, str):
+        if isinstance(value, six.text_type):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, bytes):
+        elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("reply_to_group_id must be bytes or str.")
         self._reply_to_group_id = value
 
@@ -754,7 +801,7 @@ class MessageProperties:
         return properties
 
 
-class MessageBody:
+class MessageBody(object):
     """Base class for an AMQP message body. This should
     not be used directly.
     """
@@ -762,11 +809,6 @@ class MessageBody:
     def __init__(self, c_message, encoding='UTF-8'):
         self._message = c_message
         self._encoding = encoding
-
-    def __str__(self):
-        if self.type == c_uamqp.MessageBodyType.NoneType:
-            return ""
-        return str(self.data)
 
     @property
     def type(self):
@@ -790,7 +832,15 @@ class DataBody(MessageBody):
     """
 
     def __str__(self):
-        return "".join(d.decode(self._encoding) for d in self.data)
+        if six.PY3:
+            return "".join(d.decode(self._encoding) for d in self.data)
+        return "".join(self.data)
+
+    def __unicode__(self):
+        return u"".join(d.decode(self._encoding) for d in self.data)
+
+    def __bytes__(self):
+        return b"".join(self.data)
 
     def __len__(self):
         return self._message.count_body_data()
@@ -807,53 +857,15 @@ class DataBody(MessageBody):
         :param data: The data to append.
         :type data: str or bytes
         """
-        if isinstance(data, str):
+        if isinstance(data, six.text_type):
             self._message.add_body_data(data.encode(self._encoding))
-        elif isinstance(data, bytes):
+        elif isinstance(data, six.binary_type):
             self._message.add_body_data(data)
 
     @property
     def data(self):
         for i in range(len(self)):
             yield self._message.get_body_data(i)
-
-
-class SequenceBody(MessageBody):
-    """An AMQP message body of type Sequence. This represents
-    a list of encoded objects.
-
-    :ivar type: The body type. This should always be `SequenceType`.
-    :vartype type: ~uamqp.c_uamqp.MessageBodyType
-    :ivar data: The data contained in the message body. This returns
-     a generator to iterate over each item in the body.
-    :vartype data: Generator
-    """
-
-    def __len__(self):
-        return self._message.count_body_sequence()
-
-    def __getitem__(self, index):
-        if index >= len(self):
-            raise IndexError("Index is out of range.")
-        data = self._message.get_body_sequence(index)
-        return data.value
-
-    def append(self, value):
-        """Append an item to the body. This can be any
-        Python data type and it will be automatically encoded
-        into an AMQP type. If a specific AMQP type is required, a
-        `types.AMQPType` can be used.
-
-        :param data: The data to append.
-        :type data: ~uamqp.types.AMQPType
-        """
-        value = utils.data_factory(value, encoding=self._encoding)
-        self._message.add_body_sequence(value)
-
-    @property
-    def data(self):
-        for i in range(len(self)):  # pylint: disable=consider-using-enumerate
-            yield self[i]
 
 
 class ValueBody(MessageBody):
@@ -866,6 +878,28 @@ class ValueBody(MessageBody):
      of the encoded object
     :vartype data: object
     """
+
+    def __str__(self):
+        data = self.data
+        if not data:
+            return ""
+        if six.PY3 and isinstance(data, six.binary_type):
+            return data.decode(self._encoding)
+        return str(data)
+
+    def __unicode__(self):
+        data = self.data
+        if not data:
+            return u""
+        if isinstance(data, six.binary_type):
+            return data.decode(self._encoding)
+        return unicode(data)  # pylint: disable=undefined-variable
+
+    def __bytes__(self):
+        data = self.data
+        if not data:
+            return b""
+        return bytes(data)
 
     def set(self, value):
         """Set a value as the message body. This can be any
@@ -887,7 +921,7 @@ class ValueBody(MessageBody):
         return None
 
 
-class MessageHeader:
+class MessageHeader(object):
     """The Message header. This is only used on received message, and not
     set on messages being sent. The properties set on any given message
     will depend on the Service and not all messages will have all properties.
@@ -937,6 +971,15 @@ class MessageHeader:
             self.first_acquirer = header.first_acquirer
             self.durable = header.durable
             self.priority = header.priority
+
+    def __str__(self):
+        return str({
+            'delivery_count': self.delivery_count,
+            'time_to_live': self.time_to_live,
+            'first_acquirer': self.first_acquirer,
+            'durable': self.durable,
+            'priority': self.priority
+        })
 
     def get_header_obj(self):
         """Get the underlying C reference from this object.

@@ -72,7 +72,6 @@ MOCKABLE_FUNCTION(, int, aSetOption, void*, handle, const char*, name, const voi
 #undef ENABLE_MOCKS
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
@@ -110,7 +109,6 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
 
     TEST_SUITE_INITIALIZE(a)
     {
-        TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
         g_testByTest = TEST_MUTEX_CREATE();
         ASSERT_IS_NOT_NULL(g_testByTest);
 
@@ -152,7 +150,6 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         umock_c_deinit();
 
         TEST_MUTEX_DESTROY(g_testByTest);
-        TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
     }
 
     TEST_FUNCTION_INITIALIZE(initialize)
@@ -265,7 +262,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             h = OptionHandler_Create(aCloneOption, aDestroyOption, aSetOption);
 
             ///assert
-            ASSERT_IS_NULL_WITH_MSG(h, temp_str);
+            ASSERT_IS_NULL(h, temp_str);
         }
 
         ///cleanup
@@ -899,7 +896,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             result = OptionHandler_AddOption(handle, "name", value);
 
             ///assert
-            ASSERT_ARE_EQUAL_WITH_MSG(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
+            ASSERT_ARE_EQUAL(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
         }
 
         ///cleanup
@@ -1049,7 +1046,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             result = OptionHandler_FeedOptions(handle, (void*)42);
 
             ///assert
-            ASSERT_ARE_EQUAL_WITH_MSG(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
+            ASSERT_ARE_EQUAL(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
 
         }
 
@@ -1152,7 +1149,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             result = OptionHandler_FeedOptions(handle, (void*)42);
 
             ///assert
-            ASSERT_ARE_EQUAL_WITH_MSG(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
+            ASSERT_ARE_EQUAL(OPTIONHANDLER_RESULT, OPTIONHANDLER_ERROR, result, temp_str);
         }
 
         ///cleanup

@@ -45,9 +45,13 @@ cdef class cProperties(StructBase):
             self._memory_error()
 
     cpdef destroy(self):
-        if <void*>self._c_value is not NULL:
-            _logger.debug("Destroying cProperties")
-            c_amqp_definitions.properties_destroy(self._c_value)
+        try:
+            if <void*>self._c_value is not NULL:
+                _logger.debug("Destroying cProperties")
+                c_amqp_definitions.properties_destroy(self._c_value)
+        except KeyboardInterrupt:
+            pass
+        finally:
             self._c_value = <c_amqp_definitions.PROPERTIES_HANDLE>NULL
 
     cdef wrap(self, c_amqp_definitions.PROPERTIES_HANDLE value):
@@ -80,10 +84,14 @@ cdef class cProperties(StructBase):
     @property
     def message_id(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.properties_get_message_id(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            return value_factory(_value)
+            cloned = c_amqpvalue.amqpvalue_clone(_value)
+            if <void*>cloned == NULL:
+                self._value_error()
+            return value_factory(cloned)
         else:
             return None
 
@@ -113,10 +121,14 @@ cdef class cProperties(StructBase):
     @property
     def to(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.properties_get_to(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            return value_factory(_value)
+            cloned = c_amqpvalue.amqpvalue_clone(_value)
+            if <void*>cloned == NULL:
+                self._value_error()
+            return value_factory(cloned)
         else:
             return None
 
@@ -145,10 +157,14 @@ cdef class cProperties(StructBase):
     @property
     def reply_to(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.properties_get_reply_to(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            return value_factory(_value)
+            cloned = c_amqpvalue.amqpvalue_clone(_value)
+            if <void*>cloned == NULL:
+                self._value_error()
+            return value_factory(cloned)
         else:
             return None
 
@@ -161,10 +177,14 @@ cdef class cProperties(StructBase):
     @property
     def correlation_id(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.properties_get_correlation_id(self._c_value, &_value) == 0:
             if <void*>_value == NULL:
                 return None
-            return value_factory(_value)
+            cloned = c_amqpvalue.amqpvalue_clone(_value)
+            if <void*>cloned == NULL:
+                self._value_error()
+            return value_factory(cloned)
         else:
             return None
 

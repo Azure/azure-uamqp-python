@@ -47,7 +47,6 @@ static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 static STRING_HANDLE TEST_STRING_HANDLE = (STRING_HANDLE)0x11;
 
 static TEST_MUTEX_HANDLE g_testByTest;
-static TEST_MUTEX_HANDLE g_dllByDll;
 
 typedef struct TEST_BASE32_VALUE_TAG
 {
@@ -151,7 +150,6 @@ BEGIN_TEST_SUITE(base32_ut)
     {
         int result;
 
-        TEST_INITIALIZE_MEMORY_DEBUG(g_dllByDll);
         g_testByTest = TEST_MUTEX_CREATE();
         ASSERT_IS_NOT_NULL(g_testByTest);
 
@@ -186,7 +184,6 @@ BEGIN_TEST_SUITE(base32_ut)
         umock_c_deinit();
 
         TEST_MUTEX_DESTROY(g_testByTest);
-        TEST_DEINITIALIZE_MEMORY_DEBUG(g_dllByDll);
     }
 
     TEST_FUNCTION_INITIALIZE(method_init)
@@ -259,7 +256,7 @@ BEGIN_TEST_SUITE(base32_ut)
             result = Base32_Encode_Bytes(test_val_len[index].input_data, test_val_len[index].input_len);
 
             //assert
-            ASSERT_ARE_EQUAL_WITH_MSG(char_ptr, test_val_len[index].base32_data, result, tmp_msg);
+            ASSERT_ARE_EQUAL(char_ptr, test_val_len[index].base32_data, result, tmp_msg);
 
             //cleanup
             free(result);
@@ -327,7 +324,7 @@ BEGIN_TEST_SUITE(base32_ut)
             result = Base32_Encode(input_buff);
 
             //assert
-            ASSERT_ARE_EQUAL_WITH_MSG(char_ptr, test_val_len[index].base32_data, (const char*)result, tmp_msg);
+            ASSERT_ARE_EQUAL(char_ptr, test_val_len[index].base32_data, (const char*)result, tmp_msg);
 
             //cleanup
             my_STRING_delete(result);
@@ -417,7 +414,7 @@ BEGIN_TEST_SUITE(base32_ut)
 
             //assert
             ASSERT_IS_NOT_NULL(result);
-            ASSERT_ARE_EQUAL_WITH_MSG(int, 0, memcmp(test_val_len[index].input_data, result, test_val_len[index].input_len), tmp_msg);
+            ASSERT_ARE_EQUAL(int, 0, memcmp(test_val_len[index].input_data, result, test_val_len[index].input_len), tmp_msg);
 
             //cleanup
             BUFFER_delete(result);

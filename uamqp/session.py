@@ -6,16 +6,13 @@
 
 import logging
 
-from uamqp import c_uamqp
-from uamqp import mgmt_operation
-from uamqp import constants
-from uamqp import errors
-
+from uamqp import c_uamqp, constants, errors, mgmt_operation
+from uamqp.address import Source, Target
 
 _logger = logging.getLogger(__name__)
 
 
-class Session:
+class Session(object):
     """An AMQP Session. A Connection can have multiple Sessions, and each
     Session can have multiple Links.
 
@@ -34,16 +31,22 @@ class Session:
     :type outgoing_window: int
     :param handle_max: The maximum number of concurrent link handles.
     :type handle_max: int
+    :param on_attach: A callback function to be run on receipt of an ATTACH frame.
+     The function must take 4 arguments: source, target, properties and error.
+    :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
     """
 
     def __init__(self, connection,
                  incoming_window=None,
                  outgoing_window=None,
-                 handle_max=None):
+                 handle_max=None,
+                 on_attach=None):
         self._connection = connection
         self._conn = connection._conn  # pylint: disable=protected-access
-        self._session = c_uamqp.create_session(self._conn)
+        self._session = c_uamqp.create_session(self._conn, self)
         self._mgmt_links = {}
+        self._link_error = None
+        self._on_attach = on_attach
 
         if incoming_window:
             self.incoming_window = incoming_window
@@ -60,7 +63,18 @@ class Session:
         """Close and destroy sesion on exiting context manager."""
         self._session.destroy()
 
-    def mgmt_request(self, message, operation, op_type=None, node=None, **kwargs):
+    def _attach_received(self, source, target, properties, error=None):
+        if error:
+            self._link_error = errors.AMQPConnectionError(error)
+        if self._on_attach:
+            if source and target:
+                source = Source.from_c_obj(source)
+                target = Target.from_c_obj(target)
+            if properties:
+                properties = properties.value
+            self._on_attach(source, target, properties, self._link_error)
+
+    def mgmt_request(self, message, operation, op_type=None, node=b'$management', **kwargs):
         """Run a request/response operation. These are frequently used for management
         tasks against a $management node, however any node name can be specified
         and the available options will depend on the target service.
@@ -94,6 +108,7 @@ class Session:
         :rtype: ~uamqp.message.Message
         """
         timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
@@ -106,7 +121,9 @@ class Session:
             elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
-        response = mgmt_link.execute(operation, op_type, message, timeout=timeout)
+        status, response, description = mgmt_link.execute(operation, op_type, message, timeout=timeout)
+        if parse_response:
+            return parse_response(status, response, description)
         return response
 
     def destroy(self):

@@ -4,20 +4,15 @@
 # license information.
 #--------------------------------------------------------------------------
 
-try:
-    from urllib import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 import logging
 
-from uamqp import constants
-from uamqp import c_uamqp
-
+import six
+from uamqp import c_uamqp, compat, constants, utils
 
 _logger = logging.getLogger(__name__)
 
 
-class Address:
+class Address(object):
     """Represents an AMQP endpoint.
 
     :ivar address: The endpoint URL.
@@ -38,12 +33,24 @@ class Address:
     """
 
     def __init__(self, address, encoding='UTF-8'):
-        address = address.encode(encoding) if isinstance(address, str) else address
+        address = address.encode(encoding) if isinstance(address, six.text_type) else address
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
-        addr = self.parsed_address.scheme + b"://" + self.parsed_address.hostname + self.parsed_address.path
+        addr = self.parsed_address.path
+        if self.parsed_address.hostname:
+            addr = self.parsed_address.hostname + addr
+        if self.parsed_address.scheme:
+            addr = self.parsed_address.scheme + b"://" + addr
         self._c_address = c_uamqp.string_value(addr)
+
+    @classmethod
+    def from_c_obj(cls, c_value, encoding='UTF-8'):
+        address = c_value.address
+        py_obj = cls(address, encoding=encoding)
+        py_obj._address = c_value  # pylint: disable=protected-access
+        return py_obj
+
 
     def __repr__(self):
         """Get the Address as a URL.
@@ -121,7 +128,7 @@ class Address:
 
     @distribution_mode.setter
     def distribution_mode(self, value):
-        mode = value.encode(self._encoding) if isinstance(value, str) else value
+        mode = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         self._address.distribution_mode = mode
 
     def _validate_address(self, address):
@@ -132,10 +139,8 @@ class Address:
         :type address: str
         :rtype: ~urllib.parse.ParseResult
         """
-        parsed = urlparse(address)
-        if not parsed.scheme.startswith(b'amqp'):
-            raise ValueError("Source scheme must be amqp or amqps.")
-        if not parsed.netloc or not parsed.path:
+        parsed = compat.urlparse(address)
+        if not parsed.path:
             raise ValueError("Invalid {} address: {}".format(
                 self.__class__.__name__, parsed))
         return parsed
@@ -164,29 +169,46 @@ class Source(Address):
 
     def __init__(self, address, encoding='UTF-8'):
         super(Source, self).__init__(address, encoding)
-        self._filters = []
+        self.filter_key = constants.STRING_FILTER
         self._address = c_uamqp.create_source()
         self._address.address = self._c_address
 
-    def set_filter(self, value, name=constants.STRING_FILTER):
+    def get_filter(self, name=constants.STRING_FILTER):
+        """Get the filter on the source.
+
+        :param name: The name of the filter. This will be encoded as
+         an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
+        :type name: bytes
+        """
+        try:
+            filter_key = c_uamqp.symbol_value(name)
+            return self._address.filter_set[filter_key].value
+        except (TypeError, KeyError):
+            return None
+
+    def set_filter(self, value, name=constants.STRING_FILTER, descriptor=constants.STRING_FILTER):
         """Set a filter on the endpoint. Only one filter
         can be applied to an endpoint.
 
-        :param value: The filter to apply to the endpoint.
-        :type value: bytes or str
+        :param value: The filter to apply to the endpoint. Set to None for a NULL filter.
+        :type value: bytes or str or None
         :param name: The name of the filter. This will be encoded as
-         an AMQP Symbol and will also be used as the filter descriptor.
-         By default this is set to b'apache.org:selector-filter:string'.
+         an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
         :type name: bytes
+        :param descriptor: The descriptor used if the filter is to be encoded as a described value.
+         This will be encoded as an AMQP Symbol. By default this is set to b'apache.org:selector-filter:string'.
+         Set to None if the filter should not be encoded as a described value.
+        :type descriptor: bytes or None
         """
-        value = value.encode(self._encoding) if isinstance(value, str) else value
+        value = value.encode(self._encoding) if isinstance(value, six.text_type) else value
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(name)
-        descriptor = c_uamqp.symbol_value(name)
-        filter_value = c_uamqp.string_value(value)
-        described_filter_value = c_uamqp.described_value(descriptor, filter_value)
-        self._filters.append((descriptor, filter_value))
-        filter_set[filter_key] = described_filter_value
+        filter_value = utils.data_factory(value, encoding=self._encoding)
+        if value is not None and descriptor is not None:
+            descriptor = c_uamqp.symbol_value(descriptor)
+            filter_value = c_uamqp.described_value(descriptor, filter_value)
+
+        filter_set[filter_key] = filter_value
         self._address.filter_set = filter_set
 
 

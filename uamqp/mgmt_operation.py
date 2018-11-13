@@ -7,17 +7,14 @@
 import logging
 import uuid
 
+import six
 # from uamqp.session import Session
-from uamqp import Message
-from uamqp import constants
-from uamqp import errors
-from uamqp import c_uamqp
-
+from uamqp import Message, c_uamqp, compat, constants, errors
 
 _logger = logging.getLogger(__name__)
 
 
-class MgmtOperation:
+class MgmtOperation(object):
     """An AMQP request/response operation. These are frequently used
     for management tasks against a $management node, however any node name can be
     specified and the available options will depend on the target service.
@@ -48,20 +45,17 @@ class MgmtOperation:
                  status_code_field=b'statusCode',
                  description_fields=b'statusDescription',
                  encoding='UTF-8'):
+        self._encoding = encoding
         self.connection = session._connection  # pylint: disable=protected-access
         # self.session = Session(
         #     connection,
         #     incoming_window=constants.MAX_FRAME_SIZE_BYTES,
         #     outgoing_window=constants.MAX_FRAME_SIZE_BYTES)
-        self.target = target or constants.MGMT_TARGET
-        if isinstance(self.target, str):
-            self.target = self.target.encode(encoding)
-        if isinstance(status_code_field, str):
-            status_code_field = status_code_field.encode(encoding)
-        if isinstance(description_fields, str):
-            description_fields = description_fields.encode(encoding)
+        self.target = self._encode(target or constants.MGMT_TARGET)
+        status_code_field = self._encode(status_code_field)
+        description_fields = self._encode(description_fields)
         self._responses = {}
-        self._encoding = encoding
+
         self._counter = c_uamqp.TickCounter()
         self._mgmt_op = c_uamqp.create_management_operation(session._session, self.target)  # pylint: disable=protected-access
         self._mgmt_op.set_response_field_names(status_code_field, description_fields)
@@ -75,6 +69,9 @@ class MgmtOperation:
                 "Please confirm URI namespace exists.")
         else:
             self.mgmt_error = None
+
+    def _encode(self, value):
+        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def _management_open_complete(self, result):
         """Callback run when the send/receive links are open and ready
@@ -110,10 +107,8 @@ class MgmtOperation:
         start_time = self._counter.get_current_ms()
         operation_id = str(uuid.uuid4())
         self._responses[operation_id] = None
-        if isinstance(operation, str):
-            operation = operation.encode(self._encoding)
-        if isinstance(op_type, str):
-            op_type = op_type.encode(self._encoding)
+        operation = self._encode(operation)
+        op_type = self._encode(op_type)
 
         def on_complete(operation_result, status_code, description, wrapped_message):
             result = constants.MgmtExecuteResult(operation_result)
@@ -121,14 +116,15 @@ class MgmtOperation:
                 _logger.error(
                     "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
                     status_code, description)
-            self._responses[operation_id] = Message(message=wrapped_message)
+            message = Message(message=wrapped_message) if wrapped_message else None
+            self._responses[operation_id] = (status_code, message, description)
 
         self._mgmt_op.execute(operation, op_type, None, message.get_message(), on_complete)
         while not self._responses[operation_id] and not self.mgmt_error:
             if timeout > 0:
                 now = self._counter.get_current_ms()
                 if (now - start_time) >= timeout:
-                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
+                    raise compat.TimeoutException("Failed to receive mgmt response in {}ms".format(timeout))
             self.connection.work()
         if self.mgmt_error:
             raise self.mgmt_error

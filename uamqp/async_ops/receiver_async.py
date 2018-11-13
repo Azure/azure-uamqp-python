@@ -7,9 +7,7 @@
 import asyncio
 import logging
 
-from uamqp import receiver
-from uamqp import errors, constants
-
+from uamqp import constants, errors, receiver
 
 _logger = logging.getLogger(__name__)
 

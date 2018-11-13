@@ -28,6 +28,8 @@ def live_eventhub_config():
     except KeyError:
         pytest.skip("Live EventHub configuration not found.")
     else:
+        if not all(config.values()):
+            pytest.skip("Live EventHub configuration empty.")
         return config
 
 
@@ -46,6 +48,8 @@ def live_iothub_config():
     except KeyError:
         pytest.skip("Live IoTHub configuration not found.")
     else:
+        if not all(config.values()):
+            pytest.skip("Live IoTHub configuration empty.")
         return config
 
 
