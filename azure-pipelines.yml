@@ -30,8 +30,13 @@ jobs:
     displayName: 'Build OpenSSL'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
-    env: { 'MACOSX_DEPLOYMENT_TARGET': '10.6', 'CMAKE_OSX_DEPLOYMENT_TARGET': '10.6', 'CMAKE_OSX_ARCHITECTURES': 'i386;x86_64' }
-    env: { 'UAMQP_USE_OPENSSL': 'True', 'UAMQP_REBUILD_PYX': 'True', 'UAMQP_SUPPRESS_LINK_FLAGS': 'True'}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '10.6'
+      CMAKE_OSX_DEPLOYMENT_TARGET: '10.6'
+      CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
+      UAMQP_USE_OPENSSL: 'True'
+      UAMQP_REBUILD_PYX: 'True'
+      UAMQP_SUPPRESS_LINK_FLAGS: 'True'
   
 - job: 'Linux'
   pool:
