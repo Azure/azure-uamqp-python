@@ -52,6 +52,8 @@ jobs:
       OPENSSL_INCLUDE_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
       LDFLAGS: '/Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libssl.a /Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libcrypto.a'
       CFLAGS: '-I/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
+  - script: ls ./dist
+    displayName: 'Check output'
   
 - job: 'Linux'
   pool:
