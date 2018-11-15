@@ -34,7 +34,7 @@ jobs:
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
-  - script: ls $PWD
+  - script: ls $AGENT_TEMPDIRECTORY
     displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
@@ -45,10 +45,10 @@ jobs:
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
       UAMQP_SUPPRESS_LINK_FLAGS: 'True'
-      OPENSSL_ROOT_DIR: '$PWD/openssl'
-      OPENSSL_INCLUDE_DIR: '$PWD/openssl/include'
-      LDFLAGS: '$PWD/openssl/lib/libssl.a $PWD/openssl/lib/libcrypto.a'
-      CFLAGS: '-I$PWD/openssl/include'
+      OPENSSL_ROOT_DIR: '$AGENT_TEMPDIRECTORY/openssl'
+      OPENSSL_INCLUDE_DIR: '$AGENT_TEMPDIRECTORY/openssl/include'
+      LDFLAGS: '$AGENT_TEMPDIRECTORY/openssl/lib/libssl.a $AGENT_TEMPDIRECTORY/openssl/lib/libcrypto.a'
+      CFLAGS: '-I$AGENT_TEMPDIRECTORY/openssl/include'
   
 - job: 'Linux'
   pool:
