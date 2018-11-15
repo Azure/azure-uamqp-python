@@ -48,10 +48,10 @@ jobs:
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
       UAMQP_SUPPRESS_LINK_FLAGS: 'True'
-      OPENSSL_ROOT_DIR: '$AGENT_TEMPDIRECTORY/openssl'
-      OPENSSL_INCLUDE_DIR: '$AGENT_TEMPDIRECTORY/openssl/include'
-      LDFLAGS: '$AGENT_TEMPDIRECTORY/openssl/lib/libssl.a $AGENT_TEMPDIRECTORY/openssl/lib/libcrypto.a'
-      CFLAGS: '-I$AGENT_TEMPDIRECTORY/openssl/include'
+      OPENSSL_ROOT_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl'
+      OPENSSL_INCLUDE_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
+      LDFLAGS: '/Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libssl.a /Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libcrypto.a'
+      CFLAGS: '-I/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
   
 - job: 'Linux'
   pool:
