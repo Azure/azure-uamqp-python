@@ -28,10 +28,14 @@ jobs:
       architecture: 'x64'
   - script: env
     displayName: 'Check Env'
+  - script: ls $AGENT_BUILDDIRECTORY
+    displayName: 'Check Build Dir'
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
+  - script: ls $AGENT_BUILDDIRECTORY/openssl
+    displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
     env:
