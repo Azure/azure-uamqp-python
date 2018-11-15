@@ -32,7 +32,7 @@ jobs:
     displayName: 'Check Build Dir'
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
     displayName: 'Install dependencies'  
-  - script: sudo ./build_openssl_osx.sh
+  - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
     env:
       OPENSSL_VERSION: '1.0.2o'
