@@ -26,6 +26,8 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
+  - script: env
+    displayName: 'Check Env'
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
@@ -39,6 +41,10 @@ jobs:
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
       UAMQP_SUPPRESS_LINK_FLAGS: 'True'
+      OPENSSL_ROOT_DIR: '$AGENT_HOMEDIRECTORY/openssl'
+      OPENSSL_INCLUDE_DIR '$AGENT_HOMEDIRECTORY/openssl/include'
+      LDFLAGS: '$AGENT_HOMEDIRECTORY/openssl/lib/libssl.a $AGENT_HOMEDIRECTORY/openssl/lib/libcrypto.a'
+      CFLAGS: '-I$AGENT_HOMEDIRECTORY/openssl/include'
   
 - job: 'Linux'
   pool:
