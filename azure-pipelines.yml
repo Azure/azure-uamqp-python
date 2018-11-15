@@ -28,13 +28,13 @@ jobs:
       architecture: 'x64'
   - script: env
     displayName: 'Check Env'
-  - script: ls $AGENT_BUILDDIRECTORY
+  - script: ls $PWD
     displayName: 'Check Build Dir'
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
-  - script: ls $AGENT_BUILDDIRECTORY/openssl
+  - script: ls $PWD/openssl
     displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
@@ -45,10 +45,10 @@ jobs:
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
       UAMQP_SUPPRESS_LINK_FLAGS: 'True'
-      OPENSSL_ROOT_DIR: '$AGENT_BUILDDIRECTORY/openssl'
-      OPENSSL_INCLUDE_DIR: '$AGENT_BUILDDIRECTORY/openssl/include'
-      LDFLAGS: '$AGENT_BUILDDIRECTORY/openssl/lib/libssl.a $AGENT_BUILDDIRECTORY/openssl/lib/libcrypto.a'
-      CFLAGS: '-I$AGENT_BUILDDIRECTORY/openssl/include'
+      OPENSSL_ROOT_DIR: '$PWD/openssl'
+      OPENSSL_INCLUDE_DIR: '$PWD/openssl/include'
+      LDFLAGS: '$PWD/openssl/lib/libssl.a $PWD/openssl/lib/libcrypto.a'
+      CFLAGS: '-I$PWD/openssl/include'
   
 - job: 'Linux'
   pool:
