@@ -74,6 +74,8 @@ jobs:
     displayName: 'Build uAMQP Wheel'
     env:
       UAMQP_REBUILD_PYX: 'True'
+  - script: dir dist
+    displayName: 'Check output'
       
 - job: 'Windowsx86'
   pool:
@@ -98,7 +100,9 @@ jobs:
     displayName: 'Build uAMQP Wheel'
     env:
       UAMQP_REBUILD_PYX: 'True'
-  
+  - script: dir dist
+    displayName: 'Check output'  
+   
 #- job: 'ManyLinux'
 #  pool:
 #    vmImage: 'Ubuntu 16.04'
