@@ -74,7 +74,7 @@ jobs:
     condition: succeededOrFailed()
 
 - job: 'Publish'
-  dependsOn: 'Test'
+  dependsOn: 'Linux'
   pool:
     vmImage: 'Ubuntu 16.04'
 
