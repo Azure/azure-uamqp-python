@@ -34,6 +34,9 @@ jobs:
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
+    env:
+      OPENSSL_VERSION: '1.0.2o'
+      MACOSX_DEPLOYMENT_TARGET: '10.6'
   - script: ls $AGENT_TEMPDIRECTORY
     displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
