@@ -34,7 +34,7 @@ jobs:
     displayName: 'Install dependencies'  
   - script: source ./build_openssl_osx.sh
     displayName: 'Build OpenSSL'
-  - script: ls $PWD/openssl
+  - script: ls $PWD
     displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
