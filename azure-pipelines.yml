@@ -51,7 +51,7 @@ jobs:
 #  - script: ls ./dist
 #    displayName: 'Check output'
     
-- job: 'Windows x64'
+- job: 'Windowsx64'
   pool:
     vmImage: 'vs2017-win2016'
   strategy:
@@ -75,7 +75,7 @@ jobs:
     env:
       UAMQP_REBUILD_PYX: 'True'
       
-- job: 'Windows x86'
+- job: 'Windowsx86'
   pool:
     vmImage: 'vs2017-win2016'
   strategy:
@@ -99,7 +99,7 @@ jobs:
     env:
       UAMQP_REBUILD_PYX: 'True'
   
-#- job: 'Linux'
+#- job: 'ManyLinux'
 #  pool:
 #    vmImage: 'Ubuntu 16.04'
 #  strategy:
