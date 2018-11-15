@@ -36,14 +36,14 @@ jobs:
     displayName: 'Build OpenSSL'
     env:
       OPENSSL_VERSION: '1.0.2o'
-      MACOSX_DEPLOYMENT_TARGET: '10.6'
+      MACOSX_DEPLOYMENT_TARGET: '10.13'
   - script: ls $AGENT_TEMPDIRECTORY/openssl/lib
     displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
     env:
-      MACOSX_DEPLOYMENT_TARGET: '10.6'
-      CMAKE_OSX_DEPLOYMENT_TARGET: '10.6'
+      MACOSX_DEPLOYMENT_TARGET: '10.13'
+      CMAKE_OSX_DEPLOYMENT_TARGET: '10.13'
       CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
