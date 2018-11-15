@@ -84,7 +84,7 @@ def get_build_env():
 
 def get_generator():
     if is_win:
-        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 14 2015"
+        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 15 2017"
         if is_x64:
             return generator + " Win64"
         else:
