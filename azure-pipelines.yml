@@ -5,15 +5,57 @@
 
 jobs:
 
-- job: 'MacOS'
+#- job: 'MacOS'
+#  pool:
+#    vmImage: 'macOS-10.13'
+#  strategy:
+#    matrix:
+#      Python27:
+#        python.version: '2.7'
+#      Python34:
+#        python.version: '3.4'
+#      Python35:
+#        python.version: '3.5'
+#      Python36:
+#        python.version: '3.6'
+#      Python37:
+#        python.version: '3.7'
+#    maxParallel: 1
+#  steps:
+#  - task: UsePythonVersion@0
+#    inputs:
+#      versionSpec: '$(python.version)'
+#      architecture: 'x64'
+#  - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
+#    displayName: 'Install dependencies'  
+#  - script: source ./build_openssl_osx.sh
+#    displayName: 'Build OpenSSL'
+#    env:
+#      OPENSSL_VERSION: '1.0.2o'
+#      MACOSX_DEPLOYMENT_TARGET: '10.13'
+#  - script: ls $AGENT_TEMPDIRECTORY/openssl/lib
+#    displayName: 'List Build Dir'
+#  - script: python setup.py bdist_wheel
+#    displayName: 'Build uAMQP Wheel'
+#    env:
+#      MACOSX_DEPLOYMENT_TARGET: '10.13'
+#      CMAKE_OSX_DEPLOYMENT_TARGET: '10.13'
+#      CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
+#      UAMQP_USE_OPENSSL: 'True'
+#      UAMQP_REBUILD_PYX: 'True'
+#      UAMQP_SUPPRESS_LINK_FLAGS: 'True'
+#      OPENSSL_ROOT_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl'
+#      OPENSSL_INCLUDE_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
+#      LDFLAGS: '/Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libssl.a /Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libcrypto.a'
+#      CFLAGS: '-I/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
+#  - script: ls ./dist
+#    displayName: 'Check output'
+    
+- job: 'Windows x64'
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'vs2017-win2016'
   strategy:
     matrix:
-      Python27:
-        python.version: '2.7'
-      Python34:
-        python.version: '3.4'
       Python35:
         python.version: '3.5'
       Python36:
@@ -26,42 +68,18 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
-  - script: env
-    displayName: 'Check Env'
-  - script: ls $PWD
-    displayName: 'Check Build Dir'
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
     displayName: 'Install dependencies'  
-  - script: source ./build_openssl_osx.sh
-    displayName: 'Build OpenSSL'
-    env:
-      OPENSSL_VERSION: '1.0.2o'
-      MACOSX_DEPLOYMENT_TARGET: '10.13'
-  - script: ls $AGENT_TEMPDIRECTORY/openssl/lib
-    displayName: 'List Build Dir'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
     env:
-      MACOSX_DEPLOYMENT_TARGET: '10.13'
-      CMAKE_OSX_DEPLOYMENT_TARGET: '10.13'
-      CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
-      UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
-      UAMQP_SUPPRESS_LINK_FLAGS: 'True'
-      OPENSSL_ROOT_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl'
-      OPENSSL_INCLUDE_DIR: '/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
-      LDFLAGS: '/Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libssl.a /Users/vsts/agent/2.142.1/work/_temp/openssl/lib/libcrypto.a'
-      CFLAGS: '-I/Users/vsts/agent/2.142.1/work/_temp/openssl/include'
-  - script: ls ./dist
-    displayName: 'Check output'
-  
-- job: 'Linux'
+      
+- job: 'Windows x86'
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'vs2017-win2016'
   strategy:
     matrix:
-      Python27:
-        python.version: '2.7'
       Python35:
         python.version: '3.5'
       Python36:
@@ -69,15 +87,41 @@ jobs:
       Python37:
         python.version: '3.7'
     maxParallel: 1
-
   steps:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
-
   - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
-    displayName: 'Install dependencies'
+    displayName: 'Install dependencies'  
+  - script: python setup.py bdist_wheel
+    displayName: 'Build uAMQP Wheel'
+    env:
+      UAMQP_REBUILD_PYX: 'True'
+  
+#- job: 'Linux'
+#  pool:
+#    vmImage: 'Ubuntu 16.04'
+#  strategy:
+#    matrix:
+#      Python27:
+#        python.version: '2.7'
+#      Python35:
+#        python.version: '3.5'
+#      Python36:
+#        python.version: '3.6'
+#      Python37:
+#        python.version: '3.7'
+#    maxParallel: 1
+
+#  steps:
+#  - task: UsePythonVersion@0
+#    inputs:
+#      versionSpec: '$(python.version)'
+#      architecture: 'x64'
+
+#  - script: python -m pip install --upgrade pip && pip install -r dev_requirements.txt
+#    displayName: 'Install dependencies'
 
 #  - script: |
 #      pip install pytest
