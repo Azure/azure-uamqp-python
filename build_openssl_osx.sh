@@ -2,7 +2,6 @@
 
 # Modified from https://gist.github.com/tmiz/1441111
 
-export DEST="$AGENT_TEMPDIRECTORY/openssl"
 # Acquire sources
 curl -O https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
 tar -xvzf openssl-$OPENSSL_VERSION.tar.gz
