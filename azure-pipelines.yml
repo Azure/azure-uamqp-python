@@ -3,8 +3,31 @@
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
+variables:
+  MACOSX_DEPLOYMENT_TARGET: '10.6'
+  OPENSSL_VERSION: '1.0.2o'
+  OPENSSL_ROOT_DIR: $(Agent.TempDirectory)/openssl
 jobs:
+- job: 'MacOSOpenSSL'
+  displayName: 'MacOS Shared OpenSSL'
+  pool:
+    vmImage: 'macOS-10.13'
+  steps:
+  - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
+    displayName: 'Select Xcode 9.4.1'
+  - script: source ./build_openssl_osx.sh
+    displayName: 'Build OpenSSL'
+    env:
+      DEST: $(Agent.TempDirectory)
+      LDFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+      CFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+  - task: PublishPipelineArtifact@0
+    displayName: 'Publish OpenSSL artifact'
+    inputs:
+      artifactName: openssl.macos.$(OPENSSL_VERSION)
+      targetPath: $(OPENSSL_ROOT_DIR)
 - job: 'MacOS'
+  dependsOn: 'MacOSOpenSSL'
   pool:
     vmImage: 'macOS-10.13'
   strategy:
@@ -25,12 +48,6 @@ jobs:
         python.version: '3.7.1'
         python.bin: 'python3'
     maxParallel: 1
-  variables:
-    OPENSSL_ROOT_DIR: $(Agent.TempDirectory)/openssl
-    MACOSX_DEPLOYMENT_TARGET: '10.6'
-    CMAKE_OSX_DEPLOYMENT_TARGET: '10.6'
-    CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
-    COMPILE_FLAGS: '-mmacosx-version-min=10.6'
   steps:
   - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
     displayName: 'Select Xcode 9.4.1'
@@ -38,24 +55,29 @@ jobs:
     displayName: 'Install Official Python'
   - script: curl https://bootstrap.pypa.io/get-pip.py | /usr/local/bin/$(python.bin) && /usr/local/bin/$(python.bin) -m pip install -r dev_requirements.txt
     displayName: 'Install dependencies'
-  - script: source ./build_openssl_osx.sh
-    displayName: 'Build OpenSSL'
-    env:
-      DEST: $(OPENSSL_ROOT_DIR)
-      OPENSSL_VERSION: '1.0.2o'
-      LDFLAGS: $(COMPILE_FLAGS)
-      CFLAGS: $(COMPILE_FLAGS)
+  - task: DownloadPipelineArtifact@0
+    displayName: 'Download OpenSSL artifact'
+    inputs:
+      artifactName: openssl.macos.$(OPENSSL_VERSION)
+      targetPath: $(OPENSSL_ROOT_DIR)
   - script: /usr/local/bin/$(python.bin) setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
     env:
+      CMAKE_OSX_DEPLOYMENT_TARGET: $(MACOSX_DEPLOYMENT_TARGET)
+      CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
       UAMQP_SUPPRESS_LINK_FLAGS: 'True'
       OPENSSL_INCLUDE_DIR: $(OPENSSL_ROOT_DIR)/include
-      LDFLAGS: $(COMPILE_FLAGS) -L$(OPENSSL_ROOT_DIR)/lib
-      CFLAGS: $(COMPILE_FLAGS) -I$(OPENSSL_ROOT_DIR)/include
+      LDFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET) -L$(OPENSSL_ROOT_DIR)/lib
+      CFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET) -I$(OPENSSL_ROOT_DIR)/include
   - script: ls ./dist
     displayName: 'Check output'
+  - task: PublishPipelineArtifact@0
+    displayName: 'Publish wheel artifact'
+    inputs:
+      artifactName: wheel.macos.$(python.version)
+      targetPath: 'dist'
 # - job: 'Windowsx64'
 #   pool:
 #     vmImage: 'vs2017-win2016'
