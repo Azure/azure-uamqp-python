@@ -67,7 +67,6 @@ jobs:
       CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
       UAMQP_USE_OPENSSL: 'True'
       UAMQP_REBUILD_PYX: 'True'
-      UAMQP_SUPPRESS_LINK_FLAGS: 'True'
       OPENSSL_INCLUDE_DIR: $(OPENSSL_ROOT_DIR)/include
       LDFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET) -L$(OPENSSL_ROOT_DIR)/lib
       CFLAGS: -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET) -I$(OPENSSL_ROOT_DIR)/include

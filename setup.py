@@ -243,7 +243,7 @@ elif is_mac:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
     if use_openssl and not supress_link_flags:
-        kwargs['libraries'].extend(['ssl', 'crypto'])
+        kwargs['libraries'].extend(['azssl', 'azcrypto'])
     elif not use_openssl:
         kwargs['extra_link_args'] = [
             '-framework', 'CoreFoundation',

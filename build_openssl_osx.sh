@@ -30,5 +30,5 @@ mv $DEST/openssl $DEST/openssl_x86_64
 # Move files into place and generate universal binaries
 cd $DEST
 cp -a ./openssl_x86_64/. ./openssl/
-lipo -create openssl_i386/lib/libcrypto.a openssl_x86_64/lib/libcrypto.a -output openssl/lib/libcrypto.a
-lipo -create openssl_i386/lib/libssl.a openssl_x86_64/lib/libssl.a -output openssl/lib/libssl.a
+lipo -create openssl_i386/lib/libcrypto.a openssl_x86_64/lib/libcrypto.a -output openssl/lib/libazcrypto.a
+lipo -create openssl_i386/lib/libssl.a openssl_x86_64/lib/libssl.a -output openssl/lib/libazssl.a
