@@ -110,7 +110,7 @@ typedef void(*LOGGER_LOG_GETLASTERROR)(const char* file, const char* func, int l
     } \
 }
 #else
-#define LOG(log_category, log_options, format, ...) { if (0) { (void)printf(format, ##__VA_ARGS__); } { LOGGER_LOG l = xlogging_get_log_function(); if (l != NULL) l(log_category, __FILE__, FUNC_NAME, __LINE__, log_options, format, ##__VA_ARGS__); } }
+#define LOG(log_category, log_options, format, ...) { LOGGER_LOG l = xlogging_get_log_function(); if (l != NULL) l(log_category, __FILE__, FUNC_NAME, __LINE__, log_options, format, ##__VA_ARGS__); }
 #endif
 
 #if defined _MSC_VER
