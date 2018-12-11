@@ -534,7 +534,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         self._waiting_messages = 0
-        with self._pending_messages_lock:
+        async with self._pending_messages_lock:
             self._pending_messages = await self._filter_pending_async()
         if self._backoff and not self._waiting_messages:
             _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
@@ -559,7 +559,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         if self.message_handler:
             await self.message_handler.destroy_async()
             self.message_handler = None
-        with self._pending_messages_lock:
+        async with self._pending_messages_lock:
             self._pending_messages = []
 
         self._remote_address = address.Target(redirect.address)
@@ -597,7 +597,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         pending_batch = []
         for message in batch:
             message.idle_time = self._counter.get_current_ms()
-            with self._pending_messages_lock:
+            async with self._pending_messages_lock:
                 self._pending_messages.append(message)
             pending_batch.append(message)
         await self.open_async()
