@@ -630,7 +630,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         await self.open_async()
         try:
-            messages = self._pending_messages[:]
+            async with self._pending_messages_lock:
+                messages = self._pending_messages[:]
             await self.wait_async()
             results = [m.state for m in messages]
             return results
