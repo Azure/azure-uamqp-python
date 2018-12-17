@@ -461,6 +461,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
 
         # AMQP object settings
         self.sender_type = MessageSenderAsync
+        self._pending_messages_lock = asyncio.Lock()
 
     async def _client_ready_async(self):
         """Determine whether the client is ready to start sending messages.
@@ -533,7 +534,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         self._waiting_messages = 0
-        self._pending_messages = await self._filter_pending_async()
+        async with self._pending_messages_lock:
+            self._pending_messages = await self._filter_pending_async()
         if self._backoff and not self._waiting_messages:
             _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             await self._connection.sleep_async(self._backoff)
@@ -557,7 +559,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         if self.message_handler:
             await self.message_handler.destroy_async()
             self.message_handler = None
-        self._pending_messages = []
+        async with self._pending_messages_lock:
+            self._pending_messages = []
 
         self._remote_address = address.Target(redirect.address)
         await self._redirect_async(redirect, auth)
@@ -594,7 +597,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         pending_batch = []
         for message in batch:
             message.idle_time = self._counter.get_current_ms()
-            self._pending_messages.append(message)
+            async with self._pending_messages_lock:
+                self._pending_messages.append(message)
             pending_batch.append(message)
         await self.open_async()
         try:
@@ -626,7 +630,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         await self.open_async()
         try:
-            messages = self._pending_messages[:]
+            async with self._pending_messages_lock:
+                messages = self._pending_messages[:]
             await self.wait_async()
             results = [m.state for m in messages]
             return results
