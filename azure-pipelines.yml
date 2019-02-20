@@ -3,6 +3,9 @@
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
+trigger:
+- master
+
 variables:
   MACOSX_DEPLOYMENT_TARGET: '10.6'
   OPENSSL_VERSION: '1.0.2q'
@@ -12,6 +15,7 @@ variables:
   PythonVersion35: '3.5.4'
   PythonVersion36: '3.6.4'
   PythonVersion37: '3.7.0'
+
 jobs:
 - job: 'MacOS_OpenSSL'
   condition: false
@@ -123,6 +127,12 @@ jobs:
     inputs:
       versionSpec: '$(PythonVersion)'
       architecture: '$(PythonArchitecture)'
+  - powershell: |
+     Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
+     Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
+     Get-Content VCForPython27.log
+    displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
+    condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
   - powershell: |
      Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
      python -m pip install -r dev_requirements.txt
