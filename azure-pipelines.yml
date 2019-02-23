@@ -105,7 +105,6 @@ jobs:
       artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
 
 - job: 'Windows'
-  condition: false
   pool:
     vmImage: 'vs2017-win2016'
   strategy:
@@ -185,7 +184,6 @@ jobs:
       artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
     condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
 - job: 'Linux'
-  condition: false
   pool:
     vmImage: 'ubuntu-16.04'
   strategy:
