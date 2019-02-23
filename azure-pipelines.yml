@@ -37,7 +37,7 @@ jobs:
   - task: PublishPipelineArtifact@0
     displayName: 'Publish OpenSSL artifact'
     inputs:
-      artifactName: openssl.macos.$(OpenSSLVersion)
+      artifactName: openssl-macosx$(MacOSXDeploymentTarget)-$(OpenSSLVersion)
       targetPath: $(Build.ArtifactStagingDirectory)/openssl
 
 - job: 'MacOS'
@@ -76,7 +76,7 @@ jobs:
   - task: DownloadPipelineArtifact@0
     displayName: 'Download OpenSSL artifact'
     inputs:
-      artifactName: openssl.macos.$(OpenSSLVersion)
+      artifactName: openssl-macosx10.6-$(OpenSSLVersion)
       targetPath: $(OpenSSLDir)
   - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
     displayName: 'Select Xcode 9.4.1'
@@ -102,7 +102,7 @@ jobs:
     displayName: 'Publish wheel artifact'
     inputs:
       pathToPublish: 'dist'
-      artifactName: wheel.macos.$(PythonVersion)
+      artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
 
 - job: 'Windows'
   condition: false
@@ -181,7 +181,7 @@ jobs:
   - task: PublishPipelineArtifact@0
     displayName: 'Publish wheel artifact'
     inputs:
-      artifactName: wheel.win.$(PythonArchitecture).$(PythonVersion)
+      artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
       targetPath: 'dist'
     condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
 - job: 'Linux'
@@ -227,7 +227,7 @@ jobs:
   - task: PublishPipelineArtifact@0
     displayName: 'Publish wheel artifact'
     inputs:
-      artifactName: wheel.manylinux.$(PythonVersion)
+      artifactName: uamqp-manylinux-$(PythonVersion)-whl
       targetPath: 'dist'
 - job: 'LinuxTest'
   condition: false
