@@ -178,11 +178,11 @@ jobs:
   - script: dir dist
     displayName: 'Check output'
     condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
-  - task: PublishPipelineArtifact@0
+  - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
+      pathToPublish: 'dist'
       artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-      targetPath: 'dist'
     condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
 - job: 'Linux'
   condition: false
@@ -224,11 +224,11 @@ jobs:
       UAMQP_REBUILD_PYX: 'True'
   - script: ls ./dist
     displayName: 'Check output'
-  - task: PublishPipelineArtifact@0
+  - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
+      pathToPublish: 'dist'
       artifactName: uamqp-manylinux-$(PythonVersion)-whl
-      targetPath: 'dist'
 - job: 'LinuxTest'
   condition: false
   pool:
