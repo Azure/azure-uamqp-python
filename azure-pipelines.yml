@@ -8,11 +8,11 @@ trigger:
 
 variables:
   OpenSSLVersion: '1.0.2q'
-  PythonVersion27: '2.7.14'
-  PythonVersion34: '3.4.4'
-  PythonVersion35: '3.5.4'
-  PythonVersion36: '3.6.4'
-  PythonVersion37: '3.7.0'
+  PythonVersion27: '2.7'
+  PythonVersion34: '3.4'
+  PythonVersion35: '3.5'
+  PythonVersion36: '3.6'
+  PythonVersion37: '3.7'
   PythonVersionPre: '3.8.0a1'
 
 jobs:
@@ -72,6 +72,11 @@ jobs:
         PythonBin: 'python3'
   variables:
     OpenSSLDir: $(Agent.BuildDirectory)/openssl
+    PythonVersion27: '2.7.15'
+    PythonVersion34: '3.4.4'
+    PythonVersion35: '3.5.4'
+    PythonVersion36: '3.6.5'
+    PythonVersion37: '3.7.0'
   steps:
   - task: DownloadPipelineArtifact@0
     displayName: 'Download OpenSSL artifact'
@@ -145,6 +150,8 @@ jobs:
       x86 - Python Prerelease:
         PythonVersion: '$(PythonVersionPre)'
         PythonArchitecture: 'x86'
+  variables:
+    SkipWheel: '$(PythonVersion34)'
   steps:
   - task: UsePythonVersion@0
     inputs:
@@ -173,16 +180,17 @@ jobs:
     displayName: 'Build uAMQP Wheel'
     env:
       UAMQP_REBUILD_PYX: 'True'
-    condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
+    condition: not(contains(variables['SkipWheel'], variables['PythonVersion']))
   - script: dir dist
     displayName: 'Check output'
-    condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
+    condition: not(contains(variables['SkipWheel'], variables['PythonVersion']))
   - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
       pathToPublish: 'dist'
       artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-    condition: ne(variables['PythonVersion'], variables['PythonVersion34'])
+    condition: not(contains(variables['SkipWheel'], variables['PythonVersion']))
+
 - job: 'Linux'
   pool:
     vmImage: 'ubuntu-16.04'
@@ -227,33 +235,12 @@ jobs:
     inputs:
       pathToPublish: 'dist'
       artifactName: uamqp-manylinux-$(PythonVersion)-whl
-- job: 'LinuxTest'
-  condition: false
-  pool:
-    vmImage: 'ubuntu-16.04'
-  strategy:
-    matrix:
-      Python 2.7:
-        PythonVersion: '$(PythonVersion27)'
-      Python 3.4:
-        PythonVersion: '$(PythonVersion34)'
-      Python 3.5:
-        PythonVersion: '$(PythonVersion35)'
-      Python 3.6:
-        PythonVersion: '$(PythonVersion36)'
-      Python 3.7:
-        PythonVersion: '$(PythonVersion37)'
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(PythonVersion)'
-  - script: curl https://bootstrap.pypa.io/get-pip.py | python && python -m pip install -r dev_requirements.txt
-    displayName: 'Install dependencies'
-  - script: pytest tests --doctest-modules --junitxml=junit/test-results.xml
-    displayName: 'Run Tests'
-  - task: PublishTestResults@2
-    inputs:
-      testResultsFormat: 'JUnit'
-      testResultsFiles: '**/test-results.xml'
-      testRunTitle: 'Linux - Python $(PythonVersion)'
-    condition: succeededOrFailed()
+
+  # - script: pytest tests --doctest-modules --junitxml=junit/test-results.xml
+  #   displayName: 'Run Tests'
+  # - task: PublishTestResults@2
+  #   inputs:
+  #     testResultsFormat: 'JUnit'
+  #     testResultsFiles: '**/test-results.xml'
+  #     testRunTitle: 'Linux - Python $(PythonVersion)'
+  #   condition: succeededOrFailed()
