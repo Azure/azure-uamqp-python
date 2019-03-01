@@ -107,6 +107,17 @@ jobs:
       CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
   - script: ls ./dist
     displayName: 'Check output'
+  - script: |
+     $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+     pytest tests --doctest-modules --junitxml=junit/test-results.xml
+    displayName: 'Run tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/test-results.xml'
+      testRunTitle: 'MacOS - Python $(PythonVersion)'
+    condition: succeededOrFailed()
   - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
@@ -188,6 +199,18 @@ jobs:
   - script: dir dist
     displayName: 'Check output'
     condition: not(contains(variables['SkipWheel'], variables['PythonVersion']))
+  - powershell: |
+     $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+     python -m pip install --ignore-installed ./dist/$whlfile
+     pytest tests --doctest-modules --junitxml=junit/test-results.xml
+    displayName: 'Run tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/test-results.xml'
+      testRunTitle: 'Windows $(PythonArchitecture) - Python $(PythonVersion)'
+    condition: succeededOrFailed()
   - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
@@ -238,17 +261,19 @@ jobs:
       UAMQP_REBUILD_PYX: 'True'
   - script: ls ./dist
     displayName: 'Check output'
+  - script: |
+     python -m pip install --user --ignore-installed ./dist/*.whl
+     pytest tests --doctest-modules --junitxml=junit/test-results.xml
+    displayName: 'Run tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/test-results.xml'
+      testRunTitle: 'Linux - Python $(PythonVersion)'
+    condition: succeededOrFailed()
   - task: PublishBuildArtifacts@1
     displayName: 'Publish wheel artifact'
     inputs:
       pathToPublish: 'dist'
       artifactName: uamqp-manylinux-$(PythonVersion)-whl
-
-  # - script: pytest tests --doctest-modules --junitxml=junit/test-results.xml
-  #   displayName: 'Run Tests'
-  # - task: PublishTestResults@2
-  #   inputs:
-  #     testResultsFormat: 'JUnit'
-  #     testResultsFiles: '**/test-results.xml'
-  #     testRunTitle: 'Linux - Python $(PythonVersion)'
-  #   condition: succeededOrFailed()
