@@ -13,7 +13,7 @@ variables:
   PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
-  PythonVersionPre: '3.8.0a1'
+  PythonVersionPre: '3.8.0a2'
 
 jobs:
 
@@ -87,7 +87,11 @@ jobs:
     displayName: 'Select Xcode 9.4.1'
   - script: source ./install_python_osx.sh
     displayName: 'Install Official Python'
-  - script: $(PythonBin) --version && curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) && $(PythonBin) -m pip install -r dev_requirements.txt
+  - script: |
+     $(PythonBin) --version
+     curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) - --user
+     $(PythonBin) -m pip install --user -r dev_requirements.txt
+     echo "##vso[task.prependpath]/Users/vsts/Library/Python/`ls /Users/vsts/Library/Python | head -n1`/bin"
     displayName: 'Install dependencies'
   - script: $(PythonBin) setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
@@ -222,7 +226,11 @@ jobs:
      sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
     displayName: 'Install Python Version'
     condition: eq(variables['PythonVersion'], variables['PythonVersionPre'])
-  - script: python --version && curl -sS https://bootstrap.pypa.io/get-pip.py | python && python -m pip install -r dev_requirements.txt
+  - script: |
+     python --version
+     curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
+     python -m pip install --user -r dev_requirements.txt
+     echo "##vso[task.prependpath]/home/vsts/.local/bin"
     displayName: 'Install dependencies'
   - script: python setup.py bdist_wheel
     displayName: 'Build uAMQP Wheel'
