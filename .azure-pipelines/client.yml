@@ -2,7 +2,6 @@ trigger:
   - master
 
 variables:
-  OpenSSLVersion: '1.0.2q'
   PythonVersion27: '2.7'
   PythonVersion35: '3.5'
   PythonVersion36: '3.6'
@@ -10,38 +9,7 @@ variables:
   PythonVersion38: '3.8.0a2'
 
 jobs:
-  - job: 'MacOS_OpenSSL'
-
-    displayName: 'MacOS Shared OpenSSL'
-
-    pool:
-      vmImage: 'macOS-10.13'
-
-    variables:
-      MacOSXDeploymentTarget: '10.6'
-
-    steps:
-      - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
-        displayName: 'Select Xcode 9.4.1'
-
-      - script: source ./build_openssl_osx.sh
-        displayName: 'Build OpenSSL'
-        env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
-          DEST: $(Build.ArtifactStagingDirectory)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
-          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_VERSION: $(OpenSSLVersion)
-
-      - task: PublishPipelineArtifact@0
-        displayName: 'Publish OpenSSL artifact'
-        inputs:
-          artifactName: openssl-macosx$(MacOSXDeploymentTarget)-$(OpenSSLVersion)
-          targetPath: $(Build.ArtifactStagingDirectory)/openssl
-
   - job: 'MacOS'
-
-    dependsOn: 'MacOS_OpenSSL'
 
     pool:
       vmImage: 'macOS-10.13'
@@ -77,11 +45,15 @@ jobs:
       PythonVersion37: '3.7.0'
 
     steps:
-      - task: DownloadPipelineArtifact@0
+      - task: DownloadPipelineArtifact@1
         displayName: 'Download OpenSSL artifact'
         inputs:
-          artifactName: openssl-macosx10.6-$(OpenSSLVersion)
-          targetPath: $(OpenSSLDir)
+          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
+          buildType: specific
+          buildVersionToDownload: latest
+          downloadPath: $(OpenSSLDir)
+          pipeline: 119 # azure-uamqp-python - openssl
+          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
       - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
         displayName: 'Select Xcode 9.4.1'
