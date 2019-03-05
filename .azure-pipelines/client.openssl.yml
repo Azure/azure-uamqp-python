@@ -1,0 +1,37 @@
+trigger: none
+pr: none
+
+variables:
+  OpenSSLVersion: '1.0.2q'
+
+jobs:
+  - job: 'OpenSSL'
+
+    pool:
+      vmImage: 'macOS-10.13'
+
+    strategy:
+      matrix:
+        MacOS 10.6:
+          MacOSXDeploymentTarget: '10.6'
+        MacOS 10.9:
+          MacOSXDeploymentTarget: '10.9'
+
+    steps:
+      - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
+        displayName: 'Select Xcode 9.4.1'
+
+      - script: source ./build_openssl_osx.sh
+        displayName: 'Build OpenSSL'
+        env:
+          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
+          DEST: $(Build.ArtifactStagingDirectory)
+          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
+          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
+          OPENSSL_VERSION: $(OpenSSLVersion)
+
+      - task: PublishPipelineArtifact@0
+        displayName: 'Publish OpenSSL artifact'
+        inputs:
+          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
+          targetPath: $(Build.ArtifactStagingDirectory)/openssl
