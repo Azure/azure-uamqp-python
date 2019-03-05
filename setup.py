@@ -10,7 +10,7 @@ import re
 import distutils
 import subprocess
 import platform
-from setuptools import find_packages, setup, Extension
+from setuptools import find_packages, monkey, setup, Extension
 from setuptools.command.build_ext import build_ext as build_ext_orig
 from distutils.extension import Extension
 from distutils.version import LooseVersion
@@ -79,12 +79,16 @@ def create_cython_file():
 
 def get_build_env():
     build_env = os.environ.copy()
-    return build_env
+    return {k.upper(): v for k, v in build_env.items()}
 
+def is_msvc_9_for_python_compiler():
+    return is_win and is_27 and os.path.exists("C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0")
 
 def get_generator():
+    if is_msvc_9_for_python_compiler():
+        return "NMake Makefiles"
     if is_win:
-        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 14 2015"
+        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 15 2017"
         if is_x64:
             return generator + " Win64"
         else:
@@ -98,9 +102,6 @@ def get_latest_windows_sdk():
 
     This is only run on Windows if using Python 2.7.
     """
-
-    if not is_win or not is_27:
-        return []
 
     from _winreg import ConnectRegistry, OpenKey, EnumKey, QueryValueEx, HKEY_LOCAL_MACHINE
     installed_sdks = {}
@@ -120,6 +121,7 @@ def get_latest_windows_sdk():
                             if not version:
                                 continue
                             installed_sdks[version[0].lstrip('v')] = location[0]
+                            logger.info("Found Windows SDK %s at %s" % (version[0], location[0]))
                     except EnvironmentError:
                         break
     except EnvironmentError:
@@ -131,16 +133,32 @@ def get_latest_windows_sdk():
         print("Warning - build may fail: Cannot find Windows SDK 8.1 or greater.")
         return []
 
-    lib_path = os.path.join(installed_sdks[installed_versions[-1].vstring], "lib")
-    sdk_path = os.path.join(lib_path, os.listdir(lib_path)[-1], "um", 'x64' if is_x64 else 'x86')
-    if not os.path.isdir(sdk_path):
-        print("Warning - build may fail: Windows SDK v{} not found at path {}.".format(
-            installed_versions[-1].vstring, sdk_path))
-    else:
-        print("Adding Windows SDK v{} to search path, installed at {}".format(
-            installed_versions[-1].vstring, sdk_path))
+    latest_sdk_version = installed_versions[-1].vstring
+    logger.info("Selecting Windows SDK v%s" % latest_sdk_version)
+    lib_path = os.path.join(installed_sdks[latest_sdk_version], "lib")
+    libs_dirs = [d for d in os.listdir(lib_path) if os.path.isdir(os.path.join(lib_path, d, "um"))]
+    if not libs_dirs:
+        print("Warning - build may fail: No Windows SDK libraries found.")
+        return []
 
-    return [sdk_path]
+    logger.info("Found SDK libraries %s in Windows SDK v%s" % (", ".join(libs_dirs), latest_sdk_version))
+    latest_libs_dir = max([LooseVersion(d) for d in libs_dirs]).vstring
+    logger.info("Selecting SDK libraries %s" % latest_libs_dir)
+
+    platform_libs_path = os.path.join(lib_path, latest_libs_dir, "um", 'x64' if is_x64 else 'x86')
+    if not os.path.isdir(platform_libs_path):
+        print("Warning - build may fail: Windows SDK v{} libraries {} not found at path {}.".format(
+            latest_sdk_version, latest_libs_dir, sdk_platform_libs_pathpath))
+    else:
+        print("Adding Windows SDK v{} libraries {} to search path, installed at {}".format(
+            latest_sdk_version, latest_libs_dir, platform_libs_path))
+
+    return [platform_libs_path]
+
+def get_msvc_env(vc_ver):
+    arch = "amd64" if is_x64 else "x86"
+    msvc_env = distutils.msvc9compiler.query_vcvarsall(vc_ver, arch)
+    return {str(k.upper()): str(v) for k, v in msvc_env.items()}
 
 
 # Compile uamqp
@@ -161,6 +179,7 @@ def create_folder_no_exception(foldername):
 class build_ext(build_ext_orig):
 
     def run(self):
+        monkey.patch_all()
         cmake_build_dir = None
         for ext in self.extensions:
             if isinstance(ext, UAMQPExtension):
@@ -176,7 +195,11 @@ class build_ext(build_ext_orig):
                     cmake_build_dir + "/deps/azure-c-shared-utility/Debug/",
                     cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
-        ext.library_dirs.extend(get_latest_windows_sdk())
+
+        if is_win and is_27:
+            ext.library_dirs.extend([lib for lib in get_msvc_env(9.0)['LIB'].split(';') if lib])
+            ext.library_dirs.extend(get_latest_windows_sdk())
+
         build_ext_orig.run(self)
 
     def build_cmake(self, ext):
@@ -196,6 +219,11 @@ class build_ext(build_ext_orig):
         generator = get_generator()
         logger.info("Building with generator: {}".format(generator))
 
+        build_env = get_build_env()
+        if is_msvc_9_for_python_compiler():
+            logger.info("Configuring environment for Microsoft Visual C++ Compiler for Python 2.7")
+            build_env.update(get_msvc_env(9.0))
+
         # Configure
         configure_command = [
             "cmake",
@@ -209,7 +237,6 @@ class build_ext(build_ext_orig):
             "-DCMAKE_BUILD_TYPE=Release"
         ]
 
-        build_env = get_build_env()
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
         subprocess.check_call(joined_cmd, shell=True, universal_newlines=True, env=build_env)
@@ -243,7 +270,7 @@ elif is_mac:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
     if use_openssl and not supress_link_flags:
-        kwargs['libraries'].extend(['ssl', 'crypto'])
+        kwargs['libraries'].extend(['azssl', 'azcrypto'])
     elif not use_openssl:
         kwargs['extra_link_args'] = [
             '-framework', 'CoreFoundation',
