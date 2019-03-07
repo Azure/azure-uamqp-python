@@ -42,6 +42,8 @@ jobs:
 
   - job: 'MacOS'
 
+    condition: or(ne(variables['Build.Reason'], 'PullRequest'), ne(variables['PythonVersion'], variables['PythonVersion38']))
+
     pool:
       vmImage: 'macOS-10.13'
 
@@ -135,6 +137,8 @@ jobs:
           pathToPublish: 'dist'
 
   - job: 'Windows'
+
+    condition: or(ne(variables['Build.Reason'], 'PullRequest'), ne(variables['PythonVersion'], variables['PythonVersion38']))
 
     pool:
       vmImage: 'vs2017-win2016'
@@ -233,6 +237,8 @@ jobs:
     pool:
       vmImage: 'ubuntu-16.04'
 
+    condition: or(ne(variables['Build.Reason'], 'PullRequest'), ne(variables['PythonVersion'], variables['PythonVersion38']))
+
     strategy:
       matrix:
         Python 2.7:
@@ -298,7 +304,7 @@ jobs:
 
   - job: 'ManyLinux1'
 
-    condition: ne(variables['System.TeamProject'], 'public')
+    condition: ne(variables['Build.Reason'], 'PullRequest')
 
     pool:
       vmImage: 'ubuntu-16.04'
