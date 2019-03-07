@@ -293,5 +293,42 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
         inputs:
-          artifactName: uamqp-manylinux-$(PythonVersion)-whl
+          artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
+
+  - job: 'ManyLinux1'
+
+    condition: ne(variables['System.TeamProject'], 'public')
+
+    pool:
+      vmImage: 'ubuntu-16.04'
+
+    strategy:
+      matrix:
+        x64:
+          PythonArchitecture: 'x64'
+        x86:
+          PythonArchitecture: 'x86'
+
+    steps:
+      - task: Docker@1
+        displayName: 'Build and test with Docker'
+        inputs:
+          azureContainerRegistry: azuresdkimages.azurecr.io
+          azureSubscriptionEndpoint: 'Azure SDK Images'
+          command: 'Run an image'
+          containerCommand: '/data/build_many_linux.sh'
+          envVars: 'UAMQP_REBUILD_PYX=True'
+          imageName: 'manylinux_crypto_$(PythonArchitecture)'
+          qualifyImageName: true
+          runInBackground: false
+          volumes: '$(System.DefaultWorkingDirectory):/data'
+
+      - script: ls ./wheelhouse
+        displayName: 'Check output'
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifacts'
+        inputs:
+          artifactName: uamqp-manylinux1-$(PythonArchitecture)-whl
+          pathToPublish: 'wheelhouse'
