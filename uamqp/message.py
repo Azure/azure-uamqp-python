@@ -464,19 +464,21 @@ class BatchMessage(Message):
             body_size = 0
             try:
                 for data in self._body_gen:
-                    message_segment = []
-                    if isinstance(data, six.text_type):
-                        data = data.encode(self._encoding)
-                    batch_data = c_uamqp.create_data(data)
-                    c_uamqp.enocde_batch_value(batch_data, message_segment)
-                    combined = b"".join(message_segment)
-                    body_size += len(combined)
+                    message_bytes = None
+                    if not isinstance(data, Message):  # raw data
+                        wrap_message = Message(body=data, application_properties=self.application_properties)
+                        message_bytes = wrap_message.encode_message()
+                    else:
+                        if not data.application_properties:  # Message without app_prop
+                            data.application_properties = self.application_properties
+                        message_bytes = data.encode_message()
+                    body_size += len(message_bytes)
                     if (body_size + message_size) > self.max_message_length:
                         new_message.on_send_complete = self.on_send_complete
                         yield new_message
                         raise StopIteration()
                     else:
-                        new_message._body.append(combined)  # pylint: disable=protected-access
+                        new_message._body.append(message_bytes)  # pylint: disable=protected-access
             except StopIteration:
                 _logger.debug("Sent partial message.")
                 continue
@@ -501,19 +503,20 @@ class BatchMessage(Message):
         body_size = 0
 
         for data in self._body_gen:
-            message_segment = []
-            if isinstance(data, six.text_type):
-                data = data.encode(self._encoding)
-            batch_data = c_uamqp.create_data(data)
-            c_uamqp.enocde_batch_value(batch_data, message_segment)
-            combined = b"".join(message_segment)
-            body_size += len(combined)
-
+            message_bytes = None
+            if not isinstance(data, Message):
+                wrap_message = Message(body=data, application_properties=self.application_properties)
+                message_bytes = wrap_message.encode_message()
+            else:
+                if not data.application_properties:  # Message without app_prop
+                    data.application_properties = self.application_properties
+                message_bytes = data.encode_message()
+            body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
-            new_message._body.append(combined)  # pylint: disable=protected-access
+            new_message._body.append(message_bytes)  # pylint: disable=protected-access
         new_message.on_send_complete = self.on_send_complete
         return [new_message]
 
