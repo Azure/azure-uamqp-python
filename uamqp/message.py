@@ -458,10 +458,14 @@ class BatchMessage(Message):
 
         :rtype: generator[~uamqp.message.Message]
         """
+        unappended_message_bytes = None
         while True:
             new_message = self._create_batch_message()
             message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
+            if unappended_message_bytes:
+                new_message._body.append(unappended_message_bytes)
+                body_size += len(unappended_message_bytes)
             try:
                 for data in self._body_gen:
                     message_bytes = None
@@ -475,6 +479,7 @@ class BatchMessage(Message):
                     body_size += len(message_bytes)
                     if (body_size + message_size) > self.max_message_length:
                         new_message.on_send_complete = self.on_send_complete
+                        unappended_message_bytes = message_bytes
                         yield new_message
                         raise StopIteration()
                     else:
@@ -504,7 +509,7 @@ class BatchMessage(Message):
 
         for data in self._body_gen:
             message_bytes = None
-            if not isinstance(data, Message):
+            if not isinstance(data, Message):  # raw data
                 wrap_message = Message(body=data, application_properties=self.application_properties)
                 message_bytes = wrap_message.encode_message()
             else:
