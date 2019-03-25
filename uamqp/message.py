@@ -469,13 +469,13 @@ class BatchMessage(Message):
             try:
                 for data in self._body_gen:
                     message_bytes = None
-                    if not isinstance(data, Message):  # raw data
-                        wrap_message = Message(body=data, application_properties=self.application_properties)
-                        message_bytes = wrap_message.encode_message()
-                    else:
-                        if not data.application_properties:  # Message without app_prop
+                    try:
+                        if not data.application_properties:  # Message-like object
                             data.application_properties = self.application_properties
                         message_bytes = data.encode_message()
+                    except AttributeError:  # raw data
+                        wrap_message = Message(body=data, application_properties=self.application_properties)
+                        message_bytes = wrap_message.encode_message()
                     body_size += len(message_bytes)
                     if (body_size + message_size) > self.max_message_length:
                         new_message.on_send_complete = self.on_send_complete
@@ -509,13 +509,13 @@ class BatchMessage(Message):
 
         for data in self._body_gen:
             message_bytes = None
-            if not isinstance(data, Message):  # raw data
-                wrap_message = Message(body=data, application_properties=self.application_properties)
-                message_bytes = wrap_message.encode_message()
-            else:
-                if not data.application_properties:  # Message without app_prop
+            try:
+                if not data.application_properties:  # Message-like object
                     data.application_properties = self.application_properties
                 message_bytes = data.encode_message()
+            except AttributeError:  # raw data
+                wrap_message = Message(body=data, application_properties=self.application_properties)
+                message_bytes = wrap_message.encode_message()
             body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
