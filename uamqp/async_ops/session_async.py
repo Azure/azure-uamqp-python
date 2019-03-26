@@ -106,7 +106,7 @@ class SessionAsync(session.Session):
                 await self._connection.work_async()
             if mgmt_link.mgmt_error:
                 raise mgmt_link.mgmt_error
-            elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
+            if mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
         status, response, description = await mgmt_link.execute_async(operation, op_type, message, timeout=timeout)

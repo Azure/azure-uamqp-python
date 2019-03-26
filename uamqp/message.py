@@ -176,7 +176,7 @@ class Message(object):
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:
             raise TypeError("Only received messages can be settled.")
-        elif self.settled:
+        if self.settled:
             return False
         return True
 
@@ -258,7 +258,7 @@ class Message(object):
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
-        elif not self._message:
+        if not self._message:
             raise ValueError("Message data already consumed.")
         try:
             raise self._response
@@ -464,7 +464,7 @@ class BatchMessage(Message):
             message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
             if unappended_message_bytes:
-                new_message._body.append(unappended_message_bytes)
+                new_message._body.append(unappended_message_bytes)  # pylint: disable=protected-access
                 body_size += len(unappended_message_bytes)
             try:
                 for data in self._body_gen:
@@ -482,8 +482,7 @@ class BatchMessage(Message):
                         unappended_message_bytes = message_bytes
                         yield new_message
                         raise StopIteration()
-                    else:
-                        new_message._body.append(message_bytes)  # pylint: disable=protected-access
+                    new_message._body.append(message_bytes)  # pylint: disable=protected-access
             except StopIteration:
                 _logger.debug("Sent partial message.")
                 continue

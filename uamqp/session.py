@@ -118,7 +118,7 @@ class Session(object):
                 self._connection.work()
             if mgmt_link.mgmt_error:
                 raise mgmt_link.mgmt_error
-            elif mgmt_link.open != constants.MgmtOpenStatus.Ok:
+            if mgmt_link.open != constants.MgmtOpenStatus.Ok:
                 raise errors.AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.open))
         op_type = op_type or b'empty'
         status, response, description = mgmt_link.execute(operation, op_type, message, timeout=timeout)
