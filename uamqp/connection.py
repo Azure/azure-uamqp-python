@@ -115,8 +115,7 @@ class Connection(object):
         if sasl.consumed:
             raise ValueError("The supplied authentication has already been consumed by "
                              "another connection. Please create a fresh instance.")
-        else:
-            sasl.consumed = True
+        sasl.consumed = True
         conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
             self.hostname,

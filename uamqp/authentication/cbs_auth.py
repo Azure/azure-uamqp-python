@@ -116,14 +116,13 @@ class CBSAuthMixin(object):
                 if self.retries >= self._retry_policy.retries:  # pylint: disable=no-member
                     _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
-                else:
-                    error_code, error_description = self._cbs_auth.get_failure_info()
-                    _logger.info("Authentication status: %r, description: %r", error_code, error_description)
-                    _logger.info("Authentication Put-Token failed. Retrying.")
-                    self.retries += 1  # pylint: disable=no-member
-                    time.sleep(self._retry_policy.backoff)
-                    self._cbs_auth.authenticate()
-                    in_progress = True
+                error_code, error_description = self._cbs_auth.get_failure_info()
+                _logger.info("Authentication status: %r, description: %r", error_code, error_description)
+                _logger.info("Authentication Put-Token failed. Retrying.")
+                self.retries += 1  # pylint: disable=no-member
+                time.sleep(self._retry_policy.backoff)
+                self._cbs_auth.authenticate()
+                in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
                 errors.AuthenticationException("Failed to open CBS authentication link.")
             elif auth_status == constants.CBSAuthStatus.Expired:
@@ -227,7 +226,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.token = self._encode(token)
         if not expires_at and not expires_in:
             raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
-        elif not expires_at:
+        if not expires_at:
             self.expires_in = expires_in
             self.expires_at = time.time() + expires_in.seconds
         else:

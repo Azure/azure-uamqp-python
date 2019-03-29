@@ -91,14 +91,13 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 if self.retries >= self._retry_policy.retries:  # pylint: disable=no-member
                     _logger.warning("Authentication Put-Token failed. Retries exhausted.")
                     raise errors.TokenAuthFailure(*self._cbs_auth.get_failure_info())
-                else:
-                    error_code, error_description = self._cbs_auth.get_failure_info()
-                    _logger.info("Authentication status: %r, description: %r", error_code, error_description)
-                    _logger.info("Authentication Put-Token failed. Retrying.")
-                    self.retries += 1  # pylint: disable=no-member
-                    await asyncio.sleep(self._retry_policy.backoff)
-                    self._cbs_auth.authenticate()
-                    in_progress = True
+                error_code, error_description = self._cbs_auth.get_failure_info()
+                _logger.info("Authentication status: %r, description: %r", error_code, error_description)
+                _logger.info("Authentication Put-Token failed. Retrying.")
+                self.retries += 1  # pylint: disable=no-member
+                await asyncio.sleep(self._retry_policy.backoff)
+                self._cbs_auth.authenticate()
+                in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
                 errors.AuthenticationException("Failed to open CBS authentication link.")
             elif auth_status == constants.CBSAuthStatus.Expired:
@@ -172,4 +171,4 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
      Default is 'UTF-8'.
     :type encoding: str
     """
-    pass
+    

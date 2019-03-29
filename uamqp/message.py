@@ -176,7 +176,7 @@ class Message(object):
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:
             raise TypeError("Only received messages can be settled.")
-        elif self.settled:
+        if self.settled:
             return False
         return True
 
@@ -258,7 +258,7 @@ class Message(object):
         """
         if self.state in constants.RECEIVE_STATES:
             raise TypeError("Only new messages can be gathered.")
-        elif not self._message:
+        if not self._message:
             raise ValueError("Message data already consumed.")
         try:
             raise self._response
@@ -458,25 +458,31 @@ class BatchMessage(Message):
 
         :rtype: generator[~uamqp.message.Message]
         """
+        unappended_message_bytes = None
         while True:
             new_message = self._create_batch_message()
             message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
+            if unappended_message_bytes:
+                new_message._body.append(unappended_message_bytes)  # pylint: disable=protected-access
+                body_size += len(unappended_message_bytes)
             try:
                 for data in self._body_gen:
-                    message_segment = []
-                    if isinstance(data, six.text_type):
-                        data = data.encode(self._encoding)
-                    batch_data = c_uamqp.create_data(data)
-                    c_uamqp.enocde_batch_value(batch_data, message_segment)
-                    combined = b"".join(message_segment)
-                    body_size += len(combined)
+                    message_bytes = None
+                    try:
+                        if not data.application_properties:  # Message-like object
+                            data.application_properties = self.application_properties
+                        message_bytes = data.encode_message()
+                    except AttributeError:  # raw data
+                        wrap_message = Message(body=data, application_properties=self.application_properties)
+                        message_bytes = wrap_message.encode_message()
+                    body_size += len(message_bytes)
                     if (body_size + message_size) > self.max_message_length:
                         new_message.on_send_complete = self.on_send_complete
+                        unappended_message_bytes = message_bytes
                         yield new_message
                         raise StopIteration()
-                    else:
-                        new_message._body.append(combined)  # pylint: disable=protected-access
+                    new_message._body.append(message_bytes)  # pylint: disable=protected-access
             except StopIteration:
                 _logger.debug("Sent partial message.")
                 continue
@@ -501,19 +507,20 @@ class BatchMessage(Message):
         body_size = 0
 
         for data in self._body_gen:
-            message_segment = []
-            if isinstance(data, six.text_type):
-                data = data.encode(self._encoding)
-            batch_data = c_uamqp.create_data(data)
-            c_uamqp.enocde_batch_value(batch_data, message_segment)
-            combined = b"".join(message_segment)
-            body_size += len(combined)
-
+            message_bytes = None
+            try:
+                if not data.application_properties:  # Message-like object
+                    data.application_properties = self.application_properties
+                message_bytes = data.encode_message()
+            except AttributeError:  # raw data
+                wrap_message = Message(body=data, application_properties=self.application_properties)
+                message_bytes = wrap_message.encode_message()
+            body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:
                 raise ValueError(
                     "Data set too large for a single message."
                     "Set multi_messages to True to split data across multiple messages.")
-            new_message._body.append(combined)  # pylint: disable=protected-access
+            new_message._body.append(message_bytes)  # pylint: disable=protected-access
         new_message.on_send_complete = self.on_send_complete
         return [new_message]
 
