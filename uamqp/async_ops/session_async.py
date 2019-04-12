@@ -4,10 +4,10 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import logging
 
 from uamqp import constants, errors, session
+from uamqp.utils import get_running_loop
 from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
 
 _logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class SessionAsync(session.Session):
                  handle_max=None,
                  on_attach=None,
                  loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(SessionAsync, self).__init__(
             connection,
             incoming_window=incoming_window,

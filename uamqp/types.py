@@ -120,6 +120,48 @@ class AMQPuLong(AMQPType):
             raise ValueError("Value {} is too large for an unsigned Long value.".format(value))
 
 
+class AMQPByte(AMQPType):
+    """An AMQP byte object.
+
+    :ivar value: The Python value of the AMQP type.
+    :vartype value: int
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: uamqp.c_uamqp.ByteValue
+    :param value: The value to encode as an AMQP ulong.
+    :type value: int
+    :raises: ValueError if value is not within allowed range.
+    """
+
+    def _c_wrapper(self, value):
+        try:
+            return c_uamqp.byte_value(int(value))
+        except TypeError:
+            raise ValueError("Value must be an integer")
+        except OverflowError:
+            raise ValueError("Value {} is too large for a Byte value.".format(value))
+
+
+class AMQPuByte(AMQPType):
+    """An AMQP unsigned byte object.
+
+    :ivar value: The Python value of the AMQP uByte.
+    :vartype value: int
+    :ivar c_data: The C AMQP encoded object.
+    :vartype c_data: uamqp.c_uamqp.UByteValue
+    :param value: The value to encode as an AMQP unsigned Byte.
+    :type value: list
+    :raises: ValueError if value is not within allowed range.
+    """
+
+    def _c_wrapper(self, value):
+        try:
+            return c_uamqp.ubyte_value(int(value))
+        except TypeError:
+            raise ValueError("Value must be an integer")
+        except OverflowError:
+            raise ValueError("Value {} is too large for an unsigned Byte value.".format(value))
+
+
 class AMQPInt(AMQPType):
     """An AMQP int object.
 
