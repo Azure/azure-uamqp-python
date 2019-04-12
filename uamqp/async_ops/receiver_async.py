@@ -8,6 +8,7 @@ import asyncio
 import logging
 
 from uamqp import constants, errors, receiver
+from uamqp.utils import get_running_loop
 
 _logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
             on_message_received,

@@ -14,6 +14,7 @@ import queue
 import uuid
 
 from uamqp import address, authentication, client, constants, errors
+from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
@@ -104,7 +105,7 @@ class AMQPClientAsync(client.AMQPClient):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(AMQPClientAsync, self).__init__(
             remote_address,
             auth=auth,
@@ -464,7 +465,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         client.SendClient.__init__(
             self,
             target,
@@ -757,7 +758,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         client.ReceiveClient.__init__(
             self,
             source,

@@ -9,6 +9,7 @@ import logging
 import uuid
 
 from uamqp import Message, constants, errors
+from uamqp.utils import get_running_loop
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
 
@@ -54,7 +55,7 @@ class MgmtOperationAsync(MgmtOperation):
                  description_fields=b'statusDescription',
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,

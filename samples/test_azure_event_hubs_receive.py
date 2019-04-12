@@ -188,7 +188,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
     source = address.Source(source_url)
-    source.set_filter(b"amqp.annotation.x-opt-sequence-number > 1324709514")
+    source.set_filter(b"amqp.annotation.x-opt-sequence-number > 1500")
 
     with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
         log.info("Created client, receiving...")

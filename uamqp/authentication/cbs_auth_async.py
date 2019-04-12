@@ -8,6 +8,7 @@ import asyncio
 import logging
 
 from uamqp import c_uamqp, constants, errors
+from uamqp.utils import get_running_loop
 from uamqp.async_ops import SessionAsync
 
 from .cbs_auth import CBSAuthMixin, SASTokenAuth
@@ -32,7 +33,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         :type loop: ~asycnio.AbstractEventLoop
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         self._connection = connection
         self._session = SessionAsync(connection, loop=self.loop, **kwargs)
         try:
