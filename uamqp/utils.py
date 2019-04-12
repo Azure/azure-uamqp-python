@@ -16,7 +16,7 @@ from uamqp import c_uamqp
 
 def get_running_loop():
     try:
-        import asyncio
+        import asyncio  # pylint: disable=import-error
         return asyncio.get_running_loop()
     except AttributeError:  # 3.5 / 3.6
         loop = asyncio._get_running_loop()  # pylint: disable=protected-access
