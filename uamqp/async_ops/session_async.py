@@ -4,7 +4,6 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import logging
 
 from uamqp import constants, errors, session
