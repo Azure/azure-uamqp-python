@@ -349,6 +349,37 @@ cdef class Messaging(object):
         return value_factory(_value)
 
 
+cdef void destroy_amqp_objects_in_get_encoded_message_size(c_amqp_definitions.HEADER_HANDLE header,
+    c_amqpvalue.AMQP_VALUE header_amqp_value, c_amqpvalue.AMQP_VALUE msg_annotations,
+    c_amqp_definitions.PROPERTIES_HANDLE properties, c_amqpvalue.AMQP_VALUE properties_amqp_value,
+    c_amqpvalue.AMQP_VALUE application_properties, c_amqpvalue.AMQP_VALUE application_properties_value,
+    c_amqpvalue.AMQP_VALUE body_amqp_value):
+
+    if <void*>header != NULL:
+        c_amqp_definitions.header_destroy(header)
+
+    if <void*>header_amqp_value != NULL:
+        c_amqpvalue.amqpvalue_destroy(header_amqp_value)
+
+    if <void*>msg_annotations != NULL:
+        c_amqpvalue.amqpvalue_destroy(msg_annotations)
+
+    if <void*>properties != NULL:
+        c_amqp_definitions.properties_destroy(properties)
+
+    if <void*>properties_amqp_value != NULL:
+        c_amqpvalue.amqpvalue_destroy(properties_amqp_value)
+
+    if <void*>application_properties != NULL:
+        c_amqpvalue.amqpvalue_destroy(application_properties)
+
+    if <void*>application_properties_value != NULL:
+        c_amqpvalue.amqpvalue_destroy(application_properties_value)
+
+    if <void*>body_amqp_value != NULL:
+        c_amqpvalue.amqpvalue_destroy(body_amqp_value)
+
+
 cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
 
         cdef c_message.MESSAGE_HANDLE c_msg
@@ -356,14 +387,14 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
 
         cdef c_message.MESSAGE_BODY_TYPE_TAG message_body_type
         cdef c_amqp_definitions.message_format message_format
-        cdef c_amqp_definitions.HEADER_HANDLE header
-        cdef c_amqpvalue.AMQP_VALUE header_amqp_value
-        cdef c_amqp_definitions.PROPERTIES_HANDLE properties
-        cdef c_amqpvalue.AMQP_VALUE properties_amqp_value
-        cdef c_amqpvalue.AMQP_VALUE application_properties
-        cdef c_amqpvalue.AMQP_VALUE application_properties_value
-        cdef c_amqpvalue.AMQP_VALUE body_amqp_value
-        cdef c_amqpvalue.AMQP_VALUE msg_annotations
+        cdef c_amqp_definitions.HEADER_HANDLE header = <c_amqp_definitions.HEADER_HANDLE>NULL
+        cdef c_amqpvalue.AMQP_VALUE header_amqp_value = <c_amqpvalue.AMQP_VALUE>NULL
+        cdef c_amqp_definitions.PROPERTIES_HANDLE properties = <c_amqp_definitions.PROPERTIES_HANDLE>NULL
+        cdef c_amqpvalue.AMQP_VALUE properties_amqp_value = <c_amqpvalue.AMQP_VALUE>NULL
+        cdef c_amqpvalue.AMQP_VALUE application_properties = <c_amqpvalue.AMQP_VALUE>NULL
+        cdef c_amqpvalue.AMQP_VALUE application_properties_value = <c_amqpvalue.AMQP_VALUE>NULL
+        cdef c_amqpvalue.AMQP_VALUE body_amqp_value = <c_amqpvalue.AMQP_VALUE>NULL
+        cdef c_amqpvalue.AMQP_VALUE msg_annotations = <c_amqpvalue.AMQP_VALUE>NULL
         cdef c_amqpvalue.AMQP_VALUE message_body_amqp_value
         cdef c_message.BINARY_DATA binary_data
         cdef c_amqpvalue.AMQP_VALUE body_amqp_data
@@ -381,10 +412,16 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
             header_amqp_value = c_amqp_definitions.amqpvalue_create_header(header)
             if <void*>header_amqp_value == NULL:
                 _logger.debug("Cannot create header AMQP value")
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise MemoryError("Cannot get cMessage header.")
             else:
                 if c_amqpvalue.amqpvalue_get_encoded_size(header_amqp_value, &encoded_size) != 0:
                     _logger.debug("Cannot obtain header encoded size")
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot obtain header encoded size")
                 else:
                     total_encoded_size += encoded_size
@@ -393,6 +430,9 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
         if c_message.message_get_message_annotations(c_msg, &msg_annotations) == 0 and <void*>msg_annotations != NULL:
             if c_amqpvalue.amqpvalue_get_encoded_size(msg_annotations, &encoded_size) != 0:
                 _logger.debug("Cannot obtain message annotations encoded size")
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot obtain message annotations encoded size")
             else:
                 total_encoded_size += encoded_size
@@ -402,10 +442,16 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
             properties_amqp_value = c_amqp_definitions.amqpvalue_create_properties(properties)
             if <void*>properties_amqp_value == NULL:
                 _logger.debug("Cannot create properties AMQP value")
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise MemoryError("Cannot get cMessage properties.")
             else:
                 if c_amqpvalue.amqpvalue_get_encoded_size(properties_amqp_value, &encoded_size) != 0:
                     _logger.debug("Cannot obtain message properties encoded size")
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot obtain message properties encoded size")
                 else:
                     total_encoded_size += encoded_size
@@ -415,10 +461,16 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
             application_properties_value = c_amqp_definitions.amqpvalue_create_application_properties(application_properties)
             if <void*>application_properties_value == NULL:
                 _logger.debug("Cannot create application properties AMQP value")
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise MemoryError("Cannot get cMessage application properties.")
             else:
                 if c_amqpvalue.amqpvalue_get_encoded_size(application_properties_value, &encoded_size) != 0:
                     _logger.debug("Cannot obtain application properties encoded size")
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot obtain application properties encoded size")
                 else:
                     total_encoded_size += encoded_size
@@ -426,13 +478,22 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
         # value body
         if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_VALUE:
             if c_message.message_get_body_amqp_value_in_place(c_msg, &message_body_amqp_value) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot obtain AMQP value from body")
             body_amqp_value = c_amqp_definitions.amqpvalue_create_amqp_value(message_body_amqp_value)
             if <void*>body_amqp_value == NULL:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise MemoryError("Cannot create body AMQP value")
             else:
                 if c_amqpvalue.amqpvalue_get_encoded_size(body_amqp_value, &encoded_size) != 0:
                     _logger.debug("Cannot get body AMQP value encoded size")
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot get body AMQP value encoded size")
                 else:
                     total_encoded_size += encoded_size
@@ -440,21 +501,37 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
         # data body
         if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_DATA:
             if c_message.message_get_body_amqp_data_count(c_msg, &body_data_count) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot get body AMQP data count")
             if body_data_count == 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Body data count is zero")
             for i in range(body_data_count):
                 if c_message.message_get_body_amqp_data_in_place(c_msg, i, &binary_data) != 0:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot get body AMQP data {}".format(i))
 
                 binary_value.bytes = binary_data.bytes
                 binary_value.length = <stdint.uint32_t>binary_data.length
                 body_amqp_data = c_amqp_definitions.amqpvalue_create_data(binary_value)
                 if <void*>body_amqp_data == NULL:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise MemoryError("Cannot create body AMQP data")
                 else:
                     if c_amqpvalue.amqpvalue_get_encoded_size(body_amqp_data, &encoded_size) != 0:
                         _logger.debug("Cannot get body AMQP data encoded size")
+                        destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                            properties, properties_amqp_value, application_properties, application_properties_value,
+                            body_amqp_value)
+                        c_amqpvalue.amqpvalue_destroy(body_amqp_data)
                         raise ValueError("Cannot get body AMQP data encoded size")
                     else:
                         total_encoded_size += encoded_size
@@ -466,48 +543,77 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
                     header_amqp_value,
                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                     <void*>encoded_data) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot encode header value")
         if <void*>msg_annotations != NULL:
             if c_amqpvalue.amqpvalue_encode(
                     msg_annotations,
                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                     <void*>encoded_data) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot encode message annotations value")
         if <void*>properties != NULL:
             if c_amqpvalue.amqpvalue_encode(
                     properties_amqp_value,
                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                     <void*>encoded_data) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot encode message properties value")
         if <void*>application_properties != NULL:
             if c_amqpvalue.amqpvalue_encode(
                     application_properties_value,
                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                     <void*>encoded_data) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot encode application properties value")
         if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_VALUE:
             if c_amqpvalue.amqpvalue_encode(
                     body_amqp_value,
                     <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                     <void*>encoded_data) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
                 raise ValueError("Cannot encode body AMQP value")
         if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_DATA:
             for i in range(body_data_count):
                 if c_message.message_get_body_amqp_data_in_place(c_msg, i, &binary_data) != 0:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise ValueError("Cannot get body AMQP data {}".format(i))
 
                 binary_value.bytes = binary_data.bytes
                 binary_value.length = <stdint.uint32_t>binary_data.length
                 body_amqp_data = c_amqp_definitions.amqpvalue_create_data(binary_value)
                 if <void*>body_amqp_data == NULL:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
                     raise MemoryError("Cannot create body AMQP data")
                 else:
                     if c_amqpvalue.amqpvalue_encode(
                             body_amqp_data,
                             <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
                             <void*>encoded_data) != 0:
+                        destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+                            properties, properties_amqp_value, application_properties, application_properties_value,
+                            body_amqp_value)
+                        c_amqpvalue.amqpvalue_destroy(body_amqp_data)
                         raise ValueError("Cannot encode body AMQP value")
                     c_amqpvalue.amqpvalue_destroy(body_amqp_data)
+
+        destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations,
+            properties, properties_amqp_value, application_properties, application_properties_value,
+            body_amqp_value)
 
         return total_encoded_size
 
