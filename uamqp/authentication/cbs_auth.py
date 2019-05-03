@@ -208,6 +208,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
                  http_proxy=None,
+                 websocket_config=None,
                  encoding='UTF-8'):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
@@ -238,7 +239,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.timeout = timeout
         self.retries = 0
         self.sasl = _SASL()
-        self.set_tlsio(self.hostname, port, http_proxy)
+        self.set_io(self.hostname, port, http_proxy, websocket_config)
 
     def update_token(self):
         """If a username and password are present - attempt to use them to
@@ -267,6 +268,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=TokenRetryPolicy(),
             verify=None,
             http_proxy=None,
+            websocket_config=None,
             encoding='UTF-8'):
         """Attempt to create a CBS token session using a Shared Access Key such
         as is used to connect to Azure services.
@@ -319,4 +321,5 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=retry_policy,
             verify=verify,
             http_proxy=http_proxy,
+            websocket_config=websocket_config,
             encoding=encoding)
