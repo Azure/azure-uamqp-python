@@ -11,7 +11,7 @@ cimport c_xio
 
 DEFAULT_WS_PORT = 443
 cdef const char* DEFAULT_WS_PROTOCOL_NAME = "AMQPWSB10"
-cdef const char* DEFAULT_WS_RELATIVE_PATH = "/$servicebus/websocket"
+cdef const char* DEFAULT_WS_RELATIVE_PATH = "/$servicebus/websocket/"
 
 
 cdef class WSIOConfig(object):
@@ -19,7 +19,7 @@ cdef class WSIOConfig(object):
     cdef c_wsio.WSIO_CONFIG _c_value
     
     def __cinit__(self):
-        self._c_value = c_wsio.WSIO_CONFIG(NULL, DEFAULT_WS_PORT, NULL, DEFAULT_WS_PROTOCOL_NAME, NULL, NULL)
+        self._c_value = c_wsio.WSIO_CONFIG(NULL, DEFAULT_WS_PORT, DEFAULT_WS_RELATIVE_PATH, DEFAULT_WS_PROTOCOL_NAME, NULL, NULL)
     
     @property
     def hostname(self):

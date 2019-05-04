@@ -73,20 +73,28 @@ class AMQPAuth(object):
         # 1. wsios config
         _wsio_config = c_uamqp.WSIOConfig()
 
+        '''
         for key, value in websocket_config.items():
             websocket_config[key] = self._encode(value)
 
         ws_hostname = websocket_config.pop('websocket_hostname', None)
-        ws_port = websocket_config('websocket_port', None)
+        ws_resource_name = websocket_config.pop('resource_name', None)
+        ws_protocal = websocket_config('protocol_name', None)
+        '''
 
-        _wsio_config.hostname = ws_hostname if ws_hostname else hostname
-        _wsio_config.port = int(ws_port) if ws_port else port
+        _wsio_config.hostname = hostname
+        _wsio_config.port = constants.DEFAULT_AMQP_WS_PORT
+        
+        '''
+        _wsio_config.resource_name = ws_resource_name
+        _wsio_config.protocol = ws_protocal
+        '''
 
         # 2. create underlying TLSIO
         _default_tlsio = c_uamqp.get_default_tlsio()
         _tlsio_config = c_uamqp.TLSIOConfig()
         _tlsio_config.hostname = hostname
-        _tlsio_config.port = int(port)
+        _tlsio_config.port = constants.DEFAULT_AMQP_WS_PORT
         if http_proxy:
             proxy_config = self._build_proxy_config(hostname, port, http_proxy)
             _tlsio_config.set_proxy_config(proxy_config)
