@@ -117,14 +117,15 @@ jobs:
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          pytest --doctest-modules --junitxml=junit/test-results.xml
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
         inputs:
-          testResultsFiles: '**/test-results.xml'
+          testResultsFiles: '**/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'MacOS Python $(PythonVersion)'
 
@@ -211,14 +212,15 @@ jobs:
       - powershell: |
           $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
-          pytest --doctest-modules --junitxml=junit/test-results.xml
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
         inputs:
-          testResultsFiles: '**/test-results.xml'
+          testResultsFiles: '**/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
@@ -279,14 +281,15 @@ jobs:
 
       - script: |
           python -m pip install --user --ignore-installed ./dist/*.whl
-          pytest --doctest-modules --junitxml=junit/test-results.xml
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
         inputs:
-          testResultsFiles: '**/test-results.xml'
+          testResultsFiles: '**/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'Linux Python $(PythonVersion)'
 
