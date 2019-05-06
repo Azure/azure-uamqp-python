@@ -117,7 +117,7 @@ jobs:
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results.xml
+          pytest --doctest-modules --junitxml=junit/test-results.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
@@ -211,7 +211,7 @@ jobs:
       - powershell: |
           $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results.xml
+          pytest --doctest-modules --junitxml=junit/test-results.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
@@ -279,7 +279,7 @@ jobs:
 
       - script: |
           python -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results.xml
+          pytest --doctest-modules --junitxml=junit/test-results.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
