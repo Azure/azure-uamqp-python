@@ -31,7 +31,7 @@ def test_event_hubs_simple_send(live_eventhub_config):
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    result = uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
+    result = uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
     assert result == [uamqp.constants.MessageState.SendComplete]
 
 
@@ -42,7 +42,7 @@ def test_event_hubs_client_send_sync(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     for _ in range(10):
         header = uamqp.message.MessageHeader()
         header.durable = True
@@ -71,7 +71,7 @@ def test_event_hubs_client_send_multiple_sync(live_eventhub_config):
     assert not sas_auth.consumed
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     messages = []
     for _ in range(10):
         header = uamqp.message.MessageHeader()
@@ -140,7 +140,7 @@ def test_event_hubs_batch_send_sync(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
     for _ in range(10):
         message_batch = uamqp.message.BatchMessage(data_generator())
         send_client.queue_message(message_batch)
