@@ -32,7 +32,7 @@ def test_rabbitmq_client_send_sync(rabbit_mq_config):
     pytest.skip("Not working yet")
     uri = "amqp://{}/{}/".format(rabbit_mq_config['hostname'], rabbit_mq_config['path'])
     sas_auth = uamqp.authentication.SASLAnonymous(hostname=rabbit_mq_config['hostname'], port=5672)
-    send_client = uamqp.SendClient(uri, auth=sas_auth, debug=True)
+    send_client = uamqp.SendClient(uri, auth=sas_auth, debug=False)
     try:
         message = uamqp.Message("content")
         send_client.queue_message(message)
