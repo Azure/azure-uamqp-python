@@ -118,6 +118,7 @@ jobs:
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
+
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
