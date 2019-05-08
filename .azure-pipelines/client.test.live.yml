@@ -9,42 +9,125 @@ variables:
   PythonVersion38: '3.8.0a2'
 
 jobs:
-  - job: 'sdist'
-    displayName: 'Source Distribution'
+  - job: 'Windows'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'vs2017-win2016'
+    
+    timeoutInMinutes: 120
+
+    strategy:
+      maxParallel: 1
+      matrix:
+        x64 Python 2.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion27)'
+        x64 Python 3.5:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion35)'
+        x64 Python 3.6:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion36)'
+        x64 Python 3.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion37)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+        x86 Python 2.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion27)'
+        x86 Python 3.5:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion35)'
+        x86 Python 3.6:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion36)'
+        x86 Python 3.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion37)'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
+        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
-          versionSpec: '$(PythonVersion37)'
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
 
-      - script: |
+      - powershell: |
+          choco install python3 --pre --$(PythonArchitecture) --yes --no-progress --params "/InstallDir:C:\PythonPre"
+          Write-Host "##vso[task.prependpath]C:\PythonPre\Scripts"
+          Write-Host "##vso[task.prependpath]C:\PythonPre"
+        displayName: 'Install Python Version'
+        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
+
+      - powershell: |
+          Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
+          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
+          Get-Content VCForPython27.log
+        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
+        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
+
+      - powershell: |
           python --version
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
-          python -m pip install --user -r dev_requirements.txt
-          echo "##vso[task.prependpath]/home/vsts/.local/bin"
+          Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
+          python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
-      - script: python setup.py sdist
-        displayName: 'Build uAMQP sdist'
 
-      - script: ls ./dist
+      - script: python setup.py bdist_wheel
+        displayName: 'Build uAMQP Wheel'
+        env:
+          UAMQP_REBUILD_PYX: 'True'
+
+      - script: dir dist
         displayName: 'Check output'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish sdist artifact'
+      - powershell: |
+          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+          python -m pip install --ignore-installed ./dist/$whlfile
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
         inputs:
-          artifactName: uamqp-sdist
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
   - job: 'MacOS'
+
+    dependsOn: 'Windows'
+
+    timeoutInMinutes: 120
 
     pool:
       vmImage: 'macOS-10.13'
 
     strategy:
+      maxParallel: 1
       matrix:
         Python 2.7:
           MacOSXDeploymentTarget: '10.6'
@@ -97,6 +180,7 @@ jobs:
           $(PythonBin) -m pip install --user -r dev_requirements.txt
           echo "##vso[task.prependpath]/Users/vsts/Library/Python/`ls /Users/vsts/Library/Python | head -n1`/bin"
         displayName: 'Install dependencies'
+
       - script: $(PythonBin) setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
@@ -119,10 +203,16 @@ jobs:
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
-          EVENT_HUB_HOSTNAME: $(python-ev-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-ev-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-ev-livetest-event-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-ev-livetest-event-sas-key)
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
       - task: PublishTestResults@2
         displayName: 'Publish test results'
@@ -138,103 +228,18 @@ jobs:
           artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
-  - job: 'Windows'
-
-    pool:
-      vmImage: 'vs2017-win2016'
-
-    strategy:
-      matrix:
-        x64 Python 2.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion27)'
-        x64 Python 3.5:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion35)'
-        x64 Python 3.6:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion36)'
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-        x86 Python 2.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion27)'
-        x86 Python 3.5:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion35)'
-        x86 Python 3.6:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion36)'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-        x86 Python 3.8:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion38)'
-
-    steps:
-      - task: UsePythonVersion@0
-        displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
-        inputs:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
-
-      - powershell: |
-          choco install python3 --pre --$(PythonArchitecture) --yes --no-progress --params "/InstallDir:C:\PythonPre"
-          Write-Host "##vso[task.prependpath]C:\PythonPre\Scripts"
-          Write-Host "##vso[task.prependpath]C:\PythonPre"
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
-      - powershell: |
-          Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
-          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
-          Get-Content VCForPython27.log
-        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
-      - powershell: |
-          python --version
-          Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
-          python -m pip install -r dev_requirements.txt
-        displayName: 'Install dependencies'
-      - script: python setup.py bdist_wheel
-        displayName: 'Build uAMQP Wheel'
-        env:
-          UAMQP_REBUILD_PYX: 'True'
-
-      - script: dir dist
-        displayName: 'Check output'
-
-      - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-          python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
-
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
 
   - job: 'Linux'
+    
+    timeoutInMinutes: 120
+
+    dependsOn: 'Windows'
 
     pool:
       vmImage: 'ubuntu-16.04'
 
     strategy:
+      maxParallel: 1
       matrix:
         Python 2.7:
           PythonVersion: '$(PythonVersion27)'
@@ -262,12 +267,14 @@ jobs:
           sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
         displayName: 'Install Python Version'
         condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
+
       - script: |
           python --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
           python -m pip install --user -r dev_requirements.txt
           echo "##vso[task.prependpath]/home/vsts/.local/bin"
         displayName: 'Install dependencies'
+
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
@@ -281,6 +288,18 @@ jobs:
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
+        env:
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+          
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
@@ -294,40 +313,3 @@ jobs:
         inputs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
-
-  - job: 'ManyLinux1'
-
-    condition: ne(variables['System.TeamProject'], 'public')
-
-    pool:
-      vmImage: 'ubuntu-16.04'
-
-    strategy:
-      matrix:
-        x64:
-          PythonArchitecture: 'x64'
-        x86:
-          PythonArchitecture: 'x86'
-
-    steps:
-      - task: Docker@1
-        displayName: 'Build and test with Docker'
-        inputs:
-          azureContainerRegistry: azuresdkimages.azurecr.io
-          azureSubscriptionEndpoint: 'Azure SDK Images'
-          command: 'Run an image'
-          containerCommand: '/data/build_many_linux.sh'
-          envVars: 'UAMQP_REBUILD_PYX=True'
-          imageName: 'manylinux_crypto_$(PythonArchitecture)'
-          qualifyImageName: true
-          runInBackground: false
-          volumes: '$(System.DefaultWorkingDirectory):/data'
-
-      - script: ls ./wheelhouse
-        displayName: 'Check output'
-
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifacts'
-        inputs:
-          artifactName: uamqp-manylinux1-$(PythonArchitecture)-whl
-          pathToPublish: 'wheelhouse'

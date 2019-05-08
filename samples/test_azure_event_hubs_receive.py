@@ -86,6 +86,7 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
 
 
 def test_event_hubs_client_proxy_settings(live_eventhub_config):
+    #pytest.skip("")
     proxy_settings={'proxy_hostname':'127.0.0.1', 'proxy_port': 12345}
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -96,11 +97,11 @@ def test_event_hubs_client_proxy_settings(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
+
     if not sys.platform.startswith('darwin'):  # Not sure why this passes for OSX:
         with pytest.raises(errors.AMQPConnectionError):
             with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
                 receive_client.receive_message_batch(max_batch_size=10)
-
 
 def test_event_hubs_client_receive_sync(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
