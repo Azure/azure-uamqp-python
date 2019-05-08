@@ -34,12 +34,12 @@ class AMQPAuth(object):
     """
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
-                 websocket_config=None, encoding='UTF-8'):
+                 transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASL()
-        self.set_io(self.hostname, port, http_proxy, websocket_config)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
     def _build_proxy_config(self, hostname, port, proxy_settings):
         config = c_uamqp.HTTPProxyConfig()
@@ -60,52 +60,38 @@ class AMQPAuth(object):
     def _encode(self, value):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
-    def set_io(self, hostname, port, http_proxy, websocket_config):
-        if websocket_config:
-            self.set_wsio(hostname, port, http_proxy, websocket_config)
+    def set_io(self, hostname, port, http_proxy, transport_type):
+        if transport_type == constants.TransportType.AmqpOverWebsocket:
+            self.set_wsio(hostname, constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
         else:
             self.set_tlsio(hostname, port, http_proxy)
 
-    def set_wsio(self, hostname, port, http_proxy, websocket_config):
-        # TODO: in the iotwebsocket code, port and hostname are same in tls and ws
-        # port is 443, further tests are needed
+    def set_wsio(self, hostname, port, http_proxy):
+        """Setup the default underlying Web Socket IO layer.
 
-        # 1. wsios config
+        :param hostname: The endpoint hostname.
+        :type hostname: bytes
+        :param port: The WSS port.
+        :type port: int
+        """
         _wsio_config = c_uamqp.WSIOConfig()
 
-        '''
-        for key, value in websocket_config.items():
-            websocket_config[key] = self._encode(value)
-
-        ws_hostname = websocket_config.pop('websocket_hostname', None)
-        ws_resource_name = websocket_config.pop('resource_name', None)
-        ws_protocal = websocket_config('protocol_name', None)
-        '''
-
         _wsio_config.hostname = hostname
-        _wsio_config.port = constants.DEFAULT_AMQP_WS_PORT
-        
-        '''
-        _wsio_config.resource_name = ws_resource_name
-        _wsio_config.protocol = ws_protocal
-        '''
+        _wsio_config.port = port
 
-        # 2. create underlying TLSIO
         _default_tlsio = c_uamqp.get_default_tlsio()
         _tlsio_config = c_uamqp.TLSIOConfig()
         _tlsio_config.hostname = hostname
-        _tlsio_config.port = constants.DEFAULT_AMQP_WS_PORT
+        _tlsio_config.port = port
+
         if http_proxy:
             proxy_config = self._build_proxy_config(hostname, port, http_proxy)
             _tlsio_config.set_proxy_config(proxy_config)
 
-        # 3. set the underlying io of wsio
         _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
 
-        # 4. create wsio
         self._underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)
 
-        # 5. set certificates
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
             cert_data = cert_handle.read()
@@ -114,7 +100,6 @@ class AMQPAuth(object):
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
 
-        # 6. set sasl client
         self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
         self.consumed = False
 
@@ -181,14 +166,14 @@ class SASLPlain(AMQPAuth):
 
     def __init__(
             self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
-            verify=None, http_proxy=None, websocket_config=None, encoding='UTF-8'):
+            verify=None, http_proxy=None, transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.username = self._encode(username)
         self.password = self._encode(password)
         self.cert_file = verify
         self.sasl = _SASLPlain(self.username, self.password)
-        self.set_io(self.hostname, port, http_proxy, websocket_config)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
 
 class SASLAnonymous(AMQPAuth):
@@ -213,12 +198,12 @@ class SASLAnonymous(AMQPAuth):
     """
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None,
-                 http_proxy=None, websocket_config=None, encoding='UTF-8'):
+                 http_proxy=None, transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASLAnonymous()
-        self.set_io(self.hostname, port, http_proxy, websocket_config)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
 
 class _SASLClient(object):
