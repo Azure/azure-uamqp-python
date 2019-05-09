@@ -35,10 +35,10 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
           ContinueOnError: 'false'
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-          ContinueOnError: 'true'
+        # x64 Python 3.8:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   ContinueOnError: 'true'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -55,10 +55,10 @@ jobs:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
           ContinueOnError: 'false'
-        x86 Python 3.8:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion38)'
-          ContinueOnError: 'true'
+        # x86 Python 3.8:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   ContinueOnError: 'true'
 
     steps:
       - task: UsePythonVersion@0
@@ -156,10 +156,10 @@ jobs:
           MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          MacOSXDeploymentTarget: '10.9'
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion38)'
+        # Python 3.8:
+        #   MacOSXDeploymentTarget: '10.9'
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion38)'
 
     variables:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
@@ -260,8 +260,8 @@ jobs:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
+        # Python 3.8:
+        #   PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
