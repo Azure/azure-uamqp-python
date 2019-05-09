@@ -118,11 +118,6 @@ jobs:
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-ev-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-ev-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-ev-livetest-event-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-ev-livetest-event-sas-key)
 
       - task: PublishTestResults@2
         displayName: 'Publish test results'
