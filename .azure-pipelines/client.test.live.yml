@@ -233,7 +233,7 @@ jobs:
     
     timeoutInMinutes: 120
 
-    dependsOn: 'Windows'
+    dependsOn: 'MacOS'
 
     pool:
       vmImage: 'ubuntu-16.04'
