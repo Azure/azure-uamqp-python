@@ -22,43 +22,33 @@ jobs:
         x64 Python 2.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion27)'
-          ContinueOnError: 'false'
         x64 Python 3.5:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion35)'
-          ContinueOnError: 'false'
         x64 Python 3.6:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion36)'
-          ContinueOnError: 'false'
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
-          ContinueOnError: 'false'
         # x64 Python 3.8:
         #   PythonArchitecture: 'x64'
         #   PythonVersion: '$(PythonVersion38)'
-        #   ContinueOnError: 'true'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
-          ContinueOnError: 'false'
         x86 Python 3.5:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion35)'
-          ContinueOnError: 'false'
         x86 Python 3.6:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion36)'
-          ContinueOnError: 'false'
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
-          ContinueOnError: 'false'
         # x86 Python 3.8:
         #   PythonArchitecture: 'x86'
         #   PythonVersion: '$(PythonVersion38)'
-        #   ContinueOnError: 'true'
 
     steps:
       - task: UsePythonVersion@0
@@ -87,7 +77,6 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
-        continueOnError: $(ContinueOnError)
 
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
