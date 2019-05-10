@@ -64,7 +64,7 @@ class AMQPAuth(object):
         if transport_type == constants.TransportType.AmqpOverWebsocket:
             self.set_wsio(hostname, constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
         else:
-            self.set_tlsio(hostname, port, http_proxy)
+            self.set_tlsio(hostname, port)
 
     def set_wsio(self, hostname, port, http_proxy):
         """Setup the default underlying Web Socket IO layer.
@@ -104,7 +104,7 @@ class AMQPAuth(object):
         self.consumed = False
 
 
-    def set_tlsio(self, hostname, port, http_proxy):
+    def set_tlsio(self, hostname, port):
         """Setup the default underlying TLS IO layer. On Windows this is
         Schannel, on Linux and MacOS this is OpenSSL.
 
@@ -117,9 +117,7 @@ class AMQPAuth(object):
         _tlsio_config = c_uamqp.TLSIOConfig()
         _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
-        if http_proxy:
-            proxy_config = self._build_proxy_config(hostname, port, http_proxy)
-            _tlsio_config.set_proxy_config(proxy_config)
+
         self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
 
         cert = self.cert_file or certifi.where()

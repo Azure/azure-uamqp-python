@@ -323,3 +323,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             http_proxy=http_proxy,
             transport_type=transport_type,
             encoding=encoding)
+
+class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
+
+    pass
