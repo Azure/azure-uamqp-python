@@ -17,6 +17,7 @@ from uamqp.session import Session
 from uamqp.client import AMQPClient, SendClient, ReceiveClient
 from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
+from uamqp.constants import TransportType
 
 try:
     from uamqp.async_ops import ConnectionAsync

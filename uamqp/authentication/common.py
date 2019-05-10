@@ -11,6 +11,7 @@ import logging
 import certifi
 import six
 from uamqp import c_uamqp, constants
+from uamqp.constants import TransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class AMQPAuth(object):
     """
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
-                 transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
+                 transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
@@ -49,10 +50,10 @@ class AMQPAuth(object):
             proxy_settings[key] = self._encode(value)
         config.proxy_hostname = proxy_settings['proxy_hostname']
         config.proxy_port = proxy_settings['proxy_port']
-        username = proxy_settings.get('username')
+        username = proxy_settings.get('proxy_username')
         if username:
             config.username = username
-        password = proxy_settings.get('password')
+        password = proxy_settings.get('proxy_password')
         if password:
             config.password = password
         return config
@@ -61,7 +62,7 @@ class AMQPAuth(object):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def set_io(self, hostname, port, http_proxy, transport_type):
-        if transport_type == constants.TransportType.AmqpOverWebsocket:
+        if transport_type == TransportType.AmqpOverWebsocket:
             self.set_wsio(hostname, constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
         else:
             self.set_tlsio(hostname, port)
@@ -164,7 +165,7 @@ class SASLPlain(AMQPAuth):
 
     def __init__(
             self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
-            verify=None, http_proxy=None, transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
+            verify=None, http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.username = self._encode(username)
@@ -196,7 +197,7 @@ class SASLAnonymous(AMQPAuth):
     """
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None,
-                 http_proxy=None, transport_type=constants.TransportType.Amqp, encoding='UTF-8'):
+                 http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify

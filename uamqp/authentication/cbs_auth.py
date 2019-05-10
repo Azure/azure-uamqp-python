@@ -11,6 +11,7 @@ import logging
 import time
 
 from uamqp import Session, c_uamqp, compat, constants, errors, utils
+from uamqp.constants import TransportType
 
 from .common import _SASL, AMQPAuth
 
@@ -208,7 +209,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
                  http_proxy=None,
-                 transport_type=constants.TransportType.Amqp,
+                 transport_type=TransportType.Amqp,
                  encoding='UTF-8'):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
@@ -268,7 +269,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=TokenRetryPolicy(),
             verify=None,
             http_proxy=None,
-            transport_type=constants.TransportType.Amqp,
+            transport_type=TransportType.Amqp,
             encoding='UTF-8'):
         """Attempt to create a CBS token session using a Shared Access Key such
         as is used to connect to Azure services.

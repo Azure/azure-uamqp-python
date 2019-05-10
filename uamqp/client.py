@@ -13,6 +13,7 @@ import uuid
 
 from uamqp import (Connection, Session, address, authentication, c_uamqp,
                    compat, constants, errors, receiver, sender)
+from uamqp.constants import TransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class AMQPClient(object):
             self, remote_address, auth=None, client_name=None, debug=False,
             error_policy=None, keep_alive_interval=None, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
-        self._transport_type = kwargs.pop('transport_type', None) or constants.TransportType.Amqp
+        self._transport_type = kwargs.pop('transport_type', None) or TransportType.Amqp
         self._http_proxy = kwargs.pop('http_proxy', None)
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
