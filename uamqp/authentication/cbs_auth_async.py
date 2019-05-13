@@ -167,6 +167,10 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str

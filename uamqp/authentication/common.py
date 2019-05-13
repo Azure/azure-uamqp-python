@@ -29,6 +29,10 @@ class AMQPAuth(object):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
@@ -50,10 +54,10 @@ class AMQPAuth(object):
             proxy_settings[key] = self._encode(value)
         config.proxy_hostname = proxy_settings['proxy_hostname']
         config.proxy_port = proxy_settings['proxy_port']
-        username = proxy_settings.get('proxy_username')
+        username = proxy_settings.get('username')
         if username:
             config.username = username
-        password = proxy_settings.get('proxy_password')
+        password = proxy_settings.get('password')
         if password:
             config.password = password
         return config
@@ -158,6 +162,10 @@ class SASLPlain(AMQPAuth):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname and credentials
      are provided as a str. Default is 'UTF-8'.
     :type encoding: str
@@ -191,6 +199,10 @@ class SASLAnonymous(AMQPAuth):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
