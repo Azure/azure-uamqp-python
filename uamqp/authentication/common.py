@@ -95,7 +95,7 @@ class AMQPAuth(object):
 
         _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
 
-        self._underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)
+        self._underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
@@ -105,8 +105,8 @@ class AMQPAuth(object):
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
 
-        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
-        self.consumed = False
+        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)  # pylint: disable=attribute-defined-outside-init
+        self.consumed = False  # pylint: disable=attribute-defined-outside-init
 
     def set_tlsio(self, hostname, port):
         """Setup the default underlying TLS IO layer. On Windows this is
@@ -122,7 +122,7 @@ class AMQPAuth(object):
         _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
 
-        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
+        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config) # pylint: disable=attribute-defined-outside-init
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
@@ -131,8 +131,8 @@ class AMQPAuth(object):
                 self._underlying_xio.set_certificates(cert_data)
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
-        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
-        self.consumed = False
+        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl) # pylint: disable=attribute-defined-outside-init
+        self.consumed = False # pylint: disable=attribute-defined-outside-init
 
     def close(self):
         """Close the authentication layer and cleanup
