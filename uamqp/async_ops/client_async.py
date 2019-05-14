@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------------
 
 # TODO: check this
-# pylint: disable=super-init-not-called
+# pylint: disable=super-init-not-called,too-many-lines
 
 import asyncio
 import collections.abc
@@ -14,6 +14,7 @@ import queue
 import uuid
 
 from uamqp import address, authentication, client, constants, errors
+from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
@@ -78,6 +79,17 @@ class AMQPClientAsync(client.AMQPClient):
     :param on_attach: A callback function to be run on receipt of an ATTACH frame.
      The function must take 4 arguments: source, target, properties and error.
     :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -93,7 +105,7 @@ class AMQPClientAsync(client.AMQPClient):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(AMQPClientAsync, self).__init__(
             remote_address,
             auth=auth,
@@ -402,6 +414,12 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_properties: Metadata to be sent in the Link ATTACH frame.
@@ -447,7 +465,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         client.SendClient.__init__(
             self,
             target,
@@ -480,6 +498,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
+                receive_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
                 error_policy=self._error_policy,
@@ -515,12 +534,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                     timeout = self._get_msg_timeout(message)
                     if timeout is None:
                         self._on_message_sent(message, constants.MessageSendResult.Timeout)
-                        continue
+                        if message.state != constants.MessageState.WaitingToBeSent:
+                            continue
                     else:
                         await self._transfer_message_async(message, timeout)
                 except Exception as exp:  # pylint: disable=broad-except
                     self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
-                    continue
+                    if message.state != constants.MessageState.WaitingToBeSent:
+                        continue
             filtered.append(message)
         return filtered
 
@@ -679,6 +700,11 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
      thread will sleep (in seconds) between pinging the connection. If 0 or None, no
      thread will be started.
     :type keep_alive_interval: int
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -732,7 +758,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         client.ReceiveClient.__init__(
             self,
             source,
@@ -766,6 +792,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
+                send_settle_mode=self._send_settle_mode,
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,

@@ -32,7 +32,7 @@ async def test_event_hubs_mgmt_op_async(live_eventhub_config):
 
     plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    async with uamqp.AMQPClientAsync(target, auth=plain_auth, debug=True) as send_client:
+    async with uamqp.AMQPClientAsync(target, auth=plain_auth, debug=False) as send_client:
         mgmt_msg = uamqp.Message(application_properties={'name': live_eventhub_config['event_hub']})
         response = await send_client.mgmt_request_async(
             mgmt_msg,

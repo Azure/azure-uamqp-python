@@ -5,12 +5,24 @@
 #--------------------------------------------------------------------------
 
 import base64
+import calendar
 import time
 import uuid
 from datetime import timedelta, datetime
 
 import six
 from uamqp import c_uamqp
+
+
+def get_running_loop():
+    try:
+        import asyncio  # pylint: disable=import-error
+        return asyncio.get_running_loop()
+    except AttributeError:  # 3.5 / 3.6
+        loop = asyncio._get_running_loop()  # pylint: disable=protected-access
+        if loop is None:
+            raise RuntimeError('No running event loop')
+        return loop
 
 
 def parse_connection_string(connect_str):
@@ -114,6 +126,6 @@ def data_factory(value, encoding='UTF-8'):
             wrapped_list[index] = data_factory(item, encoding=encoding)
         result = wrapped_list
     elif isinstance(value, datetime):
-        timestamp = int((time.mktime(value.utctimetuple()) * 1000) + (value.microsecond/1000))
+        timestamp = int((calendar.timegm(value.utctimetuple()) * 1000) + (value.microsecond/1000))
         result = c_uamqp.timestamp_value(timestamp)
     return result

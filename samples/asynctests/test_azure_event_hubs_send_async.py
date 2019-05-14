@@ -51,7 +51,7 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=True)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
    
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)

@@ -31,7 +31,8 @@ is_x64 = platform.architecture()[0] == '64bit'
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 rebuild_pyx = os.environ.get('UAMQP_REBUILD_PYX', False)
-use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
+use_openssl = not (is_win or is_mac)
+#  use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
 supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
 
 # Version extraction inspired from 'requests'
