@@ -108,7 +108,6 @@ class AMQPAuth(object):
         self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
         self.consumed = False
 
-
     def set_tlsio(self, hostname, port):
         """Setup the default underlying TLS IO layer. On Windows this is
         Schannel, on Linux and MacOS this is OpenSSL.
