@@ -19,8 +19,6 @@ STRING_FILTER = b"apache.org:selector-filter:string"
 OPERATION = b"operation"
 READ_OPERATION = b"READ"
 MGMT_TARGET = b"$management"
-EVENT_HUB_SCOPE = ['https://eventhubs.azure.net//.default']
-SERVICE_BUS_SCOPE = ['https://servicebus.azure.net//.default']
 
 # Deprecated - will be removed in future versions
 MESSAGE_SEND_RETRIES = 3
