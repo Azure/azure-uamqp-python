@@ -9,6 +9,7 @@ from enum import Enum
 from uamqp import c_uamqp
 
 DEFAULT_AMQPS_PORT = 5671
+DEFAULT_AMQP_WSS_PORT = 443
 AUTH_EXPIRATION_SECS = c_uamqp.AUTH_EXPIRATION_SECS
 AUTH_REFRESH_SECS = c_uamqp.AUTH_REFRESH_SECS
 BATCH_MESSAGE_FORMAT = c_uamqp.AMQP_BATCH_MESSAGE_FORMAT
@@ -158,3 +159,14 @@ class MgmtOpenStatus(Enum):
     Ok = c_uamqp.AMQP_MANAGEMENT_OPEN_OK
     Error = c_uamqp.AMQP_MANAGEMENT_OPEN_ERROR
     Cancelled = c_uamqp.AMQP_MANAGEMENT_OPEN_CANCELLED
+
+
+class TransportType(Enum):
+    """Transport type
+    The underlying transport protocol type:
+     Amqp: AMQP over the default TCP transport protocol, it uses port 5671.
+     AmqpOverWebsocket: Amqp over the Web Sockets transport protocol, it uses
+     port 443.
+    """
+    Amqp = 1
+    AmqpOverWebsocket = 2

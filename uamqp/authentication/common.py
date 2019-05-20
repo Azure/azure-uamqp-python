@@ -11,6 +11,7 @@ import logging
 import certifi
 import six
 from uamqp import c_uamqp, constants
+from uamqp.constants import TransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -28,17 +29,22 @@ class AMQPAuth(object):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
+                 transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASL()
-        self.set_tlsio(self.hostname, port, http_proxy)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
     def _build_proxy_config(self, hostname, port, proxy_settings):
         config = c_uamqp.HTTPProxyConfig()
@@ -59,7 +65,50 @@ class AMQPAuth(object):
     def _encode(self, value):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
-    def set_tlsio(self, hostname, port, http_proxy):
+    def set_io(self, hostname, port, http_proxy, transport_type):
+        if transport_type == TransportType.AmqpOverWebsocket:
+            self.set_wsio(hostname, constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
+        else:
+            self.set_tlsio(hostname, port)
+
+    def set_wsio(self, hostname, port, http_proxy):
+        """Setup the default underlying Web Socket IO layer.
+
+        :param hostname: The endpoint hostname.
+        :type hostname: bytes
+        :param port: The WSS port.
+        :type port: int
+        """
+        _wsio_config = c_uamqp.WSIOConfig()
+
+        _wsio_config.hostname = hostname
+        _wsio_config.port = port
+
+        _default_tlsio = c_uamqp.get_default_tlsio()
+        _tlsio_config = c_uamqp.TLSIOConfig()
+        _tlsio_config.hostname = hostname
+        _tlsio_config.port = port
+
+        if http_proxy:
+            proxy_config = self._build_proxy_config(hostname, port, http_proxy)
+            _tlsio_config.set_proxy_config(proxy_config)
+
+        _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
+
+        self._underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
+
+        cert = self.cert_file or certifi.where()
+        with open(cert, 'rb') as cert_handle:
+            cert_data = cert_handle.read()
+            try:
+                self._underlying_xio.set_certificates(cert_data)
+            except ValueError:
+                _logger.warning('Unable to set external certificates.')
+
+        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)  # pylint: disable=attribute-defined-outside-init
+        self.consumed = False  # pylint: disable=attribute-defined-outside-init
+
+    def set_tlsio(self, hostname, port):
         """Setup the default underlying TLS IO layer. On Windows this is
         Schannel, on Linux and MacOS this is OpenSSL.
 
@@ -72,10 +121,8 @@ class AMQPAuth(object):
         _tlsio_config = c_uamqp.TLSIOConfig()
         _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
-        if http_proxy:
-            proxy_config = self._build_proxy_config(hostname, port, http_proxy)
-            _tlsio_config.set_proxy_config(proxy_config)
-        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config)
+
+        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config) # pylint: disable=attribute-defined-outside-init
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
@@ -84,8 +131,8 @@ class AMQPAuth(object):
                 self._underlying_xio.set_certificates(cert_data)
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
-        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)
-        self.consumed = False
+        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl) # pylint: disable=attribute-defined-outside-init
+        self.consumed = False # pylint: disable=attribute-defined-outside-init
 
     def close(self):
         """Close the authentication layer and cleanup
@@ -114,6 +161,10 @@ class SASLPlain(AMQPAuth):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname and credentials
      are provided as a str. Default is 'UTF-8'.
     :type encoding: str
@@ -121,14 +172,14 @@ class SASLPlain(AMQPAuth):
 
     def __init__(
             self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
-            verify=None, http_proxy=None, encoding='UTF-8'):
+            verify=None, http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.username = self._encode(username)
         self.password = self._encode(password)
         self.cert_file = verify
         self.sasl = _SASLPlain(self.username, self.password)
-        self.set_tlsio(self.hostname, port, http_proxy)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
 
 class SASLAnonymous(AMQPAuth):
@@ -147,26 +198,31 @@ class SASLAnonymous(AMQPAuth):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     tranport type is explictly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None, encoding='UTF-8'):
+    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None,
+                 http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
         self.sasl = _SASLAnonymous()
-        self.set_tlsio(self.hostname, port, http_proxy)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
 
 class _SASLClient(object):
 
-    def __init__(self, tls_io, sasl):
-        self._tls_io = tls_io
+    def __init__(self, io, sasl):
+        self._io = io
         self._sasl_mechanism = sasl.mechanism
         self._io_config = c_uamqp.SASLClientIOConfig()
-        self._io_config.underlying_io = self._tls_io
+        self._io_config.underlying_io = self._io
         self._io_config.sasl_mechanism = self._sasl_mechanism
         self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
 

@@ -13,6 +13,7 @@ import uuid
 
 from uamqp import (Connection, Session, address, authentication, c_uamqp,
                    compat, constants, errors, receiver, sender)
+from uamqp.constants import TransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -86,6 +87,8 @@ class AMQPClient(object):
             self, remote_address, auth=None, client_name=None, debug=False,
             error_policy=None, keep_alive_interval=None, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
+        self._transport_type = kwargs.pop('transport_type', None) or TransportType.Amqp
+        self._http_proxy = kwargs.pop('http_proxy', None)
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
         self._hostname = self._remote_address.hostname
@@ -95,9 +98,15 @@ class AMQPClient(object):
             if username and password:
                 username = compat.unquote_plus(username)
                 password = compat.unquote_plus(password)
-                auth = authentication.SASLPlain(self._hostname, username, password)
+                auth = authentication.SASLPlain(
+                    self._hostname, username, password,
+                    http_proxy=self._http_proxy,
+                    transport_type=self._transport_type)
 
-        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(
+            self._hostname,
+            http_proxy=self._http_proxy,
+            transport_type=self._transport_type)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._counter = c_uamqp.TickCounter()
