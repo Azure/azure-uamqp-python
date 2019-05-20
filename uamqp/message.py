@@ -470,7 +470,7 @@ class BatchMessage(Message):
                 for data in self._body_gen:
                     message_bytes = None
                     try:
-                        if not data.application_properties:  # Message-like object
+                        if not data.application_properties and self.application_properties:  # Message-like object
                             data.application_properties = self.application_properties
                         message_bytes = data.encode_message()
                     except AttributeError:  # raw data
@@ -509,7 +509,7 @@ class BatchMessage(Message):
         for data in self._body_gen:
             message_bytes = None
             try:
-                if not data.application_properties:  # Message-like object
+                if not data.application_properties and self.application_properties:  # Message-like object
                     data.application_properties = self.application_properties
                 message_bytes = data.encode_message()
             except AttributeError:  # raw data
