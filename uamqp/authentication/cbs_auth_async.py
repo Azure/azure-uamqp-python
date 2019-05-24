@@ -4,6 +4,8 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=super-init-not-called,no-self-use
+
 import asyncio
 import datetime
 import logging
@@ -186,7 +188,7 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
      Default is 'UTF-8'.
     :type encoding: str
     """
-    async def update_token(self):
+    async def update_token(self):  # pylint: disable=useless-super-delegation
         super().update_token()
 
 
