@@ -24,6 +24,16 @@ from .common import _SASL
 _logger = logging.getLogger(__name__)
 
 
+def is_coroutine(get_token):
+    try:
+        if asyncio.iscoroutinefunction(get_token.func):
+            return True
+    except AttributeError:
+        if asyncio.iscoroutinefunction(get_token):
+            return True
+    raise ValueError("get_token must be a coroutine function")
+
+
 class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
@@ -189,7 +199,7 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
     :type encoding: str
     """
     async def update_token(self):  # pylint: disable=useless-super-delegation
-        super().update_token()
+        super(SASTokenAsync, self).update_token()
 
 
 class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
@@ -256,30 +266,14 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
         self.cert_file = verify
         self.hostname = parsed.hostname.encode(self._encoding)
 
-        import functools
-        if isinstance(get_token, functools.partial):  # get_token is a partial function
-            if not asyncio.iscoroutinefunction(get_token.func):
-                raise ValueError("get_token must be a coroutine function")
-        elif callable(get_token):  # get_token is a function
-            if not asyncio.iscoroutinefunction(get_token):
-                raise ValueError("get_token must be a coroutine function")
-        else:
+        if not is_coroutine(get_token):
             raise ValueError("get_token must be a coroutine function")
 
         self.get_token = get_token
         self.audience = self._encode(audience)
         self.token_type = self._encode(token_type)
-        if not expires_at and not expires_in:
-            raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
-        if not expires_at:
-            self.expires_in = expires_in
-            self.expires_at = time.time() + expires_in.seconds
-        else:
-            self.expires_at = expires_at
-            expires_in = expires_at - time.time()
-            if expires_in < 1:
-                raise ValueError("Token has already expired.")
-            self.expires_in = datetime.timedelta(seconds=expires_in)
+        self.token = None
+        self.expires_at, self.expires_in = self._set_expiry(expires_at, expires_in)
         self.timeout = timeout
         self.retries = 0
         self.sasl = _SASL()
