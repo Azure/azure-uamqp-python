@@ -165,7 +165,7 @@ class CBSAuthMixin(object):
             expires_in_seconds = expires_at - time.time()
             if expires_in_seconds < 1:
                 raise ValueError("Token has already expired.")
-                expires_in = datetime.timedelta(seconds=expires_in_seconds)
+            expires_in = datetime.timedelta(seconds=expires_in_seconds)
         return expires_at, expires_in
 
 
