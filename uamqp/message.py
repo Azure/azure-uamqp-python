@@ -517,7 +517,7 @@ class BatchMessage(Message):
                 message_bytes = wrap_message.encode_message()
             body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:
-                raise errors.ClientMessageError("Data set too large for a single message.")
+                raise errors.MessageContentTooLarge()
             new_message._body.append(message_bytes)  # pylint: disable=protected-access
         new_message.on_send_complete = self.on_send_complete
         return [new_message]

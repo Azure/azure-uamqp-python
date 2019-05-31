@@ -319,3 +319,9 @@ class ErrorResponse(object):
             self.info = info.value
         except AttributeError:
             self.info = info
+
+
+class MessageContentTooLarge(ValueError):
+    def __init__(self):
+        message = "Data set too large for a single message."
+        super(MessageContentTooLarge, self).__init__(message)

@@ -266,8 +266,7 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
         self.cert_file = verify
         self.hostname = parsed.hostname.encode(self._encoding)
 
-        if not is_coroutine(get_token):
-            raise ValueError("get_token must be a coroutine function")
+        is_coroutine(get_token)
 
         self.get_token = get_token
         self.audience = self._encode(audience)
