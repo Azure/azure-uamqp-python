@@ -129,7 +129,7 @@ class CBSAuthMixin(object):
                 self._cbs_auth.authenticate()
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
-                errors.AuthenticationException("Failed to open CBS authentication link.")
+                raise errors.AuthenticationException("Failed to open CBS authentication link.")
             elif auth_status == constants.CBSAuthStatus.Expired:
                 raise errors.TokenExpired("CBS Authentication Expired.")
             elif auth_status == constants.CBSAuthStatus.Timeout:
@@ -211,7 +211,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :type http_proxy: dict
     :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
      ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-     tranport type is explictly requested.
+     transport type is explicitly requested.
     :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
@@ -310,7 +310,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :type http_proxy: dict
         :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
          ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-         tranport type is explictly requested.
+         transport type is explicitly requested.
         :type transport_type: ~uamqp.TransportType
         :param encoding: The encoding to use if hostname is provided as a str.
          Default is 'UTF-8'.
@@ -377,7 +377,7 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     :type http_proxy: dict
     :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
      ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-     tranport type is explictly requested.
+     transport type is explicitly requested.
     :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
