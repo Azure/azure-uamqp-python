@@ -31,7 +31,7 @@ class AMQPAuth(object):
     :type http_proxy: dict
     :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
      ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-     tranport type is explictly requested.
+     transport type is explicitly requested.
     :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
@@ -163,7 +163,7 @@ class SASLPlain(AMQPAuth):
     :type http_proxy: dict
     :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
      ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-     tranport type is explictly requested.
+     transport type is explicitly requested.
     :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname and credentials
      are provided as a str. Default is 'UTF-8'.
@@ -200,7 +200,7 @@ class SASLAnonymous(AMQPAuth):
     :type http_proxy: dict
     :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
      ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
-     tranport type is explictly requested.
+     transport type is explicitly requested.
     :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
