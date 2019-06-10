@@ -105,7 +105,16 @@ class AMQPClientAsync(client.AMQPClient):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or get_running_loop()
+
+        if loop:
+            self.loop = loop
+        else:
+            try:
+                if not self.loop:  # from sub class instance
+                    self.loop = get_running_loop()
+            except AttributeError:
+                self.loop = get_running_loop()
+
         super(AMQPClientAsync, self).__init__(
             remote_address,
             auth=auth,
