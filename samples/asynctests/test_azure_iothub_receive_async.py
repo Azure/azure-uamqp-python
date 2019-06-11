@@ -33,7 +33,7 @@ def get_logger(level):
     return uamqp_logger
 
 
-log = get_logger(logging.DEBUG)
+log = get_logger(logging.INFO)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):
