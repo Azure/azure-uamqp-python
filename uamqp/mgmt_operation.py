@@ -101,7 +101,7 @@ class MgmtOperation(object):
         :type message: ~uamqp.message.Message
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :rtype: ~uamqp.message.Message
         """
         start_time = self._counter.get_current_ms()

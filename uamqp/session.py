@@ -93,7 +93,7 @@ class Session(object):
         :type node: bytes
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :param status_code_field: Provide an alternate name for the status code in the
          response body which can vary between services due to the spec still being in draft.
          The default is `b"statusCode"`.

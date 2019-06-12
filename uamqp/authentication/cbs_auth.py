@@ -196,7 +196,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :type port: int
     :param timeout: The timeout in seconds in which to negotiate the token.
      The default value is 10 seconds.
-    :type timeout: int
+    :type timeout: float
     :param retry_policy: The retry policy for the PUT token request. The default
      retry policy has 3 retries.
     :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
@@ -298,7 +298,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :type port: int
         :param timeout: The timeout in seconds in which to negotiate the token.
          The default value is 10 seconds.
-        :type timeout: int
+        :type timeout: float
         :param retry_policy: The retry policy for the PUT token request. The default
          retry policy has 3 retries.
         :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
@@ -362,7 +362,7 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     :type port: int
     :param timeout: The timeout in seconds in which to negotiate the token.
      The default value is 10 seconds.
-    :type timeout: int
+    :type timeout: float
     :param retry_policy: The retry policy for the PUT token request. The default
      retry policy has 3 retries.
     :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy

@@ -21,7 +21,7 @@ class Address(object):
     :vartype: bool
     :ivar expiry_policy: The endpoint expiry policy
     :ivar timeout: The endpoint timeout in seconds.
-    :vartype timeout: int
+    :vartype timeout: float
     :ivar dynamic: Whether the endpoint is dynamic.
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
@@ -155,7 +155,7 @@ class Source(Address):
     :vartype: bool
     :ivar expiry_policy: The endpoint expiry policy
     :ivar timeout: The endpoint timeout in seconds.
-    :vartype timeout: int
+    :vartype timeout: float
     :ivar dynamic: Whether the endpoint is dynamic.
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.
@@ -221,7 +221,7 @@ class Target(Address):
     :vartype: bool
     :ivar expiry_policy: The endpoint expiry policy
     :ivar timeout: The endpoint timeout in seconds.
-    :vartype timeout: int
+    :vartype timeout: float
     :ivar dynamic: Whether the endpoint is dynamic.
     :vartype dynamic: bool
     :ivar distribution_mode: The endpoint distribution mode.

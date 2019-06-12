@@ -304,7 +304,7 @@ class AMQPClientAsync(client.AMQPClient):
         :type node: bytes or str
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :param callback: The function to process the returned parameters of the management
          request including status code and a description if available. This can be used
          to reformat the response or raise an error based on content. The function must
@@ -694,7 +694,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :param timeout: A timeout in milliseconds. The receiver will shut down if no
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
-    :type timeout: int
+    :type timeout: float
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -887,11 +887,11 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :param on_message_received: A callback to process messages as they arrive from the
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
-        :param timeout: I timeout in milliseconds for which to wait to receive any messages.
+        :param timeout: Timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
-        :type timeout: int
+        :type timeout: float
         """
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch

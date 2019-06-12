@@ -323,7 +323,7 @@ class AMQPClient(object):
         :type node: bytes
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :param callback: The function to process the returned parameters of the management
          request including status code and a description if available. This can be used
          to reformat the response or raise an error based on content. The function must
@@ -802,7 +802,7 @@ class ReceiveClient(AMQPClient):
     :param timeout: A timeout in milliseconds. The receiver will shut down if no
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
-    :type timeout: int
+    :type timeout: float
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -1022,7 +1022,7 @@ class ReceiveClient(AMQPClient):
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
-        :type timeout: int
+        :type timeout: float
         """
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch
