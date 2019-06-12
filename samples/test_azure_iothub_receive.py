@@ -74,7 +74,7 @@ def get_logger(level):
     return uamqp_logger
 
 
-log = get_logger(logging.DEBUG)
+log = get_logger(logging.INFO)
 
 
 def _build_iothub_amqp_endpoint_from_target(target):
