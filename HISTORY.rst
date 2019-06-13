@@ -3,6 +3,20 @@
 Release History
 ===============
 
+1.2.0 (2019-04-16)
+++++++++++++++++++
+
+- Fixed bug in batched messages missing application_properties (azure-event-hubs-python issue #97).
+- Fixed bug in datetime object parsing (issue #63).
+- Fixed bug in unexposed send/receive settle modes.
+- Fixed bug where retried messages were not added back to the send queue.
+- Fixed bug in using asyncio.get_event_loop.
+- Added type objects for AMQP Byte and uBytes types.
+- Added async locking around pending messages queue (PR#54, Thanks to zach-b)
+- Added WebSocket(AMQP over WebSocket) support (azure-sdk-for-python issue #5318).
+- Added new token class `JWTTokenAuth` and `JWTTokenAsync` to support OAuth.
+
+
 1.1.0 (2018-11-12)
 ++++++++++++++++++
 

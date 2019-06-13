@@ -9,10 +9,19 @@ import logging
 
 # C imports
 cimport c_xio
+cimport c_wsio
 cimport c_sasl_mechanism
 
 
 _logger = logging.getLogger(__name__)
+
+
+cpdef xio_from_wsioconfig(WSIOConfig io_config):
+    cdef const c_xio.IO_INTERFACE_DESCRIPTION* ws_io_interface
+    ws_io_interface = c_wsio.wsio_get_interface_description()
+    xio = XIO()
+    xio.create(ws_io_interface, &io_config._c_value)
+    return xio
 
 
 cpdef xio_from_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):

@@ -18,7 +18,7 @@ def test_event_hubs_mgmt_op(live_eventhub_config):
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    with uamqp.AMQPClient(target, auth=sas_auth, debug=True) as send_client:
+    with uamqp.AMQPClient(target, auth=sas_auth, debug=False) as send_client:
         mgmt_msg = uamqp.Message(application_properties={'name': live_eventhub_config['event_hub']})
         response = send_client.mgmt_request(
             mgmt_msg,

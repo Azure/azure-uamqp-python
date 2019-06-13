@@ -11,6 +11,7 @@ import logging
 import time
 
 from uamqp import Session, c_uamqp, compat, constants, errors, utils
+from uamqp.constants import TransportType
 
 from .common import _SASL, AMQPAuth
 
@@ -60,6 +61,10 @@ class CBSAuthMixin(object):
         """
         self._connection = connection
         self._session = Session(connection, **kwargs)
+
+        if self.token_type == b'jwt':  # Initialize the jwt token
+            self.update_token()
+
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
@@ -124,7 +129,7 @@ class CBSAuthMixin(object):
                 self._cbs_auth.authenticate()
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
-                errors.AuthenticationException("Failed to open CBS authentication link.")
+                raise errors.AuthenticationException("Failed to open CBS authentication link.")
             elif auth_status == constants.CBSAuthStatus.Expired:
                 raise errors.TokenExpired("CBS Authentication Expired.")
             elif auth_status == constants.CBSAuthStatus.Timeout:
@@ -150,6 +155,18 @@ class CBSAuthMixin(object):
         finally:
             self._connection.release()
         return timeout, in_progress
+
+    def _set_expiry(self, expires_at, expires_in):
+        if not expires_at and not expires_in:
+            raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
+        if not expires_at:
+            expires_at = time.time() + expires_in.seconds
+        else:
+            expires_in_seconds = expires_at - time.time()
+            if expires_in_seconds < 1:
+                raise ValueError("Token has already expired.")
+            expires_in = datetime.timedelta(seconds=expires_in_seconds)
+        return expires_at, expires_in
 
 
 class SASTokenAuth(AMQPAuth, CBSAuthMixin):
@@ -179,7 +196,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :type port: int
     :param timeout: The timeout in seconds in which to negotiate the token.
      The default value is 10 seconds.
-    :type timeout: int
+    :type timeout: float
     :param retry_policy: The retry policy for the PUT token request. The default
      retry policy has 3 retries.
     :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
@@ -192,6 +209,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
      the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
      keys are 'username' and 'password'.
     :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     transport type is explicitly requested.
+    :type transport_type: ~uamqp.TransportType
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
@@ -208,6 +229,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
                  http_proxy=None,
+                 transport_type=TransportType.Amqp,
                  encoding='UTF-8'):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
@@ -224,21 +246,11 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         self.audience = self._encode(audience)
         self.token_type = self._encode(token_type)
         self.token = self._encode(token)
-        if not expires_at and not expires_in:
-            raise ValueError("Must specify either 'expires_at' or 'expires_in'.")
-        if not expires_at:
-            self.expires_in = expires_in
-            self.expires_at = time.time() + expires_in.seconds
-        else:
-            self.expires_at = expires_at
-            expires_in = expires_at - time.time()
-            if expires_in < 1:
-                raise ValueError("Token has already expired.")
-            self.expires_in = datetime.timedelta(seconds=expires_in)
+        self.expires_at, self.expires_in = self._set_expiry(expires_at, expires_in)
         self.timeout = timeout
         self.retries = 0
         self.sasl = _SASL()
-        self.set_tlsio(self.hostname, port, http_proxy)
+        self.set_io(self.hostname, port, http_proxy, transport_type)
 
     def update_token(self):
         """If a username and password are present - attempt to use them to
@@ -267,6 +279,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=TokenRetryPolicy(),
             verify=None,
             http_proxy=None,
+            transport_type=TransportType.Amqp,
             encoding='UTF-8'):
         """Attempt to create a CBS token session using a Shared Access Key such
         as is used to connect to Azure services.
@@ -285,7 +298,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :type port: int
         :param timeout: The timeout in seconds in which to negotiate the token.
          The default value is 10 seconds.
-        :type timeout: int
+        :type timeout: float
         :param retry_policy: The retry policy for the PUT token request. The default
          retry policy has 3 retries.
         :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
@@ -295,6 +308,10 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
          the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
          keys are 'username' and 'password'.
         :type http_proxy: dict
+        :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+         ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+         transport type is explicitly requested.
+        :type transport_type: ~uamqp.TransportType
         :param encoding: The encoding to use if hostname is provided as a str.
          Default is 'UTF-8'.
         :type encoding: str
@@ -319,4 +336,87 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             retry_policy=retry_policy,
             verify=verify,
             http_proxy=http_proxy,
+            transport_type=transport_type,
             encoding=encoding)
+
+
+class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
+    """CBS authentication using JWT tokens.
+
+    :param audience: The token audience field. For JWT tokens
+     this is usually the URI.
+    :type audience: str or bytes
+    :param uri: The AMQP endpoint URI. This must be provided as
+     a decoded string.
+    :type uri: str
+    :param get_token: The callback function used for getting and refreshing
+     tokens. It should return a valid jwt token each time it is called.
+    :type get_token: callable object
+    :param expires_in: The total remaining seconds until the token
+     expires - default for JWT token generated by AAD is 3600s (1 hour).
+    :type expires_in: ~datetime.timedelta
+    :param expires_at: The timestamp at which the JWT token will expire
+     formatted as seconds since epoch.
+    :type expires_at: float
+    :param port: The TLS port - default for AMQP is 5671.
+    :type port: int
+    :param timeout: The timeout in seconds in which to negotiate the token.
+     The default value is 10 seconds.
+    :type timeout: float
+    :param retry_policy: The retry policy for the PUT token request. The default
+     retry policy has 3 retries.
+    :type retry_policy: ~uamqp.authentication.cbs_auth.TokenRetryPolicy
+    :param verify: The path to a user-defined certificate.
+    :type verify: str
+    :param token_type: The type field of the token request.
+     Default value is `b"jwt"`.
+    :type token_type: bytes
+    :param http_proxy: HTTP proxy configuration. This should be a dictionary with
+     the following keys present: 'proxy_hostname' and 'proxy_port'. Additional optional
+     keys are 'username' and 'password'.
+    :type http_proxy: dict
+    :param transport_type: The transport protocol type - default is ~uamqp.TransportType.Amqp.
+     ~uamqp.TransportType.AmqpOverWebsocket is applied when http_proxy is set or the
+     transport type is explicitly requested.
+    :type transport_type: ~uamqp.TransportType
+    :param encoding: The encoding to use if hostname is provided as a str.
+     Default is 'UTF-8'.
+    :type encoding: str
+    """
+
+    def __init__(self, audience, uri,
+                 get_token,
+                 expires_in=datetime.timedelta(seconds=constants.AUTH_EXPIRATION_SECS),
+                 expires_at=None,
+                 port=constants.DEFAULT_AMQPS_PORT,
+                 timeout=10,
+                 retry_policy=TokenRetryPolicy(),
+                 verify=None,
+                 token_type=b"jwt",
+                 http_proxy=None,
+                 transport_type=TransportType.Amqp,
+                 encoding='UTF-8'):  # pylint: disable=no-member
+        self._retry_policy = retry_policy
+        self._encoding = encoding
+        self.uri = uri
+        parsed = compat.urlparse(uri)  # pylint: disable=no-member
+
+        self.cert_file = verify
+        self.hostname = parsed.hostname.encode(self._encoding)
+
+        if not get_token or not callable(get_token):
+            raise ValueError("get_token must be a callable object.")
+
+        self.get_token = get_token
+        self.audience = self._encode(audience)
+        self.token_type = self._encode(token_type)
+        self.token = None
+        self.expires_at, self.expires_in = self._set_expiry(expires_at, expires_in)
+        self.timeout = timeout
+        self.retries = 0
+        self.sasl = _SASL()
+        self.set_io(self.hostname, port, http_proxy, transport_type)
+
+    def update_token(self):
+        self.expires_at = time.time() + self.expires_in.seconds
+        self.token = self._encode(self.get_token())

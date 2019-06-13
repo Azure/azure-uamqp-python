@@ -4,11 +4,11 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import logging
 import uuid
 
 from uamqp import Message, constants, errors
+from uamqp.utils import get_running_loop
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
 
@@ -54,7 +54,7 @@ class MgmtOperationAsync(MgmtOperation):
                  description_fields=b'statusDescription',
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,
@@ -78,7 +78,7 @@ class MgmtOperationAsync(MgmtOperation):
         :type message: ~uamqp.message.Message
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :rtype: ~uamqp.message.Message
         """
         start_time = self._counter.get_current_ms()

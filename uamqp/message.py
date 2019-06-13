@@ -470,7 +470,7 @@ class BatchMessage(Message):
                 for data in self._body_gen:
                     message_bytes = None
                     try:
-                        if not data.application_properties:  # Message-like object
+                        if not data.application_properties and self.application_properties:  # Message-like object
                             data.application_properties = self.application_properties
                         message_bytes = data.encode_message()
                     except AttributeError:  # raw data
@@ -509,7 +509,7 @@ class BatchMessage(Message):
         for data in self._body_gen:
             message_bytes = None
             try:
-                if not data.application_properties:  # Message-like object
+                if not data.application_properties and self.application_properties:  # Message-like object
                     data.application_properties = self.application_properties
                 message_bytes = data.encode_message()
             except AttributeError:  # raw data
@@ -517,9 +517,7 @@ class BatchMessage(Message):
                 message_bytes = wrap_message.encode_message()
             body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:
-                raise ValueError(
-                    "Data set too large for a single message."
-                    "Set multi_messages to True to split data across multiple messages.")
+                raise errors.MessageContentTooLarge()
             new_message._body.append(message_bytes)  # pylint: disable=protected-access
         new_message.on_send_complete = self.on_send_complete
         return [new_message]

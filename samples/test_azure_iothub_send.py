@@ -31,7 +31,7 @@ def get_logger(level):
     return uamqp_logger
 
 
-log = get_logger(logging.DEBUG)
+log = get_logger(logging.INFO)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):
@@ -74,7 +74,7 @@ def test_iot_hub_send(live_iothub_config):
     target = 'amqps://' + endpoint + operation
     log.info("Target: {}".format(target))
 
-    send_client = uamqp.SendClient(target, debug=True)
+    send_client = uamqp.SendClient(target, debug=False)
     send_client.queue_message(message)
     results = send_client.send_all_messages()
     assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]

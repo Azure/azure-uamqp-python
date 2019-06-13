@@ -11,6 +11,7 @@ import logging
 
 import uamqp
 from uamqp import c_uamqp, connection
+from uamqp.utils import get_running_loop
 
 _logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class ConnectionAsync(connection.Connection):
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super(ConnectionAsync, self).__init__(
             hostname, sasl,
             container_id=container_id,

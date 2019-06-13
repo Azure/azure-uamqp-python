@@ -31,7 +31,7 @@ def get_logger(level):
     return uamqp_logger
 
 
-log = get_logger(logging.DEBUG)
+log = get_logger(logging.INFO)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):
@@ -60,7 +60,7 @@ def _build_iothub_amqp_endpoint_from_target(target):
 
 def _receive_message(conn, source, auth):
     batch = []
-    receive_client = uamqp.ReceiveClient(source, auth=auth, debug=True, timeout=5, prefetch=50)
+    receive_client = uamqp.ReceiveClient(source, auth=auth, debug=False, timeout=5, prefetch=50)
     try:
         receive_client.open(connection=conn)
         batch = receive_client.receive_message_batch(max_batch_size=10)
@@ -81,7 +81,7 @@ def test_iothub_client_receive_sync(live_iothub_config):
 
     source = 'amqps://' + live_iothub_config['hostname'] + operation
     log.info("Source: {}".format(source))
-    with uamqp.Connection(live_iothub_config['hostname'], auth, debug=True) as conn:
+    with uamqp.Connection(live_iothub_config['hostname'], auth, debug=False) as conn:
         result = _receive_message(conn, source, auth)
         new_auth = authentication.SASLPlain(
            result.hostname,

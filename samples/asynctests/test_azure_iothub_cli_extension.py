@@ -32,7 +32,7 @@ def get_logger(level):
 
 
 DEBUG = True
-logger = get_logger(logging.WARNING)
+logger = get_logger(logging.INFO)
 
 
 def _generate_sas_token(uri, policy, key, expiry=None):

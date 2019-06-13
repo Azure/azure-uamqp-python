@@ -13,6 +13,7 @@ import uuid
 
 from uamqp import (Connection, Session, address, authentication, c_uamqp,
                    compat, constants, errors, receiver, sender)
+from uamqp.constants import TransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -66,6 +67,17 @@ class AMQPClient(object):
     :param on_attach: A callback function to be run on receipt of an ATTACH frame.
      The function must take 4 arguments: source, target, properties and error.
     :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
@@ -75,6 +87,8 @@ class AMQPClient(object):
             self, remote_address, auth=None, client_name=None, debug=False,
             error_policy=None, keep_alive_interval=None, **kwargs):
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
+        self._transport_type = kwargs.pop('transport_type', None) or TransportType.Amqp
+        self._http_proxy = kwargs.pop('http_proxy', None)
         self._remote_address = remote_address if isinstance(remote_address, address.Address) \
             else address.Address(remote_address)
         self._hostname = self._remote_address.hostname
@@ -84,9 +98,15 @@ class AMQPClient(object):
             if username and password:
                 username = compat.unquote_plus(username)
                 password = compat.unquote_plus(password)
-                auth = authentication.SASLPlain(self._hostname, username, password)
+                auth = authentication.SASLPlain(
+                    self._hostname, username, password,
+                    http_proxy=self._http_proxy,
+                    transport_type=self._transport_type)
 
-        self._auth = auth if auth else authentication.SASLAnonymous(self._hostname)
+        self._auth = auth if auth else authentication.SASLAnonymous(
+            self._hostname,
+            http_proxy=self._http_proxy,
+            transport_type=self._transport_type)
         self._name = client_name if client_name else str(uuid.uuid4())
         self._debug_trace = debug
         self._counter = c_uamqp.TickCounter()
@@ -112,6 +132,10 @@ class AMQPClient(object):
         self._incoming_window = kwargs.pop('incoming_window', None) or constants.MAX_FRAME_SIZE_BYTES
         self._handle_max = kwargs.pop('handle_max', None)
         self._on_attach = kwargs.pop('on_attach', None)
+
+        # Link settings
+        self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
+        self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
 
         # AMQP object settings
         self.message_handler = None
@@ -299,7 +323,7 @@ class AMQPClient(object):
         :type node: bytes
         :param timeout: Provide an optional timeout in milliseconds within which a response
          to the management request must be received.
-        :type timeout: int
+        :type timeout: float
         :param callback: The function to process the returned parameters of the management
          request including status code and a description if available. This can be used
          to reformat the response or raise an error based on content. The function must
@@ -415,6 +439,12 @@ class SendClient(AMQPClient):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param receive_settle_mode: The mode by which to settle message receive
+     operations. If set to `PeekLock`, the receiver will lock a message once received until
+     the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
+     will assume successful receipt of the message and clear it from the queue. The
+     default is `PeekLock`.
+    :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_properties: Metadata to be sent in the Link ATTACH frame.
@@ -459,7 +489,6 @@ class SendClient(AMQPClient):
         self._shutdown = None
 
         # Sender and Link settings
-        self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
         self._link_credit = kwargs.pop('link_credit', None)
@@ -493,6 +522,7 @@ class SendClient(AMQPClient):
                 name='sender-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 send_settle_mode=self._send_settle_mode,
+                receive_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
                 link_credit=self._link_credit,
                 properties=self._link_properties,
@@ -592,12 +622,14 @@ class SendClient(AMQPClient):
                     timeout = self._get_msg_timeout(message)
                     if timeout is None:
                         self._on_message_sent(message, constants.MessageSendResult.Timeout)
-                        continue
+                        if message.state != constants.MessageState.WaitingToBeSent:
+                            continue
                     else:
                         self._transfer_message(message, timeout)
                 except Exception as exp:  # pylint: disable=broad-except
                     self._on_message_sent(message, constants.MessageSendResult.Error, delivery_state=exp)
-                    continue
+                    if message.state != constants.MessageState.WaitingToBeSent:
+                        continue
             filtered.append(message)
         return filtered
 
@@ -770,7 +802,7 @@ class ReceiveClient(AMQPClient):
     :param timeout: A timeout in milliseconds. The receiver will shut down if no
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
-    :type timeout: int
+    :type timeout: float
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -785,6 +817,11 @@ class ReceiveClient(AMQPClient):
      thread will sleep (in seconds) between pinging the connection. If 0 or None, no
      thread will be started.
     :type keep_alive_interval: int
+    :param send_settle_mode: The mode by which to settle message send
+     operations. If set to `Unsettled`, the client will wait for a confirmation
+     from the service that the message was successfully sent. If set to 'Settled',
+     the client will not wait for confirmation and assume success.
+    :type send_settle_mode: ~uamqp.constants.SenderSettleMode
     :param receive_settle_mode: The mode by which to settle message receive
      operations. If set to `PeekLock`, the receiver will lock a message once received until
      the client accepts or rejects the message. If set to `ReceiveAndDelete`, the service
@@ -837,7 +874,6 @@ class ReceiveClient(AMQPClient):
         self._received_messages = None
 
         # Receiver and Link settings
-        self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
         self._link_properties = kwargs.pop('link_properties', None)
@@ -874,6 +910,7 @@ class ReceiveClient(AMQPClient):
                 name='receiver-link-{}'.format(uuid.uuid4()),
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
+                send_settle_mode=self._send_settle_mode,
                 prefetch=self._prefetch,
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
@@ -960,9 +997,7 @@ class ReceiveClient(AMQPClient):
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
-            # We'll log a warning and release it.
-            _logger.warning("Message was not settled. Releasing.")
-            message.release()
+            _logger.info("Message was not settled.")
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
@@ -987,7 +1022,7 @@ class ReceiveClient(AMQPClient):
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
-        :type timeout: int
+        :type timeout: float
         """
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch

@@ -74,7 +74,7 @@ def get_logger(level):
     return uamqp_logger
 
 
-log = get_logger(logging.DEBUG)
+log = get_logger(logging.INFO)
 
 
 def _build_iothub_amqp_endpoint_from_target(target):
@@ -113,7 +113,7 @@ def test_iothub_client_receive_sync(live_iothub_config):
 
     source = 'amqps://' + endpoint + operation
     log.info("Source: {}".format(source))
-    receive_client = uamqp.ReceiveClient(source, debug=True, timeout=5000, prefetch=50)
+    receive_client = uamqp.ReceiveClient(source, debug=False, timeout=5000, prefetch=50)
     try:
         log.info("Created client, receiving...")
         _receive_message(receive_client, live_iothub_config)
