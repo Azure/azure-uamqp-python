@@ -279,5 +279,6 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
         self.set_io(self.hostname, port, http_proxy, transport_type)
 
     async def update_token(self):
-        self.expires_at = time.time() + self.expires_in.seconds
-        self.token = self._encode(await self.get_token())
+        access_token = await self.get_token()
+        self.expires_at = time.time() + access_token.expires_on
+        self.token = self._encode(access_token.token)
