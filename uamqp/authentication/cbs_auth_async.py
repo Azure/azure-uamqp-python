@@ -11,7 +11,7 @@ import datetime
 import logging
 import time
 
-from uamqp import c_uamqp, compat, constants, errors, utils
+from uamqp import c_uamqp, compat, constants, errors
 from uamqp.utils import get_running_loop
 from uamqp.async_ops import SessionAsync
 from uamqp.constants import TransportType
