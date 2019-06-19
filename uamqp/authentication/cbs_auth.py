@@ -419,5 +419,5 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
 
     def update_token(self):
         access_token = self.get_token()
-        self.expires_at = time.time() + access_token.expires_on
+        self.expires_at = utils.timestamp_from_utc_to_local(access_token.expires_on)
         self.token = self._encode(access_token.token)

@@ -129,3 +129,9 @@ def data_factory(value, encoding='UTF-8'):
         timestamp = int((calendar.timegm(value.utctimetuple()) * 1000) + (value.microsecond/1000))
         result = c_uamqp.timestamp_value(timestamp)
     return result
+
+
+def timestamp_from_utc_to_local(utc_timestamp):
+    now_timestamp = time.time()
+    offset = datetime.fromtimestamp(now_timestamp) - datetime.utcfromtimestamp(now_timestamp)
+    return utc_timestamp + offset.total_seconds()

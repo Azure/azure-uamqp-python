@@ -11,7 +11,7 @@ import datetime
 import logging
 import time
 
-from uamqp import c_uamqp, compat, constants, errors
+from uamqp import c_uamqp, compat, constants, errors, utils
 from uamqp.utils import get_running_loop
 from uamqp.async_ops import SessionAsync
 from uamqp.constants import TransportType
@@ -280,5 +280,5 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
 
     async def update_token(self):
         access_token = await self.get_token()
-        self.expires_at = time.time() + access_token.expires_on
+        self.expires_at = utils.timestamp_from_utc_to_local(access_token.expires_on)
         self.token = self._encode(access_token.token)
