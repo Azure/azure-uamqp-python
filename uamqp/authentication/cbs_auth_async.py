@@ -9,7 +9,6 @@
 import asyncio
 import datetime
 import logging
-import time
 
 from uamqp import c_uamqp, compat, constants, errors
 from uamqp.utils import get_running_loop
