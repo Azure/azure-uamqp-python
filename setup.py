@@ -149,7 +149,7 @@ def get_latest_windows_sdk():
     platform_libs_path = os.path.join(lib_path, latest_libs_dir, "um", 'x64' if is_x64 else 'x86')
     if not os.path.isdir(platform_libs_path):
         print("Warning - build may fail: Windows SDK v{} libraries {} not found at path {}.".format(
-            latest_sdk_version, latest_libs_dir, sdk_platform_libs_pathpath))
+            latest_sdk_version, latest_libs_dir, platform_libs_path))
     else:
         print("Adding Windows SDK v{} libraries {} to search path, installed at {}".format(
             latest_sdk_version, latest_libs_dir, platform_libs_path))

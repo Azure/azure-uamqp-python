@@ -418,5 +418,6 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
         self.set_io(self.hostname, port, http_proxy, transport_type)
 
     def update_token(self):
-        self.expires_at = time.time() + self.expires_in.seconds
-        self.token = self._encode(self.get_token())
+        access_token = self.get_token()
+        self.expires_at = access_token.expires_on
+        self.token = self._encode(access_token.token)

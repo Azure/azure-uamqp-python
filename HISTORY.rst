@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.2.1 (2019-06-20)
+++++++++++++++++++
+
+- Updated the implementation of `update_token()` in `JWTTokenAuth` and `JWTTokenAsync` (issue #80).
+
+
 1.2.0 (2019-04-16)
 ++++++++++++++++++
 
