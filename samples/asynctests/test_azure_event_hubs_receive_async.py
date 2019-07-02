@@ -131,6 +131,7 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
 
 @pytest.mark.asyncio
 async def test_event_hubs_shared_connection_async(live_eventhub_config):
+    pytest.skip("Unstable on OSX and Linux - need to fix")  # TODO
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -171,6 +172,7 @@ async def receive_ten(partition, receiver):
 
 @pytest.mark.asyncio
 async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
+    pytest.skip("Unstable on OSX and Linux - need to fix")  # TODO
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth_a = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
