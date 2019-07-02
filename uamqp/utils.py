@@ -22,7 +22,11 @@ def get_running_loop():
         import asyncio  # pylint: disable=import-error
         return asyncio.get_running_loop()
     except AttributeError:  # 3.5 / 3.6
-        loop = asyncio._get_running_loop()  # pylint: disable=protected-access
+        loop = None
+        try:
+            loop = asyncio._get_running_loop()  # pylint: disable=protected-access
+        except AttributeError:
+            pass
         if loop is None:
             logger.warning('No running event loop')
             loop = asyncio.get_event_loop()
