@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.2 (2019-07-02)
+++++++++++++++++++
+
+- Made bug fix in asyncio.get_event_loop backwards-compatible for now by just printing a warning rather than raising an error. In the next major version bump we can disable entirely.
+
 1.2.1 (2019-06-20)
 ++++++++++++++++++
 

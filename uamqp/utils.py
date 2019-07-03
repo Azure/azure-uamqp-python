@@ -8,10 +8,13 @@ import base64
 import calendar
 import time
 import uuid
+import logging
 from datetime import timedelta, datetime
 
 import six
 from uamqp import c_uamqp
+
+logger = logging.getLogger(__name__)
 
 
 def get_running_loop():
@@ -19,10 +22,19 @@ def get_running_loop():
         import asyncio  # pylint: disable=import-error
         return asyncio.get_running_loop()
     except AttributeError:  # 3.5 / 3.6
-        loop = asyncio._get_running_loop()  # pylint: disable=protected-access
+        loop = None
+        try:
+            loop = asyncio._get_running_loop()  # pylint: disable=protected-access
+        except AttributeError:
+            logger.warning('This version of Python is deprecated, please upgrade to >= v3.5.3')
         if loop is None:
-            raise RuntimeError('No running event loop')
+            logger.warning('No running event loop')
+            loop = asyncio.get_event_loop()
         return loop
+    except RuntimeError:
+        # For backwards compatibility, create new event loop
+        logger.warning('No running event loop')
+        return asyncio.get_event_loop()
 
 
 def parse_connection_string(connect_str):
