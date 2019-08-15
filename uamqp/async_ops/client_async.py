@@ -945,7 +945,9 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :rtype: Generator[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = queue.Queue()
+        self._received_messages = self._received_messages or compat.queue.Queue()
+        # previsouly new Queue every time
+        # why? what about the recevied unhandled messages, they will be simply dropped
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
     async def redirect_async(self, redirect, auth):
@@ -967,6 +969,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
+        self._received_messages = compat.queue.Queue()
 
         self._remote_address = address.Source(redirect.address)
         await self._redirect_async(redirect, auth)
