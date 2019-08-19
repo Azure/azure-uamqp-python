@@ -860,7 +860,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
-        self.streaming_receive = True
+        self._streaming_receive = True
         await self.open_async()
         self._message_received_callback = on_message_received
         receiving = True
@@ -871,7 +871,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             receiving = False
             raise
         finally:
-            self.streaming_receive = False
+            self._streaming_receive = False
             if not receiving:
                 await self.close_async()
 
@@ -951,8 +951,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         """
         self._message_received_callback = on_message_received
         self._received_messages = self._received_messages or compat.queue.Queue()
-        # previsouly new Queue every time
-        # why? what about the recevied unhandled messages, they will be simply dropped
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
     async def redirect_async(self, redirect, auth):

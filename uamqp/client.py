@@ -874,10 +874,7 @@ class ReceiveClient(AMQPClient):
         self._last_activity_timestamp = None
         self._was_message_received = False
         self._message_received_callback = None
-        # TODO: would it be breaking to change from None to an empty Object, why previously set to None
-        # to make the _received_messages not a none object, think about the case when it should be initialized None
-        # maybe can use .empty to have the same effect
-        self.streaming_receive = False
+        self._streaming_receive = False
         self._received_messages = compat.queue.Queue()
 
         # Receiver and Link settings
@@ -1000,7 +997,7 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         self._complete_message(message, self.auto_complete)
 
-        if not self.streaming_receive:
+        if not self._streaming_receive:
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
@@ -1080,7 +1077,7 @@ class ReceiveClient(AMQPClient):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
-        self.streaming_receive = True
+        self._streaming_receive = True
         self.open()
         self._message_received_callback = on_message_received
         receiving = True
@@ -1091,7 +1088,7 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
-            self.streaming_receive = False
+            self._streaming_receive = False
             if not receiving:
                 self.close()
 
@@ -1106,8 +1103,6 @@ class ReceiveClient(AMQPClient):
         """
         self._message_received_callback = on_message_received
         self._received_messages = self._received_messages or compat.queue.Queue()
-        # previsouly new Queue every time
-        # why? what about the recevied unhandled messages, they will be simply dropped
         return self._message_generator()
 
     def redirect(self, redirect, auth):
