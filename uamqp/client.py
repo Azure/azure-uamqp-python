@@ -236,6 +236,7 @@ class AMQPClient(object):
             _logger.debug("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
+            connection.lock()
         self._connection = connection or self.connection_type(
             self._hostname,
             self._auth,
@@ -269,6 +270,8 @@ class AMQPClient(object):
         if self._keep_alive_interval:
             self._keep_alive_thread = threading.Thread(target=self._keep_alive)
             self._keep_alive_thread.start()
+        if self._ext_connection:
+            connection.release()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -874,6 +877,7 @@ class ReceiveClient(AMQPClient):
         # TODO: would it be breaking to change from None to an empty Object, why previously set to None
         # to make the _received_messages not a none object, think about the case when it should be initialized None
         # maybe can use .empty to have the same effect
+        self.streaming_receive = False
         self._received_messages = compat.queue.Queue()
 
         # Receiver and Link settings
@@ -996,7 +1000,7 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         self._complete_message(message, self.auto_complete)
 
-        if self._received_messages:
+        if not self.streaming_receive:
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
@@ -1076,8 +1080,8 @@ class ReceiveClient(AMQPClient):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
+        self.streaming_receive = True
         self.open()
-        self._received_messages = None
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -1087,6 +1091,7 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
+            self.streaming_receive = False
             if not receiving:
                 self.close()
 

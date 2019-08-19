@@ -222,6 +222,7 @@ class AMQPClientAsync(client.AMQPClient):
             _logger.info("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
+            await connection.lock_async()
         self._connection = connection or self.connection_type(
             self._hostname,
             self._auth,
@@ -256,6 +257,8 @@ class AMQPClientAsync(client.AMQPClient):
                 loop=self.loop)
         if self._keep_alive_interval:
             self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
+        if self._ext_connection:
+            await connection.release_async()
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -857,6 +860,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
+        self.streaming_receive = True
         await self.open_async()
         self._message_received_callback = on_message_received
         receiving = True
@@ -867,6 +871,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             receiving = False
             raise
         finally:
+            self.streaming_receive = False
             if not receiving:
                 await self.close_async()
 
