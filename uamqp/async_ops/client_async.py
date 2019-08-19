@@ -13,7 +13,7 @@ import logging
 import queue
 import uuid
 
-from uamqp import address, authentication, client, constants, errors
+from uamqp import address, authentication, client, constants, errors, compat
 from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
