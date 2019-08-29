@@ -80,7 +80,7 @@ async def test_event_hubs_iter_receive_async(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=1000, prefetch=10)
+    receive_client = uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=3000, prefetch=10)
     count = 0
     message_generator = receive_client.receive_messages_iter_async()
     async for message in message_generator:
@@ -111,7 +111,7 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    async with uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=1000, prefetch=10) as receive_client:
+    async with uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=3000, prefetch=10) as receive_client:
         message_batch = await receive_client.receive_message_batch_async(10)
         log.info("got batch: {}".format(len(message_batch)))
         for message in message_batch:
@@ -140,8 +140,8 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
         live_eventhub_config['consumer_group'])
 
     async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
-        partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=1000, prefetch=10)
-        partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=1000, prefetch=10)
+        partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
+        partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
         await partition_0.open_async(connection=conn)
         await partition_1.open_async(connection=conn)
         tasks = [
@@ -181,8 +181,8 @@ async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'])
 
-    partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth_a, timeout=1000, prefetch=10)
-    partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth_b, timeout=1000, prefetch=10)
+    partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth_a, timeout=3000, prefetch=10)
+    partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth_b, timeout=3000, prefetch=10)
     try:
         await partition_0.open_async()
         await partition_1.open_async()
