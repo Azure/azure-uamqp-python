@@ -10,7 +10,6 @@
 import asyncio
 import collections.abc
 import logging
-import queue
 import uuid
 
 from uamqp import address, authentication, client, constants, errors, compat
