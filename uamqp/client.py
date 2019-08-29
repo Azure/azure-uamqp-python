@@ -1036,7 +1036,6 @@ class ReceiveClient(AMQPClient):
                 'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or compat.queue.Queue()
         self.open()
         receiving = True
         batch = []
@@ -1102,7 +1101,6 @@ class ReceiveClient(AMQPClient):
         :type on_message_received: callable[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = self._received_messages or compat.queue.Queue()
         return self._message_generator()
 
     def redirect(self, redirect, auth):

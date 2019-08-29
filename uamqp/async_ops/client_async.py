@@ -906,7 +906,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 'connection link credit: {}'.format(max_batch_size, self._prefetch))
         timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or queue.Queue()
         await self.open_async()
         receiving = True
         batch = []
@@ -950,7 +949,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :rtype: Generator[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = self._received_messages or compat.queue.Queue()
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
     async def redirect_async(self, redirect, auth):
