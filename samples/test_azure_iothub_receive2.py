@@ -60,7 +60,7 @@ def _build_iothub_amqp_endpoint_from_target(target):
 
 def _receive_message(conn, source, auth):
     batch = []
-    receive_client = uamqp.ReceiveClient(source, auth=auth, debug=False, timeout=5, prefetch=50)
+    receive_client = uamqp.ReceiveClient(source, auth=auth, debug=False, timeout=5000, prefetch=50)
     try:
         receive_client.open(connection=conn)
         batch = receive_client.receive_message_batch(max_batch_size=10)

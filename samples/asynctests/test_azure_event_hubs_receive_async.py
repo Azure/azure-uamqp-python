@@ -45,7 +45,7 @@ async def test_event_hubs_callback_async_receive(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=10, prefetch=10)
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=1000, prefetch=10)
     log.info("Created client, receiving...")
     await receive_client.receive_messages_async(on_message_received)
     log.info("Finished receiving")
@@ -65,7 +65,7 @@ async def test_event_hubs_filter_receive_async(live_eventhub_config):
     source = address.Source(source_url)
     source.set_filter(b"amqp.annotation.x-opt-enqueuedtimeutc > 1518731960545")
 
-    receive_client = uamqp.ReceiveClientAsync(source, auth=plain_auth, timeout=50)
+    receive_client = uamqp.ReceiveClientAsync(source, auth=plain_auth, timeout=5000)
     await receive_client.receive_messages_async(on_message_received)
 
 
