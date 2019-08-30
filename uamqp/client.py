@@ -236,6 +236,7 @@ class AMQPClient(object):
             _logger.debug("Using existing connection.")
             self._auth = connection.auth
             self._ext_connection = True
+            connection.lock()
         self._connection = connection or self.connection_type(
             self._hostname,
             self._auth,
@@ -269,6 +270,8 @@ class AMQPClient(object):
         if self._keep_alive_interval:
             self._keep_alive_thread = threading.Thread(target=self._keep_alive)
             self._keep_alive_thread.start()
+        if self._ext_connection:
+            connection.release()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -871,7 +874,8 @@ class ReceiveClient(AMQPClient):
         self._last_activity_timestamp = None
         self._was_message_received = False
         self._message_received_callback = None
-        self._received_messages = None
+        self._streaming_receive = False
+        self._received_messages = compat.queue.Queue()
 
         # Receiver and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
@@ -993,7 +997,7 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         self._complete_message(message, self.auto_complete)
 
-        if self._received_messages:
+        if not self._streaming_receive:
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
@@ -1032,7 +1036,6 @@ class ReceiveClient(AMQPClient):
                 'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or compat.queue.Queue()
         self.open()
         receiving = True
         batch = []
@@ -1073,8 +1076,8 @@ class ReceiveClient(AMQPClient):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
+        self._streaming_receive = True
         self.open()
-        self._received_messages = None
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -1084,6 +1087,7 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
+            self._streaming_receive = False
             if not receiving:
                 self.close()
 
@@ -1097,7 +1101,6 @@ class ReceiveClient(AMQPClient):
         :type on_message_received: callable[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = compat.queue.Queue()
         return self._message_generator()
 
     def redirect(self, redirect, auth):
@@ -1119,7 +1122,7 @@ class ReceiveClient(AMQPClient):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
-        self._received_messages = None
+        self._received_messages = compat.queue.Queue()
 
         self._remote_address = address.Source(redirect.address)
         self._redirect(redirect, auth)
