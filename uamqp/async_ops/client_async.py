@@ -932,7 +932,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                     self._received_messages.task_done()
         finally:
             if self._shutdown:
-                self.close()
+                await self.close_async()
         return batch
 
     def receive_messages_iter_async(self, on_message_received=None):
