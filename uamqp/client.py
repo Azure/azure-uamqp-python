@@ -1045,21 +1045,25 @@ class ReceiveClient(AMQPClient):
         if len(batch) >= max_batch_size:
             return batch
 
-        while receiving and not expired and len(batch) < max_batch_size:
-            while receiving and self._received_messages.qsize() < max_batch_size:
-                if timeout and self._counter.get_current_ms() > timeout:
-                    expired = True
-                    break
-                before = self._received_messages.qsize()
-                receiving = self.do_work()
-                received = self._received_messages.qsize() - before
-                if self._received_messages.qsize() > 0 and received == 0:
-                    # No new messages arrived, but we have some - so return what we have.
-                    expired = True
-                    break
-            while not self._received_messages.empty() and len(batch) < max_batch_size:
-                batch.append(self._received_messages.get())
-                self._received_messages.task_done()
+        try:
+            while receiving and not expired and len(batch) < max_batch_size:
+                while receiving and self._received_messages.qsize() < max_batch_size:
+                    if timeout and self._counter.get_current_ms() > timeout:
+                        expired = True
+                        break
+                    before = self._received_messages.qsize()
+                    receiving = self.do_work()
+                    received = self._received_messages.qsize() - before
+                    if self._received_messages.qsize() > 0 and received == 0:
+                        # No new messages arrived, but we have some - so return what we have.
+                        expired = True
+                        break
+                while not self._received_messages.empty() and len(batch) < max_batch_size:
+                    batch.append(self._received_messages.get())
+                    self._received_messages.task_done()
+        finally:
+            if self._shutdown:
+                self.close()
         return batch
 
     def receive_messages(self, on_message_received):

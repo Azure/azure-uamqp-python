@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.2.3 (2019-09-09)
+++++++++++++++++++
+
+- Fixed bug in dropping recevied messages when the connection just started working.
+- Fixed bug in not closing `ReceiveClient` after the state set to be `shutdown=True`.
+
 1.2.2 (2019-07-02)
 ++++++++++++++++++
 
