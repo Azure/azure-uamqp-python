@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Iterable, Union, Tuple, Dict
 
-from .types import AMQPTypes, TYPE, VALUE
+from .types import AMQPTypes, ConstructorBytes, TYPE, VALUE
 
 import six
 
@@ -30,7 +30,7 @@ def encode_null(output, *args, **kwargs):
     """
     encoding code="0x40" category="fixed" width="0" label="the null value"
     """
-    return output + b'\x40'
+    return output + ConstructorBytes.null
 
 
 def encode_boolean(output, value, with_constructor=True, **kwargs):
@@ -42,15 +42,15 @@ def encode_boolean(output, value, with_constructor=True, **kwargs):
     """
     value = bool(value)
     if with_constructor:
-        output += _construct(b'\x56', with_constructor)
+        output += _construct(ConstructorBytes.bool, with_constructor)
         if value:
             return output + b'\x01'
         else:
             return output + b'\x00'   
     if value:
-        return output + b'\x41'
+        return output + ConstructorBytes.bool_true
     else:
-        return output + b'\x42'
+        return output + ConstructorBytes.bool_false
 
 
 def encode_ubyte(output, value, with_constructor=True, **kwargs):
@@ -63,7 +63,7 @@ def encode_ubyte(output, value, with_constructor=True, **kwargs):
     except ValueError:
         value = ord(value)
     try:
-        output += _construct(b'\x50', with_constructor)
+        output += _construct(ConstructorBytes.ubyte, with_constructor)
         return output + _bytes(abs(value))
     except OverflowError:
         raise ValueError("Unsigned byte value must be 0-255")
@@ -79,7 +79,7 @@ def encode_ushort(output, value, with_constructor=True, **kwargs):
     except ValueError:
         value = int.from_bytes(value, 'big')
     try:
-        output += _construct(b'\x60', with_constructor)
+        output += _construct(ConstructorBytes.ushort, with_constructor)
         return output + _bytes(abs(value), length=2)
     except OverflowError:
         raise ValueError("Unsigned byte value must be 0-65535")
@@ -97,12 +97,12 @@ def encode_uint(output, value, with_constructor=True, use_smallest=True):
     except ValueError:
         value = int.from_bytes(value, 'big')
     if value == 0:
-        return output + b'\x43'
+        return output + ConstructorBytes.uint_0
     try:
         if use_smallest and value <= 255:
-            output += _construct(b'\x52', with_constructor)
+            output += _construct(ConstructorBytes.uint_small, with_constructor)
             return output + _bytes(abs(value))
-        output += _construct(b'\x70', with_constructor)
+        output += _construct(ConstructorBytes.uint_large, with_constructor)
         return output + _bytes(abs(value), length=4)
     except OverflowError:
         raise ValueError("Value supplied for unsigned int invalid: {}".format(value))
@@ -123,12 +123,12 @@ def encode_ulong(output, value, with_constructor=True, use_smallest=True):
     except ValueError:
         value = int.from_bytes(value, 'big')
     if value == 0:
-        return output + b'\x44'
+        return output + ConstructorBytes.ulong_0
     try:
         if use_smallest and value <= 255:
-            output += _construct(b'\x53', with_constructor)
+            output += _construct(ConstructorBytes.ulong_small, with_constructor)
             return output + _bytes(abs(value))
-        output += _construct(b'\x80', with_constructor)
+        output += _construct(ConstructorBytes.ulong_large, with_constructor)
         return output + _bytes(abs(value), length=8)
     except OverflowError:
         raise ValueError("Value supplied for unsigned long invalid: {}".format(value))
@@ -141,7 +141,7 @@ def encode_byte(output, value, with_constructor=True, **kwargs):
     """
     value = int(value)
     try:
-        output += _construct(b'\x51', with_constructor)
+        output += _construct(ConstructorBytes.byte, with_constructor)
         return output + _bytes(value, signed=True)
     except OverflowError:
         raise ValueError("Byte value must be -128-127")
@@ -154,7 +154,7 @@ def encode_short(output, value, with_constructor=True, **kwargs):
     """
     value = int(value)
     try:
-        output += _construct(b'\x61', with_constructor)
+        output += _construct(ConstructorBytes.short, with_constructor)
         return output + _bytes(value, length=2, signed=True)
     except OverflowError:
         raise ValueError("Short value must be -32768-32767")
@@ -169,9 +169,9 @@ def encode_int(output, value, with_constructor=True, use_smallest=True):
     value = int(value)
     try:
         if use_smallest and (-128 <= value <= 127):
-            output += _construct(b'\x54', with_constructor)
+            output += _construct(ConstructorBytes.int_small, with_constructor)
             return output + _bytes(value, signed=True)
-        output += _construct(b'\x71', with_constructor)
+        output += _construct(ConstructorBytes.int_large, with_constructor)
         return output + _bytes(value, length=4, signed=True)
     except OverflowError:
         raise ValueError("Value supplied for int invalid: {}".format(value))
@@ -189,9 +189,9 @@ def encode_long(output, value, with_constructor=True, use_smallest=True):
         value = int(value)
     try:
         if use_smallest and (-128 <= value <= 127):
-            output += _construct(b'\x55', with_constructor)
+            output += _construct(ConstructorBytes.long_small, with_constructor)
             return output + _bytes(value, signed=True)
-        output += _construct(b'\x81', with_constructor)
+        output += _construct(ConstructorBytes.long_large, with_constructor)
         return output + _bytes(value, length=8, signed=True)
     except OverflowError:
         raise ValueError("Value supplied for long invalid: {}".format(value))
@@ -202,7 +202,7 @@ def encode_float(output, value, with_constructor=True, **kwargs):
     <encoding name="ieee-754" code="0x72" category="fixed" width="4" label="IEEE 754-2008 binary32"/>
     """
     value = float(value)
-    output += _construct(b'\x72', with_constructor)
+    output += _construct(ConstructorBytes.float, with_constructor)
     return output + struct.pack('>f', value)
 
 
@@ -212,7 +212,7 @@ def encode_double(output, value, with_constructor=True, **kwargs):
     <encoding name="ieee-754" code="0x82" category="fixed" width="8" label="IEEE 754-2008 binary64"/>
     """
     value = float(value)
-    output += _construct(b'\x82', with_constructor)
+    output += _construct(ConstructorBytes.double, with_constructor)
     return output + struct.pack('>d', value)
 
 
@@ -224,7 +224,7 @@ def encode_timestamp(output, value, with_constructor=True, **kwargs):
     if isinstance(value, datetime):
         value = (calendar.timegm(value.utctimetuple()) * 1000) + (value.microsecond/1000)
     value = int(value)
-    output += _construct(b'\x83', with_constructor)
+    output += _construct(ConstructorBytes.timestamp, with_constructor)
     return output + _bytes(value, length=8, signed=True)
 
 
@@ -241,7 +241,7 @@ def encode_uuid(output, value, with_constructor=True, **kwargs):
         value = uuid.UUID(bytes=value).bytes
     else:
         raise TypeError("Invalid UUID type: {}".format(type(value)))
-    output += _construct(b'\x98', with_constructor)
+    output += _construct(ConstructorBytes.uuid, with_constructor)
     return output + value
 
 
@@ -253,11 +253,11 @@ def encode_binary(output, value, with_constructor=True, use_smallest=True):
     """
     length = len(value)
     if use_smallest and length <= 255:
-        output += _construct(b'\xA0', with_constructor)
+        output += _construct(ConstructorBytes.binary_small, with_constructor)
         output += _bytes(length)
         return output + value
     try:
-        output += _construct(b'\xB0', with_constructor)
+        output += _construct(ConstructorBytes.binary_large, with_constructor)
         output += _bytes(length, length=4)
         return output + value
     except OverflowError:
@@ -274,11 +274,11 @@ def encode_string(output, value, with_constructor=True, use_smallest=True):
         value = value.encode('utf-8')
     length = len(value)
     if use_smallest and length <= 255:
-        output += _construct(b'\xA1', with_constructor)
+        output += _construct(ConstructorBytes.string_small, with_constructor)
         output += _bytes(length)
         return output + value
     try:
-        output += _construct(b'\xB1', with_constructor)
+        output += _construct(ConstructorBytes.string_large, with_constructor)
         output += _bytes(length, length=4)
         return output + value
     except OverflowError:
@@ -295,11 +295,11 @@ def encode_symbol(output, value, with_constructor=True, use_smallest=True):
         value = value.encode('utf-8')
     length = len(value)
     if use_smallest and length <= 255:
-        output += _construct(b'\xA3', with_constructor)
+        output += _construct(ConstructorBytes.symbol_small, with_constructor)
         output += _bytes(length)
         return output + value
     try:
-        output += _construct(b'\xB3', with_constructor)
+        output += _construct(ConstructorBytes.symbol_large, with_constructor)
         output += _bytes(length, length=4)
         return output + value
     except OverflowError:
@@ -315,19 +315,19 @@ def encode_list(output, value, with_constructor=True, use_smallest=True):
     """
     count = len(value)
     if use_smallest and count == 0:
-        return output + b'\x45'
+        return output + ConstructorBytes.list_0
     encoded_size = 0
     encoded_values = []
     for item in value:
         encoded_values.append(encode_value(b"", item, with_constructor=True))
         encoded_size += len(encoded_values[-1])
     if use_smallest and count <= 255 and encoded_size < 255:
-        output += _construct(b'\xC0', with_constructor)
+        output += _construct(ConstructorBytes.list_small, with_constructor)
         output += _bytes(encoded_size + 1)
         output += _bytes(count)
     else:
         try:
-            output += _construct(b'\xD0', with_constructor)
+            output += _construct(ConstructorBytes.list_large, with_constructor)
             output += _bytes(encoded_size + 4, length=4)
             output += _bytes(count, length=4)
         except OverflowError:
@@ -354,12 +354,12 @@ def encode_map(output, value, with_constructor=True, use_smallest=True):
         encoded_values.append(encode_value(b"", value, with_constructor=True))
         encoded_size += len(encoded_values[-1])
     if use_smallest and count <= 255 and encoded_size < 255:
-        output += _construct(b'\xC1', with_constructor)
+        output += _construct(ConstructorBytes.map_small, with_constructor)
         output += _bytes(encoded_size + 1)
         output += _bytes(count)
     else:
         try:
-            output += _construct(b'\xD1', with_constructor)
+            output += _construct(ConstructorBytes.map_large, with_constructor)
             output += _bytes(encoded_size + 4, length=4)
             output += _bytes(count, length=4)
         except OverflowError:
@@ -402,12 +402,12 @@ def encode_array(output, value, with_constructor=True, use_smallest=True):
             encoded_size -= 1
             break
     if use_smallest and count <= 255 and encoded_size < 255:
-        output += _construct(b'\xE0', with_constructor)
+        output += _construct(ConstructorBytes.array_small, with_constructor)
         output += _bytes(encoded_size + 1)
         output += _bytes(count)
     else:
         try:
-            output += _construct(b'\xF0', with_constructor)
+            output += _construct(ConstructorBytes.array_large, with_constructor)
             output += _bytes(encoded_size + 4, length=4)
             output += _bytes(count, length=4)
         except OverflowError:
@@ -419,7 +419,7 @@ def encode_described(output, value, with_constructor=True, **kwargs):
     # type: (bytes, Tuple(Any, Any), bool, Any) -> bytes
     """
     """
-    output += b"\x00"
+    output += ConstructorBytes.descriptor
     output = encode_value(output, value[0])
     output = encode_value(output, value[1])
     return output
