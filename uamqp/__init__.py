@@ -5,3 +5,7 @@
 #--------------------------------------------------------------------------
 
 __version__ = "2.0.0a1"
+
+
+from ._connection import Connection
+from ._transport import SSLTransport
