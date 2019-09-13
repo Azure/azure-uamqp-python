@@ -4,9 +4,10 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from .types import TYPE, VALUE, AMQPTypes
 from ._encode import encode_value
 from ._decode import decode_value
+from ._error import AMQPError
+from .types import TYPE, VALUE, AMQPTypes
 
 
 def get_frame(frame_type, data, offset):
@@ -17,48 +18,6 @@ def get_frame(frame_type, data, offset):
         return CloseFrame.from_response(values[VALUE][1][VALUE])
     elif descriptor == OpenFrame.header:
         return OpenFrame.from_response(values[VALUE][1][VALUE])
-
-
-class EmptyFrame(object):
-
-    header = None
-
-    def __init__(self):
-        pass
-
-    @classmethod
-    def from_bytes(cls, bytes, size):
-        pass
-
-    def encode(self):
-        pass
-
-
-class AMQPError(object):
-    """
-    <type name="error" class="composite" source="list">
-        <descriptor name="amqp:error:list" code="0x00000000:0x0000001d"/>
-        <field name="condition" type="symbol" requires="error-condition" mandatory="true"/>
-        <field name="description" type="string"/>
-        <field name="info" type="fields"/>
-    </type>
-    """
-
-    header = 29
-
-    def __init__(self, condition, description=None, info=None):
-        self.condition = condition
-        self.description = description
-        self.info = info
-
-    @classmethod
-    def from_response(cls, data):
-        if not data:
-            raise ValueError("Received invalid AMQP error response.")
-        condition = data[0][VALUE]
-        description = data[1][VALUE] if len(data) > 1 else None
-        info = data[2][VALUE] if len(data) > 2 else None
-        return cls(condition, description=description, info=info)
 
 
 class OpenFrame(object):
