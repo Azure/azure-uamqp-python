@@ -3,7 +3,7 @@
 
 from enum import Enum
 
-from .performatives import decode_frame
+from .performatives import _decode_frame
 
 # The protocol header consists of the upper case ASCII letters "AMQP" followed by a protocol id of zero, followed by three unsigned bytes representing the major, minor, and revision of the protocol version (currently 1 (MAJOR), 0 (MINOR), 0 (REVISION)). In total this is an 8-octet sequence] */
 AMQP_HEADER = b'AMQP0100'
@@ -121,7 +121,7 @@ class Connection(object):
     def read_frame(self):
         frame = self.io.read_frame(unpack=unpack)
         if frame[0] is not None:  # TODO: What to do with frame type?
-            return decode_frame(frame[2], frame[3] - 2)
+            return _decode_frame(frame[2], frame[3] - 2)
 
     def open(self):
         if not self.is_underlying_io_open:

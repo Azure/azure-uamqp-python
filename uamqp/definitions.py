@@ -315,17 +315,12 @@ class IETFLanguageTagField(object):
     @staticmethod
     def encode(value):
         # type: (Optional[str]) -> Dict[str, Any]
-        if not value:
-            return {TYPE: AMQPTypes.null, VALUE: None}
-        tag = ",".join(value).encode('utf-8')
-        return {TYPE: AMQPTypes.symbol, VALUE: tag}
+        return {TYPE: AMQPTypes.symbol, VALUE: value.encode('utf-8')}
 
     @staticmethod
     def decode(value):
         # type: (Optional[str]) -> List[str]
-        if value:
-            return value.decode('utf-8').split(',')
-        return []
+        return value.decode('utf-8')
 
 
 class FieldsField(object):

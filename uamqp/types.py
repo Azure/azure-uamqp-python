@@ -52,6 +52,12 @@ class FieldDefinition(Enum):
     error = "error"
 
 
+class ObjDefinition(Enum):
+    source = "source"
+    target = "target"
+    delivery_state = "delivery-state"
+
+
 class ConstructorBytes:
     null = b'\x40'
     bool = b'\x56'
