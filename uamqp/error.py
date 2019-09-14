@@ -6,6 +6,8 @@
 
 from enum import Enum
 
+from .constants import PORT
+
 
 class ErrorCondition(Enum):
     """Shared error conditions
@@ -172,6 +174,6 @@ class AMQPLinkRedirect(AMQPLinkError):
     def __init__(self, condition, description=None, info=None):
         self.hostname = info.get(b'hostname', b'').decode('utf-8')
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
-        self.port = int(info.get(b'port', 0))  # TODO: Default port
+        self.port = int(info.get(b'port', PORT))
         self.address = info.get(b'address', b'').decode('utf-8')
         super(AMQPLinkRedirect, self).__init__(condition, description=description, info=info)
