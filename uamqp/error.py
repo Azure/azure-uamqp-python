@@ -6,7 +6,8 @@
 
 from enum import Enum
 
-class AMQPErrorCondition(Enum):
+
+class ErrorCondition(Enum):
     """
     <type name="amqp-error" class="restricted" source="symbol" provides="error-condition">
         <choice name="internal-error" value="amqp:internal-error"/>
@@ -85,27 +86,41 @@ class LinkErrorCondition(Enum):
 
 
 class AMQPError(object):
-    """
-    <type name="error" class="composite" source="list">
-        <descriptor name="amqp:error:list" code="0x00000000:0x0000001d"/>
-        <field name="condition" type="symbol" requires="error-condition" mandatory="true"/>
-        <field name="description" type="string"/>
-        <field name="info" type="fields"/>
-    </type>
-    """
+    """Details of an error.
 
-    header = 29
+    :param ~uamqp.ErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
     def __init__(self, condition, description=None, info=None):
         self.condition = condition
         self.description = description
         self.info = info
 
-    @classmethod
-    def from_response(cls, data):
-        if not data:
-            raise ValueError("Received invalid AMQP error response.")
-        condition = data[0][VALUE]
-        description = data[1][VALUE] if len(data) > 1 else None
-        info = data[2][VALUE] if len(data) > 2 else None
-        return cls(condition, description=description, info=info)
+
+class AMQPConnectionError(AMQPError):
+    """Details of a Connection-level error.
+
+    :param ~uamqp.ConnectionErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
+
+
+class AMQPSessionError(AMQPError):
+    """Details of a Session-level error.
+
+    :param ~uamqp.SessionErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
+
+
+class AMQPLinkError(AMQPError):
+    """Details of a Link-level error.
+
+    :param ~uamqp.LinkErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """

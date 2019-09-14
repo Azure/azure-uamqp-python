@@ -35,6 +35,23 @@ class AMQPTypes:
     described = 'DESCRIBED'
 
 
+class FieldDefinition(Enum):
+    role = "role"
+    sender_settle_mode = "sender-settle-mode"
+    receiver_settle_mode = "receiver-settle-mode"
+    handle = "handle"
+    seconds = "seconds"
+    milliseconds = "milliseconds"
+    delivery_tag = "delivery-tag"
+    delivery_number = "delivery-number"
+    transfer_number = "transfer-number"
+    sequence_no = "sequence-no"
+    message_format = "message-format"
+    ietf_language_tag = "ietf-language-tag"
+    fields = "fields"
+    error = "error"
+
+
 class ConstructorBytes:
     null = b'\x40'
     bool = b'\x56'
@@ -72,8 +89,3 @@ class ConstructorBytes:
     array_small = b'\xE0'
     array_large = b'\xF0'
     descriptor = b'\x00'
-
-
-
-
-
