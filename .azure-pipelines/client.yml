@@ -39,98 +39,34 @@ jobs:
           artifactName: uamqp-sdist
           pathToPublish: 'dist'
 
-  - job: 'MacOS'
+  - job: 'wheel'
+    displayName: 'Wheel Distribution'
 
     pool:
-      vmImage: 'macOS-10.13'
-
-    strategy:
-      matrix:
-        Python 2.7:
-          MacOSXDeploymentTarget: '10.6'
-          PythonBin: 'python2'
-          PythonVersion: '$(PythonVersion27)'
-        Python 3.5:
-          MacOSXDeploymentTarget: '10.6'
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion35)'
-        Python 3.6:
-          MacOSXDeploymentTarget: '10.6'
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion36)'
-        Python 3.7:
-          MacOSXDeploymentTarget: '10.6'
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   MacOSXDeploymentTarget: '10.9'
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion38)'
-
-    variables:
-      OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion27: '2.7.15'
-      PythonVersion35: '3.5.4'
-      PythonVersion36: '3.6.5'
-      PythonVersion37: '3.7.0'
+      vmImage: 'ubuntu-16.04'
 
     steps:
-      - task: DownloadPipelineArtifact@1
-        displayName: 'Download OpenSSL artifact'
+      - task: UsePythonVersion@0
+        displayName: 'Use Python Version'
         inputs:
-          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
-          buildType: specific
-          buildVersionToDownload: latest
-          downloadPath: $(Agent.BuildDirectory)
-          pipeline: 119 # azure-uamqp-python - openssl
-          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
-
-      - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
-        displayName: 'Select Xcode 9.4.1'
-
-      - script: source ./install_python_osx.sh
-        displayName: 'Install Official Python'
+          versionSpec: '$(PythonVersion37)'
 
       - script: |
-          $(PythonBin) --version
-          curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) - --user
-          $(PythonBin) -m pip install --user -r dev_requirements.txt
-          echo "##vso[task.prependpath]/Users/vsts/Library/Python/`ls /Users/vsts/Library/Python | head -n1`/bin"
+          python --version
+          curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
+          python -m pip install --user -r dev_requirements.txt
+          echo "##vso[task.prependpath]/home/vsts/.local/bin"
         displayName: 'Install dependencies'
-      - script: $(PythonBin) setup.py bdist_wheel
-        displayName: 'Build uAMQP Wheel'
-        env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
-          CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
-          CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
-          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
-          OPENSSL_ROOT_DIR: $(OpenSSLDir)
-          UAMQP_REBUILD_PYX: 'True'
-          UAMQP_USE_OPENSSL: 'True'
+      - script: python setup.py bdist_wheel
+        displayName: 'Build uAMQP wheel'
 
       - script: ls ./dist
         displayName: 'Check output'
 
-      - script: |
-          $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'MacOS Python $(PythonVersion)'
-
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
         inputs:
-          artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
+          artifactName: uamqp-wheel
           pathToPublish: 'dist'
 
   - job: 'Windows'
@@ -152,24 +88,9 @@ jobs:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
-        # x64 Python 3.8:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion38)'
-        x86 Python 2.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion27)'
-        x86 Python 3.5:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion35)'
-        x86 Python 3.6:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion36)'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-        # x86 Python 3.8:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion38)'
+         x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
@@ -186,20 +107,12 @@ jobs:
         displayName: 'Install Python Version'
         condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
       - powershell: |
-          Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
-          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
-          Get-Content VCForPython27.log
-        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
-      - powershell: |
           python --version
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
-        env:
-          UAMQP_REBUILD_PYX: 'True'
 
       - script: dir dist
         displayName: 'Check output'
@@ -218,12 +131,6 @@ jobs:
           testResultsFormat: 'JUnit'
           testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
-
   - job: 'Linux'
 
     pool:
@@ -239,8 +146,8 @@ jobs:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonVersion: '$(PythonVersion38)'
+         Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
@@ -265,8 +172,6 @@ jobs:
         displayName: 'Install dependencies'
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
-        env:
-          UAMQP_REBUILD_PYX: 'True'
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -283,46 +188,3 @@ jobs:
           testResultsFiles: '**/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'Linux Python $(PythonVersion)'
-
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-linux-$(PythonVersion)-whl
-          pathToPublish: 'dist'
-
-  - job: 'ManyLinux1'
-
-    condition: ne(variables['System.TeamProject'], 'public')
-
-    pool:
-      vmImage: 'ubuntu-16.04'
-
-    strategy:
-      matrix:
-        x64:
-          PythonArchitecture: 'x64'
-        x86:
-          PythonArchitecture: 'x86'
-
-    steps:
-      - task: Docker@1
-        displayName: 'Build and test with Docker'
-        inputs:
-          azureContainerRegistry: azuresdkimages.azurecr.io
-          azureSubscriptionEndpoint: 'Azure SDK Images'
-          command: 'Run an image'
-          containerCommand: '/data/build_many_linux.sh'
-          envVars: 'UAMQP_REBUILD_PYX=True'
-          imageName: 'manylinux_crypto_$(PythonArchitecture)'
-          qualifyImageName: true
-          runInBackground: false
-          volumes: '$(System.DefaultWorkingDirectory):/data'
-
-      - script: ls ./wheelhouse
-        displayName: 'Check output'
-
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifacts'
-        inputs:
-          artifactName: uamqp-manylinux1-$(PythonArchitecture)-whl
-          pathToPublish: 'wheelhouse'
