@@ -1,4 +1,5 @@
 """Transport implementation."""
+# pylint: skip-file
 # Copyright (C) 2009 Barry Pederson <bp@barryp.org>
 from __future__ import absolute_import, unicode_literals
 
@@ -318,7 +319,7 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
-        return frame_type, channel, BytesIO(payload), offset
+        return frame_type, channel, payload, offset
 
     def write(self, s):
         try:

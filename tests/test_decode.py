@@ -14,38 +14,32 @@ from uamqp.types import AMQPTypes, TYPE, VALUE
 import pytest
 
 
-def test_decode_empty():
-    buffer = BytesIO()
-    with pytest.raises(ValueError):
-        decode.decode_value(buffer, 5)
-
-
 def test_decode_null():
     buffer = BytesIO(b"\x40")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.null, VALUE: None}
+    assert output == None
 
     buffer = BytesIO(b"\x40\x40")
     output = decode.decode_value(buffer, length_bytes=2)
-    assert output == [{TYPE: AMQPTypes.null, VALUE: None}, {TYPE: AMQPTypes.null, VALUE: None}]
+    assert output == [None, None]
 
 
 def test_decode_boolean():
     buffer = BytesIO(b"\x56\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.boolean, VALUE: False}
+    assert output == False
 
     buffer = BytesIO(b"\x56\x01")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.boolean, VALUE: True}
+    assert output == True
 
     buffer = BytesIO(b"\x41")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.boolean, VALUE: True}
+    assert output == True
 
     buffer = BytesIO(b"\x42")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.boolean, VALUE: False}
+    assert output == False
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x56")
@@ -59,11 +53,11 @@ def test_decode_boolean():
 def test_decode_ubyte():
     buffer = BytesIO(b"\x50\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ubyte, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x50\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ubyte, VALUE: 255}
+    assert output == 255
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x50")
@@ -73,11 +67,11 @@ def test_decode_ubyte():
 def test_decode_ushort():
     buffer = BytesIO(b"\x60\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ushort, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x60\xFF\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ushort, VALUE: 65535}
+    assert output == 65535
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x60\x00")
@@ -87,11 +81,11 @@ def test_decode_ushort():
 def test_decode_uint():
     buffer = BytesIO(b"\x70\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.uint, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x70\x42\x43\x44\x45")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.uint, VALUE: 1111704645}
+    assert output == 1111704645
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x70\x42\x43")
@@ -99,11 +93,11 @@ def test_decode_uint():
 
     buffer = BytesIO(b"\x52\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.uint, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x52\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.uint, VALUE: 255}
+    assert output == 255
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x52")
@@ -111,17 +105,17 @@ def test_decode_uint():
 
     buffer = BytesIO(b"\x43")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.uint, VALUE: 0} 
+    assert output == 0
 
 
 def test_decode_ulong():
     buffer = BytesIO(b"\x80\x00\x00\x00\x00\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ulong, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x80\x42\x43\x44\x45\x46\x47\x48\x49")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ulong, VALUE: 4774735094265366601}
+    assert output == 4774735094265366601
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x80\x42\x43\x44\x45\x46\x47")
@@ -129,11 +123,11 @@ def test_decode_ulong():
 
     buffer = BytesIO(b"\x53\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ulong, VALUE: 0}
+    assert output == 0
 
     buffer = BytesIO(b"\x53\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ulong, VALUE: 255}
+    assert output == 255
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x53")
@@ -141,17 +135,17 @@ def test_decode_ulong():
 
     buffer = BytesIO(b"\x44")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.ulong, VALUE: 0}
+    assert output == 0
 
 
 def test_decode_byte():
     buffer = BytesIO(b"\x51\x80")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.byte, VALUE: -128}
+    assert output == -128
 
     buffer = BytesIO(b"\x51\x7F")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.byte, VALUE: 127}
+    assert output == 127
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x51")
@@ -161,11 +155,11 @@ def test_decode_byte():
 def test_decode_short():
     buffer = BytesIO(b"\x61\x80\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.short, VALUE: -32768}
+    assert output == -32768
 
     buffer = BytesIO(b"\x61\x7F\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.short, VALUE: 32767}
+    assert output == 32767
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x61\x7F")
@@ -175,11 +169,11 @@ def test_decode_short():
 def test_decode_int():
     buffer = BytesIO(b"\x71\x80\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.int, VALUE: -2147483648}
+    assert output == -2147483648
 
     buffer = BytesIO(b"\x71\x7F\xFF\xFF\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.int, VALUE: 2147483647}
+    assert output == 2147483647
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x71\x7F\xFF\xFF")
@@ -187,11 +181,11 @@ def test_decode_int():
 
     buffer = BytesIO(b"\x54\x80")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.int, VALUE: -128}
+    assert output == -128
 
     buffer = BytesIO(b"\x54\x7F")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.int, VALUE: 127}
+    assert output == 127
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x54")
@@ -201,11 +195,11 @@ def test_decode_int():
 def test_decode_long():
     buffer = BytesIO(b"\x81\x80\x00\x00\x00\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.long, VALUE: -9223372036854775808}
+    assert output == -9223372036854775808
 
     buffer = BytesIO(b"\x81\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.long, VALUE: 9223372036854775807}
+    assert output == 9223372036854775807
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x81\x7F\xFF\xFF\xFF\xFF\xFF\xFF")
@@ -213,11 +207,11 @@ def test_decode_long():
 
     buffer = BytesIO(b"\x55\x80")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.long, VALUE: -128}
+    assert output == -128
 
     buffer = BytesIO(b"\x55\x7F")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.long, VALUE: 127}
+    assert output == 127
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x55")
@@ -227,11 +221,11 @@ def test_decode_long():
 def test_decode_float():
     buffer = BytesIO(b"\x72\xBF\x80\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.float, VALUE: -1.0}
+    assert output == -1.0
 
     buffer = BytesIO(b"\x72\x42\x28\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.float, VALUE: 42.0}
+    assert output == 42.0
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x72\x42")
@@ -241,11 +235,11 @@ def test_decode_float():
 def test_decode_double():
     buffer = BytesIO(b"\x82\x40\x45\x00\x00\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.double, VALUE: 42.0}
+    assert output == 42.0
 
     buffer = BytesIO(b"\x82\xBF\xF0\x00\x00\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.double, VALUE: -1.0}
+    assert output == -1.0
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x82\x40\x45")
@@ -255,11 +249,11 @@ def test_decode_double():
 def test_decode_timestamp():
     buffer = BytesIO(b"\x83\x80\x00\x00\x00\x00\x00\x00\x00")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.timestamp, VALUE: -9223372036854775808}
+    assert output == -9223372036854775808
 
     buffer = BytesIO(b"\x83\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
     output = decode.decode_value(buffer)
-    assert output == {TYPE: AMQPTypes.timestamp, VALUE: 9223372036854775807}
+    assert output == 9223372036854775807
 
     with pytest.raises(ValueError):
         buffer = BytesIO(b"\x83\x7F\xFF\xFF\xFF\xFF\xFF\xFF")

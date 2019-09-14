@@ -4,63 +4,23 @@
 # license information.
 #--------------------------------------------------------------------------
 
+from io import BytesIO
 from collections import namedtuple
 
 from ._encode import encode_value
 from ._decode import decode_value
-from .error import AMQPError
 from .definitions import _FIELD_DEFINITIONS
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition
 
 
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
-PERFORMATIVES = {
-    16: OpenFrame,
-}
-
-def decode_frame(frame_type, data, offset):
-    descriptor, fields = decode_value(data)
-    frame_type = PERFORMATIVES[descriptor]
-
-    kwargs = {}
-    for index, field in enumerate(frame_type.DEFINITION):
-        value = fields[index]
-        if value is None and field.default:
-            value = field.default
-        if field.type is FieldDefinition:
-            kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
-        else:
-            kwargs[field.name] = value
-    return frame_type(**kwargs)
-
-
-def encode_frame(frame, ):
-    body = []
-    for field in frame.DEFINITION:
-        value = frame.__dict__[field.name]
-        if value is None and field.mandatory:
-            raise ValueError("Performative missing mandatory field {}".format(field.name))
-        if field.type is FieldDefinition:
-            body.append(_FIELD_DEFINITIONS[field.type].encode(value))
-        else:
-            body.append({TYPE: field.type, VALUE: value})
-
-        frame = {
-            TYPE: AMQPTypes.described,
-            VALUE: (
-                {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
-                {TYPE: AMQPTypes.list, VALUE: body}
-            )
-        }
-        offset = b"\x02"
-        type_code = b"\x00"
-        frame_data = encode_value(b"", frame)
-        size = len(frame_data).to_bytes(4, 'big')
-        header = size + offset + type_code
-        return frame_data, header
 
 
 class Performative(object):
+
+    NAME = None
+    CODE = None
+
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -101,27 +61,65 @@ class OpenFrame(Performative):
     }
 
 
-
-
-class CloseFrame(object):
+class CloseFrame(Performative):
     """
     <type name="close" class="composite" source="list" provides="frame">
         <descriptor name="amqp:close:list" code="0x00000000:0x00000018"/>
         <field name="error" type="error"/>
     </type>
     """
+    NAME = "CLOSE"
+    CODE = 24
+    DEFINITION = {FIELD("error", FieldDefinition.error, False, None, False)}
 
-    header = 24
 
-    def __init__(self, error=None):
-        self.error = error
+PERFORMATIVES = {
+    16: OpenFrame,
+    24: CloseFrame,
+}
 
-    @classmethod
-    def from_response(cls, data):
-        error = None
-        if data:
-            error_field = data[0]
-            if error_field[0][VALUE] != AMQPError.header:
-                raise ValueError("Received invalid CLOSE response.")
-            error = AMQPError.from_response(error_field[1][VALUE])
-        return cls(error=error)
+
+def decode_frame(data, offset):
+    # type: (type, bytes) -> Performative
+    _ = data[:offset]  # TODO: Extra data
+    buffer = BytesIO(data[offset:])
+    descriptor, fields = decode_value(buffer)
+    frame_type = PERFORMATIVES[descriptor]
+
+    kwargs = {}
+    for index, field in enumerate(frame_type.DEFINITION):
+        value = fields[index]
+        if value is None and field.default:
+            value = field.default
+        if field.type is FieldDefinition:
+            kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
+        else:
+            kwargs[field.name] = value
+    return frame_type(**kwargs)
+
+
+def encode_frame(frame):
+    # type: (Performative) -> Tuple(bytes, bytes)
+    body = []
+    for field in frame.DEFINITION:
+        value = frame.__dict__[field.name]
+        if value is None and field.mandatory:
+            raise ValueError("Performative missing mandatory field {}".format(field.name))
+        if field.type is FieldDefinition:
+            body.append(_FIELD_DEFINITIONS[field.type].encode(value))
+        else:
+            body.append({TYPE: field.type, VALUE: value})
+
+        frame = {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
+                {TYPE: AMQPTypes.list, VALUE: body}
+            )
+        }
+        offset = b"\x02"
+        type_code = b"\x00"
+        frame_data = encode_value(b"", frame)
+        size = len(frame_data).to_bytes(4, 'big')
+        header = size + offset + type_code
+        return frame_data, header

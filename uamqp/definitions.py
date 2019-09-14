@@ -5,7 +5,6 @@
 #--------------------------------------------------------------------------
 
 from datetime import timedelta
-from enum import Enum
 
 import six
 
@@ -23,27 +22,9 @@ from .error import (
     LinkErrorCondition)
 
 
-_FIELD_DEFINITIONS = {
-    FieldDefinition.role: RoleField,
-    FieldDefinition.sender_settle_mode: SenderSettleModeField,
-    FieldDefinition.receiver_settle_mode: ReceiverSettleModeField,
-    FieldDefinition.handle: HandleField,
-    FieldDefinition.seconds: SecondsField,
-    FieldDefinition.milliseconds: MillisecondsField,
-    FieldDefinition.delivery_tag: DeliveryTagField,
-    FieldDefinition.delivery_number: DeliveryNumberField,
-    FieldDefinition.transfer_number: TransferNumberField,
-    FieldDefinition.sequence_no: SequenceNoField,
-    FieldDefinition.message_format: MessageFormatField,,
-    FieldDefinition.ietf_language_tag: IETFLanguageTagField,
-    FieldDefinition.fields: FieldsField,
-    FieldDefinition.error: ErrorField,
-}
-
-
 class RoleField(object):
     """Link endpoint role.
-    
+
     Valid Values:
         - False/"SENDER": Sender
         - True/"RECEIVER": Receiver
@@ -82,7 +63,7 @@ class SenderSettleModeField(object):
         - 0/"UNSETTLED": The Sender will send all deliveries initially unsettled to the Receiver.
         - 1/"SETTLED": The Sender will send all deliveries settled to the Receiver.
         - 2/"MIXED": The Sender may send a mixture of settled and unsettled deliveries to the Receiver.
-    
+
     <type name="sender-settle-mode" class="restricted" source="ubyte">
         <choice name="unsettled" value="0"/>
         <choice name="settled" value="1"/>
@@ -121,7 +102,7 @@ class ReceiverSettleModeField(object):
         - 0/"FIRST": The Receiver will spontaneously settle all incoming transfers.
         - 1/"SECOND": The Receiver will only settle after sending the disposition to the Sender and
           receiving a disposition indicating settlement of the delivery from the sender.
-    
+
     <type name="receiver-settle-mode" class="restricted" source="ubyte">
         <choice name="first" value="0"/>
         <choice name="second" value="1"/>
@@ -156,7 +137,7 @@ class HandleField(object):
     An alias established by the attach frame and subsequently used by endpoints as a shorthand to refer
     to the Link in all outgoing frames. The two endpoints may potentially use different handles to refer
     to the same Link. Link handles may be reused once a Link is closed for both send and receive.
-    
+
     <type name="handle" class="restricted" source="uint"/>
     """
 
@@ -177,7 +158,7 @@ class HandleField(object):
 
 class SecondsField(object):
     """A duration measured in seconds.
-    
+
     <type name="seconds" class="restricted" source="uint"/>
     """
 
@@ -221,10 +202,10 @@ class MillisecondsField(object):
 
 class DeliveryTagField(object):
     """A delivery-tag may be up to 32 octets of binary data.
-    
+
     <type name="delivery-tag" class="restricted" source="binary"/>
     """
-    
+
     @staticmethod
     def encode(value):
         # type: (bytes) -> Dict[str, Any]
@@ -247,7 +228,7 @@ class SequenceNoField(object):
 
     A sequence-no encodes a serial number as defined in RFC-1982.
     The arithmetic, and operators forthese numbers are defined by RFC-1982.
-    
+
     <type name="sequence-no" class="restricted" source="uint"/>
     """
 
@@ -271,7 +252,7 @@ class DeliveryNumberField(SequenceNoField):
 
     A Deliver number encodes a serial number as defined in RFC-1982.
     The arithmetic, and operators forthese numbers are defined by RFC-1982.
-    
+
     <type name="delivery-number" class="restricted" source="sequence-no"/>
     """
 
@@ -281,7 +262,7 @@ class TransferNumberField(SequenceNoField):
 
     A Transfer number encodes a serial number as defined in RFC-1982.
     The arithmetic, and operators forthese numbers are defined by RFC-1982.
-    
+
     <type name="transfer-number" class="restricted" source="sequence-no"/>
     """
 
@@ -299,7 +280,7 @@ class MessageFormatField(object):
         +----------------+---------+
         |                          |
         msb                        lsb
-    
+
     <type name="message-format" class="restricted" source="uint"/>
     """
 
@@ -327,7 +308,7 @@ class IETFLanguageTagField(object):
     Language SubtagRegistry (http://www.iana.org/assignments/language-subtag-registry). All AMQP implementations
     should understand at the least the IETF language tagen-US(note thatthis uses a hyphen separator, not an
     underscore).
-    
+
     <type name="ietf-language-tag" class="restricted" source="symbol"/>
     """
 
@@ -349,7 +330,7 @@ class IETFLanguageTagField(object):
 
 class FieldsField(object):
     """A mapping from field name to value.
-    
+
     The fields type is a map where the keys are restricted to be of type symbol (this excludes the possibility
     of a null key).  There is no further restriction implied by the fields type on the allowed values for the
     entries or the set of allowed keys.
@@ -366,7 +347,7 @@ class FieldsField(object):
         for key, data in value.items():
             if isinstance(key, six.text_type):
                 key = key.encode('utf-8')
-            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, value))
+            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, data))
         return fields
 
     @staticmethod
@@ -391,18 +372,19 @@ class ErrorField(object):
         # type: (Optional[AMQPError]) -> Dict[str, Any]
         if not value:
             return {TYPE: AMQPTypes.null, VALUE: None}
-        value = ({TYPE: AMQPTypes.ulong, VALUE: 29}, [])
+        encoded = ({TYPE: AMQPTypes.ulong, VALUE: 29}, [])
         try:
-            value[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition.value})
+            encoded[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition.value})
         except AttributeError:
-            value[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition})
-        value[1].append(value.description or None)
-        value[1].append(encode_fields(value.info))
-        return value
+            encoded[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition})
+        encoded[1].append(value.description or None)
+        encoded[1].append(FieldsField.encode(value.info))
+        return encoded
 
     @staticmethod
     def decode(value):
         # type: (Optional[Tuple(int, List[Any])]) -> Optional[AMQPError]
+        decoded = None
         if value and value[0] == 29:
             condition = value[1][0]
             description = value[1][1].decode('utf-8') if len(value[1]) > 1 else None
@@ -411,18 +393,39 @@ class ErrorField(object):
                 if ":link:" in condition:
                     condition = LinkErrorCondition(condition)
                     if condition == LinkErrorCondition.Redirect:
-                        return AMQPLinkRedirect(condition, description=description, info=info)
-                    return AMQPLinkError(condition, description=description, info=info)
-                if ":session:" in condition:
+                        decoded = AMQPLinkRedirect(condition, description=description, info=info)
+                    else:
+                        decoded = AMQPLinkError(condition, description=description, info=info)
+                elif ":session:" in condition:
                     condition = SessionErrorCondition(condition)
-                    return AMQPSessionError(condition, description=description, info=info)
-                if ":connection:" in condition:
+                    decoded = AMQPSessionError(condition, description=description, info=info)
+                elif ":connection:" in condition:
                     condition = ConnectionErrorCondition(condition)
                     if condition == ConnectionErrorCondition.Redirect:
-                        return AMQPConnectionRedirect(condition, description=description, info=info)
-                    return AMQPConnectionError(condition, description=description, info=info)
-                condition = ErrorCondition(condition)
+                        decoded = AMQPConnectionRedirect(condition, description=description, info=info)
+                    else:
+                        decoded = AMQPConnectionError(condition, description=description, info=info)
+                else:
+                    condition = ErrorCondition(condition)
+                    decoded = AMQPError(condition, description=description, info=info)
             except ValueError:
-                pass
-            return AMQPError(condition, description=description, info=info)
-        return None
+                decoded = AMQPError(condition, description=description, info=info)
+        return decoded
+
+
+_FIELD_DEFINITIONS = {
+    FieldDefinition.role: RoleField,
+    FieldDefinition.sender_settle_mode: SenderSettleModeField,
+    FieldDefinition.receiver_settle_mode: ReceiverSettleModeField,
+    FieldDefinition.handle: HandleField,
+    FieldDefinition.seconds: SecondsField,
+    FieldDefinition.milliseconds: MillisecondsField,
+    FieldDefinition.delivery_tag: DeliveryTagField,
+    FieldDefinition.delivery_number: DeliveryNumberField,
+    FieldDefinition.transfer_number: TransferNumberField,
+    FieldDefinition.sequence_no: SequenceNoField,
+    FieldDefinition.message_format: MessageFormatField,
+    FieldDefinition.ietf_language_tag: IETFLanguageTagField,
+    FieldDefinition.fields: FieldsField,
+    FieldDefinition.error: ErrorField,
+}

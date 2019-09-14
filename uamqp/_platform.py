@@ -1,4 +1,6 @@
 """Platform compatibility."""
+# pylint: skip-file
+
 from __future__ import absolute_import, unicode_literals
 
 import platform

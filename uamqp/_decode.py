@@ -4,15 +4,11 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import calendar
 import struct
 import uuid
-from datetime import datetime
-from typing import Iterable, Union, Tuple, Dict
+from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
-from .types import AMQPTypes, ConstructorBytes, SINGLE_BYTE_TYPES
-
-import six
+from .types import ConstructorBytes
 
 
 class DecoderState:
@@ -459,7 +455,6 @@ def decode_described(decoder, buffer):
     except Exception:
         raise ValueError("Error decoding list.")
     decoder.state = DecoderState.done
-    
 
 
 _DECODE_MAP = {
@@ -510,7 +505,6 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True):
             if decoder.constructor_byte != ConstructorBytes.null:
                 decoder.progress(1)
             decode_constructor(decoder)
-    
         elif decoder.state == DecoderState.type_data:
             try:
                 _DECODE_MAP[decoder.constructor_byte](decoder, buffer)

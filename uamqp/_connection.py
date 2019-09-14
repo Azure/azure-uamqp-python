@@ -1,32 +1,12 @@
 
+# pylint: skip-file
+
 from enum import Enum
 
-from ._frames import get_frame
+from .performatives import decode_frame
 
 # The protocol header consists of the upper case ASCII letters "AMQP" followed by a protocol id of zero, followed by three unsigned bytes representing the major, minor, and revision of the protocol version (currently 1 (MAJOR), 0 (MINOR), 0 (REVISION)). In total this is an 8-octet sequence] */
 AMQP_HEADER = b'AMQP0100'
-
-
-def get_frame_type_as_string(descriptor):
-    if is_open_type_by_descriptor(descriptor):
-        return "[OPEN]"
-    if is_begin_type_by_descriptor(descriptor):
-        return "[BEGIN]"
-    if is_attach_type_by_descriptor(descriptor):
-        return "[ATTACH]"
-    if is_flow_type_by_descriptor(descriptor):
-        return "[FLOW]"
-    if is_disposition_type_by_descriptor(descriptor):
-        return "[DISPOSITION]"
-    if is_transfer_type_by_descriptor(descriptor):
-        return "[TRANSFER]"
-    if is_detach_type_by_descriptor(descriptor):
-        return "[DETACH]"
-    if is_end_type_by_descriptor(descriptor):
-        return "[END]"
-    if is_close_type_by_descriptor(descriptor):
-        return "[CLOSE]"
-    raise ValueError("Unexpected frame type")
 
 
 def unpack(data):
@@ -140,8 +120,8 @@ class Connection(object):
 
     def read_frame(self):
         frame = self.io.read_frame(unpack=unpack)
-        if frame[0] is not None:
-            return get_frame(frame[0], frame[2], frame[3] - 2)
+        if frame[0] is not None:  # TODO: What to do with frame type?
+            return decode_frame(frame[2], frame[3] - 2)
 
     def open(self):
         if not self.is_underlying_io_open:

@@ -10,9 +10,9 @@ import uuid
 from datetime import datetime
 from typing import Iterable, Union, Tuple, Dict
 
-from .types import AMQPTypes, ConstructorBytes, TYPE, VALUE
-
 import six
+
+from .types import AMQPTypes, ConstructorBytes, TYPE, VALUE
 
 
 def _bytes(value, length=1, signed=False):
@@ -25,7 +25,7 @@ def _construct(byte, construct):
     return byte if construct else b''
 
 
-def encode_null(output, *args, **kwargs):
+def encode_null(output, *args, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, Any, Any) -> bytes
     """
     encoding code="0x40" category="fixed" width="0" label="the null value"
@@ -33,27 +33,26 @@ def encode_null(output, *args, **kwargs):
     return output + ConstructorBytes.null
 
 
-def encode_boolean(output, value, with_constructor=True, **kwargs):
+def encode_boolean(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, bool, bool, Any) -> bytes
     """
     <encoding name="true" code="0x41" category="fixed" width="0" label="the boolean value true"/>
     <encoding name="false" code="0x42" category="fixed" width="0" label="the boolean value false"/>
-    <encoding code="0x56" category="fixed" width="1" label="boolean with the octet 0x00 being false and octet 0x01 being true"/>
+    <encoding code="0x56" category="fixed" width="1"
+        label="boolean with the octet 0x00 being false and octet 0x01 being true"/>
     """
     value = bool(value)
     if with_constructor:
         output += _construct(ConstructorBytes.bool, with_constructor)
         if value:
             return output + b'\x01'
-        else:
-            return output + b'\x00'   
+        return output + b'\x00'
     if value:
         return output + ConstructorBytes.bool_true
-    else:
-        return output + ConstructorBytes.bool_false
+    return output + ConstructorBytes.bool_false
 
 
-def encode_ubyte(output, value, with_constructor=True, **kwargs):
+def encode_ubyte(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, Union[int, bytes], bool, Any) -> bytes
     """
     <encoding code="0x50" category="fixed" width="1" label="8-bit unsigned integer"/>
@@ -69,7 +68,7 @@ def encode_ubyte(output, value, with_constructor=True, **kwargs):
         raise ValueError("Unsigned byte value must be 0-255")
 
 
-def encode_ushort(output, value, with_constructor=True, **kwargs):
+def encode_ushort(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, Union[int, bytes], bool, Any) -> bytes
     """
     <encoding code="0x60" category="fixed" width="2" label="16-bit unsigned integer in network byte order"/>
@@ -83,13 +82,14 @@ def encode_ushort(output, value, with_constructor=True, **kwargs):
         return output + _bytes(abs(value), length=2)
     except OverflowError:
         raise ValueError("Unsigned byte value must be 0-65535")
- 
+
 
 def encode_uint(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Union[int, bytes], bool, bool) -> bytes
     """
     <encoding name="uint0" code="0x43" category="fixed" width="0" label="the uint value 0"/>
-    <encoding name="smalluint" code="0x52" category="fixed" width="1" label="unsigned integer value in the range 0 to 255 inclusive"/>
+    <encoding name="smalluint" code="0x52" category="fixed" width="1"
+        label="unsigned integer value in the range 0 to 255 inclusive"/>
     <encoding code="0x70" category="fixed" width="4" label="32-bit unsigned integer in network byte order"/>
     """
     try:
@@ -112,7 +112,8 @@ def encode_ulong(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, int, bool, bool) -> bytes
     """
     <encoding name="ulong0" code="0x44" category="fixed" width="0" label="the ulong value 0"/>
-    <encoding name="smallulong" code="0x53" category="fixed" width="1" label="unsigned long value in the range 0 to 255 inclusive"/>
+    <encoding name="smallulong" code="0x53" category="fixed" width="1"
+        label="unsigned long value in the range 0 to 255 inclusive"/>
     <encoding code="0x80" category="fixed" width="8" label="64-bit unsigned integer in network byte order"/>
     """
     try:
@@ -134,7 +135,7 @@ def encode_ulong(output, value, with_constructor=True, use_smallest=True):
         raise ValueError("Value supplied for unsigned long invalid: {}".format(value))
 
 
-def encode_byte(output, value, with_constructor=True, **kwargs):
+def encode_byte(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, int, bool, Any) -> bytes
     """
     <encoding code="0x51" category="fixed" width="1" label="8-bit two's-complement integer"/>
@@ -147,7 +148,7 @@ def encode_byte(output, value, with_constructor=True, **kwargs):
         raise ValueError("Byte value must be -128-127")
 
 
-def encode_short(output, value, with_constructor=True, **kwargs):
+def encode_short(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, int, bool, Any) -> bytes
     """
     <encoding code="0x61" category="fixed" width="2" label="16-bit two's-complement integer in network byte order"/>
@@ -196,7 +197,7 @@ def encode_long(output, value, with_constructor=True, use_smallest=True):
     except OverflowError:
         raise ValueError("Value supplied for long invalid: {}".format(value))
 
-def encode_float(output, value, with_constructor=True, **kwargs):
+def encode_float(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, float, bool, Any) -> bytes
     """
     <encoding name="ieee-754" code="0x72" category="fixed" width="4" label="IEEE 754-2008 binary32"/>
@@ -206,7 +207,7 @@ def encode_float(output, value, with_constructor=True, **kwargs):
     return output + struct.pack('>f', value)
 
 
-def encode_double(output, value, with_constructor=True, **kwargs):
+def encode_double(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, float, bool, Any) -> bytes
     """
     <encoding name="ieee-754" code="0x82" category="fixed" width="8" label="IEEE 754-2008 binary64"/>
@@ -216,10 +217,11 @@ def encode_double(output, value, with_constructor=True, **kwargs):
     return output + struct.pack('>d', value)
 
 
-def encode_timestamp(output, value, with_constructor=True, **kwargs):
+def encode_timestamp(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, Union[int, datetime], bool, Any) -> bytes
     """
-    <encoding name="ms64" code="0x83" category="fixed" width="8" label="64-bit two's-complement integer representing milliseconds since the unix epoch"/>
+    <encoding name="ms64" code="0x83" category="fixed" width="8"
+        label="64-bit two's-complement integer representing milliseconds since the unix epoch"/>
     """
     if isinstance(value, datetime):
         value = (calendar.timegm(value.utctimetuple()) * 1000) + (value.microsecond/1000)
@@ -228,7 +230,7 @@ def encode_timestamp(output, value, with_constructor=True, **kwargs):
     return output + _bytes(value, length=8, signed=True)
 
 
-def encode_uuid(output, value, with_constructor=True, **kwargs):
+def encode_uuid(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
     # type: (bytes, Union[uuid.UUID, str, bytes], bool, Any) -> bytes
     """
     <encoding code="0x98" category="fixed" width="16" label="UUID as defined in section 4.1.2 of RFC-4122"/>
@@ -267,8 +269,10 @@ def encode_binary(output, value, with_constructor=True, use_smallest=True):
 def encode_string(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Union[bytes, str], bool, bool)
     """
-    <encoding name="str8-utf8" code="0xa1" category="variable" width="1" label="up to 2^8 - 1 octets worth of UTF-8 Unicode (with no byte order mark)"/>
-    <encoding name="str32-utf8" code="0xb1" category="variable" width="4" label="up to 2^32 - 1 octets worth of UTF-8 Unicode (with no byte order mark)"/>
+    <encoding name="str8-utf8" code="0xa1" category="variable" width="1"
+        label="up to 2^8 - 1 octets worth of UTF-8 Unicode (with no byte order mark)"/>
+    <encoding name="str32-utf8" code="0xb1" category="variable" width="4"
+        label="up to 2^32 - 1 octets worth of UTF-8 Unicode (with no byte order mark)"/>
     """
     if isinstance(value, six.text_type):
         value = value.encode('utf-8')
@@ -288,8 +292,10 @@ def encode_string(output, value, with_constructor=True, use_smallest=True):
 def encode_symbol(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Union[bytes, str], bool, bool) -> bytes
     """
-    <encoding name="sym8" code="0xa3" category="variable" width="1" label="up to 2^8 - 1 seven bit ASCII characters representing a symbolic value"/>
-    <encoding name="sym32" code="0xb3" category="variable" width="4" label="up to 2^32 - 1 seven bit ASCII characters representing a symbolic value"/>
+    <encoding name="sym8" code="0xa3" category="variable" width="1"
+        label="up to 2^8 - 1 seven bit ASCII characters representing a symbolic value"/>
+    <encoding name="sym32" code="0xb3" category="variable" width="4"
+        label="up to 2^32 - 1 seven bit ASCII characters representing a symbolic value"/>
     """
     if isinstance(value, six.text_type):
         value = value.encode('utf-8')
@@ -309,9 +315,12 @@ def encode_symbol(output, value, with_constructor=True, use_smallest=True):
 def encode_list(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Iterable[Any], bool, bool) -> bytes
     """
-    <encoding name="list0" code="0x45" category="fixed" width="0" label="the empty list (i.e. the list with no elements)"/>
-    <encoding name="list8" code="0xc0" category="compound" width="1" label="up to 2^8 - 1 list elements with total size less than 2^8 octets"/>
-    <encoding name="list32" code="0xd0" category="compound" width="4" label="up to 2^32 - 1 list elements with total size less than 2^32 octets"/>
+    <encoding name="list0" code="0x45" category="fixed" width="0"
+        label="the empty list (i.e. the list with no elements)"/>
+    <encoding name="list8" code="0xc0" category="compound" width="1"
+        label="up to 2^8 - 1 list elements with total size less than 2^8 octets"/>
+    <encoding name="list32" code="0xd0" category="compound" width="4"
+        label="up to 2^32 - 1 list elements with total size less than 2^32 octets"/>
     """
     count = len(value)
     if use_smallest and count == 0:
@@ -338,8 +347,10 @@ def encode_list(output, value, with_constructor=True, use_smallest=True):
 def encode_map(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Union[Dict[Any, Any], Iterable[Tuple[Any, Any]]], bool, bool) -> bytes
     """
-    <encoding name="map8" code="0xc1" category="compound" width="1" label="up to 2^8 - 1 octets of encoded map data"/>
-    <encoding name="map32" code="0xd1" category="compound" width="4" label="up to 2^32 - 1 octets of encoded map data"/>
+    <encoding name="map8" code="0xc1" category="compound" width="1"
+        label="up to 2^8 - 1 octets of encoded map data"/>
+    <encoding name="map32" code="0xd1" category="compound" width="4"
+        label="up to 2^32 - 1 octets of encoded map data"/>
     """
     count = len(value) * 2
     encoded_size = 0
@@ -348,10 +359,10 @@ def encode_map(output, value, with_constructor=True, use_smallest=True):
         items = value.items()
     except AttributeError:
         items = value
-    for key, value in items:
+    for key, data in items:
         encoded_values.append(encode_value(b"", key, with_constructor=True))
         encoded_size += len(encoded_values[-1])
-        encoded_values.append(encode_value(b"", value, with_constructor=True))
+        encoded_values.append(encode_value(b"", data, with_constructor=True))
         encoded_size += len(encoded_values[-1])
     if use_smallest and count <= 255 and encoded_size < 255:
         output += _construct(ConstructorBytes.map_small, with_constructor)
@@ -377,16 +388,18 @@ def _check_element_type(item, element_type):
         if item['TYPE'] != element_type:
             raise TypeError("All elements in an array must be the same type.")
     except (KeyError, TypeError):
-        if type(item) != element_type:
+        if not isinstance(item, element_type):
             raise TypeError("All elements in an array must be the same type.")
     return element_type
-    
+
 
 def encode_array(output, value, with_constructor=True, use_smallest=True):
     # type: (bytes, Iterable[Any], bool, bool) -> bytes
     """
-    <encoding name="map8" code="0xE0" category="compound" width="1" label="up to 2^8 - 1 octets of encoded map data"/>
-    <encoding name="map32" code="0xF0" category="compound" width="4" label="up to 2^32 - 1 octets of encoded map data"/>
+    <encoding name="map8" code="0xE0" category="compound" width="1"
+        label="up to 2^8 - 1 octets of encoded map data"/>
+    <encoding name="map32" code="0xF0" category="compound" width="4"
+        label="up to 2^32 - 1 octets of encoded map data"/>
     """
     count = len(value)
     encoded_size = 0
@@ -415,13 +428,11 @@ def encode_array(output, value, with_constructor=True, use_smallest=True):
     return output + b"".join(encoded_values)
 
 
-def encode_described(output, value, with_constructor=True, **kwargs):
+def encode_described(output, value, _=None, **kwargs):
     # type: (bytes, Tuple(Any, Any), bool, Any) -> bytes
-    """
-    """
     output += ConstructorBytes.descriptor
-    output = encode_value(output, value[0])
-    output = encode_value(output, value[1])
+    output = encode_value(output, value[0], **kwargs)
+    output = encode_value(output, value[1], **kwargs)
     return output
 
 
