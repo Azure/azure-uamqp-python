@@ -471,8 +471,10 @@ def encode_value(output, value, **kwargs):
             output = encode_int(output, value, **kwargs)
         elif isinstance(value, datetime):
             output = encode_timestamp(output, value, **kwargs)
-        elif isinstance(value, (list, set, tuple)):
+        elif isinstance(value, list):
             output = encode_list(output, value, **kwargs)
+        elif isinstance(value, tuple):
+            output = encode_described(output, value, **kwargs)
         elif isinstance(value, dict):
             output = encode_map(output, value, **kwargs)
         else:

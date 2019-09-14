@@ -8,8 +8,8 @@ from collections import namedtuple
 
 from ._encode import encode_value
 from ._decode import decode_value
-from ._error import AMQPError
-from .definitions import DECODE_FIELDS
+from .error import AMQPError
+from .definitions import _FIELD_DEFINITIONS
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition
 
 
@@ -28,7 +28,7 @@ def decode_frame(frame_type, data, offset):
         if value is None and field.default:
             value = field.default
         if field.type is FieldDefinition:
-            kwargs[field.name] = DECODE_FIELDS[field.type](value)
+            kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
         else:
             kwargs[field.name] = value
     return frame_type(**kwargs)
@@ -41,7 +41,7 @@ def encode_frame(frame, ):
         if value is None and field.mandatory:
             raise ValueError("Performative missing mandatory field {}".format(field.name))
         if field.type is FieldDefinition:
-            body.append(DECODE_FIELDS[field.type](value))
+            body.append(_FIELD_DEFINITIONS[field.type].encode(value))
         else:
             body.append({TYPE: field.type, VALUE: value})
 
