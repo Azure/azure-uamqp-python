@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-# pylint: disable=line-too-long
 
 from enum import Enum
 
@@ -29,19 +28,34 @@ class ErrorCondition(Enum):
         <choice name="frame-size-too-small" value="amqp:frame-size-too-small"/>
     </type>
     """
-    InternalError = b"amqp:internal-error"  #: An internal error occurred. Operator intervention may be required to resume normaloperation.
-    NotFDound = b"amqp:not-found"  #: A peer attempted to work with a remote entity that does not exist.
-    UnauthorizedAccess = b"amqp:unauthorized-access"  #: A peer attempted to work with a remote entity to which it has no access due tosecurity settings.
-    DecodeError = b"amqp:decode-error"  #: Data could not be decoded.
-    ResourceLimitExceeded = b"amqp:resource-limit-exceeded"  #: A peer exceeded its resource allocation.
-    NotAllowed = b"amqp:not-allowed"  #: The peer tried to use a frame in a manner that is inconsistent with the semantics defined in the specification.
-    InvalidField = b"amqp:invalid-field"  #: An invalid field was passed in a frame body, and the operation could not proceed.
-    NotImplemented = b"amqp:not-implemented"  #: The peer tried to use functionality that is not implemented in its partner.
-    ResourceLocked = b"amqp:resource-locked"  #: The client attempted to work with a server entity to which it has no access because another client is working with it.
-    PreconditionFailed = b"amqp:precondition-failed"  #: The client made a request that was not allowed because some precondition failed.
-    ResourceDeleted = b"amqp:resource-deleted"  #: A server entity the client is working with has been deleted.
-    IllegalState = b"amqp:illegal-state"  #: The peer sent a frame that is not permitted in the current state of the Session.
-    FrameSizeTooSmall = b"amqp:frame-size-too-small"  #: The peer cannot send a frame because the smallest encoding of the performative with the currently valid values would be too large to fit within a frame of the agreed maximum frame size.
+    #: An internal error occurred. Operator intervention may be required to resume normaloperation.
+    InternalError = b"amqp:internal-error"
+    #: A peer attempted to work with a remote entity that does not exist.
+    NotFDound = b"amqp:not-found"
+    #: A peer attempted to work with a remote entity to which it has no access due tosecurity settings.
+    UnauthorizedAccess = b"amqp:unauthorized-access"
+    #: Data could not be decoded.
+    DecodeError = b"amqp:decode-error"
+    #: A peer exceeded its resource allocation.
+    ResourceLimitExceeded = b"amqp:resource-limit-exceeded"
+    #: The peer tried to use a frame in a manner that is inconsistent with the semantics defined in the specification.
+    NotAllowed = b"amqp:not-allowed"
+    #: An invalid field was passed in a frame body, and the operation could not proceed.
+    InvalidField = b"amqp:invalid-field"
+    #: The peer tried to use functionality that is not implemented in its partner.
+    NotImplemented = b"amqp:not-implemented"
+    #: The client attempted to work with a server entity to which it has no access
+    #: because another client is working with it.
+    ResourceLocked = b"amqp:resource-locked"
+    #: The client made a request that was not allowed because some precondition failed.
+    PreconditionFailed = b"amqp:precondition-failed"
+    #: A server entity the client is working with has been deleted.
+    ResourceDeleted = b"amqp:resource-deleted"
+    #: The peer sent a frame that is not permitted in the current state of the Session.
+    IllegalState = b"amqp:illegal-state"
+    #: The peer cannot send a frame because the smallest encoding of the performative with the currently
+    #: valid values would be too large to fit within a frame of the agreed maximum frame size.
+    FrameSizeTooSmall = b"amqp:frame-size-too-small"
 
 
 class ConnectionErrorCondition(Enum):
@@ -53,9 +67,13 @@ class ConnectionErrorCondition(Enum):
         <choice name="redirect" value="amqp:connection:redirect"/>
     </type>
     """
-    ConnectionForced = b"amqp:connection:forced"  #: An operator intervened to close the Connection for some reason. The client may retry at some later date.
-    FramingError = b"amqp:connection:framing-error"  #: A valid frame header cannot be formed from the incoming byte stream.
-    Redirect = b"amqp:connection:redirect"  #: The container is no longer available on the current connection. The peer should attempt reconnection to the container using the details provided in the info map.
+    #: An operator intervened to close the Connection for some reason. The client may retry at some later date.
+    ConnectionForced = b"amqp:connection:forced"
+    #: A valid frame header cannot be formed from the incoming byte stream.
+    FramingError = b"amqp:connection:framing-error"
+    #: The container is no longer available on the current connection. The peer should attempt reconnection
+    #: to the container using the details provided in the info map.
+    Redirect = b"amqp:connection:redirect"
 
 
 class SessionErrorCondition(Enum):
@@ -68,10 +86,15 @@ class SessionErrorCondition(Enum):
         <choice name="unattached-handle" value="amqp:session:unattached-handle"/>
     </type>
     """
-    WindowViolation = b"amqp:session:window-violation"  #: The peer violated incoming window for the session.
-    ErrantLink = b"amqp:session:errant-link"  #: Input was received for a link that was detached with an error.
-    HandleInUse = b"amqp:session:handle-in-use"  #: An attach was received using a handle that is already in use for an attached Link.
-    UnattachedHandle = b"amqp:session:unattached-handle"  #: A frame (other than attach) was received referencing a handle which is not currently in use of an attached Link.
+    #: The peer violated incoming window for the session.
+    WindowViolation = b"amqp:session:window-violation"
+    #: Input was received for a link that was detached with an error.
+    ErrantLink = b"amqp:session:errant-link"
+    #: An attach was received using a handle that is already in use for an attached Link.
+    HandleInUse = b"amqp:session:handle-in-use"
+    #: A frame (other than attach) was received referencing a handle which
+    #: is not currently in use of an attached Link.
+    UnattachedHandle = b"amqp:session:unattached-handle"
 
 
 class LinkErrorCondition(Enum):
@@ -85,11 +108,16 @@ class LinkErrorCondition(Enum):
         <choice name="stolen" value="amqp:link:stolen"/>
     </type>
     """
-    DetachForced = b"amqp:link:detach-forced"  #: An operator intervened to detach for some reason.
-    TransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"  #: The peer sent more Message transfers than currently allowed on the link.
-    MessageSizeExceeded = b"amqp:link:message-size-exceeded"  #: The peer sent a larger message than is supported on the link.
-    Redirect = b"amqp:link:redirect"  #: The address provided cannot be resolved to a terminus at the current container.
-    Stolen = b"amqp:link:stolen"  #: The link has been attached elsewhere, causing the existing attachment to be forcibly closed.
+    #: An operator intervened to detach for some reason.
+    DetachForced = b"amqp:link:detach-forced"
+    #: The peer sent more Message transfers than currently allowed on the link.
+    TransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
+    #: The peer sent a larger message than is supported on the link.
+    MessageSizeExceeded = b"amqp:link:message-size-exceeded"
+    #: The address provided cannot be resolved to a terminus at the current container.
+    Redirect = b"amqp:link:redirect"
+    #: The link has been attached elsewhere, causing the existing attachment to be forcibly closed.
+    Stolen = b"amqp:link:stolen"
 
 
 class AMQPError(object):
