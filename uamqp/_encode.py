@@ -15,11 +15,6 @@ import six
 from .types import AMQPTypes, ConstructorBytes, TYPE, VALUE
 
 
-def _bytes(value, length=1, signed=False):
-    # type: (int, int, bool) -> bytes
-    return value.to_bytes(length, 'big', signed=signed)
-
-
 def _construct(byte, construct):
     # type: (bytes, bool) -> bytes
     return byte if construct else b''
@@ -63,8 +58,8 @@ def encode_ubyte(output, value, with_constructor=True, **kwargs):  # pylint: dis
         value = ord(value)
     try:
         output += _construct(ConstructorBytes.ubyte, with_constructor)
-        return output + _bytes(abs(value))
-    except OverflowError:
+        return output + struct.pack('>B', abs(value))
+    except struct.error:
         raise ValueError("Unsigned byte value must be 0-255")
 
 
@@ -76,8 +71,8 @@ def encode_ushort(output, value, with_constructor=True, **kwargs):  # pylint: di
     value = int(value)
     try:
         output += _construct(ConstructorBytes.ushort, with_constructor)
-        return output + _bytes(abs(value), length=2)
-    except OverflowError:
+        return output + struct.pack('>H', abs(value))
+    except struct.error:
         raise ValueError("Unsigned byte value must be 0-65535")
 
 
@@ -95,10 +90,10 @@ def encode_uint(output, value, with_constructor=True, use_smallest=True):
     try:
         if use_smallest and value <= 255:
             output += _construct(ConstructorBytes.uint_small, with_constructor)
-            return output + _bytes(abs(value))
+            return output + struct.pack('>B', abs(value))
         output += _construct(ConstructorBytes.uint_large, with_constructor)
-        return output + _bytes(abs(value), length=4)
-    except OverflowError:
+        return output + struct.pack('>I', abs(value))
+    except struct.error:
         raise ValueError("Value supplied for unsigned int invalid: {}".format(value))
 
 
@@ -119,10 +114,10 @@ def encode_ulong(output, value, with_constructor=True, use_smallest=True):
     try:
         if use_smallest and value <= 255:
             output += _construct(ConstructorBytes.ulong_small, with_constructor)
-            return output + _bytes(abs(value))
+            return output + struct.pack('>B', abs(value))
         output += _construct(ConstructorBytes.ulong_large, with_constructor)
-        return output + _bytes(abs(value), length=8)
-    except OverflowError:
+        return output + struct.pack('>Q', abs(value))
+    except struct.error:
         raise ValueError("Value supplied for unsigned long invalid: {}".format(value))
 
 
@@ -134,8 +129,8 @@ def encode_byte(output, value, with_constructor=True, **kwargs):  # pylint: disa
     value = int(value)
     try:
         output += _construct(ConstructorBytes.byte, with_constructor)
-        return output + _bytes(value, signed=True)
-    except OverflowError:
+        return output + struct.pack('>b', value)
+    except struct.error:
         raise ValueError("Byte value must be -128-127")
 
 
@@ -147,8 +142,8 @@ def encode_short(output, value, with_constructor=True, **kwargs):  # pylint: dis
     value = int(value)
     try:
         output += _construct(ConstructorBytes.short, with_constructor)
-        return output + _bytes(value, length=2, signed=True)
-    except OverflowError:
+        return output + struct.pack('>h', value)
+    except struct.error:
         raise ValueError("Short value must be -32768-32767")
 
 
@@ -162,10 +157,10 @@ def encode_int(output, value, with_constructor=True, use_smallest=True):
     try:
         if use_smallest and (-128 <= value <= 127):
             output += _construct(ConstructorBytes.int_small, with_constructor)
-            return output + _bytes(value, signed=True)
+            return output + struct.pack('>b', value)
         output += _construct(ConstructorBytes.int_large, with_constructor)
-        return output + _bytes(value, length=4, signed=True)
-    except OverflowError:
+        return output + struct.pack('>i', value)
+    except struct.error:
         raise ValueError("Value supplied for int invalid: {}".format(value))
 
 
@@ -182,10 +177,10 @@ def encode_long(output, value, with_constructor=True, use_smallest=True):
     try:
         if use_smallest and (-128 <= value <= 127):
             output += _construct(ConstructorBytes.long_small, with_constructor)
-            return output + _bytes(value, signed=True)
+            return output + struct.pack('>b', value)
         output += _construct(ConstructorBytes.long_large, with_constructor)
-        return output + _bytes(value, length=8, signed=True)
-    except OverflowError:
+        return output + struct.pack('>q', value)
+    except struct.error:
         raise ValueError("Value supplied for long invalid: {}".format(value))
 
 def encode_float(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
@@ -218,7 +213,7 @@ def encode_timestamp(output, value, with_constructor=True, **kwargs):  # pylint:
         value = (calendar.timegm(value.utctimetuple()) * 1000) + (value.microsecond/1000)
     value = int(value)
     output += _construct(ConstructorBytes.timestamp, with_constructor)
-    return output + _bytes(value, length=8, signed=True)
+    return output + struct.pack('>q', value)
 
 
 def encode_uuid(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
@@ -247,13 +242,13 @@ def encode_binary(output, value, with_constructor=True, use_smallest=True):
     length = len(value)
     if use_smallest and length <= 255:
         output += _construct(ConstructorBytes.binary_small, with_constructor)
-        output += _bytes(length)
+        output += struct.pack('>B', length)
         return output + value
     try:
         output += _construct(ConstructorBytes.binary_large, with_constructor)
-        output += _bytes(length, length=4)
+        output += struct.pack('>L', length)
         return output + value
-    except OverflowError:
+    except struct.error:
         raise ValueError("Binary data to long to encode")
 
 
@@ -270,13 +265,13 @@ def encode_string(output, value, with_constructor=True, use_smallest=True):
     length = len(value)
     if use_smallest and length <= 255:
         output += _construct(ConstructorBytes.string_small, with_constructor)
-        output += _bytes(length)
+        output += struct.pack('>B', length)
         return output + value
     try:
         output += _construct(ConstructorBytes.string_large, with_constructor)
-        output += _bytes(length, length=4)
+        output += struct.pack('>L', length)
         return output + value
-    except OverflowError:
+    except struct.error:
         raise ValueError("String value too long to encode.")
 
 
@@ -293,13 +288,13 @@ def encode_symbol(output, value, with_constructor=True, use_smallest=True):
     length = len(value)
     if use_smallest and length <= 255:
         output += _construct(ConstructorBytes.symbol_small, with_constructor)
-        output += _bytes(length)
+        output += struct.pack('>B', length)
         return output + value
     try:
         output += _construct(ConstructorBytes.symbol_large, with_constructor)
-        output += _bytes(length, length=4)
+        output += struct.pack('>L', length)
         return output + value
-    except OverflowError:
+    except struct.error:
         raise ValueError("Symbol value too long to encode.")
 
 
@@ -323,14 +318,14 @@ def encode_list(output, value, with_constructor=True, use_smallest=True):
         encoded_size += len(encoded_values[-1])
     if use_smallest and count <= 255 and encoded_size < 255:
         output += _construct(ConstructorBytes.list_small, with_constructor)
-        output += _bytes(encoded_size + 1)
-        output += _bytes(count)
+        output += struct.pack('>B', encoded_size + 1)
+        output += struct.pack('>B', count)
     else:
         try:
             output += _construct(ConstructorBytes.list_large, with_constructor)
-            output += _bytes(encoded_size + 4, length=4)
-            output += _bytes(count, length=4)
-        except OverflowError:
+            output += struct.pack('>L', encoded_size + 4)
+            output += struct.pack('>L', count)
+        except struct.error:
             raise ValueError("List is too large or too long to be encoded.")
     return output + b"".join(encoded_values)
 
@@ -357,14 +352,14 @@ def encode_map(output, value, with_constructor=True, use_smallest=True):
         encoded_size += len(encoded_values[-1])
     if use_smallest and count <= 255 and encoded_size < 255:
         output += _construct(ConstructorBytes.map_small, with_constructor)
-        output += _bytes(encoded_size + 1)
-        output += _bytes(count)
+        output += struct.pack('>B', encoded_size + 1)
+        output += struct.pack('>B', count)
     else:
         try:
             output += _construct(ConstructorBytes.map_large, with_constructor)
-            output += _bytes(encoded_size + 4, length=4)
-            output += _bytes(count, length=4)
-        except OverflowError:
+            output += struct.pack('>L', encoded_size + 4)
+            output += struct.pack('>L', count)
+        except struct.error:
             raise ValueError("Map is too large or too long to be encoded.")
     return output + b"".join(encoded_values)
 
@@ -407,14 +402,14 @@ def encode_array(output, value, with_constructor=True, use_smallest=True):
             break
     if use_smallest and count <= 255 and encoded_size < 255:
         output += _construct(ConstructorBytes.array_small, with_constructor)
-        output += _bytes(encoded_size + 1)
-        output += _bytes(count)
+        output += struct.pack('>B', encoded_size + 1)
+        output += struct.pack('>B', count)
     else:
         try:
             output += _construct(ConstructorBytes.array_large, with_constructor)
-            output += _bytes(encoded_size + 4, length=4)
-            output += _bytes(count, length=4)
-        except OverflowError:
+            output += struct.pack('>L', encoded_size + 4)
+            output += struct.pack('>L', count)
+        except struct.error:
             raise ValueError("Array is too large or too long to be encoded.")
     return output + b"".join(encoded_values)
 
