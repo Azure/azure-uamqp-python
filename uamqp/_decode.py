@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
+# pylint: disable=redefined-builtin
 
 import struct
 import uuid
@@ -11,13 +12,13 @@ from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 from .types import ConstructorBytes
 
 
-class DecoderState:
+class DecoderState(object):  # pylint: disable=no-init
     constructor = 'CONSTRUCTOR'
     type_data = 'TYPE_DATA'
     done = 'DONE'
 
 
-class Decoder:
+class Decoder(object):
 
     def __init__(self, length):
         self.state = DecoderState.constructor
@@ -56,11 +57,6 @@ def decode_constructor(decoder):
         decoder.state = DecoderState.type_data
 
 
-def _from_bytes(data, signed=False):
-    # type: (bytes) -> int
-    return int.from_bytes(data, 'big', signed=signed)
-
-
 def _read(buffer, size):
     # type: (IO, int) -> bytes
     data = buffer.read(size)
@@ -86,7 +82,7 @@ def decode_ubyte(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>B', data)[0]
     except Exception:
         raise ValueError("Invalid ubyte value: {}".format(data))
     decoder.progress(1)
@@ -97,7 +93,7 @@ def decode_ushort(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 2)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>H', data)[0]
     except Exception:
         raise ValueError("Invalid ushort value: {}".format(data))
     decoder.progress(2)
@@ -108,7 +104,7 @@ def decode_uint_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>B', data)[0]
     except Exception:
         raise ValueError("Invalid uint value: {}".format(data))
     decoder.progress(1)
@@ -119,7 +115,7 @@ def decode_uint_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 4)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>I', data)[0]
     except Exception:
         raise ValueError("Invalid uint value: {}".format(data))
     decoder.progress(4)
@@ -130,7 +126,7 @@ def decode_ulong_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>B', data)[0]
     except Exception:
         raise ValueError("Invalid ulong value: {}".format(data))
     decoder.progress(1)
@@ -141,7 +137,7 @@ def decode_ulong_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 8)
     try:
-        decoder.decoded_value = _from_bytes(data)
+        decoder.decoded_value = struct.unpack('>Q', data)[0]
     except Exception:
         raise ValueError("Invalid ulong value: {}".format(data))
     decoder.progress(8)
@@ -152,7 +148,7 @@ def decode_byte(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>b', data)[0]
     except Exception:
         raise ValueError("Invalid byte value: {}".format(data))
     decoder.progress(1)
@@ -163,7 +159,7 @@ def decode_short(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 2)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>h', data)[0]
     except Exception:
         raise ValueError("Invalid short value: {}".format(data))
     decoder.progress(2)
@@ -174,7 +170,7 @@ def decode_int_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>b', data)[0]
     except Exception:
         raise ValueError("Invalid int value: {}".format(data))
     decoder.progress(1)
@@ -185,7 +181,7 @@ def decode_int_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 4)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>i', data)[0]
     except Exception:
         raise ValueError("Invalid int value: {}".format(data))
     decoder.progress(4)
@@ -196,7 +192,7 @@ def decode_long_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 1)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>b', data)[0]
     except Exception:
         raise ValueError("Invalid long value: {}".format(data))
     decoder.progress(1)
@@ -207,7 +203,7 @@ def decode_long_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 8)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)
+        decoder.decoded_value = struct.unpack('>q', data)[0]
     except Exception:
         raise ValueError("Invalid long value: {}".format(data))
     decoder.progress(8)
@@ -240,7 +236,7 @@ def decode_timestamp(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = _read(buffer, 8)
     try:
-        decoder.decoded_value = _from_bytes(data, signed=True)  # TODO: datetime
+        decoder.decoded_value = struct.unpack('>q', data)[0]  # TODO: datetime
     except Exception:
         raise ValueError("Invalid timestamp value: {}".format(data))
     decoder.progress(8)
@@ -260,7 +256,7 @@ def decode_uuid(decoder, buffer):
 
 def decode_binary_small(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 1))
+    length = struct.unpack('>B', _read(buffer, 1))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data
@@ -273,7 +269,7 @@ def decode_binary_small(decoder, buffer):
 
 def decode_binary_large(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 4))
+    length = struct.unpack('>L', _read(buffer, 4))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data
@@ -286,7 +282,7 @@ def decode_binary_large(decoder, buffer):
 
 def decode_string_small(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 1))
+    length = struct.unpack('>B', _read(buffer, 1))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data.decode('utf-8')
@@ -299,7 +295,7 @@ def decode_string_small(decoder, buffer):
 
 def decode_string_large(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 4))
+    length = struct.unpack('>L', _read(buffer, 4))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data.decode('utf-8')
@@ -312,7 +308,7 @@ def decode_string_large(decoder, buffer):
 
 def decode_symbol_small(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 1))
+    length = struct.unpack('>B', _read(buffer, 1))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data
@@ -325,7 +321,7 @@ def decode_symbol_small(decoder, buffer):
 
 def decode_symbol_large(decoder, buffer):
     # type: (Decoder, IO) -> None
-    length = _from_bytes(_read(buffer, 4))
+    length = struct.unpack('>L', _read(buffer, 4))[0]
     data = _read(buffer, length)
     try:
         decoder.decoded_value = data
@@ -339,8 +335,8 @@ def decode_symbol_large(decoder, buffer):
 def decode_list_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 1))
-        count = _from_bytes(_read(buffer, 1))
+        size = struct.unpack('>B', _read(buffer, 1))[0]
+        count = struct.unpack('>B', _read(buffer, 1))[0]
         items = decode_value(buffer, size)
         if len(items) != count:
             raise ValueError("Mismatching list length.")
@@ -357,8 +353,8 @@ def decode_list_small(decoder, buffer):
 def decode_list_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 4))
-        count = _from_bytes(_read(buffer, 4))
+        size = struct.unpack('>L', _read(buffer, 4))[0]
+        count = struct.unpack('>L', _read(buffer, 4))[0]
         items = decode_value(buffer, size)
         if len(items) != count:
             raise ValueError("Mismatching list length.")
@@ -375,8 +371,8 @@ def decode_list_large(decoder, buffer):
 def decode_map_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 1))
-        count = _from_bytes(_read(buffer, 1))
+        size = struct.unpack('>B', _read(buffer, 1))[0]
+        count = struct.unpack('>B', _read(buffer, 1))[0]
         items = decode_value(buffer, size)
         if len(items) != count or count % 2 != 0:
             raise ValueError("Mismatching map length.")
@@ -393,8 +389,8 @@ def decode_map_small(decoder, buffer):
 def decode_map_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 4))
-        count = _from_bytes(_read(buffer, 4))
+        size = struct.unpack('>L', _read(buffer, 4))[0]
+        count = struct.unpack('>L', _read(buffer, 4))[0]
         items = decode_value(buffer, size)
         if len(items) != count or count % 2 != 0:
             raise ValueError("Mismatching map length.")
@@ -411,8 +407,8 @@ def decode_map_large(decoder, buffer):
 def decode_array_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 1))
-        count = _from_bytes(_read(buffer, 1))
+        size = struct.unpack('>B', _read(buffer, 1))[0]
+        count = struct.unpack('>B', _read(buffer, 1))[0]
         items = decode_value(buffer, size, sub_constructors=False)
         if len(items) != count:
             raise ValueError("Mismatching list length.")
@@ -429,8 +425,8 @@ def decode_array_small(decoder, buffer):
 def decode_array_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
-        size = _from_bytes(_read(buffer, 4))
-        count = _from_bytes(_read(buffer, 4))
+        size = struct.unpack('>L', _read(buffer, 4))[0]
+        count = struct.unpack('>L', _read(buffer, 4))[0]
         items = decode_value(buffer, size, sub_constructors=False)
         if len(items) != count:
             raise ValueError("Mismatching list length.")

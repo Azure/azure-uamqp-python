@@ -75,7 +75,7 @@ def test_encode_ubyte():
     output = encode.encode_ubyte(b"", 255)
     assert output == b"\x50\xFF"
 
-    output = encode.encode_ubyte(b"", 'a')
+    output = encode.encode_ubyte(b"", ord('a'))
     assert output == b"\x50\x61"
 
     output = encode.encode_ubyte(b"", -1)
@@ -87,10 +87,10 @@ def test_encode_ubyte():
     with pytest.raises(ValueError):
         encode.encode_ubyte(b"", 256)
 
-    output = encode.encode_value(b"", {"TYPE": "UBYTE", "VALUE": 'a'})
+    output = encode.encode_value(b"", {"TYPE": "UBYTE", "VALUE": ord('a')})
     assert output == b"\x50\x61"
 
-    output = encode.encode_value(b"", {"TYPE": "UBYTE", "VALUE": 'a'}, with_constructor=False)
+    output = encode.encode_value(b"", {"TYPE": "UBYTE", "VALUE": ord('a')}, with_constructor=False)
     assert output == b"\x61"
 
 
@@ -98,11 +98,8 @@ def test_encode_ushort():
     output = encode.encode_ushort(b"", 0)
     assert output == b"\x60\x00\x00"
 
-    output = encode.encode_ushort(b"", b"\x42\x43")
+    output = encode.encode_ushort(b"", 16963)
     assert output == b"\x60\x42\x43"
-
-    output = encode.encode_ushort(b"", b"\xFF\xFF")
-    assert output == b"\x60\xFF\xFF"
 
     output = encode.encode_ushort(b"", 255)
     assert output == b"\x60\x00\xFF"
@@ -148,9 +145,6 @@ def test_encode_uint():
     output = encode.encode_uint(b"", 429496700, with_constructor=False)
     assert output == b"\x19\x99\x99\x7C"
 
-    output = encode.encode_uint(b"", b"\xFF\xFF\xFF\xFF")
-    assert output == b"\x70\xFF\xFF\xFF\xFF"
-
     with pytest.raises(ValueError):
         encode.encode_uint(b"", 4294967296)
 
@@ -186,9 +180,6 @@ def test_encode_ulong():
 
     output = encode.encode_ulong(b"", 429496700, with_constructor=False)
     assert output == b"\x00\x00\x00\x00\x19\x99\x99\x7C"
-
-    output = encode.encode_ulong(b"", b"\xFF\xFF\xFF\xFF")
-    assert output == b"\x80\x00\x00\x00\x00\xFF\xFF\xFF\xFF"
 
     output = encode.encode_ulong(b"", 18446744073709551615)
     assert output == b"\x80\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
@@ -577,7 +568,7 @@ def test_encode_map():
     assert output == b"\x00\x00\x00\x06\x00\x00\x00\x02\x40\x40"
 
     output = encode.encode_map(
-        b"", [({"TYPE": "UINT", "VALUE": b"\x42"}, {"TYPE": "UINT", "VALUE": b"\x43"})])
+        b"", [({"TYPE": "UINT", "VALUE": 66}, {"TYPE": "UINT", "VALUE": 67})])
     assert output == b"\xC1\x05\x02\x52\x42\x52\x43"
 
     input = [({"TYPE": "UINT", "VALUE": i}, None) for i in range(85)]

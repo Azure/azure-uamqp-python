@@ -1,6 +1,7 @@
 
 # pylint: skip-file
 
+import struct
 from enum import Enum
 
 from .performatives import _decode_frame
@@ -14,10 +15,10 @@ def unpack(data):
         raise ValueError("Invalid frame header")
     if data[0:4] == AMQP_HEADER[0:4]:
         return None, None, None, None  # TODO: Validate AMQP version
-    size = int.from_bytes(data[0:4], 'big')
-    offset = int.from_bytes(data[4:5], 'big')
-    frame_type = int.from_bytes(data[5:6], 'big')
-    channel = int.from_bytes(data[6:], 'big')
+    size = struct.unpack('>I', data[0:4])[0]
+    offset = struct.unpack('>B', data[4:5])[0]
+    frame_type = struct.unpack('>B', data[5:6])[0]
+    channel = struct.unpack('>H', data[6:])[0]
     return (size, offset, frame_type, channel)
 
 

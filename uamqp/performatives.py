@@ -61,7 +61,7 @@ class OpenFrame(Performative):
         receiver is unable or unwilling to support the idle time-out then it should close the connection with
         an error explaining why (eg, because it is too small). If the value is not set, then the sender does not
         have an idle time-out. However, senders doing this should be aware that implementations MAY choose to use
-        an internal default to efficiently manage a peer’s resources.
+        an internal default to efficiently manage a peer's resources.
     :param list(str) outgoing_locales: Locales available for outgoing text.
         A list of the locales that the peer supports for sending informational text. This includes Connection,
         Session and Link error descriptions. A peer MUST support at least the en-US locale. Since this value
@@ -487,8 +487,8 @@ PERFORMATIVES = {
 def _decode_frame(data, offset):
     # type: (type, bytes) -> Performative
     _ = data[:offset]  # TODO: Extra data
-    buffer = BytesIO(data[offset:])
-    descriptor, fields = decode_value(buffer)
+    byte_buffer = BytesIO(data[offset:])
+    descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]
 
     kwargs = {}

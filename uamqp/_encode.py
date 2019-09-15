@@ -8,7 +8,7 @@ import calendar
 import struct
 import uuid
 from datetime import datetime
-from typing import Iterable, Union, Tuple, Dict
+from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
 import six
 
@@ -69,14 +69,11 @@ def encode_ubyte(output, value, with_constructor=True, **kwargs):  # pylint: dis
 
 
 def encode_ushort(output, value, with_constructor=True, **kwargs):  # pylint: disable=unused-argument
-    # type: (bytes, Union[int, bytes], bool, Any) -> bytes
+    # type: (bytes, int, bool, Any) -> bytes
     """
     <encoding code="0x60" category="fixed" width="2" label="16-bit unsigned integer in network byte order"/>
     """
-    try:
-        value = int(value)
-    except ValueError:
-        value = int.from_bytes(value, 'big')
+    value = int(value)
     try:
         output += _construct(ConstructorBytes.ushort, with_constructor)
         return output + _bytes(abs(value), length=2)
@@ -85,17 +82,14 @@ def encode_ushort(output, value, with_constructor=True, **kwargs):  # pylint: di
 
 
 def encode_uint(output, value, with_constructor=True, use_smallest=True):
-    # type: (bytes, Union[int, bytes], bool, bool) -> bytes
+    # type: (bytes, int, bool, bool) -> bytes
     """
     <encoding name="uint0" code="0x43" category="fixed" width="0" label="the uint value 0"/>
     <encoding name="smalluint" code="0x52" category="fixed" width="1"
         label="unsigned integer value in the range 0 to 255 inclusive"/>
     <encoding code="0x70" category="fixed" width="4" label="32-bit unsigned integer in network byte order"/>
     """
-    try:
-        value = int(value)
-    except ValueError:
-        value = int.from_bytes(value, 'big')
+    value = int(value)
     if value == 0:
         return output + ConstructorBytes.uint_0
     try:
@@ -117,12 +111,9 @@ def encode_ulong(output, value, with_constructor=True, use_smallest=True):
     <encoding code="0x80" category="fixed" width="8" label="64-bit unsigned integer in network byte order"/>
     """
     try:
-        try:
-            value = long(value)
-        except NameError:
-            value = int(value)
-    except ValueError:
-        value = int.from_bytes(value, 'big')
+        value = long(value)
+    except NameError:
+        value = int(value)
     if value == 0:
         return output + ConstructorBytes.ulong_0
     try:
