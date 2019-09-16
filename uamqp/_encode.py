@@ -12,7 +12,9 @@ from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
 import six
 
-from .types import AMQPTypes, ConstructorBytes, TYPE, VALUE
+from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition, ConstructorBytes
+from .definitions import _FIELD_DEFINITIONS
+from .performatives import Performative, HeaderFrame
 
 
 def _construct(byte, construct):
@@ -477,3 +479,37 @@ def encode_value(output, value, **kwargs):
         else:
             raise TypeError("Unable to encode unknown value: {}".format(value))
     return output
+
+
+def encode_frame(frame):
+    # type: (Performative) -> Tuple(bytes, bytes)
+    if isinstance(frame, HeaderFrame):
+        return frame.header, None
+    body = []
+    for field in frame.DEFINITION:
+        value = frame.__dict__[field.name]
+        if value is None and field.mandatory:
+            raise ValueError("Performative missing mandatory field {}".format(field.name))
+        if field.type is FieldDefinition:
+            if field.multiple:
+                body.append([_FIELD_DEFINITIONS[field.type].encode(v) for v in value] if value else None)
+            else:
+                body.append(_FIELD_DEFINITIONS[field.type].encode(value))
+        elif field.type is ObjDefinition:
+            body.append(value.encode())
+        else:
+            body.append({TYPE: field.type, VALUE: value})
+
+        frame_description = {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
+                {TYPE: AMQPTypes.list, VALUE: body}
+            )
+        }
+        offset = b"\x02"  # Minimum offset of two
+
+        frame_data = encode_value(b"", frame_description)
+        size = len(frame_data).to_bytes(4, 'big')
+        header = size + offset + frame.FRAME_TYPE
+        return header, frame_data

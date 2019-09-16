@@ -5,17 +5,9 @@
 #--------------------------------------------------------------------------
 
 import struct
-from io import BytesIO
-from collections import namedtuple
 
-from ._encode import encode_value
-from ._decode import decode_value
-from .definitions import _FIELD_DEFINITIONS
-from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition
-from .constants import MAJOR, MINOR, REVISION
-
-
-FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
+from .types import AMQPTypes, FieldDefinition, ObjDefinition
+from .constants import MAJOR, MINOR, REVISION, FIELD
 
 
 def _as_bytes(value):
@@ -26,6 +18,7 @@ class Performative(object):
 
     NAME = None
     CODE = None
+    FRAME_TYPE = b'\x00'
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -38,14 +31,13 @@ class HeaderFrame(Performative):
     """
     """
     NAME = "HEADER"
-    CODE = b"AMQP\x00" + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
+    CODE = b"AMQP\x00"
 
-    def __init__(self, version=None, **kwargs):
-        print("VERSION", version)
-        if version:
-            if version != self.CODE:
-                raise ValueError("Mismatching AMQP protocol version.")
-        self.version = self.CODE[4:]
+    def __init__(self, header=None, **kwargs):
+        self.version = b"{}.{}.{}".format(MAJOR, MINOR, REVISION)
+        self.header = self.CODE + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
+        if header and header != self.header:
+            raise ValueError("Mismatching AMQP protocol version.")
         super(HeaderFrame, self).__init__(**kwargs)
 
 
@@ -489,82 +481,3 @@ class CloseFrame(Performative):
     NAME = "CLOSE"
     CODE = 0x00000018
     DEFINITION = {FIELD("error", FieldDefinition.error, False, None, False)}
-
-
-PERFORMATIVES = {
-    0x00000010: OpenFrame,
-    0x00000011: BeginFrame,
-    0x00000012: AttachFrame,
-    0x00000013: FlowFrame,
-    0x00000014: TransferFrame,
-    0x00000015: DispositionFrame,
-    0x00000016: DetachFrame,
-    0x00000017: EndFrame,
-    0x00000018: CloseFrame,
-}
-
-
-def _decode_frame(header, data, offset):
-    # type: (type, bytes) -> Performative
-    if data is None:
-        if header[0:4] == b'AMQP':
-            return HeaderFrame(version=header)
-        raise ValueError("Received empty frame")
-    _ = data[:offset]  # TODO: Extra data
-    byte_buffer = BytesIO(data[offset:])
-    descriptor, fields = decode_value(byte_buffer)
-    frame_type = PERFORMATIVES[descriptor]
-
-    kwargs = {}
-    for index, field in enumerate(frame_type.DEFINITION):
-        value = fields[index]
-        if value is None:
-            if field.mandatory:
-                raise ValueError("Frame {} missing mandatory field {}".format(frame_type, field.name))
-            if field.default is not None:
-                value = field.default
-        if field.type is FieldDefinition:
-            if field.multiple:
-                kwargs[field.name] = [_FIELD_DEFINITIONS[field.type].decode(v) for v in value] if value else []
-            else:
-                kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
-        elif field.type is ObjDefinition:
-            pass  # TODO
-        else:
-            kwargs[field.name] = value
-    return frame_type(**kwargs)
-
-
-def _encode_frame(frame):
-    # type: (Performative) -> Tuple(bytes, bytes)
-    if isinstance(frame, HeaderFrame):
-        return frame.CODE, None
-    body = []
-    for field in frame.DEFINITION:
-        value = frame.__dict__[field.name]
-        if value is None and field.mandatory:
-            raise ValueError("Performative missing mandatory field {}".format(field.name))
-        if field.type is FieldDefinition:
-            if field.multiple:
-                body.append([_FIELD_DEFINITIONS[field.type].encode(v) for v in value] if value else None)
-            else:
-                body.append(_FIELD_DEFINITIONS[field.type].encode(value))
-        elif field.type is ObjDefinition:
-            body.append(value.encode())
-        else:
-            body.append({TYPE: field.type, VALUE: value})
-
-        frame = {
-            TYPE: AMQPTypes.described,
-            VALUE: (
-                {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
-                {TYPE: AMQPTypes.list, VALUE: body}
-            )
-        }
-        offset = b"\x02"  # Minimum offset of two
-        type_code = b"\x00"  # Non SASL frames are always type \x00
-
-        frame_data = encode_value(b"", frame)
-        size = len(frame_data).to_bytes(4, 'big')
-        header = size + offset + type_code
-        return header, frame_data

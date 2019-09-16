@@ -25,9 +25,11 @@ DEFAULT_LINK_CREDIT = 1000
 def _unpack_frame_header(data):
     if len(data) != 8:
         raise ValueError("Invalid frame header")
-    size = struct.unpack('>I', data[0:4])[0]
-    if size == 1095586128:  # AMQP header
+    if data[0:4] == b'AMQP':  # AMQP header negotiation
         size = None
+    else:
+        size = struct.unpack('>I', data[0:4])[0]
+
     offset = struct.unpack('>B', data[4:5])[0]
     frame_type = struct.unpack('>B', data[5:6])[0]
     channel = struct.unpack('>H', data[6:])[0]

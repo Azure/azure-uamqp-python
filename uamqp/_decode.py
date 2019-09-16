@@ -7,9 +7,38 @@
 
 import struct
 import uuid
+from io import BytesIO
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
-from .types import ConstructorBytes
+from .types import FieldDefinition, ObjDefinition, ConstructorBytes
+from .definitions import _FIELD_DEFINITIONS
+from .performatives import (
+    HeaderFrame,
+    OpenFrame,
+    BeginFrame,
+    AttachFrame,
+    FlowFrame,
+    TransferFrame,
+    DispositionFrame,
+    DetachFrame,
+    EndFrame,
+    CloseFrame)
+from .sasl import (
+    SASLMechanism,)
+
+
+PERFORMATIVES = {
+    0x00000010: OpenFrame,
+    0x00000011: BeginFrame,
+    0x00000012: AttachFrame,
+    0x00000013: FlowFrame,
+    0x00000014: TransferFrame,
+    0x00000015: DispositionFrame,
+    0x00000016: DetachFrame,
+    0x00000017: EndFrame,
+    0x00000018: CloseFrame,
+    0x00000040: SASLMechanism,
+}
 
 
 class DecoderState(object):  # pylint: disable=no-init
@@ -519,3 +548,34 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True):
                 decoder.decoded_value = {}
 
     return decoded_values or decoder.decoded_value
+
+
+def decode_frame(header, data, offset):
+    # type: (type, bytes) -> Performative
+    if data is None:
+        if header[0:4] == b'AMQP':
+            return HeaderFrame(header=header)
+        raise ValueError("Received empty frame")
+    _ = data[:offset]  # TODO: Extra data
+    byte_buffer = BytesIO(data[offset:])
+    descriptor, fields = decode_value(byte_buffer)
+    frame_type = PERFORMATIVES[descriptor]
+
+    kwargs = {}
+    for index, field in enumerate(frame_type.DEFINITION):
+        value = fields[index]
+        if value is None:
+            if field.mandatory:
+                raise ValueError("Frame {} missing mandatory field {}".format(frame_type, field.name))
+            if field.default is not None:
+                value = field.default
+        if field.type is FieldDefinition:
+            if field.multiple:
+                kwargs[field.name] = [_FIELD_DEFINITIONS[field.type].decode(v) for v in value] if value else []
+            else:
+                kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
+        elif field.type is ObjDefinition:
+            pass  # TODO
+        else:
+            kwargs[field.name] = value
+    return frame_type(**kwargs)
