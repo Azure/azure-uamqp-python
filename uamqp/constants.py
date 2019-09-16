@@ -21,6 +21,10 @@ MAJOR = 1  #: Major protocol version.
 MINOR = 0  #: Minor protocol version.
 REVISION = 0  #: Protocol revision.
 
+TLS_MAJOR = 1  #: Major protocol version.
+TLS_MINOR = 0  #: Minor protocol version.
+TLS_REVISION = 0  #: Protocol revision.
+
 SASL_MAJOR = 1  #: Major protocol version.
 SASL_MINOR = 0  #: Minor protocol version.
 SASL_REVISION = 0  #: Protocol revision.

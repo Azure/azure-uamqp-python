@@ -10,13 +10,13 @@ import struct
 import uuid
 from enum import Enum
 
+from ._encode import encode_frame
+from ._decode import decode_frame
 from ._transport import SSLTransport
 from .performatives import (
     HeaderFrame,
     OpenFrame,
     CloseFrame,
-    _decode_frame,
-    _encode_frame,
 )
 
 DEFAULT_LINK_CREDIT = 1000
@@ -240,7 +240,7 @@ class Connection(object):
             else:
                 can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
                 if can_send:
-                    header, performative = _encode_frame(outgoing_frame)
+                    header, performative = encode_frame(outgoing_frame)
                     if performative is None:
                         performative = header
                     else:
@@ -253,7 +253,7 @@ class Connection(object):
                     raise TypeError("Attempt to send frame {} in illegal state {}".format(performative, self.state))
         if self._can_read():
             incoming_frame = self.blocking_read(unpack=_unpack_frame_header)
-            performative = _decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
+            performative = decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
             legal, new_state = self._is_incoming_frame_legal(performative)
             if legal:
                 print("<- {}".format(performative))

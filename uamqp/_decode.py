@@ -23,8 +23,14 @@ from .performatives import (
     DetachFrame,
     EndFrame,
     CloseFrame)
+from .tlsio import TLSHeaderFrame
 from .sasl import (
-    SASLMechanism,)
+    SASLHeaderFrame,
+    SASLMechanism,
+    SASLInit,
+    SASLChallenge,
+    SASLResponse,
+    SASLOutcome)
 
 
 PERFORMATIVES = {
@@ -38,6 +44,10 @@ PERFORMATIVES = {
     0x00000017: EndFrame,
     0x00000018: CloseFrame,
     0x00000040: SASLMechanism,
+    0x00000041: SASLInit,
+    0x00000042: SASLChallenge,
+    0x00000043: SASLResponse,
+    0x00000044: SASLOutcome
 }
 
 
@@ -554,7 +564,13 @@ def decode_frame(header, data, offset):
     # type: (type, bytes) -> Performative
     if data is None:
         if header[0:4] == b'AMQP':
-            return HeaderFrame(header=header)
+            layer = header[4]
+            if layer == b'\x00':
+                return HeaderFrame(header=header)
+            if layer == b'\x01':
+                return TLSHeaderFrame(header=header)
+            if layer == b'\x02':
+                return SASLHeaderFrame(header=header)
         raise ValueError("Received empty frame")
     _ = data[:offset]  # TODO: Extra data
     byte_buffer = BytesIO(data[offset:])
