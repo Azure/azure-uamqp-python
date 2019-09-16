@@ -4,6 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import struct
 from io import BytesIO
 from collections import namedtuple
 
@@ -16,6 +17,9 @@ from .constants import MAJOR, MINOR, REVISION
 
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
 
+
+def _as_bytes(value):
+    return struct.pack('>B', value)
 
 class Performative(object):
     """AMQP Performative"""
@@ -34,9 +38,10 @@ class HeaderFrame(Performative):
     """
     """
     NAME = "HEADER"
-    CODE = b"AMQP0" + MAJOR + MINOR + REVISION
+    CODE = b"AMQP\x00" + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
 
     def __init__(self, version=None, **kwargs):
+        print("VERSION", version)
         if version:
             if version != self.CODE:
                 raise ValueError("Mismatching AMQP protocol version.")
@@ -533,7 +538,7 @@ def _decode_frame(header, data, offset):
 def _encode_frame(frame):
     # type: (Performative) -> Tuple(bytes, bytes)
     if isinstance(frame, HeaderFrame):
-        return None, frame.CODE
+        return frame.CODE, None
     body = []
     for field in frame.DEFINITION:
         value = frame.__dict__[field.name]
@@ -562,4 +567,4 @@ def _encode_frame(frame):
         frame_data = encode_value(b"", frame)
         size = len(frame_data).to_bytes(4, 'big')
         header = size + offset + type_code
-        return frame_data, header
+        return header, frame_data

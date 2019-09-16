@@ -7,6 +7,7 @@
 import threading
 import queue
 import struct
+import uuid
 from enum import Enum
 
 from ._transport import SSLTransport
@@ -19,16 +20,6 @@ from .performatives import (
 )
 
 DEFAULT_LINK_CREDIT = 1000
-
-
-def _validate_header(data):
-    if len(data) != 8:
-        raise ValueError("Invalid frame header")
-    if data[0:4] == AMQP_HEADER[0:4]:
-        raise ValueError("Invalid AMQP protocol header")
-    if data[4:] != AMQP_HEADER[4:]:
-        raise ValueError("AMQP protocol ersion mismatch. Received version header {}".format(data[4:]))
-    return None, None, None, None
 
 
 def _unpack_frame_header(data):
@@ -99,7 +90,7 @@ class Connection(object):
     :param list(str) outgoing_locales: Locales available for outgoing text.
     :param list(str) incoming_locales: Desired locales for incoming text in decreasing level of preference.
     :param list(str) offered_capabilities: The extension capabilities the sender supports.
-    :param list(str) required_capabilities: The extension capabilities the sender may use if the receiver supports
+    :param list(str) desired_capabilities: The extension capabilities the sender may use if the receiver supports
     :param dict properties: Connection properties.
     """
 
@@ -115,14 +106,14 @@ class Connection(object):
             socket_settings=kwargs.pop('socket_settings', None),
             write_timeout=kwargs.pop('write_timeout', None)
         )
-        self.container_id = kwargs.pop('container_id')
-        self.max_frame_size = kwargs.pop('max_frame_size')
-        self.channel_max = kwargs.pop('channel_max')
-        self.idle_timeout = kwargs.pop('idle_timeout')
+        self.container_id = kwargs.pop('container_id', None) or str(uuid.uuid4())
+        self.max_frame_size = kwargs.pop('max_frame_size', None)
+        self.channel_max = kwargs.pop('channel_max', None)
+        self.idle_timeout = kwargs.pop('idle_timeout', None)
         self.outgoing_locales = kwargs.pop('outgoing_locales', [])
         self.incoming_locales = kwargs.pop('incoming_locales', [])
         self.offered_capabilities = kwargs.pop('offered_capabilities', [])
-        self.required_capabilities = kwargs.pop('required_capabilities', [])
+        self.desired_capabilities = kwargs.pop('desired_capabilities', [])
 
         self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', False)
         self.remote_idle_timeout = None
@@ -132,7 +123,9 @@ class Connection(object):
         self.last_frame_sent_time = None
 
         self.sessions = {}
-        self.endpoints = []
+        self.endpoints = [
+            {'OUTGOING': 0, 'INCOMING': 1}
+        ]
 
         self._outgoing_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
         self._incoming_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
@@ -155,12 +148,14 @@ class Connection(object):
         self.close()
         self.disconnect()
 
-
     def _set_state(self, new_state):
         # type: (ConnectionState) -> None
         """Update the connection state."""
+        if new_state is None:
+            return
         previous_state = self.state
         self.state = new_state
+        print("Connection state changed: {} -> {}".format(previous_state, new_state))
 
     def _can_read(self):
         # type: () -> bool
@@ -178,7 +173,7 @@ class Connection(object):
             ConnectionState.END
         )
 
-    def _is_outgoing_frame_legal(self, frame):
+    def _is_outgoing_frame_legal(self, frame):  # pylint: disable=too-many-return-statements
         # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
         """Determines whether a frame can legally be sent, and if so, whether
         the successful sending of that frame will result in a change of state.
@@ -205,7 +200,7 @@ class Connection(object):
             return True, ConnectionState.END if isinstance(frame, CloseFrame) else None
         return False, None
 
-    def _is_incoming_frame_legal(self, frame):
+    def _is_incoming_frame_legal(self, frame):  # pylint: disable=too-many-return-statements
         # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
         """Determines whether a received frame is legal, and if so, whether
         it results in a change of connection state.
@@ -237,38 +232,33 @@ class Connection(object):
     def _run(self):
         if self._can_write():
             try:
-                outgoing_frame = self._outgoing_frames.get_nowait()
+                channel, outgoing_frame = self._outgoing_frames.get_nowait()
             except queue.Empty:
                 pass
             else:
                 can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
                 if can_send:
-                    self.transport.send_frame(_encode_frame(outgoing_frame))
+                    header, performative = _encode_frame(outgoing_frame)
+                    if performative is None:
+                        performative = header
+                    else:
+                        channel = struct.pack('>H', channel)
+                        performative = header + channel + performative
+                    self.transport.write(performative)
+                    print("-> {}".format(outgoing_frame))
                     self._set_state(next_state)
                 else:
-                    raise TypeError("Attempt to send frame in illegal state.")
+                    raise TypeError("Attempt to send frame {} in illegal state {}".format(performative, self.state))
         if self._can_read():
-            try:
-                incoming_frame = self.transport.read_frame(unpack=_unpack_frame_header)
-                performative = _decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
-
-
-
-    # def _exchange_headers(self):
-    #     try:
-    #         self.transport.write(AMQP_HEADER)
-    #     except Exception as e:
-    #         try:
-    #             self.transport.close()
-    #         except Exception as e:
-    #             print("xio_close failed.", e)
-    #         self._set_state(ConnectionState.END)
-    #         return 1
-
-    #     self._set_state(ConnectionState.HDR_EXCH)
-    #     self.transport.read_frame(unpack=_validate_header)
-    #     self._set_state(ConnectionState.HDR_RCVD)
-    #     return True
+            incoming_frame = self.blocking_read(unpack=_unpack_frame_header)
+            performative = _decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
+            legal, new_state = self._is_incoming_frame_legal(performative)
+            if legal:
+                print("<- {}".format(performative))
+                self._set_state(new_state)
+                self._incoming_frames.put((incoming_frame[2], performative))
+            else:
+                raise TypeError("Received illegal frame {} in current state {}".format(performative, self.state))
 
     def begin_session(self, session, **kwargs):
         pass
@@ -284,15 +274,18 @@ class Connection(object):
                 self._set_state(ConnectionState.START)
                 if self._thread_pool:
                     self._thread_pool.__enter__()
-            self._outgoing_frames.put(HeaderFrame())
+            self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], HeaderFrame()))
         except Exception:  # pylint: disable=broad-except
             self.disconnect()
+
+    def blocking_read(self, timeout=None, **kwargs):
+        with self.transport.having_timeout(timeout):
+            return self.transport.read_frame(**kwargs)
 
     def disconnect(self, *args):
         self._set_state(ConnectionState.END)
         self.transport.close()
         self._thread_pool.__exit__(*args)
-                
 
     def open(self, **kwargs):
         open_frame = kwargs.get('open_frame') or OpenFrame(
@@ -304,19 +297,24 @@ class Connection(object):
             outgoing_locales=self.outgoing_locales,
             incoming_locales=self.incoming_locales,
             offered_capabilities=self.offered_capabilities,
-            required_capabilities=self.required_capabilities,
+            desired_capabilities=self.desired_capabilities,
             properties=self.properties,
         )
-        self._outgoing_frames.put(open_frame)
+        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], open_frame))
 
-    def close(self):
-        pass
+    def close(self, error=None):
+        close_frame = CloseFrame(error=error)
+        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], close_frame))
 
-    def send_frame(self):
-        pass
+    def send_frame(self, frame, blocking=True):
+        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], frame))
+        if blocking:
+            self._run()
 
     def receive_frame(self):
-        pass
+        self._run()
+        _, frame = self._incoming_frames.get()
+        return frame
 
     def do_work(self):
-        pass
+        self._run()
