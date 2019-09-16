@@ -11,6 +11,7 @@ from ._encode import encode_value
 from ._decode import decode_value
 from .definitions import _FIELD_DEFINITIONS
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition
+from .constants import MAJOR, MINOR, REVISION
 
 
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
@@ -27,6 +28,20 @@ class Performative(object):
 
     def __str__(self):
         return "{{{} [{}]}}".format(self.NAME, self.__dict__)
+
+
+class HeaderFrame(Performative):
+    """
+    """
+    NAME = "HEADER"
+    CODE = b"AMQP0" + MAJOR + MINOR + REVISION
+
+    def __init__(self, version=None, **kwargs):
+        if version:
+            if version != self.CODE:
+                raise ValueError("Mismatching AMQP protocol version.")
+        self.version = self.CODE[4:]
+        super(HeaderFrame, self).__init__(**kwargs)
 
 
 class OpenFrame(Performative):
@@ -56,7 +71,7 @@ class OpenFrame(Performative):
         is the maximum number of Sessions that can be simultaneously active on the Connection. A peer MUST not use
         channel numbers outside the range that its partner can handle. A peer that receives a channel number
         outside the supported range MUST close the Connection with the framing-error error-code.
-    :param timedelta idle_time_out: Idle time-out in milliseconds.
+    :param timedelta idle_timeout: Idle time-out in milliseconds.
         The idle time-out required by the sender. A value of zero is the same as if it was not set (null). If the
         receiver is unable or unwilling to support the idle time-out then it should close the connection with
         an error explaining why (eg, because it is too small). If the value is not set, then the sender does not
@@ -96,7 +111,7 @@ class OpenFrame(Performative):
         FIELD("hostname", AMQPTypes.string, False, None, False),
         FIELD("max_frame_size", AMQPTypes.uint, False, 4294967295, False),
         FIELD("channel_max", AMQPTypes.ushort, False, 65535, False),
-        FIELD("idle_time_out", FieldDefinition.milliseconds, False, None, False),
+        FIELD("idle_timeout", FieldDefinition.milliseconds, False, None, False),
         FIELD("outgoing_locales", FieldDefinition.ietf_language_tag, False, None, True),
         FIELD("incoming_locales", FieldDefinition.ietf_language_tag, False, None, True),
         FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
@@ -484,8 +499,12 @@ PERFORMATIVES = {
 }
 
 
-def _decode_frame(data, offset):
+def _decode_frame(header, data, offset):
     # type: (type, bytes) -> Performative
+    if data is None:
+        if header[0:4] == b'AMQP':
+            return HeaderFrame(version=header)
+        raise ValueError("Received empty frame")
     _ = data[:offset]  # TODO: Extra data
     byte_buffer = BytesIO(data[offset:])
     descriptor, fields = decode_value(byte_buffer)
@@ -513,6 +532,8 @@ def _decode_frame(data, offset):
 
 def _encode_frame(frame):
     # type: (Performative) -> Tuple(bytes, bytes)
+    if isinstance(frame, HeaderFrame):
+        return None, frame.CODE
     body = []
     for field in frame.DEFINITION:
         value = frame.__dict__[field.name]

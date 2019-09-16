@@ -299,7 +299,8 @@ class _AbstractTransport(object):
             read_frame_buffer += frame_header
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
-                return None, None, None, None  # AMQP Header
+                return frame_header, frame_type, channel, None, offset  # Empty frame
+
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
             if size > SIGNED_INT_MAX:
@@ -319,7 +320,7 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
-        return frame_type, channel, payload, offset
+        return frame_header, frame_type, channel, payload, offset
 
     def write(self, s):
         try:

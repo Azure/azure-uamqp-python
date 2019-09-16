@@ -16,9 +16,9 @@ PORT = 5672
 SECURE_PORT = 5671
 
 
-MAJOR = 1  #: Major protocol version.
-MINOR = 0  #: Minor protocol version.
-REVISION = 0  #: Protocol revision.
+MAJOR = b'1'  #: Major protocol version.
+MINOR = b'0'  #: Minor protocol version.
+REVISION = b'0'  #: Protocol revision.
 
 #: The lower bound for the agreed maximum frame size (in bytes). During the initial Connection negotiation, the
 #: two peers must agree upon a maximum frame size. This constant defines the minimum value to which the maximum

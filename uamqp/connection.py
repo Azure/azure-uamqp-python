@@ -4,7 +4,43 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import threading
+import queue
+import struct
 from enum import Enum
+
+from ._transport import SSLTransport
+from .performatives import (
+    HeaderFrame,
+    OpenFrame,
+    CloseFrame,
+    _decode_frame,
+    _encode_frame,
+)
+
+DEFAULT_LINK_CREDIT = 1000
+
+
+def _validate_header(data):
+    if len(data) != 8:
+        raise ValueError("Invalid frame header")
+    if data[0:4] == AMQP_HEADER[0:4]:
+        raise ValueError("Invalid AMQP protocol header")
+    if data[4:] != AMQP_HEADER[4:]:
+        raise ValueError("AMQP protocol ersion mismatch. Received version header {}".format(data[4:]))
+    return None, None, None, None
+
+
+def _unpack_frame_header(data):
+    if len(data) != 8:
+        raise ValueError("Invalid frame header")
+    size = struct.unpack('>I', data[0:4])[0]
+    if size == 1095586128:  # AMQP header
+        size = None
+    offset = struct.unpack('>B', data[4:5])[0]
+    frame_type = struct.unpack('>B', data[5:6])[0]
+    channel = struct.unpack('>H', data[6:])[0]
+    return (size, offset, frame_type, channel)
 
 
 class ConnectionState(Enum):
@@ -59,10 +95,228 @@ class Connection(object):
     :param str hostname: The name of the target host.
     :param int max_frame_size: Proposed maximum frame size in bytes.
     :param int channel_max: The maximum channel number that may be used on the Connection.
-    :param timedelta idle_time_out: Idle time-out in milliseconds.
+    :param timedelta idle_timeout: Idle time-out in milliseconds.
     :param list(str) outgoing_locales: Locales available for outgoing text.
     :param list(str) incoming_locales: Desired locales for incoming text in decreasing level of preference.
     :param list(str) offered_capabilities: The extension capabilities the sender supports.
     :param list(str) required_capabilities: The extension capabilities the sender may use if the receiver supports
     :param dict properties: Connection properties.
     """
+
+    def __init__(self, hostname, **kwargs):
+        self.hostname = hostname
+        self.state = None
+
+        self.transport = kwargs.pop('transport', None) or SSLTransport(
+            self.hostname,
+            connect_timeout=kwargs.pop('connect_timeout', None),
+            ssl=kwargs.pop('ssl', None),
+            read_timeout=kwargs.pop('read_timeout', None),
+            socket_settings=kwargs.pop('socket_settings', None),
+            write_timeout=kwargs.pop('write_timeout', None)
+        )
+        self.container_id = kwargs.pop('container_id')
+        self.max_frame_size = kwargs.pop('max_frame_size')
+        self.channel_max = kwargs.pop('channel_max')
+        self.idle_timeout = kwargs.pop('idle_timeout')
+        self.outgoing_locales = kwargs.pop('outgoing_locales', [])
+        self.incoming_locales = kwargs.pop('incoming_locales', [])
+        self.offered_capabilities = kwargs.pop('offered_capabilities', [])
+        self.required_capabilities = kwargs.pop('required_capabilities', [])
+
+        self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', False)
+        self.remote_idle_timeout = None
+        self.remote_idle_timeout_send_frame = None
+        self.idle_timeout_empty_frame_send_ratio = None
+        self.last_frame_received_time = None
+        self.last_frame_sent_time = None
+
+        self.sessions = {}
+        self.endpoints = []
+
+        self._outgoing_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
+        self._incoming_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
+        self._thread_pool = kwargs.pop('executor', None)
+        self._thread_lock = threading.Lock if self._thread_pool else None
+        self._on_open_frame = kwargs.get('open_frame_hook')
+        self._on_close_frame = kwargs.get('close_frame_hook')
+        self._is_underlying_io_open = False
+        self._idle_timeout_specified = False
+        self._is_remote_frame_received = False
+
+        self.properties = kwargs.pop('properties', None) or kwargs
+
+    def __enter__(self):
+        self.connect()
+        self.open()
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+        self.disconnect()
+
+
+    def _set_state(self, new_state):
+        # type: (ConnectionState) -> None
+        """Update the connection state."""
+        previous_state = self.state
+        self.state = new_state
+
+    def _can_read(self):
+        # type: () -> bool
+        """Whether the connection is in a state where it is legal to read for incoming frames."""
+        return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
+
+    def _can_write(self):
+        # type: () -> bool
+        """Whether the connection is in a state where it is legal to write outgoing frames."""
+        return self.state not in (
+            ConnectionState.CLOSE_PIPE,
+            ConnectionState.OC_PIPE,
+            ConnectionState.CLOSE_SENT,
+            ConnectionState.DISCARDING,
+            ConnectionState.END
+        )
+
+    def _is_outgoing_frame_legal(self, frame):
+        # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
+        """Determines whether a frame can legally be sent, and if so, whether
+        the successful sending of that frame will result in a change of state.
+        """
+        if self.state == ConnectionState.START:
+            return isinstance(frame, HeaderFrame), ConnectionState.HDR_SENT
+        if self.state == ConnectionState.HDR_RCVD:
+            return isinstance(frame, HeaderFrame), ConnectionState.HDR_EXCH
+        if self.state == ConnectionState.HDR_SENT:
+            return isinstance(frame, OpenFrame), ConnectionState.OPEN_PIPE
+        if self.state == ConnectionState.HDR_EXCH:
+            return isinstance(frame, OpenFrame), ConnectionState.OPEN_SENT
+        if self.state == ConnectionState.OPEN_RCVD:
+            return isinstance(frame, OpenFrame), ConnectionState.OPENED
+        if self.state == ConnectionState.OPEN_PIPE:
+            return self.allow_pipelined_open, ConnectionState.OC_PIPE if isinstance(frame, CloseFrame) else None
+        if self.state == ConnectionState.OPEN_SENT:
+            return self.allow_pipelined_open, ConnectionState.CLOSE_PIPE if isinstance(frame, CloseFrame) else None
+        if self.state == ConnectionState.OPENED:
+            if isinstance(frame, CloseFrame):
+                return True, ConnectionState.DISCARDING if frame.error else ConnectionState.CLOSE_SENT
+            return True, None
+        if self.state == ConnectionState.CLOSE_RCVD:
+            return True, ConnectionState.END if isinstance(frame, CloseFrame) else None
+        return False, None
+
+    def _is_incoming_frame_legal(self, frame):
+        # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
+        """Determines whether a received frame is legal, and if so, whether
+        it results in a change of connection state.
+        """
+        if self.state == ConnectionState.START:
+            return isinstance(frame, HeaderFrame), ConnectionState.HDR_RCVD
+        if self.state == ConnectionState.HDR_SENT:
+            return isinstance(frame, HeaderFrame), ConnectionState.HDR_EXCH
+        if self.state == ConnectionState.HDR_RCVD:
+            return isinstance(frame, OpenFrame), None  # TODO: Should this be a state change?
+        if self.state == ConnectionState.HDR_EXCH:
+            return isinstance(frame, OpenFrame), ConnectionState.OPEN_RCVD
+        if self.state == ConnectionState.OPEN_PIPE:
+            return isinstance(frame, HeaderFrame), ConnectionState.OPEN_SENT
+        if self.state == ConnectionState.OPEN_RCVD:
+            return True, None  # TODO: Should there be a state change if a Close frame is received?
+        if self.state == ConnectionState.OPEN_SENT:
+            return isinstance(frame, OpenFrame), ConnectionState.OPENED
+        if self.state == ConnectionState.OC_PIPE:
+            return isinstance(frame, HeaderFrame), ConnectionState.CLOSE_PIPE
+        if self.state == ConnectionState.CLOSE_PIPE:
+            return isinstance(frame, OpenFrame), ConnectionState.CLOSE_SENT
+        if self.state == ConnectionState.OPENED:
+            return True, ConnectionState.CLOSE_RCVD if isinstance(frame, CloseFrame) else None
+        if self.state in (ConnectionState.CLOSE_SENT, ConnectionState.DISCARDING):
+            return True, ConnectionState.END if isinstance(frame, CloseFrame) else None
+        return False, None
+
+    def _run(self):
+        if self._can_write():
+            try:
+                outgoing_frame = self._outgoing_frames.get_nowait()
+            except queue.Empty:
+                pass
+            else:
+                can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
+                if can_send:
+                    self.transport.send_frame(_encode_frame(outgoing_frame))
+                    self._set_state(next_state)
+                else:
+                    raise TypeError("Attempt to send frame in illegal state.")
+        if self._can_read():
+            try:
+                incoming_frame = self.transport.read_frame(unpack=_unpack_frame_header)
+                performative = _decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
+
+
+
+    # def _exchange_headers(self):
+    #     try:
+    #         self.transport.write(AMQP_HEADER)
+    #     except Exception as e:
+    #         try:
+    #             self.transport.close()
+    #         except Exception as e:
+    #             print("xio_close failed.", e)
+    #         self._set_state(ConnectionState.END)
+    #         return 1
+
+    #     self._set_state(ConnectionState.HDR_EXCH)
+    #     self.transport.read_frame(unpack=_validate_header)
+    #     self._set_state(ConnectionState.HDR_RCVD)
+    #     return True
+
+    def begin_session(self, session, **kwargs):
+        pass
+
+    def end_session(self, session, **kwargs):
+        pass
+
+    def connect(self):
+        try:
+            if not self._is_underlying_io_open:
+                self.transport.connect()
+                self._is_underlying_io_open = True
+                self._set_state(ConnectionState.START)
+                if self._thread_pool:
+                    self._thread_pool.__enter__()
+            self._outgoing_frames.put(HeaderFrame())
+        except Exception:  # pylint: disable=broad-except
+            self.disconnect()
+
+    def disconnect(self, *args):
+        self._set_state(ConnectionState.END)
+        self.transport.close()
+        self._thread_pool.__exit__(*args)
+                
+
+    def open(self, **kwargs):
+        open_frame = kwargs.get('open_frame') or OpenFrame(
+            container_id=self.container_id,
+            hostname=self.hostname,
+            max_frame_size=self.max_frame_size,
+            channel_max=self.channel_max,
+            idle_timeout=self.idle_timeout,
+            outgoing_locales=self.outgoing_locales,
+            incoming_locales=self.incoming_locales,
+            offered_capabilities=self.offered_capabilities,
+            required_capabilities=self.required_capabilities,
+            properties=self.properties,
+        )
+        self._outgoing_frames.put(open_frame)
+
+    def close(self):
+        pass
+
+    def send_frame(self):
+        pass
+
+    def receive_frame(self):
+        pass
+
+    def do_work(self):
+        pass

@@ -2,6 +2,7 @@
 # pylint: skip-file
 
 import struct
+import time
 from enum import Enum
 
 from .performatives import _decode_frame
