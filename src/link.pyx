@@ -136,6 +136,20 @@ cdef class cLink(StructBase):
             self._value_error()
         return value
 
+    @property
+    def desired_properties:
+        cdef c_amqpvalue.AMQP_VALUE value
+        if c_link.link_get_desired_capabilities(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
+    @property
+    def offered_properties:
+        cdef c_amqpvalue.AMQP_VALUE value
+        if c_link.link_get_offered_capabilities(self._c_value, &value) != 0:
+            self._value_error()
+        return value
+
     cpdef set_prefetch_count(self, stdint.uint32_t prefetch):
         if c_link.link_set_max_link_credit(self._c_value, prefetch) != 0:
             self._value_error("Unable to set link credit.")
@@ -143,6 +157,14 @@ cdef class cLink(StructBase):
     cpdef set_attach_properties(self, AMQPValue properties):
         if c_link.link_set_attach_properties(self._c_value, <c_amqp_definitions.fields>properties._c_value) != 0:
             self._value_error("Unable to set link attach properties.")
+
+    cpdef set_desired_properties(self, AMQPValue desired_properties):
+        if c_link.link_set_desired_capabilities(self._c_value, <c_amqpvalue.AMQP_VALUE>desired_properties._c_value) != 0:
+            self._value_error("Unable to set link desired properties.")
+
+    cpdef set_offered_properties(self, AMQPValue offered_properties):
+        if c_link.link_set_offered_capabilities(self._c_value, <c_amqpvalue.AMQP_VALUE>offered_properties._c_value) != 0:
+            self._value_error("Unable to set link offered properties.")
 
 
 #### Callback

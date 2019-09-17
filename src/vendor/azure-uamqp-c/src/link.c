@@ -61,6 +61,8 @@ typedef struct LINK_INSTANCE_TAG
     uint32_t max_link_credit;
     uint32_t available;
     fields attach_properties;
+    AMQP_VALUE offered_capabilities;
+    AMQP_VALUE desired_capabilities;
     bool is_underlying_session_begun;
     bool is_closed;
     unsigned char* received_payload;
@@ -277,6 +279,15 @@ static int send_attach(LINK_INSTANCE* link, const char* name, handle handle, rol
         if (link->attach_properties != NULL)
         {
             (void)attach_set_properties(attach, link->attach_properties);
+        }
+        
+        if (link->desired_capabilities != NULL)
+        {
+            if(attach_set_desired_capabilities(attach, link->desired_capabilities) != 0)
+            {
+                LogError("Cannot set attach desired capabilities");
+                result = __FAILURE__;
+            }
         }
 
         if (role == role_sender)
@@ -1077,6 +1088,84 @@ int link_get_peer_max_message_size(LINK_HANDLE link, uint64_t* peer_max_message_
     else
     {
         *peer_max_message_size = link->peer_max_message_size;
+        result = 0;
+    }
+
+    return result;
+}
+
+int link_get_offered_capabilities(LINK_HANDLE link, AMQP_VALUE* offered_capabilities)
+{
+    int result;
+    if((link == NULL) ||
+        (offered_capabilities == NULL))
+    {
+        LogError("Bad arguments: link = %p, offered_capabilities = %p",
+            link, offered_capabilities);
+        result = __FAILURE__;
+    }
+    else if ((link->link_state != LINK_STATE_ATTACHED) &&
+    (link->link_state != LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED))
+    {
+                LogError("Attempting to read offered capabilities before it was received");
+        result = __FAILURE__;
+    }
+    else
+    {
+        *offered_capabilities = link->offered_capabilities;
+        result = 0;
+    }
+    return result;
+}
+
+int link_set_offered_capabilities(LINK_HANDLE link, AMQP_VALUE offered_capabilities)
+{
+    int result;
+
+    if (link == NULL)
+    {
+        LogError("NULL link");
+        result = __FAILURE__;
+    }
+    else
+    {
+        link->offered_capabilities = offered_capabilities;
+        result = 0;
+    }
+
+    return result;
+}
+
+int link_get_desired_capabilities(LINK_HANDLE link, AMQP_VALUE* desired_capabilities)
+{
+    int result;
+    if((link == NULL) ||
+        (desired_capabilities == NULL))
+    {
+        LogError("Bad arguments: link = %p, desired_capabilities = %p",
+            link, desired_capabilities);
+        result = __FAILURE__;
+    }
+    else
+    {
+        *desired_capabilities = link->desired_capabilities;
+        result = 0;
+    }
+    return result;
+}
+
+int link_set_desired_capabilities(LINK_HANDLE link, AMQP_VALUE desired_capabilities)
+{
+    int result;
+
+    if (link == NULL)
+    {
+        LogError("NULL link");
+        result = __FAILURE__;
+    }
+    else
+    {
+        link->desired_capabilities = desired_capabilities;
         result = 0;
     }
 
