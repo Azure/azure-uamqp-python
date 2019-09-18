@@ -490,26 +490,31 @@ def encode_frame(frame):
         value = frame.__dict__[field.name]
         if value is None and field.mandatory:
             raise ValueError("Performative missing mandatory field {}".format(field.name))
-        if field.type is FieldDefinition:
+        if value is None:
+            body.append({TYPE: AMQPTypes.null, VALUE: None})
+        elif isinstance(field.type, FieldDefinition):
             if field.multiple:
-                body.append([_FIELD_DEFINITIONS[field.type].encode(v) for v in value] if value else None)
+                body.append({TYPE: AMQPTypes.array, VALUE: [_FIELD_DEFINITIONS[field.type].encode(v) for v in value]})
             else:
                 body.append(_FIELD_DEFINITIONS[field.type].encode(value))
-        elif field.type is ObjDefinition:
+        elif isinstance(field.type, ObjDefinition):
             body.append(value.encode())
         else:
-            body.append({TYPE: field.type, VALUE: value})
+            if field.multiple:
+                body.append({TYPE: AMQPTypes.array, VALUE: [{TYPE: field.type, VALUE: v} for v in value]})
+            else:
+                body.append({TYPE: field.type, VALUE: value})
 
-        frame_description = {
-            TYPE: AMQPTypes.described,
-            VALUE: (
-                {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
-                {TYPE: AMQPTypes.list, VALUE: body}
-            )
-        }
-        offset = b"\x02"  # Minimum offset of two
+    frame_description = {
+        TYPE: AMQPTypes.described,
+        VALUE: (
+            {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
+            {TYPE: AMQPTypes.list, VALUE: body}
+        )
+    }
+    offset = b"\x02"  # Minimum offset of two
 
-        frame_data = encode_value(b"", frame_description)
-        size = len(frame_data).to_bytes(4, 'big')
-        header = size + offset + frame.FRAME_TYPE
-        return header, frame_data
+    frame_data = encode_value(b"", frame_description)
+    size = len(frame_data).to_bytes(4, 'big')
+    header = size + offset + frame.FRAME_TYPE
+    return header, frame_data

@@ -50,6 +50,7 @@ class FieldDefinition(Enum):
     ietf_language_tag = "ietf-language-tag"
     fields = "fields"
     error = "error"
+    sasl_code = "sasl-code"
 
 
 class ObjDefinition(Enum):
@@ -95,3 +96,16 @@ class ConstructorBytes(object):  # pylint: disable=no-init
     array_small = b'\xE0'
     array_large = b'\xF0'
     descriptor = b'\x00'
+
+
+class SASLCode(Enum):
+    #: Connection authentication succeeded.
+    ok = 0
+    #: Connection authentication failed due to an unspecified problem with the supplied credentials.
+    auth = 1
+    #: Connection authentication failed due to a system error.
+    sys = 2
+    #: Connection authentication failed due to a system error that is unlikely to be corrected without intervention.
+    sys_perm = 3
+    #: Connection authentication failed due to a transient system error.
+    sys_temp = 4

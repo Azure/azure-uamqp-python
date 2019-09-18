@@ -7,11 +7,16 @@ import errno
 import re
 import socket
 import ssl
+import struct
 from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
 
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
+from ._encode import encode_frame
+from ._decode import decode_frame
+from .performatives import HeaderFrame, TLSHeaderFrame
+
 
 try:
     import fcntl
@@ -47,9 +52,6 @@ EMPTY_BUFFER = bytes()
 
 SIGNED_INT_MAX = 0x7FFFFFFF
 
-# Yes, Advanced Message Queuing Protocol Protocol is redundant
-AMQP_PROTOCOL_HEADER = 'AMQP\x00\x01\x00\x00'.encode('latin_1')
-
 # Match things like: [fe80::1]:5432, from RFC 2732
 IPV6_LITERAL = re.compile(r'\[([\.0-9a-f:]+)\](?::(\d+))?')
 
@@ -60,6 +62,20 @@ DEFAULT_SOCKET_SETTINGS = {
     'TCP_KEEPINTVL': 10,
     'TCP_KEEPCNT': 9,
 }
+
+
+def unpack_frame_header(data):
+    if len(data) != 8:
+        raise ValueError("Invalid frame header")
+    if data[0:4] == b'AMQP':  # AMQP header negotiation
+        size = None
+    else:
+        size = struct.unpack('>I', data[0:4])[0]
+
+    offset = struct.unpack('>B', data[4:5])[0]
+    frame_type = struct.unpack('>B', data[5:6])[0]
+    channel = struct.unpack('>H', data[6:])[0]
+    return (size, offset, frame_type, channel)
 
 
 def get_errno(exc):
@@ -234,8 +250,6 @@ class _AbstractTransport(object):
                 )
         self._setup_transport()
 
-        self._write(AMQP_PROTOCOL_HEADER)
-
     def _get_tcp_socket_defaults(self, sock):
         tcp_opts = {}
         for opt in KNOWN_TCP_OPTS:
@@ -291,7 +305,7 @@ class _AbstractTransport(object):
             self.sock = None
         self.connected = False
 
-    def read_frame(self, unpack=unpack):
+    def read(self, unpack=unpack_frame_header):
         read = self._read
         read_frame_buffer = EMPTY_BUFFER
         try:
@@ -331,6 +345,29 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
+
+    def receive_frame(self, verify_frame_type=0):
+        next_frame = self.read()  # (frame_header, frame_type, channel, payload, offset)
+        if next_frame[1] != verify_frame_type:
+            raise ValueError("Received unexpected frame type: {}".format(next_frame[1]))
+        decoded = decode_frame(next_frame[0], next_frame[3], next_frame[4] - 2)
+        print("<- {}".format(decoded))
+        return next_frame[2], decoded
+
+    def send_frame(self, channel, frame):
+        header, performative = encode_frame(frame)
+        if performative is None:
+            data = header
+        else:
+            channel = struct.pack('>H', channel)
+            data = header + channel +performative
+
+        self.write(data)
+        print("-> {}".format(frame))
+
+    def negotiate(self, encode, decode):
+        pass
+
 
 
 class SSLTransport(_AbstractTransport):
@@ -459,6 +496,13 @@ class SSLTransport(_AbstractTransport):
             if not n:
                 raise IOError('Socket closed')
             s = s[n:]
+
+    def negotiate(self):
+        self.send_frame(0, TLSHeaderFrame())
+        channel, returned_header = self.receive_frame()
+        if not isinstance(returned_header, TLSHeaderFrame):
+            raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
+                TLSHeaderFrame.CODE, returned_header.CODE))
 
 
 class TCPTransport(_AbstractTransport):

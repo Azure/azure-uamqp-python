@@ -8,32 +8,21 @@ import threading
 import queue
 import struct
 import uuid
+import logging
+from urllib.parse import urlparse
 from enum import Enum
 
-from ._encode import encode_frame
-from ._decode import decode_frame
-from ._transport import SSLTransport
+from ._transport import Transport, SSLTransport
 from .performatives import (
     HeaderFrame,
     OpenFrame,
     CloseFrame,
 )
+from .constants import PORT, SECURE_PORT
+
 
 DEFAULT_LINK_CREDIT = 1000
-
-
-def _unpack_frame_header(data):
-    if len(data) != 8:
-        raise ValueError("Invalid frame header")
-    if data[0:4] == b'AMQP':  # AMQP header negotiation
-        size = None
-    else:
-        size = struct.unpack('>I', data[0:4])[0]
-
-    offset = struct.unpack('>B', data[4:5])[0]
-    frame_type = struct.unpack('>B', data[5:6])[0]
-    channel = struct.unpack('>H', data[6:])[0]
-    return (size, offset, frame_type, channel)
+LOGGER = logging.getLogger(__name__)
 
 
 class ConnectionState(Enum):
@@ -96,14 +85,21 @@ class Connection(object):
     :param dict properties: Connection properties.
     """
 
-    def __init__(self, hostname, **kwargs):
-        self.hostname = hostname
+    def __init__(self, endpoint, **kwargs):
+        parsed_url = urlparse(endpoint)
+        self.hostname = parsed_url.hostname
+        if parsed_url.port:
+            self.port = parsed_url.port
+        elif parsed_url.scheme == 'amqps':
+            self.port = SECURE_PORT
+        else:
+            self.port = PORT
         self.state = None
 
-        self.transport = kwargs.pop('transport', None) or SSLTransport(
-            self.hostname,
+        self.transport = kwargs.pop('transport', None) or Transport(
+            parsed_url.netloc,
             connect_timeout=kwargs.pop('connect_timeout', None),
-            ssl=kwargs.pop('ssl', None),
+            ssl={'server_hostname': self.hostname},
             read_timeout=kwargs.pop('read_timeout', None),
             socket_settings=kwargs.pop('socket_settings', None),
             write_timeout=kwargs.pop('write_timeout', None)
@@ -133,8 +129,8 @@ class Connection(object):
         self._incoming_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
         self._thread_pool = kwargs.pop('executor', None)
         self._thread_lock = threading.Lock if self._thread_pool else None
-        self._on_open_frame = kwargs.get('open_frame_hook')
-        self._on_close_frame = kwargs.get('close_frame_hook')
+        self._on_receive_open_frame = kwargs.get('open_frame_hook')
+        self._on_receive_close_frame = kwargs.get('close_frame_hook')
         self._is_underlying_io_open = False
         self._idle_timeout_specified = False
         self._is_remote_frame_received = False
@@ -240,27 +236,20 @@ class Connection(object):
             else:
                 can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
                 if can_send:
-                    header, performative = encode_frame(outgoing_frame)
-                    if performative is None:
-                        performative = header
-                    else:
-                        channel = struct.pack('>H', channel)
-                        performative = header + channel + performative
-                    self.transport.write(performative)
-                    print("-> {}".format(outgoing_frame))
+                    self.transport.send_frame(channel, outgoing_frame)
                     self._set_state(next_state)
                 else:
-                    raise TypeError("Attempt to send frame {} in illegal state {}".format(performative, self.state))
+                    raise TypeError("Attempt to send frame {} in illegal state {}".format(
+                        type(outgoing_frame), self.state))
         if self._can_read():
-            incoming_frame = self.blocking_read(unpack=_unpack_frame_header)
-            performative = decode_frame(incoming_frame[0], incoming_frame[3], incoming_frame[4] - 2)
-            legal, new_state = self._is_incoming_frame_legal(performative)
+            channel, incoming_frame = self.transport.receive_frame()
+            legal, new_state = self._is_incoming_frame_legal(incoming_frame)
             if legal:
-                print("<- {}".format(performative))
                 self._set_state(new_state)
-                self._incoming_frames.put((incoming_frame[2], performative))
+                self._incoming_frames.put((channel, incoming_frame))
             else:
-                raise TypeError("Received illegal frame {} in current state {}".format(performative, self.state))
+                raise TypeError("Received illegal frame {} in current state {}".format(
+                    type(incoming_frame), self.state))
 
     def begin_session(self, session, **kwargs):
         pass
@@ -269,15 +258,20 @@ class Connection(object):
         pass
 
     def connect(self):
+        if not self._is_underlying_io_open:
+            self.transport.connect()
+            self._is_underlying_io_open = True
+            self._set_state(ConnectionState.START)
+            if self._thread_pool:
+                self._thread_pool.__enter__()
+
+        self.transport.negotiate()
+        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], HeaderFrame()))
+        self.do_work()
         try:
-            if not self._is_underlying_io_open:
-                self.transport.connect()
-                self._is_underlying_io_open = True
-                self._set_state(ConnectionState.START)
-                if self._thread_pool:
-                    self._thread_pool.__enter__()
-            self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], HeaderFrame()))
-        except Exception:  # pylint: disable=broad-except
+            incoming_header = self._incoming_frames.get_nowait()
+        except queue.Empty:
+            LOGGER.warning("Did not receive reciprocal protocol header. Disconnecting.")
             self.disconnect()
 
     def blocking_read(self, timeout=None, **kwargs):
@@ -287,7 +281,8 @@ class Connection(object):
     def disconnect(self, *args):
         self._set_state(ConnectionState.END)
         self.transport.close()
-        self._thread_pool.__exit__(*args)
+        if self._thread_pool:
+            self._thread_pool.__exit__(*args)
 
     def open(self, **kwargs):
         open_frame = kwargs.get('open_frame') or OpenFrame(

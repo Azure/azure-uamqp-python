@@ -7,11 +7,22 @@
 import struct
 
 from .types import AMQPTypes, FieldDefinition, ObjDefinition
-from .constants import MAJOR, MINOR, REVISION, FIELD
+from .constants import (
+    MAJOR,
+    TLS_MAJOR,
+    SASL_MAJOR,
+    MINOR,
+    TLS_MINOR,
+    SASL_MINOR,
+    REVISION,
+    TLS_REVISION,
+    SASL_REVISION,
+    FIELD)
 
 
 def _as_bytes(value):
     return struct.pack('>B', value)
+
 
 class Performative(object):
     """AMQP Performative"""
@@ -28,17 +39,43 @@ class Performative(object):
 
 
 class HeaderFrame(Performative):
-    """
-    """
+    """AMQP Header protocol negotiation."""
+
     NAME = "HEADER"
     CODE = b"AMQP\x00"
+    FRAME_TYPE = b'\x01'
 
     def __init__(self, header=None, **kwargs):
-        self.version = b"{}.{}.{}".format(MAJOR, MINOR, REVISION)
+        self.version = "{}.{}.{}".format(MAJOR, MINOR, REVISION)
         self.header = self.CODE + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
         if header and header != self.header:
             raise ValueError("Mismatching AMQP protocol version.")
-        super(HeaderFrame, self).__init__(**kwargs)
+
+
+class SASLHeaderFrame(HeaderFrame):
+    """SASL Header protocol negotiation."""
+
+    NAME = "SASL-HEADER"
+    CODE = b"AMQP\x03"
+
+    def __init__(self, header=None, **kwargs):  # pylint: disable=super-init-not-called
+        self.version = "{}.{}.{}".format(SASL_MAJOR, SASL_MINOR, SASL_REVISION)
+        self.header = self.CODE + _as_bytes(SASL_MAJOR) + _as_bytes(SASL_MINOR) + _as_bytes(SASL_REVISION)
+        if header and header != self.header:
+            raise ValueError("Mismatching AMQP SASL protocol version.")
+
+
+class TLSHeaderFrame(HeaderFrame):
+    """SASL Header protocol negotiation."""
+
+    NAME = "TLS-HEADER"
+    CODE = b"AMQP\x02"
+
+    def __init__(self, header=None, **kwargs):  # pylint: disable=super-init-not-called
+        self.version = "{}.{}.{}".format(TLS_MAJOR, TLS_MINOR, TLS_REVISION)
+        self.header = self.CODE + _as_bytes(TLS_MAJOR) + _as_bytes(TLS_MINOR) + _as_bytes(TLS_REVISION)
+        if header and header != self.header:
+            raise ValueError("Mismatching AMQP TLS protocol version.")
 
 
 class OpenFrame(Performative):
@@ -103,7 +140,7 @@ class OpenFrame(Performative):
     """
     NAME = "OPEN"
     CODE = 0x00000010
-    DEFINITION = {
+    DEFINITION = (
         FIELD("container_id", AMQPTypes.string, True, None, False),
         FIELD("hostname", AMQPTypes.string, False, None, False),
         FIELD("max_frame_size", AMQPTypes.uint, False, 4294967295, False),
@@ -114,7 +151,7 @@ class OpenFrame(Performative):
         FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("properties", FieldDefinition.fields, False, None, False),
-    }
+    )
 
 
 class BeginFrame(Performative):
@@ -154,7 +191,7 @@ class BeginFrame(Performative):
     """
     NAME = "BEGIN"
     CODE = 0x00000011
-    DEFINITION = {
+    DEFINITION = (
         FIELD("remote_channel", AMQPTypes.ushort, False, None, False),
         FIELD("next_outgoing_id", FieldDefinition.transfer_number, True, None, False),
         FIELD("incoming_window", AMQPTypes.uint, True, None, False),
@@ -163,7 +200,7 @@ class BeginFrame(Performative):
         FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("properties", FieldDefinition.fields, False, None, False),
-    }
+    )
 
 
 class AttachFrame(Performative):
@@ -229,7 +266,7 @@ class AttachFrame(Performative):
     """
     NAME = "ATTACH"
     CODE = 0x00000012
-    DEFINITION = {
+    DEFINITION = (
         FIELD("name", AMQPTypes.string, True, None, False),
         FIELD("handle", FieldDefinition.handle, True, None, False),
         FIELD("role", FieldDefinition.role, True, None, False),
@@ -244,7 +281,7 @@ class AttachFrame(Performative):
         FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
         FIELD("properties", FieldDefinition.fields, False, None, False),
-    }
+    )
 
 
 class FlowFrame(Performative):
@@ -289,7 +326,7 @@ class FlowFrame(Performative):
     """
     NAME = "FLOW"
     CODE = 0x00000013
-    DEFINITION = {
+    DEFINITION = (
         FIELD("next_incoming_id", FieldDefinition.transfer_number, False, None, False),
         FIELD("incoming_window", AMQPTypes.uint, True, None, False),
         FIELD("next_outgoing_id", FieldDefinition.transfer_number, True, None, False),
@@ -301,7 +338,7 @@ class FlowFrame(Performative):
         FIELD("drain", AMQPTypes.boolean, False, False, False),
         FIELD("echo", AMQPTypes.boolean, False, False, False),
         FIELD("properties", FieldDefinition.fields, False, None, False),
-    }
+    )
 
 
 class TransferFrame(Performative):
@@ -374,7 +411,7 @@ class TransferFrame(Performative):
     """
     NAME = "TRANSFER"
     CODE = 0x00000014
-    DEFINITION = {
+    DEFINITION = (
         FIELD("handle", FieldDefinition.handle, True, None, False),
         FIELD("delivery_id", FieldDefinition.delivery_number, False, None, False),
         FIELD("delivery_tag", FieldDefinition.delivery_tag, False, None, False),
@@ -386,8 +423,7 @@ class TransferFrame(Performative):
         FIELD("resume", AMQPTypes.boolean, False, False, False),
         FIELD("aborted", AMQPTypes.boolean, False, False, False),
         FIELD("batchable", AMQPTypes.boolean, False, False, False),
-
-    }
+    )
 
 
 class DispositionFrame(Performative):
@@ -422,14 +458,14 @@ class DispositionFrame(Performative):
     """
     NAME = "DISPOSITION"
     CODE = 0x00000015
-    DEFINITION = {
+    DEFINITION = (
         FIELD("role", FieldDefinition.role, True, None, False),
         FIELD("first", FieldDefinition.delivery_number, True, None, False),
         FIELD("list", FieldDefinition.delivery_number, False, None, False),
         FIELD("settled", AMQPTypes.boolean, False, False, False),
         FIELD("state", ObjDefinition.delivery_state, False, None, False),
         FIELD("batchable", AMQPTypes.boolean, False, False, False),
-    }
+    )
 
 
 class DetachFrame(Performative):
@@ -446,11 +482,11 @@ class DetachFrame(Performative):
     """
     NAME = "DETACH"
     CODE = 0x00000016
-    DEFINITION = {
+    DEFINITION = (
         FIELD("handle", FieldDefinition.handle, True, None, False),
         FIELD("closed", AMQPTypes.boolean, False, False, False),
         FIELD("error", FieldDefinition.error, False, None, False),
-    }
+    )
 
 
 class EndFrame(Performative):
@@ -464,7 +500,7 @@ class EndFrame(Performative):
     """
     NAME = "END"
     CODE = 0x00000017
-    DEFINITION = {FIELD("error", FieldDefinition.error, False, None, False)}
+    DEFINITION = (FIELD("error", FieldDefinition.error, False, None, False),)
 
 
 class CloseFrame(Performative):
@@ -480,4 +516,102 @@ class CloseFrame(Performative):
     """
     NAME = "CLOSE"
     CODE = 0x00000018
-    DEFINITION = {FIELD("error", FieldDefinition.error, False, None, False)}
+    DEFINITION = (FIELD("error", FieldDefinition.error, False, None, False),)
+
+
+class SASLMechanism(Performative):
+    """Advertise available sasl mechanisms.
+
+    dvertises the available SASL mechanisms that may be used for authentication.
+
+    :param list(bytes) sasl_server_mechanisms: Supported sasl mechanisms.
+        A list of the sasl security mechanisms supported by the sending peer.
+        It is invalid for this list to be null or empty. If the sending peer does not require its partner to
+        authenticate with it, then it should send a list of one element with its value as the SASL mechanism
+        ANONYMOUS. The server mechanisms are ordered in decreasing level of preference.
+    """
+    NAME = 'SASL-MECHANISM'
+    CODE = 0x00000040
+    DEFINITION = (FIELD('sasl_server_mechanisms', AMQPTypes.symbol, True, None, True),)
+    FRAME_TYPE = b'\x01'
+
+
+class SASLInit(Performative):
+    """Initiate sasl exchange.
+
+    Selects the sasl mechanism and provides the initial response if needed.
+
+    :param bytes mechanism: Selected security mechanism.
+        The name of the SASL mechanism used for the SASL exchange. If the selected mechanism is not supported by
+        the receiving peer, it MUST close the Connection with the authentication-failure close-code. Each peer
+        MUST authenticate using the highest-level security profile it can handle from the list provided by the
+        partner.
+    :param bytes initial_response: Security response data.
+        A block of opaque data passed to the security mechanism. The contents of this data are defined by the
+        SASL security mechanism.
+    :param str hostname: The name of the target host.
+        The DNS name of the host (either fully qualified or relative) to which the sending peer is connecting. It
+        is not mandatory to provide the hostname. If no hostname is provided the receiving peer should select a
+        default based on its own configuration. This field can be used by AMQP proxies to determine the correct
+        back-end service to connect the client to, and to determine the domain to validate the client's credentials
+        against. This field may already have been specified by the server name indication extension as described
+        in RFC-4366, if a TLS layer is used, in which case this field SHOULD benull or contain the same value.
+        It is undefined what a different value to those already specific means.
+    """
+    NAME = 'SASL-INIT'
+    CODE = 0x00000041
+    DEFINITION = (
+        FIELD('mechanism', AMQPTypes.symbol, True, None, False),
+        FIELD('initial_response', AMQPTypes.binary, False, None, False),
+        FIELD('hostname', AMQPTypes.string, False, None, False),
+    )
+    FRAME_TYPE = b'\x01'
+
+
+class SASLChallenge(Performative):
+    """Security mechanism challenge.
+
+    Send the SASL challenge data as defined by the SASL specification.
+
+    :param bytes challenge: Security challenge data.
+        Challenge information, a block of opaque binary data passed to the security mechanism.
+    """
+    NAME = 'SASL-CHALLENGE'
+    CODE = 0x00000042
+    DEFINITION = (FIELD('challenge', AMQPTypes.binary, True, None, False),)
+    FRAME_TYPE = b'\x01'
+
+
+class SASLResponse(Performative):
+    """Security mechanism response.
+
+    Send the SASL response data as defined by the SASL specification.
+
+    :param bytes response: Security response data.
+    """
+    NAME = 'SASL-RESPONSE'
+    CODE = 0x00000043
+    DEFINITION = (FIELD('response', AMQPTypes.binary, True, None, False),)
+    FRAME_TYPE = b'\x01'
+
+
+class SASLOutcome(Performative):
+    """Indicates the outcome of the sasl dialog.
+
+    This frame indicates the outcome of the SASL dialog. Upon successful completion of the SASL dialog the
+    Security Layer has been established, and the peers must exchange protocol headers to either starta nested
+    Security Layer, or to establish the AMQP Connection.
+
+    :param SASLCode code: Indicates the outcome of the sasl dialog.
+        A reply-code indicating the outcome of the SASL dialog.
+    :param bytes additional_data: Additional data as specified in RFC-4422.
+        The additional-data field carries additional data on successful authentication outcomeas specified by
+        the SASL specification (RFC-4422). If the authentication is unsuccessful, this field is not set.
+    """
+    NAME = 'SASL-OUTCOME'
+    CODE = 0x00000044
+    DEFINITION = (
+        FIELD('code', FieldDefinition.sasl_code, True, None, False),
+        FIELD('additional_data', AMQPTypes.binary, False, None, False)
+    )
+    FRAME_TYPE = b'\x01'

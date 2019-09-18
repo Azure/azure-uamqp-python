@@ -5,10 +5,11 @@
 #--------------------------------------------------------------------------
 
 from datetime import timedelta
+import struct
 
 import six
 
-from .types import TYPE, VALUE, AMQPTypes, FieldDefinition
+from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, SASLCode
 from .error import (
     AMQPError,
     ErrorCondition,
@@ -408,6 +409,30 @@ class ErrorField(object):
         return decoded
 
 
+class SASLCodeField(object):
+    """Codes to indicate the outcome of the sasl dialog.
+
+    <type name="sasl-code" class="restricted" source="ubyte">
+        <choice name="ok" value="0"/>
+        <choice name="auth" value="1"/>
+        <choice name="sys" value="2"/>
+        <choice name="sys-perm" value="3"/>
+        <choice name="sys-temp" value="4"/>
+    </type>
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (SASLCode) -> Dict[str, Any]
+        return {TYPE: AMQPTypes.ubyte, VALUE: struct.pack('>B', value.value)}
+
+    @staticmethod
+    def decode(value):
+        # type: (bytes) -> bytes
+        #as_int = struct.unpack('>B', value)[0]
+        return SASLCode(value)
+
+
 _FIELD_DEFINITIONS = {
     FieldDefinition.role: RoleField,
     FieldDefinition.sender_settle_mode: SenderSettleModeField,
@@ -423,4 +448,5 @@ _FIELD_DEFINITIONS = {
     FieldDefinition.ietf_language_tag: IETFLanguageTagField,
     FieldDefinition.fields: FieldsField,
     FieldDefinition.error: ErrorField,
+    FieldDefinition.sasl_code: SASLCodeField,
 }

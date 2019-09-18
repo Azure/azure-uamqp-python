@@ -7,155 +7,93 @@
 import struct
 from enum import Enum
 
-from .types import AMQPTypes, TYPE, VALUE
+from ._transport import SSLTransport
+from .types import AMQPTypes, TYPE, VALUE, SASLCode
 from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD
-from .performatives import Performative, _as_bytes
+from .performatives import (
+    SASLHeaderFrame,
+    SASLInit,
+    SASLOutcome,
+    SASLResponse,
+    SASLChallenge
+)
 
 
-class SASLCode(Enum):
-    #: Connection authentication succeeded.
-    ok = 0
-    #: Connection authentication failed due to an unspecified problem with the supplied credentials.
-    auth = 1
-    #: Connection authentication failed due to a system error.
-    sys = 2
-    #: Connection authentication failed due to a system error that is unlikely to be corrected without intervention.
-    sys_perm = 3
-    #: Connection authentication failed due to a transient system error.
-    sys_temp = 4
-
-
-class SASLCodeField(object):
-    """Codes to indicate the outcome of the sasl dialog.
-
-    <type name="sasl-code" class="restricted" source="ubyte">
-        <choice name="ok" value="0"/>
-        <choice name="auth" value="1"/>
-        <choice name="sys" value="2"/>
-        <choice name="sys-perm" value="3"/>
-        <choice name="sys-temp" value="4"/>
-    </type>
+class SASLPlainCredential(object):
+    """PLAIN SASL authentication mechanism.
+    See https://tools.ietf.org/html/rfc4616 for details
     """
 
-    @staticmethod
-    def encode(value):
-        # type: (SASLCode) -> Dict[str, Any]
-        return {TYPE: AMQPTypes.ubyte, VALUE: struct.pack('>B', value.value)}
+    mechanism = b'PLAIN'
 
-    @staticmethod
-    def decode(value):
-        # type: (bytes) -> bytes
-        as_int = struct.unpack('>B', value)[0]
-        return SASLCode(as_int)
+    def __init__(self, authcid, passwd, authzid=None):
+        self.authcid = authcid
+        self.passwd = passwd
+        self.authzid = authzid
 
-
-class SASLHeaderFrame(Performative):
-    """SASL Header protocol negotiation."""
-
-    NAME = "SASL-HEADER"
-    CODE = b"AMQP\x03"
-
-    def __init__(self, header=None, **kwargs):
-        self.version = b"{}.{}.{}".format(SASL_MAJOR, SASL_MINOR, SASL_REVISION)
-        self.header = self.CODE + _as_bytes(SASL_MAJOR) + _as_bytes(SASL_MINOR) + _as_bytes(SASL_REVISION)
-        if header and header != self.header:
-            raise ValueError("Mismatching AMQP SASL protocol version.")
-        super(SASLHeaderFrame, self).__init__(**kwargs)
+    def start(self):
+        if self.authzid:
+            login_response = self.authzid.encode('utf-8')
+        else:
+            login_response = b''
+        login_response += b'\0'
+        login_response += self.authcid.encode('utf-8')
+        login_response += b'\0'
+        login_response += self.passwd.encode('utf-8')
+        return login_response
 
 
-class SASLMechanism(Performative):
-    """Advertise available sasl mechanisms.
-
-    dvertises the available SASL mechanisms that may be used for authentication.
-
-    :param list(bytes) sasl_server_mechanisms: Supported sasl mechanisms.
-        A list of the sasl security mechanisms supported by the sending peer.
-        It is invalid for this list to be null or empty. If the sending peer does not require its partner to
-        authenticate with it, then it should send a list of one element with its value as the SASL mechanism
-        ANONYMOUS. The server mechanisms are ordered in decreasing level of preference.
+class SASLAnonymousCredential(object):
+    """ANONYMOUS SASL authentication mechanism.
+    See https://tools.ietf.org/html/rfc4505 for details
     """
-    NAME = 'SASL-MECHANISM'
-    CODE = 0x00000040
-    DEFINITION = {FIELD('sasl_server_mechanisms', AMQPTypes.symbol, True, None, True)}
-    FRAME_TYPE = b'\x01'
+
+    mechanism = b'ANONYMOUS'
+
+    def start(self):
+        return b''
 
 
-class SASLInit(Performative):
-    """Initiate sasl exchange.
-
-    Selects the sasl mechanism and provides the initial response if needed.
-
-    :param bytes mechanism: Selected security mechanism.
-        The name of the SASL mechanism used for the SASL exchange. If the selected mechanism is not supported by
-        the receiving peer, it MUST close the Connection with the authentication-failure close-code. Each peer
-        MUST authenticate using the highest-level security profile it can handle from the list provided by the
-        partner.
-    :param bytes initial_response: Security response data.
-        A block of opaque data passed to the security mechanism. The contents of this data are defined by the
-        SASL security mechanism.
-    :param str hostname: The name of the target host.
-        The DNS name of the host (either fully qualified or relative) to which the sending peer is connecting. It
-        is not mandatory to provide the hostname. If no hostname is provided the receiving peer should select a
-        default based on its own configuration. This field can be used by AMQP proxies to determine the correct
-        back-end service to connect the client to, and to determine the domain to validate the client's credentials
-        against. This field may already have been specified by the server name indication extension as described
-        in RFC-4366, if a TLS layer is used, in which case this field SHOULD benull or contain the same value.
-        It is undefined what a different value to those already specific means.
+class SASLExternalCredential(object):
+    """EXTERNAL SASL mechanism.
+    Enables external authentication, i.e. not handled through this protocol.
+    Only passes 'EXTERNAL' as authentication mechanism, but no further
+    authentication data.
     """
-    NAME = 'SASL-INIT'
-    CODE = 0x00000041
-    DEFINITION = {
-        FIELD('mechanism', AMQPTypes.symbol, True, None, False),
-        FIELD('initial_response', AMQPTypes.binary, False, None, False),
-        FIELD('hostname', AMQPTypes.string, False, None, False),
-    }
-    FRAME_TYPE = b'\x01'
+
+    mechanism = b'EXTERNAL'
+
+    def start(self):
+        return b''
 
 
-class SASLChallenge(Performative):
-    """Security mechanism challenge.
+class SASLTransport(SSLTransport):
 
-    Send the SASL challenge data as defined by the SASL specification.
+    def __init__(self, host, credential, connect_timeout=None, ssl=None, **kwargs):
+        self.credential = credential
+        super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
-    :param bytes challenge: Security challenge data.
-        Challenge information, a block of opaque binary data passed to the security mechanism.
-    """
-    NAME = 'SASL-CHALLENGE'
-    CODE = 0x00000042
-    DEFINITION = {FIELD('challenge', AMQPTypes.binary, True, None, False)}
-    FRAME_TYPE = b'\x01'
+    def negotiate(self):
+        self.send_frame(0, SASLHeaderFrame())
+        channel, returned_header = self.receive_frame(verify_frame_type=1)
+        if not isinstance(returned_header, SASLHeaderFrame):
+            raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
+                SASLHeaderFrame.CODE, returned_header.CODE))
 
+        _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
+        if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
+            raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
+        sasl_init = SASLInit(
+            mechanism=self.credential.mechanism,
+            initial_response=self.credential.start(),
+            hostname=self.host)
+        self.send_frame(channel, sasl_init)
 
-class SASLResponse(Performative):
-    """Security mechanism response.
-
-    Send the SASL response data as defined by the SASL specification.
-
-    :param bytes response: Security response data.
-    """
-    NAME = 'SASL-RESPONSE'
-    CODE = 0x00000043
-    DEFINITION = {FIELD('response', AMQPTypes.binary, True, None, False)}
-    FRAME_TYPE = b'\x01'
-
-
-class SASLOutcome(Performative):
-    """Indicates the outcome of the sasl dialog.
-
-    This frame indicates the outcome of the SASL dialog. Upon successful completion of the SASL dialog the
-    Security Layer has been established, and the peers must exchange protocol headers to either starta nested
-    Security Layer, or to establish the AMQP Connection.
-
-    :param SASLCode code: Indicates the outcome of the sasl dialog.
-        A reply-code indicating the outcome of the SASL dialog.
-    :param bytes additional_data: Additional data as specified in RFC-4422.
-        The additional-data field carries additional data on successful authentication outcomeas specified by
-        the SASL specification (RFC-4422). If the authentication is unsuccessful, this field is not set.
-    """
-    NAME = 'SASL-OUTCOME'
-    CODE = 0x00000044
-    DEFINITION = {
-        FIELD('code', SASLCodeField, True, None, False),
-        FIELD('additional_data', AMQPTypes.binary, False, None, False)
-    }
-    FRAME_TYPE = b'\x01'
+        _, next_frame = self.receive_frame(verify_frame_type=1)
+        if not isinstance(next_frame, SASLOutcome):
+            raise NotImplementedError("Unsupport SASL challenge")
+        if next_frame.code == SASLCode.ok:
+            return
+        else:
+            raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(
+                next_frame.code, next_frame.additional_data))

@@ -14,6 +14,8 @@ from .types import FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
 from .performatives import (
     HeaderFrame,
+    TLSHeaderFrame,
+    SASLHeaderFrame,
     OpenFrame,
     BeginFrame,
     AttachFrame,
@@ -22,10 +24,7 @@ from .performatives import (
     DispositionFrame,
     DetachFrame,
     EndFrame,
-    CloseFrame)
-from .tlsio import TLSHeaderFrame
-from .sasl import (
-    SASLHeaderFrame,
+    CloseFrame,
     SASLMechanism,
     SASLInit,
     SASLChallenge,
@@ -100,7 +99,7 @@ def _read(buffer, size):
     # type: (IO, int) -> bytes
     data = buffer.read(size)
     if data == b'' or len(data) != size:
-        raise ValueError("Buffer exhausted")
+        raise ValueError("Buffer exhausted. Read {}, Length: {}".format(data, len(data)))
     return data
 
 
@@ -376,9 +375,7 @@ def decode_list_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        items = decode_value(buffer, size)
-        if len(items) != count:
-            raise ValueError("Mismatching list length.")
+        items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = items
         decoder.progress(2)
         decoder.progress(size)
@@ -394,9 +391,7 @@ def decode_list_large(decoder, buffer):
     try:
         size = struct.unpack('>L', _read(buffer, 4))[0]
         count = struct.unpack('>L', _read(buffer, 4))[0]
-        items = decode_value(buffer, size)
-        if len(items) != count:
-            raise ValueError("Mismatching list length.")
+        items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = items
         decoder.progress(8)
         decoder.progress(size)
@@ -412,9 +407,7 @@ def decode_map_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        items = decode_value(buffer, size)
-        if len(items) != count or count % 2 != 0:
-            raise ValueError("Mismatching map length.")
+        items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
         decoder.progress(2)
         decoder.progress(size)
@@ -430,9 +423,7 @@ def decode_map_large(decoder, buffer):
     try:
         size = struct.unpack('>L', _read(buffer, 4))[0]
         count = struct.unpack('>L', _read(buffer, 4))[0]
-        items = decode_value(buffer, size)
-        if len(items) != count or count % 2 != 0:
-            raise ValueError("Mismatching map length.")
+        items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
         decoder.progress(8)
         decoder.progress(size)
@@ -448,9 +439,7 @@ def decode_array_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        items = decode_value(buffer, size, sub_constructors=False)
-        if len(items) != count:
-            raise ValueError("Mismatching list length.")
+        items = decode_value(buffer, length_bytes=size - 1, sub_constructors=False, count=count)
         decoder.decoded_value = items
         decoder.progress(2)
         decoder.progress(size)
@@ -466,9 +455,7 @@ def decode_array_large(decoder, buffer):
     try:
         size = struct.unpack('>L', _read(buffer, 4))[0]
         count = struct.unpack('>L', _read(buffer, 4))[0]
-        items = decode_value(buffer, size, sub_constructors=False)
-        if len(items) != count:
-            raise ValueError("Mismatching list length.")
+        items = decode_value(buffer, length_bytes=size - 4, sub_constructors=False, count=count)
         decoder.decoded_value = items
         decoder.progress(8)
         decoder.progress(size)
@@ -526,7 +513,7 @@ _DECODE_MAP = {
 }
 
 
-def decode_value(buffer, length_bytes=None, sub_constructors=True):
+def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     decoder = Decoder(length=length_bytes)
     decoded_values = []
@@ -557,6 +544,11 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True):
                 decoder.state = DecoderState.type_data
                 decoder.decoded_value = {}
 
+    if count is not None:
+        items = decoded_values or [decoder.decoded_value]
+        if len(items) != count:
+            raise ValueError("Mismatching length: Expected {} items, received {}.".format(count, len(items)))     
+        return items
     return decoded_values or decoder.decoded_value
 
 
@@ -565,12 +557,13 @@ def decode_frame(header, data, offset):
     if data is None:
         if header[0:4] == b'AMQP':
             layer = header[4]
-            if layer == b'\x00':
+            if layer == 0:
                 return HeaderFrame(header=header)
-            if layer == b'\x01':
+            if layer == 2:
                 return TLSHeaderFrame(header=header)
-            if layer == b'\x02':
+            if layer == 3:
                 return SASLHeaderFrame(header=header)
+            raise ValueError("Received unexpected IO layer: {}".format(layer))
         raise ValueError("Received empty frame")
     _ = data[:offset]  # TODO: Extra data
     byte_buffer = BytesIO(data[offset:])
@@ -585,7 +578,7 @@ def decode_frame(header, data, offset):
                 raise ValueError("Frame {} missing mandatory field {}".format(frame_type, field.name))
             if field.default is not None:
                 value = field.default
-        if field.type is FieldDefinition:
+        if isinstance(field.type, FieldDefinition):
             if field.multiple:
                 kwargs[field.name] = [_FIELD_DEFINITIONS[field.type].decode(v) for v in value] if value else []
             else:
