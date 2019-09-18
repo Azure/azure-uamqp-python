@@ -136,6 +136,7 @@ class AMQPClient(object):
         # Link settings
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
+        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
 
         # AMQP object settings
         self.message_handler = None
@@ -877,6 +878,7 @@ class ReceiveClient(AMQPClient):
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
         self._link_properties = kwargs.pop('link_properties', None)
+        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
 
         # AMQP object settings
         self.receiver_type = receiver.MessageReceiver
@@ -915,7 +917,8 @@ class ReceiveClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
                 error_policy=self._error_policy,
-                encoding=self._encoding)
+                encoding=self._encoding,
+                desired_capabilities=self._desired_capabilities)
             self.message_handler.open()
             return False
         if self.message_handler.get_state() == constants.MessageReceiverState.Error:

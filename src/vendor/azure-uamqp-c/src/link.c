@@ -736,11 +736,27 @@ LINK_HANDLE link_create(SESSION_HANDLE session, const char* name, role role, AMQ
         result->is_underlying_session_begun = false;
         result->is_closed = false;
         result->attach_properties = NULL;
+
+		// AMQP_VALUE desired_capabilities_array = amqpvalue_create_array();
+		// AMQP_VALUE one_symbol = amqpvalue_create_symbol("com.microsoft:enable-receiver-runtime-metric");
+		// if (amqpvalue_add_array_item(desired_capabilities_array, one_symbol) != 0) {
+		// 	LogError("Cannot create tick counter for link");
+		// 	free(result);
+		// 	result = NULL;
+		// 	return result;
+		// }
+
+		// result->desired_capabilities = desired_capabilities_array;
+
+        result->desired_capabilities = NULL;
+		result->offered_capabilities = NULL;
+
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
         result->on_link_detach_received_event_subscription.on_link_detach_received = NULL;
         result->on_link_detach_received_event_subscription.context = NULL;
+
 
         result->tick_counter = tickcounter_create();
         if (result->tick_counter == NULL)
@@ -819,6 +835,20 @@ LINK_HANDLE link_create_from_endpoint(SESSION_HANDLE session, LINK_ENDPOINT_HAND
         result->is_underlying_session_begun = false;
         result->is_closed = false;
         result->attach_properties = NULL;
+
+		// AMQP_VALUE desired_capabilities_array = amqpvalue_create_array();
+		// AMQP_VALUE one_symbol = amqpvalue_create_symbol("com.microsoft:enable-receiver-runtime-metric");
+		// if (amqpvalue_add_array_item(desired_capabilities_array, one_symbol) != 0) {
+		// 	LogError("Cannot create tick counter for link");
+		// 	free(result);
+		// 	result = NULL;
+		// 	return result;
+		// }
+
+		// result->desired_capabilities = desired_capabilities_array;
+        result->desired_capabilities = NULL;
+		result->offered_capabilities = NULL;
+
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
