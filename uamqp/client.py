@@ -878,7 +878,6 @@ class ReceiveClient(AMQPClient):
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
         self._link_properties = kwargs.pop('link_properties', None)
-        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
 
         # AMQP object settings
         self.receiver_type = receiver.MessageReceiver
