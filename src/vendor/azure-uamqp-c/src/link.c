@@ -910,7 +910,7 @@ void link_destroy(LINK_HANDLE link)
         {
             free(link->received_payload);
         }
-        if (link->received_delivery_tag != NULL)
+        if (link->received_delivery_tag.bytes != NULL)
         {
             free((void*)link->received_delivery_tag.bytes);
         }
