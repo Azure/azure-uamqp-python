@@ -466,6 +466,31 @@ int messagereceiver_get_received_message_id(MESSAGE_RECEIVER_HANDLE message_rece
     return result;
 }
 
+int messagereceiver_get_received_message_tag(MESSAGE_RECEIVER_HANDLE message_receiver, delivery_tag* message_tag)
+{
+    int result;
+
+    if (message_receiver == NULL)
+    {
+        LogError("NULL message_receiver");
+        result = __FAILURE__;
+    }
+    else
+    {
+        if (link_get_received_message_tag(message_receiver->link, message_tag) != 0)
+        {
+            LogError("Failed getting received message tag");
+            result = __FAILURE__;
+        }
+        else
+        {
+            result = 0;
+        }
+    }
+
+    return result;
+}
+
 int messagereceiver_send_message_disposition(MESSAGE_RECEIVER_HANDLE message_receiver, const char* link_name, delivery_number message_number, AMQP_VALUE delivery_state)
 {
     int result;

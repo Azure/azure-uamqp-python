@@ -67,6 +67,12 @@ cdef class cMessageReceiver(StructBase):
             self._value_error("Unable to retrieve last received message number.")
         return message_number
 
+    cpdef last_received_message_tag(self):
+        cdef c_amqp_definitions.delivery_tag message_tag
+        if c_message_receiver.messagereceiver_get_received_message_tag(self._c_value, &message_tag) != 0:
+            self._value_error("Unable to retrieve last received message tag.")
+        return <char*>message_tag.bytes
+
     cpdef settle_accepted_message(self, c_amqp_definitions.delivery_number message_number):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
         delivery_state = c_message.messaging_delivery_accepted()

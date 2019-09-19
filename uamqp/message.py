@@ -70,6 +70,7 @@ class Message(object):
                  message=None,
                  settler=None,
                  delivery_no=None,
+                 delivery_tag=None,
                  encoding='UTF-8'):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
@@ -78,6 +79,7 @@ class Message(object):
         self._settler = None
         self._encoding = encoding
         self.delivery_no = delivery_no
+        self.delivery_tag = delivery_tag
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None

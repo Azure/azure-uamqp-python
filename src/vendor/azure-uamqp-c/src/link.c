@@ -66,6 +66,7 @@ typedef struct LINK_INSTANCE_TAG
     unsigned char* received_payload;
     uint32_t received_payload_size;
     delivery_number received_delivery_id;
+    delivery_tag received_delivery_tag;
     TICK_COUNTER_HANDLE tick_counter;
     ON_LINK_DETACH_EVENT_SUBSCRIPTION on_link_detach_received_event_subscription;
 } LINK_INSTANCE;
@@ -445,6 +446,16 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                     }
                 }
 
+                if (transfer_get_delivery_tag(transfer_handle, &link_instance->received_delivery_tag) != 0)
+                {
+                    /* is this not a continuation transfer? */
+                    if (link_instance->received_payload_size == 0)
+                    {
+                        LogError("Could not get the delivery tag from the transfer performative");
+                        is_error = true;
+                    }
+                }
+
                 if (!is_error)
                 {
                     /* If this is a continuation transfer or if this is the first chunk of a multi frame transfer */
@@ -811,6 +822,7 @@ LINK_HANDLE link_create_from_endpoint(SESSION_HANDLE session, LINK_ENDPOINT_HAND
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
+        result->received_delivery_tag = NULL;
         result->source = amqpvalue_clone(target);
         result->target = amqpvalue_clone(source);
         result->on_link_detach_received_event_subscription.on_link_detach_received = NULL;
@@ -1538,6 +1550,24 @@ int link_get_received_message_id(LINK_HANDLE link, delivery_number* message_id)
     else
     {
         *message_id = link->received_delivery_id;
+        result = 0;
+    }
+
+    return result;
+}
+
+int link_get_received_message_tag(LINK_HANDLE link, delivery_tag* message_tag)
+{
+    int result;
+
+    if (link == NULL)
+    {
+        LogError("NULL link");
+        result = __FAILURE__;
+    }
+    else
+    {
+        *message_tag = link->received_delivery_tag;
         result = 0;
     }
 
