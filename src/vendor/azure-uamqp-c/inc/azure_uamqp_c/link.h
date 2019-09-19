@@ -70,6 +70,7 @@ MOCKABLE_FUNCTION(, int, link_set_attach_properties, LINK_HANDLE, link, fields, 
 MOCKABLE_FUNCTION(, int, link_set_max_link_credit, LINK_HANDLE, link, uint32_t, max_link_credit);
 MOCKABLE_FUNCTION(, int, link_get_name, LINK_HANDLE, link, const char**, link_name);
 MOCKABLE_FUNCTION(, int, link_get_received_message_id, LINK_HANDLE, link, delivery_number*, message_id);
+MOCKABLE_FUNCTION(, int, link_get_received_message_tag, LINK_HANDLE, link, delivery_tag*, message_tag);
 MOCKABLE_FUNCTION(, int, link_send_disposition, LINK_HANDLE, link, delivery_number, message_number, AMQP_VALUE, delivery_state);
 MOCKABLE_FUNCTION(, int, link_attach, LINK_HANDLE, link, ON_TRANSFER_RECEIVED, on_transfer_received, ON_LINK_STATE_CHANGED, on_link_state_changed, ON_LINK_FLOW_ON, on_link_flow_on, void*, callback_context);
 MOCKABLE_FUNCTION(, int, link_detach, LINK_HANDLE, link, bool, close, const char*, error_condition, const char*, error_description, AMQP_VALUE, info);
