@@ -822,7 +822,6 @@ LINK_HANDLE link_create_from_endpoint(SESSION_HANDLE session, LINK_ENDPOINT_HAND
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
-        result->received_delivery_tag = NULL;
         result->source = amqpvalue_clone(target);
         result->target = amqpvalue_clone(source);
         result->on_link_detach_received_event_subscription.on_link_detach_received = NULL;
