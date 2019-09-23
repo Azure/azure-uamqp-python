@@ -29,5 +29,6 @@ cdef extern from "azure_uamqp_c/message_receiver.h":
     int messagereceiver_open(MESSAGE_RECEIVER_HANDLE message_receiver, ON_MESSAGE_RECEIVED on_message_received, void* callback_context)
     int messagereceiver_close(MESSAGE_RECEIVER_HANDLE message_receiver)
     int messagereceiver_get_link_name(MESSAGE_RECEIVER_HANDLE message_receiver, const char** link_name)
+    int messagereceiver_get_received_message_id(MESSAGE_RECEIVER_HANDLE message_receiver, c_amqp_definitions.delivery_number* message_number)
     int messagereceiver_send_message_disposition(MESSAGE_RECEIVER_HANDLE message_receiver, const char* link_name, c_amqp_definitions.delivery_number message_number, c_amqpvalue.AMQP_VALUE delivery_state)
     void messagereceiver_set_trace(MESSAGE_RECEIVER_HANDLE message_receiver, bint trace_on)
