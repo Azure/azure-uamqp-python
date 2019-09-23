@@ -235,13 +235,16 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
         }
         else
         {
-            if (transfer_get_delivery_tag(transfer, &message->delivery_tag) != 0)
+            delivery_tag received_message_tag;
+            if ((transfer_get_delivery_tag(transfer, &received_message_tag) != 0) &&
+                (message_set_delivery_tag(message, received_message_tag) != 0))
             {
                     LogError("Could not get the delivery tag from the transfer performative");
                     set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
             {
+
                 AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
                 if (amqpvalue_decoder == NULL)
                 {

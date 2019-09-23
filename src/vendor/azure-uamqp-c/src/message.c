@@ -120,7 +120,6 @@ MESSAGE_HANDLE message_create(void)
         result->body_amqp_value = NULL;
         result->body_amqp_sequence_items = NULL;
         result->body_amqp_sequence_count = 0;
-        result->delivery_tag = NULL;
 
         /* Codes_SRS_MESSAGE_01_135: [ By default a message on which `message_set_message_format` was not called shall have message format set to 0. ]*/
         result->message_format = 0;
@@ -231,20 +230,20 @@ MESSAGE_HANDLE message_clone(MESSAGE_HANDLE source_message)
                 }
             }
 
-            if ((result != NULL) && (source_message.delivery_tag != NULL))
+            if ((result != NULL) && (source_message->delivery_tag.bytes != NULL))
             {
-                if (source_message.delivery_tag.length > 0)
+                if (source_message->delivery_tag.length > 0)
                 {
-                    result->delivery_tag.bytes = malloc(source_message.delivery_tag.length);
+                    result->delivery_tag.bytes = malloc(source_message->delivery_tag.length);
                 }
                 else
                 {
                     result->delivery_tag.bytes = NULL;
                 }
 
-                result->delivery_tag.length = source_message.delivery_tag.length;
+                result->delivery_tag.length = source_message->delivery_tag.length;
 
-                if ((result->delivery_tag.bytes == NULL) && (source_message.delivery_tag.length > 0))
+                if ((result->delivery_tag.bytes == NULL) && (source_message->delivery_tag.length > 0))
                 {
 
                     LogError("Could not allocate memory for binary payload of delivery tag");
@@ -253,9 +252,9 @@ MESSAGE_HANDLE message_clone(MESSAGE_HANDLE source_message)
                 }
                 else
                 {
-                    if (source_message.delivery_tag.length > 0)
+                    if (source_message->delivery_tag.length > 0)
                     {
-                        (void)memcpy((void*)result->delivery_tag.bytes, source_message.delivery_tag.bytes, source_message.delivery_tag.length);
+                        (void)memcpy((void*)result->delivery_tag.bytes, source_message->delivery_tag.bytes, source_message->delivery_tag.length);
                     }
                 }
             }
@@ -1479,6 +1478,47 @@ int message_get_message_format(MESSAGE_HANDLE message, uint32_t *message_format)
 
         /* Codes_SRS_MESSAGE_01_133: [ On success, `message_get_message_format` shall return 0. ]*/
         result = 0;
+    }
+
+    return result;
+}
+
+int message_set_delivery_tag(MESSAGE_HANDLE message, delivery_tag message_tag)
+{
+    int result;
+
+    if (message == NULL)
+    {
+        /* Codes_SRS_MESSAGE_01_131: [ If `message` is NULL, `message_set_message_format` shall fail and return a non-zero value. ]*/
+        LogError("NULL message");
+        result = __FAILURE__;
+    }
+    else
+    {
+        if (message_tag.length > 0)
+        {
+            message->delivery_tag.bytes = malloc(message_tag.length);
+        }
+        else
+        {
+            message->delivery_tag.bytes = NULL;
+        }
+
+        message->delivery_tag.length = message_tag.length;
+        if ((message->delivery_tag.bytes == NULL) && (message_tag.length > 0))
+        {
+
+            LogError("Could not allocate memory for binary payload of delivery tag");
+            result = __FAILURE__;
+        }
+        else
+        {
+            if (message_tag.length > 0)
+            {
+                (void)memcpy((void*)message->delivery_tag.bytes, message_tag.bytes, message_tag.length);
+            }
+            result = 0;
+        }
     }
 
     return result;

@@ -66,6 +66,7 @@ extern "C" {
     MOCKABLE_FUNCTION(, int, message_get_body_type, MESSAGE_HANDLE, message, MESSAGE_BODY_TYPE*, body_type);
     MOCKABLE_FUNCTION(, int, message_set_message_format, MESSAGE_HANDLE, message, uint32_t, message_format);
     MOCKABLE_FUNCTION(, int, message_get_message_format, MESSAGE_HANDLE, message, uint32_t*, message_format);
+    MOCKABLE_FUNCTION(, int, message_set_delivery_tag, MESSAGE_HANDLE, message, delivery_tag, message_tag);
     MOCKABLE_FUNCTION(, int, message_get_delivery_tag, MESSAGE_HANDLE, message, delivery_tag*, message_tag);
 
 #ifdef __cplusplus
