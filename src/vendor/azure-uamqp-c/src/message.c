@@ -31,7 +31,7 @@ typedef struct MESSAGE_INSTANCE_TAG
     application_properties application_properties;
     annotations footer;
     uint32_t message_format;
-    delivery_tag delivery_tag;
+    AMQP_VALUE delivery_tag;
 } MESSAGE_INSTANCE;
 
 MESSAGE_BODY_TYPE internal_get_body_type(MESSAGE_HANDLE message)
@@ -120,6 +120,7 @@ MESSAGE_HANDLE message_create(void)
         result->body_amqp_value = NULL;
         result->body_amqp_sequence_items = NULL;
         result->body_amqp_sequence_count = 0;
+        result->delivery_tag = NULL;
 
         /* Codes_SRS_MESSAGE_01_135: [ By default a message on which `message_set_message_format` was not called shall have message format set to 0. ]*/
         result->message_format = 0;
@@ -230,32 +231,14 @@ MESSAGE_HANDLE message_clone(MESSAGE_HANDLE source_message)
                 }
             }
 
-            if ((result != NULL) && (source_message->delivery_tag.bytes != NULL))
+            if ((result != NULL) && (source_message->delivery_tag != NULL))
             {
-                if (source_message->delivery_tag.length > 0)
+                result->delivery_tag = amqpvalue_clone(source_message.delivery_tag);
+                if (result->delivery_tag == NULL)
                 {
-                    result->delivery_tag.bytes = malloc(source_message->delivery_tag.length);
-                }
-                else
-                {
-                    result->delivery_tag.bytes = NULL;
-                }
-
-                result->delivery_tag.length = source_message->delivery_tag.length;
-
-                if ((result->delivery_tag.bytes == NULL) && (source_message->delivery_tag.length > 0))
-                {
-
-                    LogError("Could not allocate memory for binary payload of delivery tag");
+                    LogError("Cannot clone message delivery tag");
                     message_destroy(result);
                     result = NULL;
-                }
-                else
-                {
-                    if (source_message->delivery_tag.length > 0)
-                    {
-                        (void)memcpy((void*)result->delivery_tag.bytes, source_message->delivery_tag.bytes, source_message->delivery_tag.length);
-                    }
                 }
             }
 
@@ -405,9 +388,9 @@ void message_destroy(MESSAGE_HANDLE message)
             amqpvalue_destroy(message->body_amqp_value);
         }
 
-        if (message->delivery_tag.bytes != NULL)
+        if (message->delivery_tag != NULL)
         {
-            free((void*)message->delivery_tag.bytes);
+            amqpvalue_destroy(message->delivery_tag);
         }
 
         /* Codes_SRS_MESSAGE_01_136: [ If the message body is made of several AMQP data items, they shall all be freed. ]*/
@@ -1483,40 +1466,30 @@ int message_get_message_format(MESSAGE_HANDLE message, uint32_t *message_format)
     return result;
 }
 
-int message_set_delivery_tag(MESSAGE_HANDLE message, delivery_tag message_tag)
+int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag)
 {
     int result;
 
-    if (message == NULL)
+    if ((message == NULL) || delivery_tag == NULL))
     {
-        /* Codes_SRS_MESSAGE_01_131: [ If `message` is NULL, `message_set_message_format` shall fail and return a non-zero value. ]*/
-        LogError("NULL message");
+        LogError("Bad arguments: message = %p, delivery_tag = %p",
+            message, delivery_tag);
         result = __FAILURE__;
     }
     else
     {
-        if (message_tag.length > 0)
+        AMQP_VALUE new_delivery_tag = amqpvalue_clone(delivery_tag);
+        if (new_delivery_tag == NULL)
         {
-            message->delivery_tag.bytes = malloc(message_tag.length);
-        }
-        else
-        {
-            message->delivery_tag.bytes = NULL;
-        }
-
-        message->delivery_tag.length = message_tag.length;
-        if ((message->delivery_tag.bytes == NULL) && (message_tag.length > 0))
-        {
-
-            LogError("Could not allocate memory for binary payload of delivery tag");
+            LogError("Cannot clone delivery tag");
             result = __FAILURE__;
         }
         else
         {
-            if (message_tag.length > 0)
-            {
-                (void)memcpy((void*)message->delivery_tag.bytes, message_tag.bytes, message_tag.length);
-            }
+
+            message->delivery_tag = new_delivery_tag;
+
+            /* Codes_SRS_MESSAGE_01_102: [ On success it shall return 0. ]*/
             result = 0;
         }
     }
@@ -1524,25 +1497,37 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, delivery_tag message_tag)
     return result;
 }
 
-int message_get_delivery_tag(MESSAGE_HANDLE message, delivery_tag *message_tag)
+int message_get_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE *delivery_tag)
 {
     int result;
 
     if ((message == NULL) ||
-        (message_tag == NULL))
+        (delivery_tag == NULL))
     {
-        /* Codes_SRS_MESSAGE_01_134: [ If `message` or `message_tag` is NULL, `message_get_delivery_tag` shall fail and return a non-zero value. ]*/
-        LogError("Bad arguments: message = %p, message_tag = %p",
-            message, message_tag);
+        LogError("Bad arguments: message = %p, delivery_tag = %p",
+            message, delivery_tag);
         result = __FAILURE__;
     }
     else
     {
-        /* Codes_SRS_MESSAGE_01_132: [ `message_get_delivery_tag` shall get the message format for the message identified by `message` and return it in the `message_fomrat` argument. ]*/
-        *message_tag = message->delivery_tag;
-
-        /* Codes_SRS_MESSAGE_01_133: [ On success, `message_get_delivery_tag` shall return 0. ]*/
-        result = 0;
+        if (message->delivery_tag == NULL)
+        {
+            *delivery_tag = NULL;
+            result = 0;
+        }
+        else
+        {
+            AMQP_VALUE new_delivery_tag = amqpvalue_clone(message->delivery_tag);
+            if (new_delivery_tag == NULL)
+            {
+                LogError("Cannot clone delivery tag");
+                result = __FAILURE__;
+            }
+            else
+            {
+                *delivery_tag = new_delivery_tag;
+                result = 0;
+            }
     }
 
     return result;
