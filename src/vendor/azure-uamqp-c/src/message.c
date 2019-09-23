@@ -233,7 +233,7 @@ MESSAGE_HANDLE message_clone(MESSAGE_HANDLE source_message)
 
             if ((result != NULL) && (source_message->delivery_tag != NULL))
             {
-                result->delivery_tag = amqpvalue_clone(source_message.delivery_tag);
+                result->delivery_tag = amqpvalue_clone(source_message->delivery_tag);
                 if (result->delivery_tag == NULL)
                 {
                     LogError("Cannot clone message delivery tag");
@@ -1470,7 +1470,7 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag)
 {
     int result;
 
-    if ((message == NULL) || delivery_tag == NULL))
+    if ((message == NULL) || (delivery_tag == NULL))
     {
         LogError("Bad arguments: message = %p, delivery_tag = %p",
             message, delivery_tag);
@@ -1528,6 +1528,7 @@ int message_get_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE *delivery_tag)
                 *delivery_tag = new_delivery_tag;
                 result = 0;
             }
+        }
     }
 
     return result;
