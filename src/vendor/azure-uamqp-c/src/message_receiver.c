@@ -242,15 +242,15 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
             }
             else
             {
-                AMQP_VALUE delivery_tag = amqpvalue_create_delivery_tag(received_message_tag);
-                if (delivery_tag == NULL)
+                AMQP_VALUE delivery_tag_value = amqpvalue_create_delivery_tag(received_message_tag);
+                if (delivery_tag_value == NULL)
                 {
                     LogError("Could not create delivery tag value");
                 }
-                else if (message_set_delivery_tag(message, delivery_tag) != 0)
+                else if (message_set_delivery_tag(message, delivery_tag_value) != 0)
                 {
                     LogError("Could not set message delivery tag");
-                    amqpvalue_destroy(delivery_tag);
+                    amqpvalue_destroy(delivery_tag_value);
                 }
             }
 

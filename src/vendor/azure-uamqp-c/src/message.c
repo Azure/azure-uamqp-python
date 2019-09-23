@@ -1466,11 +1466,11 @@ int message_get_message_format(MESSAGE_HANDLE message, uint32_t *message_format)
     return result;
 }
 
-int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag)
+int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag_value)
 {
     int result;
 
-    if ((message == NULL) || (delivery_tag == NULL))
+    if ((message == NULL) || (delivery_tag_value == NULL))
     {
         LogError("Bad arguments: message = %p, delivery_tag = %p",
             message, delivery_tag);
@@ -1478,7 +1478,7 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag)
     }
     else
     {
-        AMQP_VALUE new_delivery_tag = amqpvalue_clone(delivery_tag);
+        AMQP_VALUE new_delivery_tag = amqpvalue_clone(delivery_tag_value);
         if (new_delivery_tag == NULL)
         {
             LogError("Cannot clone delivery tag");
@@ -1497,22 +1497,22 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag)
     return result;
 }
 
-int message_get_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE *delivery_tag)
+int message_get_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE *delivery_tag_value)
 {
     int result;
 
     if ((message == NULL) ||
-        (delivery_tag == NULL))
+        (delivery_tag_value == NULL))
     {
         LogError("Bad arguments: message = %p, delivery_tag = %p",
-            message, delivery_tag);
+            message, delivery_tag_value);
         result = __FAILURE__;
     }
     else
     {
         if (message->delivery_tag == NULL)
         {
-            *delivery_tag = NULL;
+            *delivery_tag_value = NULL;
             result = 0;
         }
         else
@@ -1525,7 +1525,7 @@ int message_get_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE *delivery_tag)
             }
             else
             {
-                *delivery_tag = new_delivery_tag;
+                *delivery_tag_value = new_delivery_tag;
                 result = 0;
             }
         }
