@@ -225,7 +225,6 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
     AMQP_VALUE result = NULL;
     MESSAGE_RECEIVER_INSTANCE* message_receiver = (MESSAGE_RECEIVER_INSTANCE*)context;
 
-    (void)transfer;
     if (message_receiver->on_message_received != NULL)
     {
         MESSAGE_HANDLE message = message_create();
@@ -236,37 +235,44 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
         }
         else
         {
-            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
-            if (amqpvalue_decoder == NULL)
+            if (transfer_get_delivery_tag(transfer, &message->delivery_tag) != 0)
             {
-                LogError("Cannot create AMQP value decoder");
-                set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
+                    LogError("Could not get the delivery tag from the transfer performative");
+                    set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
             {
-                message_receiver->decoded_message = message;
-                message_receiver->decode_error = false;
-                if (amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0)
+                AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
+                if (amqpvalue_decoder == NULL)
                 {
-                    LogError("Cannot decode bytes");
+                    LogError("Cannot create AMQP value decoder");
                     set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
                 }
                 else
                 {
-                    if (message_receiver->decode_error)
+                    message_receiver->decoded_message = message;
+                    message_receiver->decode_error = false;
+                    if (amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0)
                     {
-                        LogError("Error decoding message");
+                        LogError("Cannot decode bytes");
                         set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
                     }
                     else
                     {
-                        result = message_receiver->on_message_received(message_receiver->callback_context, message);
+                        if (message_receiver->decode_error)
+                        {
+                            LogError("Error decoding message");
+                            set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
+                        }
+                        else
+                        {
+                            result = message_receiver->on_message_received(message_receiver->callback_context, message);
+                        }
                     }
+
+                    amqpvalue_decoder_destroy(amqpvalue_decoder);
                 }
-
-                amqpvalue_decoder_destroy(amqpvalue_decoder);
             }
-
             message_destroy(message);
         }
     }
@@ -455,31 +461,6 @@ int messagereceiver_get_received_message_id(MESSAGE_RECEIVER_HANDLE message_rece
         if (link_get_received_message_id(message_receiver->link, message_id) != 0)
         {
             LogError("Failed getting received message Id");
-            result = __FAILURE__;
-        }
-        else
-        {
-            result = 0;
-        }
-    }
-
-    return result;
-}
-
-int messagereceiver_get_received_message_tag(MESSAGE_RECEIVER_HANDLE message_receiver, delivery_tag* message_tag)
-{
-    int result;
-
-    if (message_receiver == NULL)
-    {
-        LogError("NULL message_receiver");
-        result = __FAILURE__;
-    }
-    else
-    {
-        if (link_get_received_message_tag(message_receiver->link, message_tag) != 0)
-        {
-            LogError("Failed getting received message tag");
             result = __FAILURE__;
         }
         else

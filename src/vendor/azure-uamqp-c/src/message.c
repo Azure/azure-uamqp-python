@@ -31,6 +31,7 @@ typedef struct MESSAGE_INSTANCE_TAG
     application_properties application_properties;
     annotations footer;
     uint32_t message_format;
+    delivery_tag delivery_tag;
 } MESSAGE_INSTANCE;
 
 MESSAGE_BODY_TYPE internal_get_body_type(MESSAGE_HANDLE message)
@@ -119,6 +120,7 @@ MESSAGE_HANDLE message_create(void)
         result->body_amqp_value = NULL;
         result->body_amqp_sequence_items = NULL;
         result->body_amqp_sequence_count = 0;
+        result->delivery_tag = NULL;
 
         /* Codes_SRS_MESSAGE_01_135: [ By default a message on which `message_set_message_format` was not called shall have message format set to 0. ]*/
         result->message_format = 0;
@@ -226,6 +228,35 @@ MESSAGE_HANDLE message_clone(MESSAGE_HANDLE source_message)
                     LogError("Cannot clone message footer");
                     message_destroy(result);
                     result = NULL;
+                }
+            }
+
+            if ((result != NULL) && (source_message.delivery_tag != NULL))
+            {
+                if (source_message.delivery_tag.length > 0)
+                {
+                    result->delivery_tag.bytes = malloc(source_message.delivery_tag.length);
+                }
+                else
+                {
+                    result->delivery_tag.bytes = NULL;
+                }
+
+                result->delivery_tag.length = source_message.delivery_tag.length;
+
+                if ((result->delivery_tag.bytes == NULL) && (source_message.delivery_tag.length > 0))
+                {
+
+                    LogError("Could not allocate memory for binary payload of delivery tag");
+                    message_destroy(result);
+                    result = NULL;
+                }
+                else
+                {
+                    if (source_message.delivery_tag.length > 0)
+                    {
+                        (void)memcpy((void*)result->delivery_tag.bytes, source_message.delivery_tag.bytes, source_message.delivery_tag.length);
+                    }
                 }
             }
 
@@ -373,6 +404,11 @@ void message_destroy(MESSAGE_HANDLE message)
         {
             /* Codes_SRS_MESSAGE_01_021: [ If the message body is made of an AMQP value, the value shall be freed by calling `amqpvalue_destroy`. ]*/
             amqpvalue_destroy(message->body_amqp_value);
+        }
+
+        if (message->delivery_tag.bytes != NULL)
+        {
+            free((void*)message->delivery_tag.bytes);
         }
 
         /* Codes_SRS_MESSAGE_01_136: [ If the message body is made of several AMQP data items, they shall all be freed. ]*/
@@ -1442,6 +1478,30 @@ int message_get_message_format(MESSAGE_HANDLE message, uint32_t *message_format)
         *message_format = message->message_format;
 
         /* Codes_SRS_MESSAGE_01_133: [ On success, `message_get_message_format` shall return 0. ]*/
+        result = 0;
+    }
+
+    return result;
+}
+
+int message_get_delivery_tag(MESSAGE_HANDLE message, delivery_tag *message_tag)
+{
+    int result;
+
+    if ((message == NULL) ||
+        (message_tag == NULL))
+    {
+        /* Codes_SRS_MESSAGE_01_134: [ If `message` or `message_tag` is NULL, `message_get_delivery_tag` shall fail and return a non-zero value. ]*/
+        LogError("Bad arguments: message = %p, message_tag = %p",
+            message, message_tag);
+        result = __FAILURE__;
+    }
+    else
+    {
+        /* Codes_SRS_MESSAGE_01_132: [ `message_get_delivery_tag` shall get the message format for the message identified by `message` and return it in the `message_fomrat` argument. ]*/
+        *message_tag = message->delivery_tag;
+
+        /* Codes_SRS_MESSAGE_01_133: [ On success, `message_get_delivery_tag` shall return 0. ]*/
         result = 0;
     }
 

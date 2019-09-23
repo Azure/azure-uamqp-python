@@ -219,7 +219,6 @@ class MessageReceiver(object):
         """
         # pylint: disable=protected-access
         message_number = self._receiver.last_received_message_number()
-        message_tag = self._receiver.last_received_message_tag()
         if self._settle_mode == constants.ReceiverSettleMode.ReceiveAndDelete:
             settler = None
         else:
@@ -229,8 +228,7 @@ class MessageReceiver(object):
                 message=message,
                 encoding=self.encoding,
                 settler=settler,
-                delivery_no=message_number,
-                delivery_tag=message_tag)
+                delivery_no=message_number)
             self.on_message_received(wrapped_message)
         except RuntimeError:
             condition = b"amqp:unknown-error"

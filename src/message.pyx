@@ -233,6 +233,14 @@ cdef class cMessage(StructBase):
         if c_message.message_set_message_format(self._c_value, value) != 0:
                 self._value_error()
 
+    @property
+    def delivery_tag(self):
+        cdef c_amqp_definitions.delivery_tag value
+        if c_message.message_get_delivery_tag(self._c_value, &value) == 0:
+            return value
+        else:
+            return _value.bytes[:_value.length]
+
     cpdef add_body_data(self, bytes value):
         cdef c_message.BINARY_DATA _binary
         length = len(value)
