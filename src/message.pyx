@@ -237,7 +237,8 @@ cdef class cMessage(StructBase):
     def delivery_tag(self):
         cdef c_amqp_definitions.delivery_tag value
         if c_message.message_get_delivery_tag(self._c_value, &value) == 0:
-            return value.bytes[:value.length]
+            bytes_value = <char*>value.bytes
+            return bytes_value[:value.length]
         else:
             self._value_error()
 
