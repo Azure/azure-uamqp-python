@@ -251,7 +251,6 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
                 {
                     LogError("Could not set message delivery tag");
                     amqpvalue_destroy(delivery_tag);
-                    message->delivery_tag = NULL;
                 }
             }
 
