@@ -140,7 +140,9 @@ class Message(object):
         """
         _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
-        self.delivery_tag = self._message.delivery_tag
+        delivery_tag = self._message.delivery_tag
+        if delivery_tag:
+            self.delivery_tag = delivery_tag.value
         body_type = message.body_type
         if body_type == c_uamqp.MessageBodyType.NoneType:
             self._body = None
