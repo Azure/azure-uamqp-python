@@ -1473,7 +1473,7 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag_val
     if ((message == NULL) || (delivery_tag_value == NULL))
     {
         LogError("Bad arguments: message = %p, delivery_tag = %p",
-            message, delivery_tag);
+            message, delivery_tag_value);
         result = __FAILURE__;
     }
     else
