@@ -239,7 +239,7 @@ cdef class cMessage(StructBase):
         if c_message.message_get_delivery_tag(self._c_value, &value) == 0:
             if <void*>value == NULL:
                 return None
-            return value.value
+            return value_factory(value)
         else:
             self._value_error()
 
