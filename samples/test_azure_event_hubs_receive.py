@@ -123,7 +123,9 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
             assert len(batch) <= 10
             for message in batch:
                 annotations = message.annotations
-                log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+                log.info("Sequence Number: {}, Delivery tag: {}".format(
+                    annotations.get(b'x-opt-sequence-number'),
+                    message.delivery_tag))
             batch = receive_client.receive_message_batch(max_batch_size=10)
     log.info("Finished receiving")
 
