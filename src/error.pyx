@@ -89,7 +89,7 @@ cdef class cError(StructBase):
             return None
         try:
             info = value_factory(info_value)
-            return copy.deepcopy(info.value)
+            return info.value
         except TypeError:
             return None
 

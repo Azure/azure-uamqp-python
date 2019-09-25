@@ -313,7 +313,7 @@ cdef class AMQPValue(StructBase):
         if <void*>value == NULL:
             self._value_error()
         as_string = c_amqpvalue.amqpvalue_to_string(value)
-        py_string = copy.deepcopy(as_string)
+        py_string = as_string
         c_amqpvalue.amqpvalue_destroy(self._c_value)
         return py_string
 
@@ -669,7 +669,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return copy.deepcopy(_value)
+            return _value
         else:
             self._value_error()
 
@@ -687,7 +687,7 @@ cdef class SymbolValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_symbol(self._c_value, &_value) == 0:
-            return copy.deepcopy(_value)
+            return _value
         else:
             self._value_error()
 
@@ -742,7 +742,7 @@ cdef class ListValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(copy.deepcopy(self[i].value))
+            value.append(self[i].value)
         return value
 
 
@@ -795,7 +795,7 @@ cdef class DictValue(AMQPValue):
         value = {}
         for i in range(self.size):
             key, item = self.get(i)
-            value[copy.deepcopy(key.value)] = copy.deepcopy(item.value)
+            value[key.value] = item.value
         return value
 
 
@@ -840,7 +840,7 @@ cdef class ArrayValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(copy.deepcopy(self[i].value))
+            value.append(self[i].value)
         return value
 
 
@@ -945,4 +945,4 @@ cdef class DescribedValue(AMQPValue):
         assert self.type
         #descriptor = self.description
         described = self.data
-        return copy.deepcopy(described.value)
+        return described.value

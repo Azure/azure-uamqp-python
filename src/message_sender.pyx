@@ -97,7 +97,7 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
         wrapped = None
     else:
         send_data = c_amqpvalue.amqpvalue_clone(delivery_state)
-        wrapped = copy.deepcopy(value_factory(send_data).value)
+        wrapped = value_factory(send_data).value
     if context != NULL:
         context_obj = <object>context
         if hasattr(context_obj, "_on_message_sent"):
