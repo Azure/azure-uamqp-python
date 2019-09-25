@@ -807,6 +807,8 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                         {
                             LogError("Calling bytes received");
                             tls_io_instance->on_bytes_received(tls_io_instance->on_bytes_received_context, (const unsigned char *) security_buffers[1].pvBuffer, security_buffers[1].cbBuffer);
+                            LogError("Finished decoding frame, sleeping for 20 seconds");
+                            sleep(20);
                         }
 
                         consumed_bytes = tls_io_instance->received_byte_count;
@@ -817,11 +819,11 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                             if (security_buffers[i].BufferType == SECBUFFER_EXTRA)
                             {
                                 consumed_bytes -= security_buffers[i].cbBuffer;
-                                LogError("TLSIO bytes left over! %zu", consumed_bytes);
                                 (void)memmove(tls_io_instance->received_bytes, tls_io_instance->received_bytes + consumed_bytes, tls_io_instance->received_byte_count - consumed_bytes);
                                 break;
                             }
                         }
+                        LogError("TLSIO consumed bytes %zu, from received %zu", consumed_bytes, tls_io_instance->received_byte_count);
                         tls_io_instance->received_byte_count -= consumed_bytes;
 
                         /* if nothing more to consume, set the needed bytes to 1, to get on the next byte how many we actually need */
