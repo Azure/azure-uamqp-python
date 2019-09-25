@@ -512,6 +512,7 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 int received = 0;
                 do
                 {
+                    LogError("Attempting to read from socket");
                     received = recv(socket_io_instance->socket, (char*)socket_io_instance->recv_bytes, RECEIVE_BYTES_VALUE, 0);
                     if ((received > 0))
                     {
@@ -541,7 +542,7 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                         }
                         else
                         {
-                            LogError("Received non-error error");
+                            LogError("Received non-error error %d, %d", received, last_error);
                         }
                     }
                 } while (received > 0 && socket_io_instance->io_state == IO_STATE_OPEN);
