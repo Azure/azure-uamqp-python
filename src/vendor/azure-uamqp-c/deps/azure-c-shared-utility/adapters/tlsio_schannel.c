@@ -542,6 +542,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
     {
         (void)memcpy(tls_io_instance->received_bytes + tls_io_instance->received_byte_count, buffer, size);
         tls_io_instance->received_byte_count += size;
+        LogError("TLSIO received bytes: %zu", tls_io_instance->received_byte_count);
 
         if (size > tls_io_instance->needed_bytes)
         {
@@ -804,6 +805,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                         /* notify of the received data */
                         if (tls_io_instance->on_bytes_received != NULL)
                         {
+                            LogError("Calling bytes received");
                             tls_io_instance->on_bytes_received(tls_io_instance->on_bytes_received_context, (const unsigned char *) security_buffers[1].pvBuffer, security_buffers[1].cbBuffer);
                         }
 
@@ -815,6 +817,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                             if (security_buffers[i].BufferType == SECBUFFER_EXTRA)
                             {
                                 consumed_bytes -= security_buffers[i].cbBuffer;
+                                LogError("TLSIO bytes left over! %zu", consumed_bytes);
                                 (void)memmove(tls_io_instance->received_bytes, tls_io_instance->received_bytes + consumed_bytes, tls_io_instance->received_byte_count - consumed_bytes);
                                 break;
                             }
@@ -919,6 +922,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
             else
             {
                 /* Received data in error or other state */
+                LogError("Received data in error or other state");
                 break;
             }
         }
