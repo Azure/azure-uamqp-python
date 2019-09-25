@@ -714,7 +714,7 @@ static int connection_byte_received(CONNECTION_HANDLE connection, unsigned char 
 static void connection_on_bytes_received(void* context, const unsigned char* buffer, size_t size)
 {
     size_t i;
-    LogError("Connection byte received");
+    LogError("Connection byte received %zu", size);
     for (i = 0; i < size; i++)
     {
         if (connection_byte_received((CONNECTION_HANDLE)context, buffer[i]) != 0)
