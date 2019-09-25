@@ -808,7 +808,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                             LogError("Calling bytes received");
                             tls_io_instance->on_bytes_received(tls_io_instance->on_bytes_received_context, (const unsigned char *) security_buffers[1].pvBuffer, security_buffers[1].cbBuffer);
                             LogError("Finished decoding frame, sleeping for 20 seconds");
-                            sleep(20);
+                            Sleep(20000);
                         }
 
                         consumed_bytes = tls_io_instance->received_byte_count;
