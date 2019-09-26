@@ -455,6 +455,9 @@ int socketio_send(CONCRETE_IO_HANDLE socket_io, const void* buffer, size_t size,
 void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
 {
     int send_result;
+    int messages_sent;
+
+    messages_sent = 0;
     if (socket_io != NULL)
     {
         SOCKET_IO_INSTANCE* socket_io_instance = (SOCKET_IO_INSTANCE*)socket_io;
@@ -490,6 +493,7 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 }
                 else
                 {
+                    messages_sent++;
                     if (pending_socket_io->on_send_complete != NULL)
                     {
                         pending_socket_io->on_send_complete(pending_socket_io->callback_context, IO_SEND_OK);
@@ -507,7 +511,7 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 first_pending_io = singlylinkedlist_get_head_item(socket_io_instance->pending_io_list);
             }
 
-            if (socket_io_instance->io_state == IO_STATE_OPEN)
+            if ((socket_io_instance->io_state == IO_STATE_OPEN) && (messages_sent == 0))
             {
                 int received = 0;
                 do
