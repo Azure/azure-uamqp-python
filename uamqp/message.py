@@ -137,6 +137,8 @@ class Message(object):
         :param message: The received C message.
         :type message: uamqp.c_uamqp.cMessage
         """
+        c_uamqp.c_message_to_py_message(message, self)
+        '''
         _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
         body_type = message.body_type
@@ -172,6 +174,7 @@ class Message(object):
         if _delivery_ann:
             _logger.debug("Parsing received message delivery annotations %r.", self.delivery_no)
             self.delivery_annotations = _delivery_ann.map
+        '''
 
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:
