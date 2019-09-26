@@ -136,6 +136,9 @@ cdef class cLink(StructBase):
             self._value_error()
         return value
 
+    cpdef do_work(self):
+        c_link.link_dowork(self._c_value)
+
     cpdef set_prefetch_count(self, stdint.uint32_t prefetch):
         if c_link.link_set_max_link_credit(self._c_value, prefetch) != 0:
             self._value_error("Unable to set link credit.")

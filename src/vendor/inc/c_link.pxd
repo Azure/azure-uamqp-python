@@ -41,6 +41,7 @@ cdef extern from "azure_uamqp_c/link.h":
 
     LINK_HANDLE link_create(c_session.SESSION_HANDLE session, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target)
     void link_destroy(LINK_HANDLE handle)
+    void link_dowork(LINK_HANDLE link)
     int link_set_snd_settle_mode(LINK_HANDLE link, c_amqp_definitions.sender_settle_mode snd_settle_mode)
     int link_get_snd_settle_mode(LINK_HANDLE link, c_amqp_definitions.sender_settle_mode* snd_settle_mode)
     int link_set_rcv_settle_mode(LINK_HANDLE link, c_amqp_definitions.receiver_settle_mode rcv_settle_mode)
