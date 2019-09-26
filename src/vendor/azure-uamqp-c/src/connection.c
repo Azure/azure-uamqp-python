@@ -714,7 +714,6 @@ static int connection_byte_received(CONNECTION_HANDLE connection, unsigned char 
 static void connection_on_bytes_received(void* context, const unsigned char* buffer, size_t size)
 {
     size_t i;
-    LogError("Connection byte received %zu", size);
     for (i = 0; i < size; i++)
     {
         if (connection_byte_received((CONNECTION_HANDLE)context, buffer[i]) != 0)
@@ -813,7 +812,6 @@ static void on_empty_amqp_frame_received(void* context, uint16_t channel)
 static void on_amqp_frame_received(void* context, uint16_t channel, AMQP_VALUE performative, const unsigned char* payload_bytes, uint32_t payload_size)
 {
     CONNECTION_HANDLE connection = (CONNECTION_HANDLE)context;
-    LogError("Received frame %lu", (unsigned long)payload_size);
     (void)channel;
 
     if (tickcounter_get_current_ms(connection->tick_counter, &connection->last_frame_received_time) != 0)

@@ -542,7 +542,6 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
     {
         (void)memcpy(tls_io_instance->received_bytes + tls_io_instance->received_byte_count, buffer, size);
         tls_io_instance->received_byte_count += size;
-        LogError("TLSIO received bytes: %zu", tls_io_instance->received_byte_count);
 
         if (size > tls_io_instance->needed_bytes)
         {
@@ -805,10 +804,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                         /* notify of the received data */
                         if (tls_io_instance->on_bytes_received != NULL)
                         {
-                            LogError("Calling bytes received");
                             tls_io_instance->on_bytes_received(tls_io_instance->on_bytes_received_context, (const unsigned char *) security_buffers[1].pvBuffer, security_buffers[1].cbBuffer);
-                            LogError("Finished decoding frame, sleeping for 20 seconds");
-                            //Sleep(10000);
                         }
 
                         consumed_bytes = tls_io_instance->received_byte_count;
@@ -823,7 +819,6 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                 break;
                             }
                         }
-                        LogError("TLSIO consumed bytes %zu, from received %zu", consumed_bytes, tls_io_instance->received_byte_count);
                         tls_io_instance->received_byte_count -= consumed_bytes;
 
                         /* if nothing more to consume, set the needed bytes to 1, to get on the next byte how many we actually need */
@@ -924,7 +919,6 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
             else
             {
                 /* Received data in error or other state */
-                LogError("Received data in error or other state");
                 break;
             }
         }
