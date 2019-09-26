@@ -533,7 +533,6 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                     }
                     else if (received == 0)
                     {
-                        LogError("Received 0 bytes");
                         indicate_error(socket_io_instance);
                     }
                     else
