@@ -1112,7 +1112,7 @@ int amqpvalue_get_string(AMQP_VALUE value, const char** string_value)
         /* Codes_SRS_AMQPVALUE_01_140: [If the type of the value is not string (was not created with amqpvalue_create_string), then amqpvalue_get_string shall return a non-zero value.] */
         if (value_data->type != AMQP_TYPE_STRING)
         {
-            LogError("Value is not of type STRING");
+            LogError("Value is not of type STRING, actually type %d", (int)value_data->type);
             result = __FAILURE__;
         }
         else
