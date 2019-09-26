@@ -75,7 +75,7 @@ class SASLTransport(SSLTransport):
 
     def negotiate(self):
         self.send_frame(0, SASLHeaderFrame())
-        channel, returned_header = self.receive_frame(verify_frame_type=1)
+        _, returned_header = self.receive_frame()
         if not isinstance(returned_header, SASLHeaderFrame):
             raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
                 SASLHeaderFrame.CODE, returned_header.CODE))
@@ -87,7 +87,7 @@ class SASLTransport(SSLTransport):
             mechanism=self.credential.mechanism,
             initial_response=self.credential.start(),
             hostname=self.host)
-        self.send_frame(channel, sasl_init)
+        self.send_frame(0, sasl_init)
 
         _, next_frame = self.receive_frame(verify_frame_type=1)
         if not isinstance(next_frame, SASLOutcome):

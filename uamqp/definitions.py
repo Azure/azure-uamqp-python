@@ -6,6 +6,7 @@
 
 from datetime import timedelta
 import struct
+import uuid
 
 import six
 
@@ -383,19 +384,19 @@ class ErrorField(object):
         decoded = None
         if value and value[0] == 29:
             condition = value[1][0]
-            description = value[1][1].decode('utf-8') if len(value[1]) > 1 else None
+            description = value[1][1] if len(value[1]) > 1 else None
             info = value[1][2] if len(value[1]) > 2 else {}
             try:
-                if ":link:" in condition:
+                if b":link:" in condition:
                     condition = LinkErrorCondition(condition)
                     if condition == LinkErrorCondition.Redirect:
                         decoded = AMQPLinkRedirect(condition, description=description, info=info)
                     else:
                         decoded = AMQPLinkError(condition, description=description, info=info)
-                elif ":session:" in condition:
+                elif b":session:" in condition:
                     condition = SessionErrorCondition(condition)
                     decoded = AMQPSessionError(condition, description=description, info=info)
-                elif ":connection:" in condition:
+                elif b":connection:" in condition:
                     condition = ConnectionErrorCondition(condition)
                     if condition == ConnectionErrorCondition.Redirect:
                         decoded = AMQPConnectionRedirect(condition, description=description, info=info)
@@ -407,6 +408,65 @@ class ErrorField(object):
             except ValueError:
                 decoded = AMQPError(condition, description=description, info=info)
         return decoded
+
+
+class AnnotationsField(object):
+    """The annotations type is a map where the keys are restricted to be of type symbol or of type ulong.
+
+    All ulong keys, and all symbolic keys except those beginning with ”x-” are reserved.
+    On receiving an annotations map containing keys or values which it does not recognize, and for which the
+    key does not begin with the string 'x-opt-' an AMQP container MUST detach the link with the not-implemented
+    amqp-error.
+
+
+    <type name="annotations" class="restricted" source="map"/>
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        if not value:
+            return {TYPE: AMQPTypes.null, VALUE: None}
+        fields = {TYPE: AMQPTypes.map, VALUE:[]}
+        for key, data in value.items():
+            if isinstance(key, int):
+                fields[VALUE].append(({TYPE: AMQPTypes.ulong, VALUE: key}, data))
+            else:
+                if isinstance(key, six.text_type):
+                    key = key.encode('utf-8')
+                fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, data))
+        return fields
+
+    @staticmethod
+    def decode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        return value or {}
+
+
+class MessageIDField(object):
+    """
+    <type name="message-id-ulong" class="restricted" source="ulong" provides="message-id"/>
+    <type name="message-id-uuid" class="restricted" source="uuid" provides="message-id"/>
+    <type name="message-id-binary" class="restricted" source="binary" provides="message-id"/>
+    <type name="message-id-string" class="restricted" source="string" provides="message-id"/>
+    """
+    @staticmethod
+    def encode(value):
+        # type: (Any) -> Dict[str, Any]
+        if isinstance(value, int):
+            return {TYPE: AMQPTypes.ulong, VALUE: value}
+        elif isinstance(value, uuid.UUID):
+            return {TYPE: AMQPTypes.uuid, VALUE: value}
+        elif isinstance(value, six.binary_type):
+            return {TYPE: AMQPTypes.binary, VALUE: value}
+        elif isinstance(value, six.text_type):
+            return {TYPE: AMQPTypes.string, VALUE: value}
+        raise TypeError("Unsupported Message ID type.")
+
+    @staticmethod
+    def decode(value):
+        # type: (Any) -> Any
+        return value
 
 
 class SASLCodeField(object):
@@ -448,5 +508,7 @@ _FIELD_DEFINITIONS = {
     FieldDefinition.ietf_language_tag: IETFLanguageTagField,
     FieldDefinition.fields: FieldsField,
     FieldDefinition.error: ErrorField,
+    FieldDefinition.annotations: AnnotationsField,
+    FieldDefinition.message_id: MessageIDField,
     FieldDefinition.sasl_code: SASLCodeField,
 }

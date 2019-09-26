@@ -43,7 +43,6 @@ class HeaderFrame(Performative):
 
     NAME = "HEADER"
     CODE = b"AMQP\x00"
-    FRAME_TYPE = b'\x01'
 
     def __init__(self, header=None, **kwargs):
         self.version = "{}.{}.{}".format(MAJOR, MINOR, REVISION)

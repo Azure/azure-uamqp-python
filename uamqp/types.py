@@ -51,6 +51,9 @@ class FieldDefinition(Enum):
     fields = "fields"
     error = "error"
     sasl_code = "sasl-code"
+    annotations = "annotations"
+    message_id = "message-id"
+    app_properties = "application-properties"
 
 
 class ObjDefinition(Enum):
