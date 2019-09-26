@@ -455,9 +455,7 @@ int socketio_send(CONCRETE_IO_HANDLE socket_io, const void* buffer, size_t size,
 void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
 {
     int send_result;
-    int messages_sent;
 
-    messages_sent = 0;
     if (socket_io != NULL)
     {
         SOCKET_IO_INSTANCE* socket_io_instance = (SOCKET_IO_INSTANCE*)socket_io;
@@ -493,7 +491,6 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 }
                 else
                 {
-                    messages_sent++;
                     if (pending_socket_io->on_send_complete != NULL)
                     {
                         pending_socket_io->on_send_complete(pending_socket_io->callback_context, IO_SEND_OK);
@@ -511,24 +508,18 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 first_pending_io = singlylinkedlist_get_head_item(socket_io_instance->pending_io_list);
             }
 
-            if ((socket_io_instance->io_state == IO_STATE_OPEN) && (messages_sent == 0))
+            if (socket_io_instance->io_state == IO_STATE_OPEN)
             {
                 int received = 0;
                 do
                 {
-                    LogError("Attempting to read from socket");
                     received = recv(socket_io_instance->socket, (char*)socket_io_instance->recv_bytes, RECEIVE_BYTES_VALUE, 0);
                     if ((received > 0))
                     {
-                        LogError("Received bytes %d", received);
                         if (socket_io_instance->on_bytes_received != NULL)
                         {
                             /* Explicitly ignoring here the result of the callback */
                             (void)socket_io_instance->on_bytes_received(socket_io_instance->on_bytes_received_context, socket_io_instance->recv_bytes, received);
-                        }
-                        else
-                        {
-                            LogError("NO on bytes received callback");
                         }
                     }
                     else if (received == 0)
@@ -542,10 +533,6 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                         {
                             LogError("Socketio_Failure: Receiving data from endpoint: %d.", last_error);
                             indicate_error(socket_io_instance);
-                        }
-                        else
-                        {
-                            LogError("Received non-error error %d, %d", received, last_error);
                         }
                     }
                 } while (received > 0 && socket_io_instance->io_state == IO_STATE_OPEN);

@@ -210,7 +210,7 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
             case RECEIVE_FRAME_STATE_FRAME_SIZE:
                 /* Codes_SRS_FRAME_CODEC_01_009: [This is an unsigned 32-bit integer that MUST contain the total frame size of the frame header, extended header, and frame body.] */
                 frame_codec_data->receive_frame_size += buffer[0] << (24 - frame_codec_data->receive_frame_pos * 8);
-                LogError("Reading new frame Buffer size %zu, Frame size %lu", size, (unsigned long)frame_codec_data->receive_frame_size);
+
                 buffer++;
                 size--;
                 frame_codec_data->receive_frame_pos++;
@@ -365,7 +365,7 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
                             free(frame_codec_data->receive_frame_bytes);
                             frame_codec_data->receive_frame_bytes = NULL;
                         }
-                        LogError("Resetting frame decode back to size %zu", size);
+
                         frame_codec_data->receive_frame_state = RECEIVE_FRAME_STATE_FRAME_SIZE;
                         frame_codec_data->receive_frame_size = 0;
                     }
@@ -410,7 +410,7 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
                         free(frame_codec_data->receive_frame_bytes);
                         frame_codec_data->receive_frame_bytes = NULL;
                     }
-                    LogError("Resetting frame decode back to size %zu", size);
+
                     frame_codec_data->receive_frame_state = RECEIVE_FRAME_STATE_FRAME_SIZE;
                     frame_codec_data->receive_frame_pos = 0;
                     frame_codec_data->receive_frame_size = 0;
