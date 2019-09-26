@@ -422,14 +422,6 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 bool more;
                 bool is_error;
 
-                link_instance->current_link_credit--;
-                link_instance->delivery_count++;
-                if (link_instance->current_link_credit == 0)
-                {
-                    link_instance->current_link_credit = link_instance->max_link_credit;
-                    send_flow(link_instance);
-                }
-
                 more = false;
                 /* Attempt to get more flag, default to false */
                 (void)transfer_get_more(transfer_handle, &more);
@@ -499,6 +491,14 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                             amqpvalue_destroy(delivery_state);
                         }
                     }
+                }
+
+                link_instance->current_link_credit--;
+                link_instance->delivery_count++;
+                if (link_instance->current_link_credit == 0)
+                {
+                    link_instance->current_link_credit = link_instance->max_link_credit;
+                    send_flow(link_instance);
                 }
 
                 transfer_destroy(transfer_handle);
