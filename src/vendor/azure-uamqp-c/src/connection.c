@@ -694,6 +694,7 @@ static int connection_byte_received(CONNECTION_HANDLE connection, unsigned char 
         /* Codes_S_R_S_CONNECTION_01_212: [After the initial handshake has been done all bytes received from the io instance shall be passed to the frame_codec for decoding by calling frame_codec_receive_bytes.] */
         if (frame_codec_receive_bytes(connection->frame_codec, &b, 1) != 0)
         {
+            LogError("Cannot process received bytes");
             /* Codes_S_R_S_CONNECTION_01_218: [The error amqp:internal-error shall be set in the error.condition field of the CLOSE frame.] */
             /* Codes_S_R_S_CONNECTION_01_219: [The error description shall be set to an implementation defined string.] */
             close_connection_with_error(connection, "amqp:internal-error", "connection_byte_received::frame_codec_receive_bytes failed", NULL);

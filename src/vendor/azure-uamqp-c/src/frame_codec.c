@@ -210,7 +210,6 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
             case RECEIVE_FRAME_STATE_FRAME_SIZE:
                 /* Codes_SRS_FRAME_CODEC_01_009: [This is an unsigned 32-bit integer that MUST contain the total frame size of the frame header, extended header, and frame body.] */
                 frame_codec_data->receive_frame_size += buffer[0] << (24 - frame_codec_data->receive_frame_pos * 8);
-
                 buffer++;
                 size--;
                 frame_codec_data->receive_frame_pos++;
