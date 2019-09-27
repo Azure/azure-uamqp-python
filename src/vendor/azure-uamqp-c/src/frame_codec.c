@@ -364,6 +364,7 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
                             free(frame_codec_data->receive_frame_bytes);
                             frame_codec_data->receive_frame_bytes = NULL;
                         }
+
                         frame_codec_data->receive_frame_state = RECEIVE_FRAME_STATE_FRAME_SIZE;
                         frame_codec_data->receive_frame_size = 0;
                     }
@@ -408,6 +409,7 @@ int frame_codec_receive_bytes(FRAME_CODEC_HANDLE frame_codec, const unsigned cha
                         free(frame_codec_data->receive_frame_bytes);
                         frame_codec_data->receive_frame_bytes = NULL;
                     }
+
                     frame_codec_data->receive_frame_state = RECEIVE_FRAME_STATE_FRAME_SIZE;
                     frame_codec_data->receive_frame_pos = 0;
                     frame_codec_data->receive_frame_size = 0;

@@ -455,7 +455,6 @@ int socketio_send(CONCRETE_IO_HANDLE socket_io, const void* buffer, size_t size,
 void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
 {
     int send_result;
-
     if (socket_io != NULL)
     {
         SOCKET_IO_INSTANCE* socket_io_instance = (SOCKET_IO_INSTANCE*)socket_io;
