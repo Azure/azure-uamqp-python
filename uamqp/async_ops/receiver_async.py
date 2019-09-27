@@ -123,6 +123,10 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                 "Failed to open Message Receiver. "
                 "Please confirm credentials and target URI.")
 
+    async def work_async(self):
+        """Update the link status."""
+        await self.loop.run_in_executor(self._conn._executor, functools.partial(self._link.do_work))
+
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
         self.close()

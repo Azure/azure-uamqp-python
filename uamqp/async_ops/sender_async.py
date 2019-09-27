@@ -157,6 +157,10 @@ class MessageSenderAsync(sender.MessageSender):
         finally:
             self._session._connection.release_async()
 
+    async def work_async(self):
+        """Update the link status."""
+        await self.loop.run_in_executor(self._conn._executor, functools.partial(self._link.do_work))
+
     async def close_async(self):
         """Close the sender asynchronously, leaving the link intact."""
         self._sender.close()

@@ -563,6 +563,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :rtype: bool
         """
         # pylint: disable=protected-access
+        await self.message_handler.work_async()
         self._waiting_messages = 0
         async with self._pending_messages_lock:
             self._pending_messages = await self._filter_pending_async()
@@ -827,6 +828,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
         :rtype: bool
         """
+        await self.message_handler.work_async()
         await self._connection.work_async()
         now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:
