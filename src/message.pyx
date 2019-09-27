@@ -23,7 +23,6 @@ cpdef c_message_to_py_message(cMessage c_message, py_message):
     _logger.debug("Parsing received message %r.", py_message.delivery_no)
     py_message._message = c_message
     body_type = c_message.body_type
-    body_type = c_message.body_type
     if body_type == MessageBodyType.NoneType:
         py_message._body = None
     elif body_type == MessageBodyType.DataType:
