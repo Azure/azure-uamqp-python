@@ -916,6 +916,16 @@ void link_destroy(LINK_HANDLE link)
             free(link->received_payload);
         }
 
+        if (link->desired_capabilities != NULL)
+        {
+            amqpvalue_destroy(link->desired_capabilities);
+        }
+
+        if(link->offered_capabilities != NULL)
+        {
+            amqpvalue_destroy(link->offered_capabilities);
+        }
+
         free(link);
     }
 }
