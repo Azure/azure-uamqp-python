@@ -141,14 +141,14 @@ cdef class cLink(StructBase):
         cdef c_amqpvalue.AMQP_VALUE value
         if c_link.link_get_desired_capabilities(self._c_value, &value) != 0:
             self._value_error()
-        return value
+        return value_factory(value)
 
     @property
     def offered_properties(self):
         cdef c_amqpvalue.AMQP_VALUE value
         if c_link.link_get_offered_capabilities(self._c_value, &value) != 0:
             self._value_error()
-        return value
+        return value_factory(value)
 
     cpdef set_prefetch_count(self, stdint.uint32_t prefetch):
         if c_link.link_set_max_link_credit(self._c_value, prefetch) != 0:
