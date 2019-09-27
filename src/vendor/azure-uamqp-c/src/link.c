@@ -1568,13 +1568,13 @@ void link_dowork(LINK_HANDLE link)
     }
     else
     {
+        tickcounter_ms_t current_tick;
+
         if (link->current_link_credit == 0)
         {
             link->current_link_credit = link->max_link_credit;
             send_flow(link);
         }
-
-        tickcounter_ms_t current_tick;
 
         if (tickcounter_get_current_ms(link->tick_counter, &current_tick) != 0)
         {
