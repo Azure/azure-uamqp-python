@@ -81,8 +81,10 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  error_policy=None,
                  debug=False,
                  encoding='UTF-8',
+                 executor=None,
                  loop=None):
         self.loop = loop or get_running_loop()
+        self.executor = executor
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
             on_message_received,
@@ -128,7 +130,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         """Update the link status."""
         # pylint: disable=protected-access
         await self.loop.run_in_executor(
-            self._conn._executor,
+            self.executor,
             functools.partial(self._link.do_work))
 
     async def close_async(self):
