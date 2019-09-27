@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import logging
+import functools
 
 from uamqp import constants, errors, receiver
 from uamqp.utils import get_running_loop
@@ -125,7 +126,10 @@ class MessageReceiverAsync(receiver.MessageReceiver):
 
     async def work_async(self):
         """Update the link status."""
-        await self.loop.run_in_executor(self._conn._executor, functools.partial(self._link.do_work))
+        # pylint: disable=protected-access
+        await self.loop.run_in_executor(
+            self._conn._executor,
+            functools.partial(self._link.do_work))
 
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
