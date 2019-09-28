@@ -61,7 +61,6 @@ typedef struct LINK_INSTANCE_TAG
     uint32_t max_link_credit;
     uint32_t available;
     fields attach_properties;
-    AMQP_VALUE offered_capabilities;
     AMQP_VALUE desired_capabilities;
     bool is_underlying_session_begun;
     bool is_closed;
@@ -737,7 +736,6 @@ LINK_HANDLE link_create(SESSION_HANDLE session, const char* name, role role, AMQ
         result->is_closed = false;
         result->attach_properties = NULL;
         result->desired_capabilities = NULL;
-        result->offered_capabilities = NULL;
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
@@ -823,7 +821,6 @@ LINK_HANDLE link_create_from_endpoint(SESSION_HANDLE session, LINK_ENDPOINT_HAND
         result->is_closed = false;
         result->attach_properties = NULL;
         result->desired_capabilities = NULL;
-        result->offered_capabilities = NULL;
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
@@ -914,16 +911,6 @@ void link_destroy(LINK_HANDLE link)
         if (link->received_payload != NULL)
         {
             free(link->received_payload);
-        }
-
-        if (link->desired_capabilities != NULL)
-        {
-            amqpvalue_destroy(link->desired_capabilities);
-        }
-
-        if(link->offered_capabilities != NULL)
-        {
-            amqpvalue_destroy(link->offered_capabilities);
         }
 
         free(link);
@@ -1109,48 +1096,6 @@ int link_get_peer_max_message_size(LINK_HANDLE link, uint64_t* peer_max_message_
     return result;
 }
 
-int link_get_offered_capabilities(LINK_HANDLE link, AMQP_VALUE* offered_capabilities)
-{
-    int result;
-    if((link == NULL) ||
-        (offered_capabilities == NULL))
-    {
-        LogError("Bad arguments: link = %p, offered_capabilities = %p",
-            link, offered_capabilities);
-        result = __FAILURE__;
-    }
-    else if ((link->link_state != LINK_STATE_ATTACHED) &&
-    (link->link_state != LINK_STATE_HALF_ATTACHED_ATTACH_RECEIVED))
-    {
-                LogError("Attempting to read offered capabilities before it was received");
-        result = __FAILURE__;
-    }
-    else
-    {
-        *offered_capabilities = amqpvalue_clone(link->offered_capabilities);
-        result = 0;
-    }
-    return result;
-}
-
-int link_set_offered_capabilities(LINK_HANDLE link, AMQP_VALUE offered_capabilities)
-{
-    int result;
-
-    if (link == NULL)
-    {
-        LogError("NULL link");
-        result = __FAILURE__;
-    }
-    else
-    {
-        link->offered_capabilities = amqpvalue_clone(offered_capabilities);
-        result = 0;
-    }
-
-    return result;
-}
-
 int link_get_desired_capabilities(LINK_HANDLE link, AMQP_VALUE* desired_capabilities)
 {
     int result;
@@ -1163,8 +1108,17 @@ int link_get_desired_capabilities(LINK_HANDLE link, AMQP_VALUE* desired_capabili
     }
     else
     {
-        *desired_capabilities = amqpvalue_clone(link->desired_capabilities);
-        result = 0;
+        AMQP_VALUE link_desired_capabilties = amqpvalue_clone(link->desired_capabilities);
+        if(link_desired_capabilties == NULL)
+        {
+            LogError("Failed to clone link desired capabilities");
+            result = __FAILURE__;
+        }
+        else
+        {
+            *desired_capabilities = link_desired_capabilties;
+            result = 0;
+        }
     }
     return result;
 }
@@ -1181,7 +1135,15 @@ int link_set_desired_capabilities(LINK_HANDLE link, AMQP_VALUE desired_capabilit
     else
     {
         link->desired_capabilities = amqpvalue_clone(desired_capabilities);
-        result = 0;
+        if (link->desired_capabilities == NULL)
+        {
+            LogError("Failed cloning desired capabilities");
+            result = __FAILURE__;
+        }
+        else
+        {
+            result = 0;
+        }
     }
 
     return result;

@@ -137,16 +137,9 @@ cdef class cLink(StructBase):
         return value
 
     @property
-    def desired_properties(self):
+    def desired_capabilities(self):
         cdef c_amqpvalue.AMQP_VALUE value
         if c_link.link_get_desired_capabilities(self._c_value, &value) != 0:
-            self._value_error()
-        return value_factory(value)
-
-    @property
-    def offered_properties(self):
-        cdef c_amqpvalue.AMQP_VALUE value
-        if c_link.link_get_offered_capabilities(self._c_value, &value) != 0:
             self._value_error()
         return value_factory(value)
 
@@ -161,10 +154,6 @@ cdef class cLink(StructBase):
     cpdef set_desired_capabilities(self, AMQPValue desired_capabilities):
         if c_link.link_set_desired_capabilities(self._c_value, <c_amqpvalue.AMQP_VALUE>desired_capabilities._c_value) != 0:
             self._value_error("Unable to set link desired capabilities.")
-
-    cpdef set_offered_capabilities(self, AMQPValue offered_capabilities):
-        if c_link.link_set_offered_capabilities(self._c_value, <c_amqpvalue.AMQP_VALUE>offered_capabilities._c_value) != 0:
-            self._value_error("Unable to set link offered capabilities.")
 
 
 #### Callback
