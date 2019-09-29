@@ -19,43 +19,6 @@ cimport c_amqpvalue
 
 _logger = logging.getLogger(__name__)
 
-cpdef c_message_to_py_message(cMessage c_message, py_message):
-    _logger.debug("Parsing received message %r.", py_message.delivery_no)
-    py_message._message = c_message
-    body_type = c_message.body_type
-    if body_type == MessageBodyType.NoneType:
-        py_message._body = None
-    elif body_type == MessageBodyType.DataType:
-        py_message._body = message.DataBody(py_message._message)
-    elif body_type == MessageBodyType.SequenceType:
-        raise TypeError("Message body type Sequence not supported.")
-    else:
-        py_message._body = message.ValueBody(py_message._message)
-    _props = py_message._message.properties
-    if _props:
-        _logger.debug("Parsing received message properties %r.", py_message.delivery_no)
-        py_message.properties = message.MessageProperties(properties=_props, encoding=py_message._encoding)
-    _header = py_message._message.header
-    if _header:
-        _logger.debug("Parsing received message header %r.", py_message.delivery_no)
-        py_message.header = message.MessageHeader(header=_header)
-    _footer = py_message._message.footer
-    if _footer:
-        _logger.debug("Parsing received message footer %r.", py_message.delivery_no)
-        py_message.footer = _footer.map
-    _app_props = py_message._message.application_properties
-    if _app_props:
-        _logger.debug("Parsing received message application properties %r.", py_message.delivery_no)
-        py_message.application_properties = _app_props.map
-    _ann = py_message._message.message_annotations
-    if _ann:
-        _logger.debug("Parsing received message annotations %r.", py_message.delivery_no)
-        py_message.annotations = _ann.map
-    _delivery_ann = py_message._message.delivery_annotations
-    if _delivery_ann:
-        _logger.debug("Parsing received message delivery annotations %r.", py_message.delivery_no)
-        py_message.delivery_annotations = _delivery_ann.map
-
 
 class MessageBodyType(Enum):
     NoneType = c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_NONE

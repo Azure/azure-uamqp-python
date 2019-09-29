@@ -79,12 +79,13 @@ class Message(object):
         self._encoding = encoding
         self.delivery_no = delivery_no
         self.on_send_complete = None
-        self.properties = None
-        self.application_properties = None
-        self.annotations = None
-        self.header = None
-        self.footer = None
-        self.delivery_annotations = None
+        self._properties = None
+        self._application_properties = None
+        self._annotations = None
+        self._header = None
+        self._footer = None
+        self._delivery_annotations = None
+        self._need_further_parse = False
 
         if message:
             if settler:
@@ -94,6 +95,7 @@ class Message(object):
                 self.state = constants.MessageState.ReceivedSettled
                 self._response = errors.MessageAlreadySettled()
             self._settler = settler
+            self._need_further_parse = True
             self._parse_message(message)
         else:
             self._message = c_uamqp.create_message()
@@ -109,10 +111,70 @@ class Message(object):
                 self._body.set(body)
             if msg_format:
                 self._message.message_format = msg_format
-            self.properties = properties
-            self.application_properties = application_properties
-            self.annotations = annotations
-            self.header = header
+            self._properties = properties
+            self._application_properties = application_properties
+            self._annotations = annotations
+            self._header = header
+
+    @property
+    def properties(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._properties
+
+    @properties.setter
+    def properties(self, value):
+        self._properties = value
+
+    @property
+    def header(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._header
+
+    @header.setter
+    def header(self, value):
+        self._header = value
+
+    @property
+    def footer(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._footer
+
+    @footer.setter
+    def footer(self, value):
+        self._footer = value
+
+    @property
+    def application_properties(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._application_properties
+
+    @application_properties.setter
+    def application_properties(self, value):
+        self._application_properties = value
+
+    @property
+    def annotations(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, value):
+        self._annotations = value
+
+    @property
+    def delivery_annotations(self):
+        if self._need_further_parse:
+            self._parse_properties(self):
+        return self._delivery_annotations
+
+    @delivery_annotations.setter
+    def delivery_annotations(self, value):
+        self._delivery_annotations = value
 
     @classmethod
     def decode_from_bytes(cls, data):
@@ -131,14 +193,41 @@ class Message(object):
             return ""
         return str(self._body)
 
+    def _parse_properties(self):
+        if self._need_further_parse:
+            _props = self._message.properties
+            if _props:
+                _logger.debug("Parsing received message properties %r.", self.delivery_no)
+                self._properties = MessageProperties(properties=_props, encoding=self._encoding)
+            _header = self._message.header
+            if _header:
+                _logger.debug("Parsing received message header %r.", self.delivery_no)
+                self._header = MessageHeader(header=_header)
+            _footer = self._message.footer
+            if _footer:
+                _logger.debug("Parsing received message footer %r.", self.delivery_no)
+                self._footer = _footer.map
+            _app_props = self._message.application_properties
+            if _app_props:
+                _logger.debug("Parsing received message application properties %r.", self.delivery_no)
+                self._application_properties = _app_props.map
+            _ann = self._message.message_annotations
+            if _ann:
+                _logger.debug("Parsing received message annotations %r.", self.delivery_no)
+                self._annotations = _ann.map
+            _delivery_ann = self._message.delivery_annotations
+            if _delivery_ann:
+                _logger.debug("Parsing received message delivery annotations %r.", self.delivery_no)
+                self._delivery_annotations = _delivery_ann.map
+            self._need_further_parse = False
+
     def _parse_message(self, message):
         """Parse a message received from an AMQP service.
 
         :param message: The received C message.
         :type message: uamqp.c_uamqp.cMessage
         """
-        c_uamqp.c_message_to_py_message(message, self)
-        '''
+
         _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
         body_type = message.body_type
@@ -150,6 +239,7 @@ class Message(object):
             raise TypeError("Message body type Sequence not supported.")
         else:
             self._body = ValueBody(self._message)
+        '''
         _props = self._message.properties
         if _props:
             _logger.debug("Parsing received message properties %r.", self.delivery_no)
@@ -434,10 +524,10 @@ class BatchMessage(Message):
         self._body_gen = data
         self._encoding = encoding
         self.on_send_complete = None
-        self.properties = properties
-        self.application_properties = application_properties
-        self.annotations = annotations
-        self.header = header
+        self._properties = properties
+        self._application_properties = application_properties
+        self._annotations = annotations
+        self._header = header
 
     def _create_batch_message(self):
         """Create a ~uamqp.message.Message for a value supplied by the data
