@@ -119,7 +119,7 @@ class Message(object):
     @property
     def properties(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._properties
 
     @properties.setter
@@ -129,7 +129,7 @@ class Message(object):
     @property
     def header(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._header
 
     @header.setter
@@ -139,7 +139,7 @@ class Message(object):
     @property
     def footer(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._footer
 
     @footer.setter
@@ -149,7 +149,7 @@ class Message(object):
     @property
     def application_properties(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._application_properties
 
     @application_properties.setter
@@ -159,7 +159,7 @@ class Message(object):
     @property
     def annotations(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._annotations
 
     @annotations.setter
@@ -169,7 +169,7 @@ class Message(object):
     @property
     def delivery_annotations(self):
         if self._need_further_parse:
-            self._parse_properties(self):
+            self._parse_properties()
         return self._delivery_annotations
 
     @delivery_annotations.setter
