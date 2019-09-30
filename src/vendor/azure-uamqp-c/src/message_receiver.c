@@ -238,8 +238,8 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
             delivery_tag received_message_tag;
             if (transfer_get_delivery_tag(transfer, &received_message_tag) != 0)
             {
-                    LogError("Could not get the delivery tag from the transfer performative");
-                    set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
+                LogError("Could not get the delivery tag from the transfer performative");
+                set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
             {

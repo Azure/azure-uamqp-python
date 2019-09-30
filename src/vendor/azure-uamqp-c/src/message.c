@@ -1470,27 +1470,45 @@ int message_set_delivery_tag(MESSAGE_HANDLE message, AMQP_VALUE delivery_tag_val
 {
     int result;
 
-    if ((message == NULL) || (delivery_tag_value == NULL))
+    if (message == NULL)
     {
-        LogError("Bad arguments: message = %p, delivery_tag = %p",
-            message, delivery_tag_value);
+        LogError("NULL message");
         result = __FAILURE__;
     }
     else
     {
-        AMQP_VALUE new_delivery_tag = amqpvalue_clone(delivery_tag_value);
-        if (new_delivery_tag == NULL)
+        if (delivery_tag_value == NULL)
         {
-            LogError("Cannot clone delivery tag");
-            result = __FAILURE__;
+            if (message->delivery_tag != NULL)
+            {
+                amqpvalue_destroy(message->delivery_tag);
+                message->delivery_tag = NULL;
+            }
+
+            /* Codes_SRS_MESSAGE_01_053: [ On success it shall return 0. ]*/
+            result = 0;
         }
         else
         {
 
-            message->delivery_tag = new_delivery_tag;
+            AMQP_VALUE new_delivery_tag = amqpvalue_clone(delivery_tag_value);
+            if (new_delivery_tag == NULL)
+            {
+                LogError("Cannot clone delivery tag");
+                result = __FAILURE__;
+            }
+            else
+            {
+                if (message->delivery_tag != NULL)
+                {
+                    amqpvalue_destroy(message->delivery_tag);
+                }
 
-            /* Codes_SRS_MESSAGE_01_102: [ On success it shall return 0. ]*/
-            result = 0;
+                message->delivery_tag = new_delivery_tag;
+
+                /* Codes_SRS_MESSAGE_01_102: [ On success it shall return 0. ]*/
+                result = 0;
+            }
         }
     }
 

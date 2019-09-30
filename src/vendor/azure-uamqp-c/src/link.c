@@ -1570,7 +1570,7 @@ void link_dowork(LINK_HANDLE link)
     {
         tickcounter_ms_t current_tick;
 
-        if (link->current_link_credit == 0)
+        if (link->current_link_credit <= 0)
         {
             link->current_link_credit = link->max_link_credit;
             send_flow(link);
