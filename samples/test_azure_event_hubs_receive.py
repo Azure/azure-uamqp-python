@@ -97,8 +97,6 @@ def test_event_hubs_client_proxy_settings(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    # if not sys.platform.startswith('darwin'):  # Not sure why this passes for OSX:
-    #    with pytest.raises(errors.AMQPConnectionError):
     with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
         receive_client.receive_message_batch(max_batch_size=10)
 
@@ -155,10 +153,10 @@ def test_event_hubs_client_receive_with_runtime_metric_sync(live_eventhub_config
             annotations = message.annotations
             delivery_annotations = message.delivery_annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-            log.info("Last enqueued sequence number: {}".format(delivery_annotations.get(b'last_enqueued_sequence_number')))
-            log.info("Last enqueued offset: {}".format(delivery_annotations.get(b'last_enqueued_offset')))
-            log.info("Last enqueued time utc: {}".format(delivery_annotations.get(b'last_enqueued_time_utc')))
-            log.info("Runtime info retrieval time utc: {}".format(delivery_annotations.get(b'runtime_info_retrieval_time_utc')))
+            assert b'last_enqueued_sequence_number' in delivery_annotations
+            assert b'last_enqueued_offset' in delivery_annotations
+            assert b'last_enqueued_time_utc' in delivery_annotations
+            assert b'runtime_info_retrieval_time_utc' in delivery_annotations
     log.info("Finished receiving")
 
 

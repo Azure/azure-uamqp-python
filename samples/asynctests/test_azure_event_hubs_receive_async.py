@@ -151,10 +151,10 @@ async def test_event_hubs_receive_with_runtime_metric_async(live_eventhub_config
             annotations = message.annotations
             delivery_annotations = message.delivery_annotations
             log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
-            log.info("Last enqueued sequence number: {}".format(delivery_annotations.get(b'last_enqueued_sequence_number')))
-            log.info("Last enqueued offset: {}".format(delivery_annotations.get(b'last_enqueued_offset')))
-            log.info("Last enqueued time utc: {}".format(delivery_annotations.get(b'last_enqueued_time_utc')))
-            log.info("Runtime info retrieval time utc: {}".format(delivery_annotations.get(b'runtime_info_retrieval_time_utc')))
+            assert b'last_enqueued_sequence_number' in delivery_annotations
+            assert b'last_enqueued_offset' in delivery_annotations
+            assert b'last_enqueued_time_utc' in delivery_annotations
+            assert b'runtime_info_retrieval_time_utc' in delivery_annotations
 
 
 @pytest.mark.asyncio
