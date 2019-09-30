@@ -97,7 +97,7 @@ def test_event_hubs_client_proxy_settings(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
         receive_client.receive_message_batch(max_batch_size=10)
 
 
@@ -111,7 +111,7 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
         with pytest.raises(ValueError):
             batch = receive_client.receive_message_batch(max_batch_size=100)
@@ -178,7 +178,7 @@ def test_event_hubs_callback_receive_sync(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=10, debug=False)
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=False)
     log.info("Created client, receiving...")
     
     receive_client.receive_messages(on_message_received)
@@ -195,7 +195,7 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=10, debug=False, prefetch=10)
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=False, prefetch=10)
     count = 0
     gen = receive_client.receive_messages_iter()
     for message in gen:
@@ -230,7 +230,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
     source = address.Source(source_url)
     source.set_filter(b"amqp.annotation.x-opt-sequence-number > 1500")
 
-    with uamqp.ReceiveClient(source, auth=plain_auth, timeout=50, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=plain_auth, timeout=5000, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
         batch = receive_client.receive_message_batch(max_batch_size=10)
         while batch:
