@@ -7,7 +7,6 @@
 import logging
 import os
 import pytest
-import time
 import sys
 try:
     from urllib import quote_plus #Py2
@@ -15,8 +14,7 @@ except Exception:
     from urllib.parse import quote_plus
 
 import uamqp
-from uamqp import address, errors
-from uamqp import authentication
+from uamqp import address, types, utils, authentication
 
 
 def get_logger(level):
@@ -31,11 +29,13 @@ def get_logger(level):
 
 log = get_logger(logging.INFO)
 
+
 def get_plain_auth(config):
     return authentication.SASLPlain(
         config['hostname'],
         config['key_name'],
         config['access_key'])
+
 
 def test_event_hubs_simple_receive(live_eventhub_config):
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
@@ -86,7 +86,6 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
 
 
 def test_event_hubs_client_proxy_settings(live_eventhub_config):
-    #pytest.skip("")
     proxy_settings={'proxy_hostname':'127.0.0.1', 'proxy_port': 12345}
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -98,10 +97,11 @@ def test_event_hubs_client_proxy_settings(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    #if not sys.platform.startswith('darwin'):  # Not sure why this passes for OSX:
+    # if not sys.platform.startswith('darwin'):  # Not sure why this passes for OSX:
     #    with pytest.raises(errors.AMQPConnectionError):
     with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50) as receive_client:
         receive_client.receive_message_batch(max_batch_size=10)
+
 
 def test_event_hubs_client_receive_sync(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
@@ -125,6 +125,40 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
                 annotations = message.annotations
                 log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
             batch = receive_client.receive_message_batch(max_batch_size=10)
+    log.info("Finished receiving")
+
+
+def test_event_hubs_client_receive_with_runtime_metric_sync(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    receiver_runtime_metric_symbol = b'com.microsoft:enable-receiver-runtime-metric'
+    symbol_array = [types.AMQPSymbol(receiver_runtime_metric_symbol)]
+    desired_capabilities = utils.data_factory(types.AMQPArray(symbol_array))
+
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50,
+                             desired_capabilities=desired_capabilities) as receive_client:
+        log.info("Created client, receiving...")
+        with pytest.raises(ValueError):
+            batch = receive_client.receive_message_batch(max_batch_size=100)
+        batch = receive_client.receive_message_batch(max_batch_size=10)
+        log.info("Got batch: {}".format(len(batch)))
+        assert len(batch) <= 10
+        for message in batch:
+            annotations = message.annotations
+            delivery_annotations = message.delivery_annotations
+            log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+            log.info("Last enqueued sequence number: {}".format(delivery_annotations.get(b'last_enqueued_sequence_number')))
+            log.info("Last enqueued offset: {}".format(delivery_annotations.get(b'last_enqueued_offset')))
+            log.info("Last enqueued time utc: {}".format(delivery_annotations.get(b'last_enqueued_time_utc')))
+            log.info("Runtime info retrieval time utc: {}".format(delivery_annotations.get(b'runtime_info_retrieval_time_utc')))
     log.info("Finished receiving")
 
 

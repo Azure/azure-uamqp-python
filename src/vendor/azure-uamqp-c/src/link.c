@@ -742,7 +742,6 @@ LINK_HANDLE link_create(SESSION_HANDLE session, const char* name, role role, AMQ
         result->on_link_detach_received_event_subscription.on_link_detach_received = NULL;
         result->on_link_detach_received_event_subscription.context = NULL;
 
-
         result->tick_counter = tickcounter_create();
         if (result->tick_counter == NULL)
         {
