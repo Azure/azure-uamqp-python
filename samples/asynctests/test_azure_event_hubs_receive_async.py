@@ -11,8 +11,7 @@ import asyncio
 import sys
 
 import uamqp
-from uamqp import address
-from uamqp import authentication
+from uamqp import address, types, utils, authentication
 
 
 def get_logger(level):
@@ -130,6 +129,35 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
 
 
 @pytest.mark.asyncio
+async def test_event_hubs_receive_with_runtime_metric_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    receiver_runtime_metric_symbol = b'com.microsoft:enable-receiver-runtime-metric'
+    symbol_array = [types.AMQPSymbol(receiver_runtime_metric_symbol)]
+    desired_capabilities = utils.data_factory(types.AMQPArray(symbol_array))
+
+    async with uamqp.ReceiveClientAsync(source, debug=False, auth=sas_auth, timeout=1000, prefetch=10,
+                                        desired_capabilities=desired_capabilities) as receive_client:
+        message_batch = await receive_client.receive_message_batch_async(10)
+        log.info("got batch: {}".format(len(message_batch)))
+        for message in message_batch:
+            annotations = message.annotations
+            delivery_annotations = message.delivery_annotations
+            log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+            assert b'last_enqueued_sequence_number' in delivery_annotations
+            assert b'last_enqueued_offset' in delivery_annotations
+            assert b'last_enqueued_time_utc' in delivery_annotations
+            assert b'runtime_info_retrieval_time_utc' in delivery_annotations
+
+
+@pytest.mark.asyncio
 async def test_event_hubs_shared_connection_async(live_eventhub_config):
     pytest.skip("Unstable on OSX and Linux - need to fix")  # TODO
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
@@ -158,6 +186,7 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
             await partition_0.close_async()
             await partition_1.close_async()
 
+
 async def receive_ten(partition, receiver):
     messages = []
     count = 0
@@ -169,6 +198,7 @@ async def receive_ten(partition, receiver):
         count += 1
     print("Finished receiving on partition {}".format(partition))
     return messages
+
 
 @pytest.mark.asyncio
 async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
