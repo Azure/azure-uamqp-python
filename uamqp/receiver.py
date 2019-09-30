@@ -80,7 +80,8 @@ class MessageReceiver(object):
                  properties=None,
                  error_policy=None,
                  debug=False,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 desired_capabilities=None):
         # pylint: disable=protected-access
         if name:
             self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
@@ -109,6 +110,8 @@ class MessageReceiver(object):
             self.send_settle_mode = send_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
+        if desired_capabilities:
+            self._link.set_desired_capabilities(desired_capabilities)
 
         self._receiver = c_uamqp.create_message_receiver(self._link, self)
         self._receiver.set_trace(debug)

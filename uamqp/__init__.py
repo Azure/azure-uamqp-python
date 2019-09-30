@@ -35,7 +35,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 
 _logger = logging.getLogger(__name__)
@@ -66,8 +66,8 @@ def send_message(target, data, auth=None, debug=False):
     """
     message = data if isinstance(data, Message) else Message(body=data)
     with SendClient(target, auth=auth, debug=debug) as send_client:
-        send_client.queue_message(message)
-        return send_client.send_all_messages()
+        send_client.queue_message(message)  # pylint: disable=no-member
+        return send_client.send_all_messages()  # pylint: disable=no-member
 
 
 def receive_message(source, auth=None, timeout=0, debug=False):
@@ -125,8 +125,8 @@ def receive_messages(source, auth=None, max_batch_size=None, timeout=0, debug=Fa
     if max_batch_size:
         kwargs['prefetch'] = max_batch_size
     with ReceiveClient(source, auth=auth, debug=debug, **kwargs) as receive_client:
-        return receive_client.receive_message_batch(
-            max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)  # pylint: disable=protected-access
+        return receive_client.receive_message_batch(  # pylint: disable=no-member
+            max_batch_size=max_batch_size or receive_client._prefetch, timeout=timeout)  # pylint: disable=protected-access, no-member
 
 
 class _Platform(object):

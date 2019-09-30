@@ -81,6 +81,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  error_policy=None,
                  debug=False,
                  encoding='UTF-8',
+                 desired_capabilities=None,
                  executor=None,
                  loop=None):
         self.loop = loop or get_running_loop()
@@ -96,7 +97,8 @@ class MessageReceiverAsync(receiver.MessageReceiver):
             properties=properties,
             error_policy=error_policy,
             debug=debug,
-            encoding=encoding)
+            encoding=encoding,
+            desired_capabilities=desired_capabilities)
 
     async def __aenter__(self):
         """Open the MessageReceiver in an async context manager."""

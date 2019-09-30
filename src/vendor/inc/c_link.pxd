@@ -53,6 +53,8 @@ cdef extern from "azure_uamqp_c/link.h":
     int link_get_max_message_size(LINK_HANDLE link, stdint.uint64_t* max_message_size)
     int link_get_peer_max_message_size(LINK_HANDLE link, stdint.uint64_t* peer_max_message_size)
     int link_set_attach_properties(LINK_HANDLE link, c_amqp_definitions.fields attach_properties)
+    int link_set_desired_capabilities(LINK_HANDLE link, c_amqpvalue.AMQP_VALUE desired_capabilities)
+    int link_get_desired_capabilities(LINK_HANDLE link, c_amqpvalue.AMQP_VALUE* desired_capabilities)
     int link_get_name(LINK_HANDLE link, const char** link_name)
     int link_get_received_message_id(LINK_HANDLE link, c_amqp_definitions.delivery_number* message_id)
 
