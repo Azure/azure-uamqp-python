@@ -233,46 +233,48 @@ class AMQPClient(object):
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
-        if connection:
-            _logger.debug("Using existing connection.")
-            self._auth = connection.auth
-            self._ext_connection = True
-            connection.lock()
-        self._connection = connection or self.connection_type(
-            self._hostname,
-            self._auth,
-            container_id=self._name,
-            max_frame_size=self._max_frame_size,
-            channel_max=self._channel_max,
-            idle_timeout=self._idle_timeout,
-            properties=self._properties,
-            remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            error_policy=self._error_policy,
-            debug=self._debug_trace,
-            encoding=self._encoding)
-        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-            self._connection.cbs = self._auth.create_authenticator(
-                self._connection,
+        try:
+            if connection:
+                _logger.debug("Using existing connection.")
+                self._auth = connection.auth
+                self._ext_connection = True
+                connection.lock()
+            self._connection = connection or self.connection_type(
+                self._hostname,
+                self._auth,
+                container_id=self._name,
+                max_frame_size=self._max_frame_size,
+                channel_max=self._channel_max,
+                idle_timeout=self._idle_timeout,
+                properties=self._properties,
+                remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+                error_policy=self._error_policy,
                 debug=self._debug_trace,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach)
-            self._session = self._auth._session
-        elif self._connection.cbs:
-            self._session = self._auth._session
-        else:
-            self._session = self.session_type(
-                self._connection,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach)
-        if self._keep_alive_interval:
-            self._keep_alive_thread = threading.Thread(target=self._keep_alive)
-            self._keep_alive_thread.start()
-        if self._ext_connection:
-            connection.release()
+                encoding=self._encoding)
+            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+                self._connection.cbs = self._auth.create_authenticator(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach)
+                self._session = self._auth._session
+            elif self._connection.cbs:
+                self._session = self._auth._session
+            else:
+                self._session = self.session_type(
+                    self._connection,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach)
+            if self._keep_alive_interval:
+                self._keep_alive_thread = threading.Thread(target=self._keep_alive)
+                self._keep_alive_thread.start()
+        finally:
+            if self._ext_connection:
+                connection.release()
 
     def close(self):
         """Close the client. This includes closing the Session
