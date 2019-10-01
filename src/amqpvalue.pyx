@@ -8,7 +8,6 @@
 from enum import Enum
 import logging
 import uuid
-import copy
 
 import six
 
