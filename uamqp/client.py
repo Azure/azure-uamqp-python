@@ -136,6 +136,7 @@ class AMQPClient(object):
         # Link settings
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
+        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
 
         # AMQP object settings
         self.message_handler = None
@@ -232,43 +233,48 @@ class AMQPClient(object):
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
-        if connection:
-            _logger.debug("Using existing connection.")
-            self._auth = connection.auth
-            self._ext_connection = True
-        self._connection = connection or self.connection_type(
-            self._hostname,
-            self._auth,
-            container_id=self._name,
-            max_frame_size=self._max_frame_size,
-            channel_max=self._channel_max,
-            idle_timeout=self._idle_timeout,
-            properties=self._properties,
-            remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            error_policy=self._error_policy,
-            debug=self._debug_trace,
-            encoding=self._encoding)
-        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-            self._connection.cbs = self._auth.create_authenticator(
-                self._connection,
+        try:
+            if connection:
+                _logger.debug("Using existing connection.")
+                self._auth = connection.auth
+                self._ext_connection = True
+                connection.lock()
+            self._connection = connection or self.connection_type(
+                self._hostname,
+                self._auth,
+                container_id=self._name,
+                max_frame_size=self._max_frame_size,
+                channel_max=self._channel_max,
+                idle_timeout=self._idle_timeout,
+                properties=self._properties,
+                remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+                error_policy=self._error_policy,
                 debug=self._debug_trace,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach)
-            self._session = self._auth._session
-        elif self._connection.cbs:
-            self._session = self._auth._session
-        else:
-            self._session = self.session_type(
-                self._connection,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach)
-        if self._keep_alive_interval:
-            self._keep_alive_thread = threading.Thread(target=self._keep_alive)
-            self._keep_alive_thread.start()
+                encoding=self._encoding)
+            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+                self._connection.cbs = self._auth.create_authenticator(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach)
+                self._session = self._auth._session
+            elif self._connection.cbs:
+                self._session = self._auth._session
+            else:
+                self._session = self.session_type(
+                    self._connection,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach)
+            if self._keep_alive_interval:
+                self._keep_alive_thread = threading.Thread(target=self._keep_alive)
+                self._keep_alive_thread.start()
+        finally:
+            if self._ext_connection:
+                connection.release()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -871,7 +877,8 @@ class ReceiveClient(AMQPClient):
         self._last_activity_timestamp = None
         self._was_message_received = False
         self._message_received_callback = None
-        self._received_messages = None
+        self._streaming_receive = False
+        self._received_messages = compat.queue.Queue()
 
         # Receiver and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
@@ -915,7 +922,8 @@ class ReceiveClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
                 error_policy=self._error_policy,
-                encoding=self._encoding)
+                encoding=self._encoding,
+                desired_capabilities=self._desired_capabilities)
             self.message_handler.open()
             return False
         if self.message_handler.get_state() == constants.MessageReceiverState.Error:
@@ -993,7 +1001,7 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         self._complete_message(message, self.auto_complete)
 
-        if self._received_messages:
+        if not self._streaming_receive:
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
@@ -1032,7 +1040,6 @@ class ReceiveClient(AMQPClient):
                 'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or compat.queue.Queue()
         self.open()
         receiving = True
         batch = []
@@ -1073,8 +1080,8 @@ class ReceiveClient(AMQPClient):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
+        self._streaming_receive = True
         self.open()
-        self._received_messages = None
         self._message_received_callback = on_message_received
         receiving = True
         try:
@@ -1084,6 +1091,7 @@ class ReceiveClient(AMQPClient):
             receiving = False
             raise
         finally:
+            self._streaming_receive = False
             if not receiving:
                 self.close()
 
@@ -1097,7 +1105,6 @@ class ReceiveClient(AMQPClient):
         :type on_message_received: callable[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = compat.queue.Queue()
         return self._message_generator()
 
     def redirect(self, redirect, auth):
@@ -1119,7 +1126,7 @@ class ReceiveClient(AMQPClient):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
-        self._received_messages = None
+        self._received_messages = compat.queue.Queue()
 
         self._remote_address = address.Source(redirect.address)
         self._redirect(redirect, auth)

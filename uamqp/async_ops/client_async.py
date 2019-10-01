@@ -10,10 +10,9 @@
 import asyncio
 import collections.abc
 import logging
-import queue
 import uuid
 
-from uamqp import address, authentication, client, constants, errors
+from uamqp import address, authentication, client, constants, errors, compat
 from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
@@ -218,44 +217,49 @@ class AMQPClientAsync(client.AMQPClient):
         # pylint: disable=protected-access
         if self._session:
             return  # already open
-        if connection:
-            _logger.info("Using existing connection.")
-            self._auth = connection.auth
-            self._ext_connection = True
-        self._connection = connection or self.connection_type(
-            self._hostname,
-            self._auth,
-            container_id=self._name,
-            max_frame_size=self._max_frame_size,
-            channel_max=self._channel_max,
-            idle_timeout=self._idle_timeout,
-            properties=self._properties,
-            remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
-            error_policy=self._error_policy,
-            debug=self._debug_trace,
-            loop=self.loop)
-        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-            self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
-                self._connection,
+        try:
+            if connection:
+                _logger.info("Using existing connection.")
+                self._auth = connection.auth
+                self._ext_connection = True
+                await connection.lock_async()
+            self._connection = connection or self.connection_type(
+                self._hostname,
+                self._auth,
+                container_id=self._name,
+                max_frame_size=self._max_frame_size,
+                channel_max=self._channel_max,
+                idle_timeout=self._idle_timeout,
+                properties=self._properties,
+                remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
+                error_policy=self._error_policy,
                 debug=self._debug_trace,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach,
-                loop=self.loop))
-            self._session = self._auth._session
-        elif self._connection.cbs:
-            self._session = self._auth._session
-        else:
-            self._session = self.session_type(
-                self._connection,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach,
                 loop=self.loop)
-        if self._keep_alive_interval:
-            self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
+            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
+                self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach,
+                    loop=self.loop))
+                self._session = self._auth._session
+            elif self._connection.cbs:
+                self._session = self._auth._session
+            else:
+                self._session = self.session_type(
+                    self._connection,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach,
+                    loop=self.loop)
+            if self._keep_alive_interval:
+                self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
+        finally:
+            if self._ext_connection:
+                connection.release_async()
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -807,6 +811,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding,
+                desired_capabilities=self._desired_capabilities,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async())
             return False
@@ -857,6 +862,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
         """
+        self._streaming_receive = True
         await self.open_async()
         self._message_received_callback = on_message_received
         receiving = True
@@ -867,6 +873,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             receiving = False
             raise
         finally:
+            self._streaming_receive = False
             if not receiving:
                 await self.close_async()
 
@@ -901,7 +908,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 'connection link credit: {}'.format(max_batch_size, self._prefetch))
         timeout = self._counter.get_current_ms() + int(timeout) if timeout else 0
         expired = False
-        self._received_messages = self._received_messages or queue.Queue()
         await self.open_async()
         receiving = True
         batch = []
@@ -945,7 +951,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         :rtype: Generator[~uamqp.message.Message]
         """
         self._message_received_callback = on_message_received
-        self._received_messages = queue.Queue()
         return AsyncMessageIter(self, auto_complete=self.auto_complete)
 
     async def redirect_async(self, redirect, auth):
@@ -967,6 +972,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._shutdown = False
         self._last_activity_timestamp = None
         self._was_message_received = False
+        self._received_messages = compat.queue.Queue()
 
         self._remote_address = address.Source(redirect.address)
         await self._redirect_async(redirect, auth)
