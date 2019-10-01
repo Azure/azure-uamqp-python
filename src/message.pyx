@@ -7,7 +7,6 @@
 # Python imports
 from enum import Enum
 import logging
-import message
 
 # C imports
 from libc cimport stdint
