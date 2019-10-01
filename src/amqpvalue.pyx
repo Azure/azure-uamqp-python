@@ -8,6 +8,7 @@
 from enum import Enum
 import logging
 import uuid
+import copy
 
 import six
 
@@ -312,7 +313,7 @@ cdef class AMQPValue(StructBase):
         if <void*>value == NULL:
             self._value_error()
         as_string = c_amqpvalue.amqpvalue_to_string(value)
-        py_string = as_string
+        py_string = copy.deepcopy(as_string)
         c_amqpvalue.amqpvalue_destroy(self._c_value)
         return py_string
 
@@ -668,7 +669,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
@@ -686,7 +687,7 @@ cdef class SymbolValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_symbol(self._c_value, &_value) == 0:
-            return _value
+            return copy.deepcopy(_value)
         else:
             self._value_error()
 
@@ -741,7 +742,7 @@ cdef class ListValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(self[i].value)
+            value.append(copy.deepcopy(self[i].value))
         return value
 
 
@@ -794,7 +795,7 @@ cdef class DictValue(AMQPValue):
         value = {}
         for i in range(self.size):
             key, item = self.get(i)
-            value[key.value] = item.value
+            value[copy.deepcopy(key.value)] = copy.deepcopy(item.value)
         return value
 
 
@@ -839,7 +840,7 @@ cdef class ArrayValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(self[i].value)
+            value.append(copy.deepcopy(self[i].value))
         return value
 
 
@@ -944,4 +945,4 @@ cdef class DescribedValue(AMQPValue):
         assert self.type
         #descriptor = self.description
         described = self.data
-        return described.value
+        return copy.deepcopy(described.value)
