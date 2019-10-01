@@ -95,8 +95,7 @@ class Message(object):
                 self.state = constants.MessageState.ReceivedSettled
                 self._response = errors.MessageAlreadySettled()
             self._settler = settler
-            self._need_further_parse = True
-            self._parse_message(message)
+            self._parse_message_body(message)
         else:
             self._message = c_uamqp.create_message()
             if isinstance(body, (six.text_type, six.binary_type)):
@@ -119,7 +118,7 @@ class Message(object):
     @property
     def properties(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._properties
 
     @properties.setter
@@ -129,7 +128,7 @@ class Message(object):
     @property
     def header(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._header
 
     @header.setter
@@ -139,7 +138,7 @@ class Message(object):
     @property
     def footer(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._footer
 
     @footer.setter
@@ -149,7 +148,7 @@ class Message(object):
     @property
     def application_properties(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._application_properties
 
     @application_properties.setter
@@ -159,7 +158,7 @@ class Message(object):
     @property
     def annotations(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._annotations
 
     @annotations.setter
@@ -169,7 +168,7 @@ class Message(object):
     @property
     def delivery_annotations(self):
         if self._need_further_parse:
-            self._parse_properties()
+            self._parse_message_properties()
         return self._delivery_annotations
 
     @delivery_annotations.setter
@@ -193,7 +192,7 @@ class Message(object):
             return ""
         return str(self._body)
 
-    def _parse_properties(self):
+    def _parse_message_properties(self):
         if self._need_further_parse:
             _props = self._message.properties
             if _props:
@@ -221,7 +220,7 @@ class Message(object):
                 self._delivery_annotations = _delivery_ann.map
             self._need_further_parse = False
 
-    def _parse_message(self, message):
+    def _parse_message_body(self, message):
         """Parse a message received from an AMQP service.
 
         :param message: The received C message.
@@ -239,32 +238,7 @@ class Message(object):
             raise TypeError("Message body type Sequence not supported.")
         else:
             self._body = ValueBody(self._message)
-        '''
-        _props = self._message.properties
-        if _props:
-            _logger.debug("Parsing received message properties %r.", self.delivery_no)
-            self.properties = MessageProperties(properties=_props, encoding=self._encoding)
-        _header = self._message.header
-        if _header:
-            _logger.debug("Parsing received message header %r.", self.delivery_no)
-            self.header = MessageHeader(header=_header)
-        _footer = self._message.footer
-        if _footer:
-            _logger.debug("Parsing received message footer %r.", self.delivery_no)
-            self.footer = _footer.map
-        _app_props = self._message.application_properties
-        if _app_props:
-            _logger.debug("Parsing received message application properties %r.", self.delivery_no)
-            self.application_properties = _app_props.map
-        _ann = self._message.message_annotations
-        if _ann:
-            _logger.debug("Parsing received message annotations %r.", self.delivery_no)
-            self.annotations = _ann.map
-        _delivery_ann = self._message.delivery_annotations
-        if _delivery_ann:
-            _logger.debug("Parsing received message delivery annotations %r.", self.delivery_no)
-            self.delivery_annotations = _delivery_ann.map
-        '''
+        self._need_further_parse = True
 
     def _can_settle_message(self):
         if self.state not in constants.RECEIVE_STATES:
