@@ -519,6 +519,7 @@ class BatchMessage(Message):
         self._application_properties = application_properties
         self._annotations = annotations
         self._header = header
+        self._need_further_parse = False
 
     def _create_batch_message(self):
         """Create a ~uamqp.message.Message for a value supplied by the data
