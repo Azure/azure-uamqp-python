@@ -69,5 +69,7 @@ cdef extern from "azure_uamqp_c/message.h":
     int message_get_body_type(MESSAGE_HANDLE message, MESSAGE_BODY_TYPE_TAG* body_type)
     int message_set_message_format(MESSAGE_HANDLE message, stdint.uint32_t message_format)
     int message_get_message_format(MESSAGE_HANDLE message, stdint.uint32_t* message_format)
+    int message_get_delivery_tag(MESSAGE_HANDLE message, c_amqpvalue.AMQP_VALUE* delivery_tag)
+
 
 

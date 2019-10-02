@@ -648,6 +648,7 @@ class SendClient(AMQPClient):
         :rtype: bool
         """
         # pylint: disable=protected-access
+        self.message_handler.work()
         self._waiting_messages = 0
         self._pending_messages = self._filter_pending()
         if self._backoff and not self._waiting_messages:
@@ -943,6 +944,7 @@ class ReceiveClient(AMQPClient):
 
         :rtype: bool
         """
+        self.message_handler.work()
         self._connection.work()
         now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:

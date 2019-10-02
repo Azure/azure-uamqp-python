@@ -434,11 +434,6 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
 
                 link_instance->current_link_credit--;
                 link_instance->delivery_count++;
-                if (link_instance->current_link_credit == 0)
-                {
-                    link_instance->current_link_credit = link_instance->max_link_credit;
-                    send_flow(link_instance);
-                }
 
                 more = false;
                 /* Attempt to get more flag, default to false */
@@ -1639,6 +1634,12 @@ void link_dowork(LINK_HANDLE link)
     else
     {
         tickcounter_ms_t current_tick;
+
+        if (link->current_link_credit <= 0)
+        {
+            link->current_link_credit = link->max_link_credit;
+            send_flow(link);
+        }
 
         if (tickcounter_get_current_ms(link->tick_counter, &current_tick) != 0)
         {

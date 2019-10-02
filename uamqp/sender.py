@@ -189,6 +189,10 @@ class MessageSender(object):
             raise
         return self._state
 
+    def work(self):
+        """Update the link status."""
+        self._link.do_work()
+
     def destroy(self):
         """Close both the Sender and the Link. Clean up any C objects."""
         self._sender.destroy()

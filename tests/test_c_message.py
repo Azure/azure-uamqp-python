@@ -36,3 +36,8 @@ def test_body_value():
     
     body = message.get_body_value()
     assert body.type == c_uamqp.AMQPType.StringValue
+
+
+def test_delivery_tag():
+    message = c_uamqp.create_message()
+    assert not message.delivery_tag

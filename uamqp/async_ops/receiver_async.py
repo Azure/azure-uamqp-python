@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import logging
+import functools
 
 from uamqp import constants, errors, receiver
 from uamqp.utils import get_running_loop
@@ -81,8 +82,10 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  debug=False,
                  encoding='UTF-8',
                  desired_capabilities=None,
+                 executor=None,
                  loop=None):
         self.loop = loop or get_running_loop()
+        self.executor = executor
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
             on_message_received,
@@ -124,6 +127,13 @@ class MessageReceiverAsync(receiver.MessageReceiver):
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
                 "Please confirm credentials and target URI.")
+
+    async def work_async(self):
+        """Update the link status."""
+        # pylint: disable=protected-access
+        await self.loop.run_in_executor(
+            self.executor,
+            functools.partial(self._link.do_work))
 
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""

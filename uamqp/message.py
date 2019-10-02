@@ -78,6 +78,7 @@ class Message(object):
         self._settler = None
         self._encoding = encoding
         self.delivery_no = delivery_no
+        self.delivery_tag = None
         self.on_send_complete = None
         self.properties = None
         self.application_properties = None
@@ -139,6 +140,9 @@ class Message(object):
         """
         _logger.debug("Parsing received message %r.", self.delivery_no)
         self._message = message
+        delivery_tag = self._message.delivery_tag
+        if delivery_tag:
+            self.delivery_tag = delivery_tag.value
         body_type = message.body_type
         if body_type == c_uamqp.MessageBodyType.NoneType:
             self._body = None
