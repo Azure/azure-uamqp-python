@@ -236,14 +236,15 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
         else
         {
             delivery_tag received_message_tag;
+            AMQP_VALUE delivery_tag_value;
+            bool should_destroy_delivery_tag = false;
             if (transfer_get_delivery_tag(transfer, &received_message_tag) != 0)
             {
                 LogError("Could not get the delivery tag from the transfer performative");
-                set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
             {
-                AMQP_VALUE delivery_tag_value = amqpvalue_create_delivery_tag(received_message_tag);
+                delivery_tag_value = amqpvalue_create_delivery_tag(received_message_tag);
                 if (delivery_tag_value == NULL)
                 {
                     LogError("Could not create delivery tag value");
@@ -254,43 +255,44 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
                     LogError("Could not set message delivery tag");
                     set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
                 }
+                else {
+                    should_destroy_delivery_tag = true;
+                }
+            }
+            
+            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
+            if (amqpvalue_decoder == NULL)
+            {
+                LogError("Cannot create AMQP value decoder");
+                set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
+            }
+            else
+            {
+                message_receiver->decoded_message = message;
+                message_receiver->decode_error = false;
+                if (amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0)
+                {
+                    LogError("Cannot decode bytes");
+                    set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
+                }
                 else
                 {
-                    AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
-                    if (amqpvalue_decoder == NULL)
+                    if (message_receiver->decode_error)
                     {
-                        LogError("Cannot create AMQP value decoder");
+                        LogError("Error decoding message");
                         set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
                     }
                     else
                     {
-                        message_receiver->decoded_message = message;
-                        message_receiver->decode_error = false;
-                        if (amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0)
-                        {
-                            LogError("Cannot decode bytes");
-                            set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
-                        }
-                        else
-                        {
-                            if (message_receiver->decode_error)
-                            {
-                                LogError("Error decoding message");
-                                set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
-                            }
-                            else
-                            {
-                                result = message_receiver->on_message_received(message_receiver->callback_context, message);
-                            }
-                        }
-
-                        amqpvalue_decoder_destroy(amqpvalue_decoder);
+                        result = message_receiver->on_message_received(message_receiver->callback_context, message);
                     }
-
-                    amqpvalue_destroy(delivery_tag_value);
                 }
-            }
 
+                amqpvalue_decoder_destroy(amqpvalue_decoder);
+            }
+            if ( should_destroy_delivery_tag ) {
+                amqpvalue_destroy(delivery_tag_value);
+            }
             message_destroy(message);
         }
     }
