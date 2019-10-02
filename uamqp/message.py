@@ -147,6 +147,15 @@ class Message(object):
             self._parse_message_properties()
         return self._footer
 
+    @footer.setter
+    def footer(self, value):
+        if not isinstance(value, dict):
+            raise TypeError("Footer must be a dictionary")
+        footer_props = c_uamqp.create_footer(
+            utils.data_factory(value, encoding=self._encoding))
+        self._message.footer = footer_props
+        self._footer = value
+
     @property
     def application_properties(self):
         if self._need_further_parse:
