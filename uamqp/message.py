@@ -125,7 +125,6 @@ class Message(object):
     def properties(self, value):
         if not isinstance(value, MessageProperties):
             raise TypeError("Properties must be a MessageProperties.")
-        self._message.properties = value.get_properties_obj()
         self._properties = value
 
     @property
@@ -138,7 +137,6 @@ class Message(object):
     def header(self, value):
         if not isinstance(value, MessageHeader):
             raise TypeError("Header must be a MessageHeader.")
-        self._message.header = value.get_header_obj()
         self._header = value
 
     @property
@@ -166,8 +164,6 @@ class Message(object):
     def application_properties(self, value):
         if not isinstance(value, dict):
             raise TypeError("Application properties must be a dictionary.")
-        amqp_props = utils.data_factory(value, encoding=self._encoding)
-        self._message.application_properties = amqp_props
         self._application_properties = value
 
     @property
@@ -180,9 +176,6 @@ class Message(object):
     def annotations(self, value):
         if not isinstance(value, dict):
             raise TypeError("Message annotations must be a dictionary.")
-        ann_props = c_uamqp.create_message_annotations(
-            utils.data_factory(value, encoding=self._encoding))
-        self._message.message_annotations = ann_props
         self._annotations = value
 
     @property
