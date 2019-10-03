@@ -246,6 +246,10 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
                     set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
                 }
             }
+            else
+            {
+                delivery_tag_value = NULL;
+            }
             
             AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
             if (amqpvalue_decoder == NULL)
