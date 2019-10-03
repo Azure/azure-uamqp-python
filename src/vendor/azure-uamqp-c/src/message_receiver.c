@@ -237,6 +237,8 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
         {
             delivery_tag received_message_tag;
             AMQP_VALUE delivery_tag_value;
+            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder;
+
             if (transfer_get_delivery_tag(transfer, &received_message_tag) == 0)
             {
                 delivery_tag_value = amqpvalue_create_delivery_tag(received_message_tag);
@@ -251,7 +253,7 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
                 delivery_tag_value = NULL;
             }
             
-            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
+            amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
             if (amqpvalue_decoder == NULL)
             {
                 LogError("Cannot create AMQP value decoder");
