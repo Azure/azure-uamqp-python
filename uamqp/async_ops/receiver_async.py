@@ -50,6 +50,11 @@ class MessageReceiverAsync(receiver.MessageReceiver):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
+     To create an desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Tranform the array into an AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param prefetch: The receiver Link credit that determines how many
