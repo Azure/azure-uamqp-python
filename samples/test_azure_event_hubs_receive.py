@@ -85,8 +85,25 @@ def test_event_hubs_single_batch_receive(live_eventhub_config):
     assert len(message) <= 300
 
 
+def test_event_hubs_client_web_socket(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'],
+        transport_type=uamqp.TransportType.AmqpOverWebsocket)
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
+        receive_client.receive_message_batch(max_batch_size=10)
+
+
 def test_event_hubs_client_proxy_settings(live_eventhub_config):
-    proxy_settings={'proxy_hostname':'127.0.0.1', 'proxy_port': 12345}
+    pytest.skip("skipping the test in CI due to no proxy server")
+    proxy_settings={'proxy_hostname': '127.0.0.1', 'proxy_port': 12345}
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'], http_proxy=proxy_settings)

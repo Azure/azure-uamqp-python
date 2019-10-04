@@ -129,6 +129,23 @@ async def test_event_hubs_batch_receive_async(live_eventhub_config):
 
 
 @pytest.mark.asyncio
+async def test_event_hubs_client_web_socket_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'],
+        transport_type=uamqp.TransportType.AmqpOverWebsocket)
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    async with uamqp.ReceiveClientAsync(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
+        receive_client.receive_message_batch(max_batch_size=10)
+
+
+@pytest.mark.asyncio
 async def test_event_hubs_receive_with_runtime_metric_async(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
