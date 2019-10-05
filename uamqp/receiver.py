@@ -52,6 +52,11 @@ class MessageReceiver(object):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
+     To create an desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param prefetch: The receiver Link credit that determines how many
@@ -80,7 +85,8 @@ class MessageReceiver(object):
                  properties=None,
                  error_policy=None,
                  debug=False,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 desired_capabilities=None):
         # pylint: disable=protected-access
         if name:
             self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
@@ -109,6 +115,8 @@ class MessageReceiver(object):
             self.send_settle_mode = send_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
+        if desired_capabilities:
+            self._link.set_desired_capabilities(desired_capabilities)
 
         self._receiver = c_uamqp.create_message_receiver(self._link, self)
         self._receiver.set_trace(debug)
@@ -258,6 +266,10 @@ class MessageReceiver(object):
             _logger.warning("%r", e)
             raise
         return self._state
+
+    def work(self):
+        """Update the link status."""
+        self._link.do_work()
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""

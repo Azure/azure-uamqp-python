@@ -3,6 +3,16 @@
 Release History
 ===============
 
+1.2.3 (2019-10-07)
+++++++++++++++++++
+
+- Fixed bug in dropping received messages at the moment when the connection just started working.
+- Fixed bug where underlying io type wasn't set to WebSocket when http_proxy was applied (PR#92, Thanks to skoop22).
+- Fixed bug in noneffective timeout when sending messages.
+- Added desired-capabilities for `ReceiveClient(Async)` and `MessageReceiver(Async)` as part of the AMQP protocol.
+- Added delivery-tag to `Message` (azure-sdk-for-python issue #7336).
+- Added method `work` to `MessageReceiver` and `work_async` to `MessageReceiverAsync` responsible for updating link status.
+
 1.2.2 (2019-07-02)
 ++++++++++++++++++
 

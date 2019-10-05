@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import logging
+import functools
 
 from uamqp import constants, errors, receiver
 from uamqp.utils import get_running_loop
@@ -49,6 +50,11 @@ class MessageReceiverAsync(receiver.MessageReceiver):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
+     To create an desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param prefetch: The receiver Link credit that determines how many
@@ -80,8 +86,11 @@ class MessageReceiverAsync(receiver.MessageReceiver):
                  error_policy=None,
                  debug=False,
                  encoding='UTF-8',
+                 desired_capabilities=None,
+                 executor=None,
                  loop=None):
         self.loop = loop or get_running_loop()
+        self.executor = executor
         super(MessageReceiverAsync, self).__init__(
             session, source, target,
             on_message_received,
@@ -93,7 +102,8 @@ class MessageReceiverAsync(receiver.MessageReceiver):
             properties=properties,
             error_policy=error_policy,
             debug=debug,
-            encoding=encoding)
+            encoding=encoding,
+            desired_capabilities=desired_capabilities)
 
     async def __aenter__(self):
         """Open the MessageReceiver in an async context manager."""
@@ -122,6 +132,13 @@ class MessageReceiverAsync(receiver.MessageReceiver):
             raise errors.AMQPConnectionError(
                 "Failed to open Message Receiver. "
                 "Please confirm credentials and target URI.")
+
+    async def work_async(self):
+        """Update the link status."""
+        # pylint: disable=protected-access
+        await self.loop.run_in_executor(
+            self.executor,
+            functools.partial(self._link.do_work))
 
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""

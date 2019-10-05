@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 import logging
+import functools
 
 from uamqp import constants, errors, sender
 from uamqp.utils import get_running_loop
@@ -84,8 +85,10 @@ class MessageSenderAsync(sender.MessageSender):
                  error_policy=None,
                  debug=False,
                  encoding='UTF-8',
+                 executor=None,
                  loop=None):
         self.loop = loop or get_running_loop()
+        self.executor = executor
         super(MessageSenderAsync, self).__init__(
             session, source, target,
             name=name,
@@ -156,6 +159,13 @@ class MessageSenderAsync(sender.MessageSender):
             return self._sender.send(c_message, timeout, message)
         finally:
             self._session._connection.release_async()
+
+    async def work_async(self):
+        """Update the link status."""
+        # pylint: disable=protected-access
+        await self.loop.run_in_executor(
+            self.executor,
+            functools.partial(self._link.do_work))
 
     async def close_async(self):
         """Close the sender asynchronously, leaving the link intact."""
