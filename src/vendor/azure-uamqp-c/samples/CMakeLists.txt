@@ -13,6 +13,7 @@ endfunction()
 
 add_sample_directory(message_sender_sample)
 add_sample_directory(message_receiver_sample)
+add_sample_directory(multiple_receivers_share_connection_sample)
 add_sample_directory(mssbcbs_sample)
 add_sample_directory(eh_sender_with_sas_token_sample)
 add_sample_directory(local_client_sample)

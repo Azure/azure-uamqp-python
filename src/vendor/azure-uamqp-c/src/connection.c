@@ -1326,14 +1326,14 @@ void connection_destroy(CONNECTION_HANDLE connection)
     }
 }
 
-int connection_open(CONNECTION_HANDLE connection)
+CONNECTION_OPEN_RESULT connection_open(CONNECTION_HANDLE connection)
 {
-    int result;
+    CONNECTION_OPEN_RESULT result;
 
     if (connection == NULL)
     {
         LogError("NULL connection");
-        result = __FAILURE__;
+        result = CONNECTION_OPEN_ERROR;
     }
     else
     {
@@ -1343,7 +1343,7 @@ int connection_open(CONNECTION_HANDLE connection)
             {
                 LogError("Opening the underlying IO failed");
                 connection_set_state(connection, CONNECTION_STATE_END);
-                result = __FAILURE__;
+                result = CONNECTION_OPEN_ERROR;
             }
             else
             {
@@ -1351,12 +1351,12 @@ int connection_open(CONNECTION_HANDLE connection)
 
                 connection_set_state(connection, CONNECTION_STATE_START);
 
-                result = 0;
+                result = CONNECTION_OPEN_OK;
             }
         }
         else
         {
-            result = 0;
+            result = CONNECTION_OPEN_ALREADY_OPEN;
         }
     }
 

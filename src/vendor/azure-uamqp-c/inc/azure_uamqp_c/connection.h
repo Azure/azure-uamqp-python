@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include "azure_c_shared_utility/macro_utils.h"
 #include "azure_c_shared_utility/xio.h"
 #include "azure_c_shared_utility/umock_c_prod.h"
 #include "azure_uamqp_c/amqp_frame_codec.h"
@@ -71,6 +72,13 @@ extern "C" {
         CONNECTION_STATE_ERROR
     } CONNECTION_STATE;
 
+    #define CONNECTION_OPEN_RESULT_VALUES \
+    CONNECTION_OPEN_OK, \
+    CONNECTION_OPEN_ALREADY_OPEN, \
+    CONNECTION_OPEN_ERROR
+
+    DEFINE_ENUM(CONNECTION_OPEN_RESULT, CONNECTION_OPEN_RESULT_VALUES)
+
     typedef void(*ON_ENDPOINT_FRAME_RECEIVED)(void* context, AMQP_VALUE performative, uint32_t frame_payload_size, const unsigned char* payload_bytes);
     typedef void(*ON_CONNECTION_STATE_CHANGED)(void* context, CONNECTION_STATE new_connection_state, CONNECTION_STATE previous_connection_state);
     typedef void(*ON_CONNECTION_CLOSE_RECEIVED)(void* context, ERROR_HANDLE error);
@@ -79,7 +87,7 @@ extern "C" {
     MOCKABLE_FUNCTION(, CONNECTION_HANDLE, connection_create, XIO_HANDLE, io, const char*, hostname, const char*, container_id, ON_NEW_ENDPOINT, on_new_endpoint, void*, callback_context);
     MOCKABLE_FUNCTION(, CONNECTION_HANDLE, connection_create2, XIO_HANDLE, xio, const char*, hostname, const char*, container_id, ON_NEW_ENDPOINT, on_new_endpoint, void*, callback_context, ON_CONNECTION_STATE_CHANGED, on_connection_state_changed, void*, on_connection_state_changed_context, ON_IO_ERROR, on_io_error, void*, on_io_error_context);
     MOCKABLE_FUNCTION(, void, connection_destroy, CONNECTION_HANDLE, connection);
-    MOCKABLE_FUNCTION(, int, connection_open, CONNECTION_HANDLE, connection);
+    MOCKABLE_FUNCTION(, CONNECTION_OPEN_RESULT, connection_open, CONNECTION_HANDLE, connection);
     MOCKABLE_FUNCTION(, int, connection_listen, CONNECTION_HANDLE, connection);
     MOCKABLE_FUNCTION(, int, connection_close, CONNECTION_HANDLE, connection, const char*, condition_value, const char*, description, AMQP_VALUE, info);
     MOCKABLE_FUNCTION(, int, connection_set_max_frame_size, CONNECTION_HANDLE, connection, uint32_t, max_frame_size);

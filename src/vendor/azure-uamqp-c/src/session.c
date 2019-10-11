@@ -862,10 +862,23 @@ int session_begin(SESSION_HANDLE session)
         {
             if (!session_instance->is_underlying_connection_open)
             {
-                if (connection_open(session_instance->connection) != 0)
+                CONNECTION_OPEN_RESULT connection_open_result;
+                connection_open_result = connection_open(session_instance->connection);
+                if (connection_open_result == CONNECTION_OPEN_OK)
                 {
-                    session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_NOT_OPEN;
-                    result = __FAILURE__;
+                    session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_OPEN;
+                    result = 0;
+                }
+                else if(connection_open_result == CONNECTION_OPEN_ALREADY_OPEN)
+                {
+                    if (send_begin(session) != 0)
+                    {
+                        result = __FAILURE__;
+                    }
+                    else
+                    {
+                        result = 0;
+                    }
                 }
                 else
                 {
