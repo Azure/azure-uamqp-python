@@ -884,8 +884,8 @@ int session_begin(SESSION_HANDLE session)
                 }
                 else
                 {
-                    session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_OPEN;
-                    result = 0;
+                    session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_NOT_OPEN;
+                    result = __FAILURE__;
                 }
             }
             else
