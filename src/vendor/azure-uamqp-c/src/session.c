@@ -877,6 +877,8 @@ int session_begin(SESSION_HANDLE session)
                     }
                     else
                     {
+                        session_set_state(session_instance, SESSION_STATE_BEGIN_SENT);
+                        session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_OPEN;
                         result = 0;
                     }
                 }

@@ -27,10 +27,10 @@
 /* The SAS token is generated based on the policy name/key */
 /* Replace the below settings with your own.*/
 
-#define EH_HOST "Insert EH host here"
-#define EH_KEY_NAME "Insert key name here"
-#define EH_KEY "Insert key here"
-#define EH_NAME "Insert EH name here"
+#define EH_HOST ""
+#define EH_KEY_NAME ""
+#define EH_KEY ""
+#define EH_NAME ""
 
 static const size_t msg_count = 1;
 static unsigned int sent_messages = 0;
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 
         /* create the connection, session and link */
         connection = connection_create(sasl_io, EH_HOST, "aname", on_new_session_endpoint, NULL);
-		connection_set_trace(connection, true);
+		connection_set_trace(connection, false);
         session = session_create(connection, NULL, NULL);
         session_set_incoming_window(session, 655565);
         session_set_outgoing_window(session, 65536);
@@ -311,29 +311,14 @@ int main(int argc, char** argv)
 			}
 		}
 
-		//for (int i = 0; i < partition_cnt; i++) {
-		//	bool ok = true;
-		//	do {
-		//		connection_dowork(connection);
-		//		ok = true;
-		//		int state = get_message_state(receiver_handlers[i], false);
-		//		if (state != 2) {
-		//			ok = false;
-		//		}
-		//	} while (!ok);
-		//}
-
-		// printf("all of the message receivers are ready!\n");
-
 		bool keep_running = true;
 		while (keep_running)
 		{
 			connection_dowork(connection);
 			for (int i = 0; i < partition_cnt; i++) {
-				//printf("| partition: %d, cnt: %d |", i, rec[i]);
-				//printf("| session:%d , state: %s |", i, get_session_state(session_handlers[i]));
+				printf("| partition: %d, cnt: %d |", i, rec[i]);
 			}
-			//printf("\n");
+		    printf("\n");
 		}
 
         result = 0;
