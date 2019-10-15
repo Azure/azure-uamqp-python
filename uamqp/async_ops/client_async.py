@@ -18,6 +18,7 @@ from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
 from uamqp.async_ops.session_async import SessionAsync
+from uamqp.constants import LinkCreationMode
 
 try:
     TimeoutException = TimeoutError
@@ -191,8 +192,7 @@ class AMQPClientAsync(client.AMQPClient):
                 handle_max=self._handle_max,
                 on_attach=self._on_attach,
                 loop=self.loop))
-            self._session = self._auth._session
-        elif self._connection.cbs:
+        if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
             self._session = self._auth._session
         else:
             self._session = self.session_type(
@@ -244,8 +244,7 @@ class AMQPClientAsync(client.AMQPClient):
                     handle_max=self._handle_max,
                     on_attach=self._on_attach,
                     loop=self.loop))
-                self._session = self._auth._session
-            elif self._connection.cbs:
+            if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
             else:
                 self._session = self.session_type(

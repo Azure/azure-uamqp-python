@@ -170,3 +170,8 @@ class TransportType(Enum):
     """
     Amqp = 1
     AmqpOverWebsocket = 2
+
+
+class LinkCreationMode(Enum):
+    CreateLinkOnNewSession = 1
+    CreateLinkOnExistingCbsSession = 2

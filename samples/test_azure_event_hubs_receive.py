@@ -14,6 +14,7 @@ except Exception:
     from urllib.parse import quote_plus
 
 import uamqp
+import time
 from uamqp import address, types, utils, authentication
 
 
@@ -265,6 +266,75 @@ def test_event_hubs_filter_receive(live_eventhub_config):
     log.info("Finished receiving")
 
 
+def test_event_hubs_sessions_share_connection(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        partition_0 = uamqp.ReceiveClient(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        partition_1 = uamqp.ReceiveClient(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        try:
+            partition_0.open(connection=conn)
+            partition_1.open(connection=conn)
+
+            while not partition_0.client_ready() or not partition_1.client_ready():
+                time.sleep(0.05)
+
+            assert partition_0._session != partition_1._session
+
+            recv_msg_1 = partition_0.receive_message_batch(1)
+            recv_msg_2 = partition_1.receive_message_batch(1)
+
+            assert recv_msg_1
+            assert recv_msg_2
+        except:
+            raise
+        finally:
+            partition_0.close()
+            partition_1.close()
+
+
+def test_event_hubs_links_share_cbs_session(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        partition_0 = uamqp.ReceiveClient(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        partition_1 = uamqp.ReceiveClient(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        try:
+            partition_0.open(connection=conn)
+            partition_1.open(connection=conn)
+
+            while not partition_0.client_ready() or not partition_1.client_ready():
+                time.sleep(0.05)
+
+            assert partition_0._session == partition_1._session
+
+            recv_msg_1 = partition_0.receive_message_batch(1)
+            recv_msg_2 = partition_1.receive_message_batch(1)
+
+            assert len(recv_msg_1) == 1 and len(recv_msg_2) == 1
+        except:
+            raise
+        finally:
+            partition_0.close()
+            partition_1.close()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -273,4 +343,5 @@ if __name__ == '__main__':
     config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
-    test_event_hubs_client_receive_sync(config)
+
+    test_event_hubs_sessions_share_connection(config)

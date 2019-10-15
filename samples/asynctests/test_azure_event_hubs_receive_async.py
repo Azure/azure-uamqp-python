@@ -175,7 +175,7 @@ async def test_event_hubs_receive_with_runtime_metric_async(live_eventhub_config
 
 
 @pytest.mark.asyncio
-async def test_event_hubs_shared_connection_async(live_eventhub_config):
+async def test_event_hubs_links_share_cbs_session_async(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -185,10 +185,57 @@ async def test_event_hubs_shared_connection_async(live_eventhub_config):
         live_eventhub_config['consumer_group'])
 
     async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
-        partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
-        partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
+        partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
         await partition_0.open_async(connection=conn)
         await partition_1.open_async(connection=conn)
+
+        ready = False
+        while not ready:
+            ready = (await partition_0.client_ready_async()) and (await partition_1.client_ready_async())
+
+        assert partition_0._session == partition_1._session
+
+        tasks = [
+            partition_0.receive_message_batch_async(1),
+            partition_1.receive_message_batch_async(1)
+        ]
+        try:
+            messages = await asyncio.gather(*tasks)
+            assert len(messages[0]) == 1 and len(messages[1]) == 1
+        except:
+            raise
+        finally:
+            await partition_0.close_async()
+            await partition_1.close_async()
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_sessions_share_connection_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        await partition_0.open_async(connection=conn)
+        await partition_1.open_async(connection=conn)
+
+        ready = False
+        while not ready:
+            ready = (await partition_0.client_ready_async()) and (await partition_1.client_ready_async())
+
+        assert partition_0._session != partition_1._session
+
         tasks = [
             partition_0.receive_message_batch_async(1),
             partition_1.receive_message_batch_async(1)
@@ -257,4 +304,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_iter_receive_async(config))
+    loop.run_until_complete(test_event_hubs_sessions_share_connection_async(config))

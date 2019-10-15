@@ -13,7 +13,7 @@ import uuid
 
 from uamqp import (Connection, Session, address, authentication, c_uamqp,
                    compat, constants, errors, receiver, sender)
-from uamqp.constants import TransportType
+from uamqp.constants import TransportType, LinkCreationMode
 
 _logger = logging.getLogger(__name__)
 
@@ -137,6 +137,7 @@ class AMQPClient(object):
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
+        self._link_creation_mode = kwargs.pop("link_creation_mode", constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
 
         # AMQP object settings
         self.message_handler = None
@@ -207,8 +208,7 @@ class AMQPClient(object):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
-            self._session = self._auth._session
-        elif self._connection.cbs:
+        if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
             self._session = self._auth._session
         else:
             self._session = self.session_type(
@@ -259,8 +259,7 @@ class AMQPClient(object):
                     outgoing_window=self._outgoing_window,
                     handle_max=self._handle_max,
                     on_attach=self._on_attach)
-                self._session = self._auth._session
-            elif self._connection.cbs:
+            if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
             else:
                 self._session = self.session_type(

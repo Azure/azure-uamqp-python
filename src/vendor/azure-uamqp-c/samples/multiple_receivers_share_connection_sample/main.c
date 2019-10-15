@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 
         /* create the connection, session and link */
         connection = connection_create(sasl_io, EH_HOST, "aname", on_new_session_endpoint, NULL);
-		connection_set_trace(connection, false);
+		connection_set_trace(connection, true);
         session = session_create(connection, NULL, NULL);
         session_set_incoming_window(session, 655565);
         session_set_outgoing_window(session, 65536);
@@ -268,33 +268,33 @@ int main(int argc, char** argv)
             }
         }
 		//printf("cbs session state: %s\n", get_session_state(session));
-		
+
 		int max_link_credit = 300;
 		int partition_cnt = 3;
-		
-		for(int i = 0; i < partition_cnt; i++) {
-			char partition_str[3];
-			sprintf(partition_str, "%d", i);
 
-			auth_for_each_partition = false;
-			sas_key_name = STRING_construct(EH_KEY_NAME);
-			buffer = BUFFER_create((unsigned char*)EH_KEY, strlen(EH_KEY));
-			sas_key_value = Base64_Encoder(buffer);
-			BUFFER_delete(buffer);
-			resource_uri = STRING_construct("sb://" EH_HOST "/" EH_NAME "/ConsumerGroups/$Default/Partitions/");
-			STRING_concat(resource_uri, partition_str);
-			encoded_resource_uri = URL_EncodeString(STRING_c_str(resource_uri));
+		//for(int i = 0; i < partition_cnt; i++) {
+		//	char partition_str[3];
+		//	sprintf(partition_str, "%d", i);
 
-			sas_token = SASToken_Create(sas_key_value, encoded_resource_uri, sas_key_name, expiry_time);
-			int* p_id = malloc(sizeof(int));
-			*p_id = i;
-			(void)cbs_put_token_async(cbs, "servicebus.windows.net:sastoken", STRING_c_str(resource_uri), STRING_c_str(sas_token), on_cbs_for_partition_put_token_complete, p_id);
-			while (!auth_for_each_partition)
-			{
-				connection_dowork(connection);
-			}
-			printf("auth for partition:%d is done.\n", i);
-		}
+		//	auth_for_each_partition = false;
+		//	sas_key_name = STRING_construct(EH_KEY_NAME);
+		//	buffer = BUFFER_create((unsigned char*)EH_KEY, strlen(EH_KEY));
+		//	sas_key_value = Base64_Encoder(buffer);
+		//	BUFFER_delete(buffer);
+		//	resource_uri = STRING_construct("sb://" EH_HOST "/" EH_NAME "/ConsumerGroups/$Default/Partitions/");
+		//	STRING_concat(resource_uri, partition_str);
+		//	encoded_resource_uri = URL_EncodeString(STRING_c_str(resource_uri));
+
+		//	sas_token = SASToken_Create(sas_key_value, encoded_resource_uri, sas_key_name, expiry_time);
+		//	int* p_id = malloc(sizeof(int));
+		//	*p_id = i;
+		//	(void)cbs_put_token_async(cbs, "servicebus.windows.net:sastoken", STRING_c_str(resource_uri), STRING_c_str(sas_token), on_cbs_for_partition_put_token_complete, p_id);
+		//	while (!auth_for_each_partition)
+		//	{
+		//		connection_dowork(connection);
+		//	}
+		//	printf("auth for partition:%d is done.\n", i);
+		//}
 
 		MESSAGE_RECEIVER_HANDLE* receiver_handlers = malloc(sizeof(MESSAGE_RECEIVER_HANDLE) * partition_cnt);
 		SESSION_HANDLE* session_handlers = malloc(sizeof(SESSION_HANDLE) * partition_cnt);
