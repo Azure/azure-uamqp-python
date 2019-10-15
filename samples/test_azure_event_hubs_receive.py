@@ -344,4 +344,4 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    test_event_hubs_sessions_share_connection(config)
+    test_event_hubs_receive_sessions_share_connection(config)

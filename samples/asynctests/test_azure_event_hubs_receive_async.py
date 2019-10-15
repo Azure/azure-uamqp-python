@@ -304,4 +304,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_sessions_share_connection_async(config))
+    loop.run_until_complete(test_event_hubs_receive_sessions_share_connection_async(config))
