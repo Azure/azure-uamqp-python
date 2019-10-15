@@ -175,7 +175,7 @@ async def test_event_hubs_receive_with_runtime_metric_async(live_eventhub_config
 
 
 @pytest.mark.asyncio
-async def test_event_hubs_links_share_cbs_session_async(live_eventhub_config):
+async def test_event_hubs_receive_links_share_cbs_session_async(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -213,7 +213,7 @@ async def test_event_hubs_links_share_cbs_session_async(live_eventhub_config):
 
 
 @pytest.mark.asyncio
-async def test_event_hubs_sessions_share_connection_async(live_eventhub_config):
+async def test_event_hubs_receive_sessions_share_connection_async(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])

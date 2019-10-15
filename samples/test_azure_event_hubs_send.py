@@ -129,6 +129,63 @@ def test_event_hubs_single_send_sync(live_eventhub_config):
     send_client.close()
 
 
+def test_event_hubs_send_links_share_cbs_session(live_eventhub_config):
+    annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
+    msg_content = b"hello world"
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        send_client1 = uamqp.SendClient(target, auth=sas_auth, debug=False,
+                                        link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        send_client2 = uamqp.SendClient(target, auth=sas_auth, debug=False,
+                                        link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+
+        send_client1.open(connection=conn)
+        send_client2.open(connection=conn)
+
+        assert send_client1._session == send_client2._session
+
+        for _ in range(10):
+            message1 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            message2 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            send_client1.send_message(message1)
+            send_client2.send_message(message2)
+        send_client1.close()
+        send_client2.close()
+
+
+def test_event_hubs_send_sessions_share_connection(live_eventhub_config):
+    annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
+    msg_content = b"hello world"
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        send_client1 = uamqp.SendClient(target, auth=sas_auth, debug=False,
+                                        link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        send_client2 = uamqp.SendClient(target, auth=sas_auth, debug=False,
+                                        link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        send_client1.open(connection=conn)
+        send_client2.open(connection=conn)
+
+        assert send_client1._session != send_client2._session
+
+        for _ in range(10):
+            message1 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            message2 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            send_client1.send_message(message1)
+            send_client2.send_message(message2)
+        send_client1.close()
+        send_client2.close()
+
+
 def test_event_hubs_batch_send_sync(live_eventhub_config):
     def data_generator():
         for i in range(50):
@@ -157,5 +214,5 @@ if __name__ == '__main__':
     config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
-
-    test_event_hubs_client_send_multiple_sync(config)
+    test_event_hubs_send_links_share_cbs_session(config)
+    #test_event_hubs_client_send_multiple_sync(config)

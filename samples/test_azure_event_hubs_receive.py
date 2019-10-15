@@ -266,7 +266,7 @@ def test_event_hubs_filter_receive(live_eventhub_config):
     log.info("Finished receiving")
 
 
-def test_event_hubs_sessions_share_connection(live_eventhub_config):
+def test_event_hubs_receive_sessions_share_connection(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
@@ -301,7 +301,7 @@ def test_event_hubs_sessions_share_connection(live_eventhub_config):
             partition_1.close()
 
 
-def test_event_hubs_links_share_cbs_session(live_eventhub_config):
+def test_event_hubs_receive_links_share_cbs_session(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])

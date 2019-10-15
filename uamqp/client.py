@@ -137,7 +137,8 @@ class AMQPClient(object):
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or constants.SenderSettleMode.Unsettled
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
-        self._link_creation_mode = kwargs.pop("link_creation_mode", constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        self._link_creation_mode = kwargs.pop("link_creation_mode",
+                                              constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
 
         # AMQP object settings
         self.message_handler = None

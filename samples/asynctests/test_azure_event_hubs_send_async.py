@@ -78,6 +78,64 @@ async def test_event_hubs_async_sender_sync(live_eventhub_config):
 
 
 @pytest.mark.asyncio
+async def test_event_hubs_send_links_share_cbs_session_async(live_eventhub_config):
+    annotations = {b"x-opt-partition-key": b"PartitionKeyInfo"}
+    msg_content = b"hello world"
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'],
+                                                                   live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        send_client1 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        send_client2 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+        await send_client1.open_async(connection=conn)
+        await send_client2.open_async(connection=conn)
+
+        assert send_client1._session == send_client2._session
+
+        for _ in range(10):
+            message1 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            message2 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            await send_client1.send_message_async(message1)
+            await send_client2.send_message_async(message2)
+        await send_client1.close_async()
+        await send_client2.close_async()
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_send_sessions_share_connection_async(live_eventhub_config):
+    annotations = {b"x-opt-partition-key": b"PartitionKeyInfo"}
+    msg_content = b"hello world"
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'],
+                                                                   live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        send_client1 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        send_client2 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnNewSession)
+        await send_client1.open_async(connection=conn)
+        await send_client2.open_async(connection=conn)
+
+        assert send_client1._session != send_client2._session
+
+        for _ in range(10):
+            message1 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            message2 = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
+            await send_client1.send_message_async(message1)
+            await send_client2.send_message_async(message2)
+        await send_client1.close_async()
+        await send_client2.close_async()
+
+
+@pytest.mark.asyncio
 async def test_event_hubs_client_send_multiple_async(live_eventhub_config):
     properties = {b"SendData": b"Property_String_Value_1"}
     msg_content = b"hello world"
@@ -129,4 +187,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_single_send_async(config))
+    loop.run_until_complete(test_event_hubs_send_links_share_cbs_session_async(config))
