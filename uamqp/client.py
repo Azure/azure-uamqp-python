@@ -209,7 +209,7 @@ class AMQPClient(object):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
-        if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
+        if self._connection.cbs and self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
             self._session = self._auth._session
         else:
             self._session = self.session_type(
@@ -260,7 +260,7 @@ class AMQPClient(object):
                     outgoing_window=self._outgoing_window,
                     handle_max=self._handle_max,
                     on_attach=self._on_attach)
-            if self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
+            if self._connection.cbs and self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
             else:
                 self._session = self.session_type(
