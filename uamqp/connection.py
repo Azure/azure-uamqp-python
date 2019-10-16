@@ -105,19 +105,12 @@ class Connection(object):
 
     def __enter__(self):
         """Open the Connection in a context manager."""
+        self.open()
         return self
 
     def __exit__(self, *args):
         """Close the Connection when exiting a context manager."""
         self.destroy()
-
-    def open(self):
-        self._conn.open()
-        state = self._conn.get_state()
-        while c_uamqp.ConnectionState(state) != c_uamqp.ConnectionState.OPENED:
-            #TODO: ERROR SITUATION
-            state = self._conn.get_state()
-            self.work()
 
     def _create_connection(self, sasl):
         if sasl.consumed:
@@ -132,6 +125,15 @@ class Connection(object):
         conn.set_trace(self._debug)
         conn.subscribe_to_close_event(self)
         return conn
+
+    def _open(self):
+        self._conn.open()
+        connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+        while connection_state != c_uamqp.ConnectionState.OPENED:
+            connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+            if connection_state == c_uamqp.ConnectionState.ERROR or connection_state == c_uamqp.ConnectionState.END:
+                raise ConnectionError('Fail to open connection.')
+            self._conn.do_work()
 
     def _close(self):
         _logger.info("Shutting down connection %r.", self.container_id)
@@ -195,6 +197,13 @@ class Connection(object):
                 previous_state, new_state))
             self._error = errors.AMQPClientShutdown()
 
+    def open(self):
+        try:
+            self.lock()
+            self._open()
+        finally:
+            self.release()
+
     def lock(self, timeout=3.0):
         try:
             if not self._lock.acquire(timeout=timeout):  # pylint: disable=unexpected-keyword-arg
@@ -249,6 +258,7 @@ class Connection(object):
                 setattr(self, setting, value)
             self._error = None
             self._closing = False
+            self._open()
         finally:
             _logger.info("Finished redirecting connection %r.", self.container_id)
             self.release()

@@ -2172,7 +2172,7 @@ void connection_unsubscribe_on_connection_close_received(ON_CONNECTION_CLOSED_EV
     }
 }
 
-int connection_get_state(CONNECTION_HANDLE connection)
+CONNECTION_STATE connection_get_state(CONNECTION_HANDLE connection)
 {
     CONNECTION_STATE result;
 

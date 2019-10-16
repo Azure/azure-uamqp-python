@@ -90,6 +90,7 @@ class ConnectionAsync(connection.Connection):
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
+        await self.open_async()
         return self
 
     async def __aexit__(self, *args):
@@ -99,12 +100,20 @@ class ConnectionAsync(connection.Connection):
         _logger.debug("Finished exiting connection %r context.", self.container_id)
 
     async def open_async(self):
+        try:
+            await self.lock_async()
+            await self._open()
+        finally:
+            self.release_async()
+
+    async def _open_async(self):
         self._conn.open()
-        state = self._conn.get_state()
-        while c_uamqp.ConnectionState(state) != c_uamqp.ConnectionState.OPENED:
-            #TODO: ERROR SITUATION
-            state = self._conn.get_state()
-            await self.work_async()
+        connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+        while connection_state != c_uamqp.ConnectionState.OPENED:
+            connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+            if connection_state == c_uamqp.ConnectionState.ERROR or connection_state == c_uamqp.ConnectionState.END:
+                raise ConnectionError('Fail to open connection.')
+            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
 
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
@@ -187,6 +196,7 @@ class ConnectionAsync(connection.Connection):
                 setattr(self, setting, value)
             self._error = None
             self._closing = False
+            await self._open_async()
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
