@@ -50,12 +50,12 @@ static void on_cbs_error(void* context)
 
 static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE message)
 {
-	int partition_id = *(int*)context;
-	(void)message;
+    int partition_id = *(int*)context;
+    (void)message;
 
     (void)printf("Message received from partition: %d.\r\n", partition_id);
 
-	return NULL;
+    return NULL;
 }
 
 static void on_cbs_put_token_complete(void* context, CBS_OPERATION_RESULT cbs_operation_result, unsigned int status_code, const char* status_description)
@@ -67,46 +67,46 @@ static void on_cbs_put_token_complete(void* context, CBS_OPERATION_RESULT cbs_op
     if (cbs_operation_result == CBS_OPERATION_RESULT_OK)
     {
         auth = true;
-		printf("cbs token is put\n");
+        printf("cbs token is put\n");
     }
 }
 
 SESSION_HANDLE create_session(CONNECTION_HANDLE connection) {
-	SESSION_HANDLE session = session_create(connection, NULL, NULL);
-	session_set_incoming_window(session, 655565);
-	session_set_outgoing_window(session, 65536);
-	return session;
+    SESSION_HANDLE session = session_create(connection, NULL, NULL);
+    session_set_incoming_window(session, 655565);
+    session_set_outgoing_window(session, 65536);
+    return session;
 }
 
 MESSAGE_RECEIVER_HANDLE create_receiver(SESSION_HANDLE session, int partition_id, int max_link_credit, LINK_HANDLE** created_link) {
-	(void*)max_link_credit;
-	char partition_str[3];
-	sprintf(partition_str, "%d", partition_id);
+    (void*)max_link_credit;
+    char partition_str[3];
+    sprintf(partition_str, "%d", partition_id);
 
-	STRING_HANDLE source_str = STRING_construct("amqps://" EH_HOST "/" EH_NAME "/ConsumerGroups/$Default/Partitions/");
-	STRING_concat(source_str, partition_str);
+    STRING_HANDLE source_str = STRING_construct("amqps://" EH_HOST "/" EH_NAME "/ConsumerGroups/$Default/Partitions/");
+    STRING_concat(source_str, partition_str);
 
-	STRING_HANDLE target_str = STRING_construct("target-receiver-share-connection-");
-	STRING_concat(target_str, partition_str);
+    STRING_HANDLE target_str = STRING_construct("target-receiver-share-connection-");
+    STRING_concat(target_str, partition_str);
 
-	STRING_HANDLE link_name = STRING_construct("link-share-connection-");
-	STRING_concat(link_name, partition_str);
+    STRING_HANDLE link_name = STRING_construct("link-share-connection-");
+    STRING_concat(link_name, partition_str);
 
-	AMQP_VALUE source = messaging_create_source(STRING_c_str(source_str));
-	AMQP_VALUE target = messaging_create_target(STRING_c_str(target_str));
-	LINK_HANDLE link = link_create(session, STRING_c_str(link_name), role_receiver, source, target);
-	link_set_rcv_settle_mode(link, receiver_settle_mode_first);
+    AMQP_VALUE source = messaging_create_source(STRING_c_str(source_str));
+    AMQP_VALUE target = messaging_create_target(STRING_c_str(target_str));
+    LINK_HANDLE link = link_create(session, STRING_c_str(link_name), role_receiver, source, target);
+    link_set_rcv_settle_mode(link, receiver_settle_mode_first);
 
-	MESSAGE_RECEIVER_HANDLE message_receiver = messagereceiver_create(link, NULL, NULL);
-	(*created_link) = &link;
+    MESSAGE_RECEIVER_HANDLE message_receiver = messagereceiver_create(link, NULL, NULL);
+    (*created_link) = &link;
 
-	STRING_delete(source_str);
-	STRING_delete(target_str);
-	STRING_delete(link_name);
-	amqpvalue_destroy(source);
-	amqpvalue_destroy(target);
+    STRING_delete(source_str);
+    STRING_delete(target_str);
+    STRING_delete(link_name);
+    amqpvalue_destroy(source);
+    amqpvalue_destroy(target);
 
-	return message_receiver;
+    return message_receiver;
 }
 
 int main(int argc, char** argv)
@@ -176,12 +176,12 @@ int main(int argc, char** argv)
     cbs_set_trace(cbs, true);
     if (cbs_open_async(cbs, on_cbs_open_complete, cbs, on_cbs_error, cbs) == 0)
     {
-	    (void)cbs_put_token_async(cbs, "servicebus.windows.net:sastoken", "sb://" EH_HOST "/" EH_NAME, STRING_c_str(sas_token), on_cbs_put_token_complete, cbs);
+        (void)cbs_put_token_async(cbs, "servicebus.windows.net:sastoken", "sb://" EH_HOST "/" EH_NAME, STRING_c_str(sas_token), on_cbs_put_token_complete, cbs);
 
-	    while (!auth)
-	    {
-		    connection_dowork(connection);
-	    }
+        while (!auth)
+        {
+            connection_dowork(connection);
+        }
     }
 
     STRING_delete(sas_token);
@@ -200,21 +200,21 @@ int main(int argc, char** argv)
     int* running_context = malloc(sizeof(int) * partition_cnt);
 
     for (int i = 0; i < partition_cnt; i++) {
-	    session_handlers[i] = create_session(connection);
+        session_handlers[i] = create_session(connection);
         LINK_HANDLE* created_link = NULL;
-	    receiver_handlers[i] = create_receiver(session_handlers[i], i, max_link_credit, &created_link);
-	    link_handlers[i] = *created_link;
+        receiver_handlers[i] = create_receiver(session_handlers[i], i, max_link_credit, &created_link);
+        link_handlers[i] = *created_link;
 
-	    int open_status = -1;
+        int open_status = -1;
 
         running_context[i] = i;
 
-	    open_status = messagereceiver_open(receiver_handlers[i], on_message_received, &running_context[i]);
+        open_status = messagereceiver_open(receiver_handlers[i], on_message_received, &running_context[i]);
 
-	    if (receiver_handlers[i] == NULL || open_status != 0) {
-		    (void)printf("Cannot open the message receiver: %d.", i);
-		    result = -1;
-	    }
+        if (receiver_handlers[i] == NULL || open_status != 0) {
+            (void)printf("Cannot open the message receiver: %d.", i);
+            result = -1;
+        }
     }
 
     if (result != -1) {
@@ -228,7 +228,8 @@ int main(int argc, char** argv)
         {
             connection_dowork(connection);
             time(&end_time);
-            if ((int)(end_time - start_time) >= 3) {
+            if ((int)(end_time - start_time) >= 3)
+            {
                 keep_running = false;
             }
         }
@@ -248,8 +249,8 @@ int main(int argc, char** argv)
     xio_destroy(tls_io);
     saslmechanism_destroy(sasl_mechanism_handle);
     platform_deinit();
-    
+
     result = 0;
-    
+
     return result;
 }
