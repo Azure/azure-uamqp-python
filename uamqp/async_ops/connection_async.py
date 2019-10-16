@@ -99,13 +99,6 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
         _logger.debug("Finished exiting connection %r context.", self.container_id)
 
-    async def open_async(self):
-        try:
-            await self.lock_async()
-            await self._open()
-        finally:
-            self.release_async()
-
     async def _open_async(self):
         self._conn.open()
         connection_state = c_uamqp.ConnectionState(self._conn.get_state())
@@ -124,6 +117,13 @@ class ConnectionAsync(connection.Connection):
         self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
+
+    async def open_async(self):
+        try:
+            await self.lock_async()
+            await self._open_async()
+        finally:
+            self.release_async()
 
     async def lock_async(self, timeout=3.0):
         await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
