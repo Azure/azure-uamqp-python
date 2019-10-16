@@ -98,6 +98,14 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
         _logger.debug("Finished exiting connection %r context.", self.container_id)
 
+    async def open_async(self):
+        self._conn.open()
+        state = self._conn.get_state()
+        while c_uamqp.ConnectionState(state) != c_uamqp.ConnectionState.OPENED:
+            #TODO: ERROR SITUATION
+            state = self._conn.get_state()
+            await self.work_async()
+
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True

@@ -42,6 +42,12 @@ class ConnectionState(Enum):
     UNKNOWN = 999
 
 
+class ConnectionOpenResult(Enum):
+    OPEN_OK = c_connection.CONNECTION_OPEN_RESULT.CONNECTION_OPEN_OK
+    ALREADY_OPEN = c_connection.CONNECTION_OPEN_RESULT.CONNECTION_OPEN_ALREADY_OPEN
+    OPEN_ERROR = c_connection.CONNECTION_OPEN_RESULT.CONNECTION_OPEN_ERROR
+
+
 cdef class Connection(StructBase):
 
     cdef c_connection.CONNECTION_HANDLE _c_value
@@ -81,7 +87,7 @@ cdef class Connection(StructBase):
         self._create()
 
     cpdef open(self):
-        if c_connection.connection_open(self._c_value) != 0:
+        if c_connection.connection_open(self._c_value) == c_connection.CONNECTION_OPEN_RESULT.CONNECTION_OPEN_ERROR:
             self._value_error()
 
     cpdef close(self, const char* condition_value, const char* description):
@@ -93,6 +99,9 @@ cdef class Connection(StructBase):
 
     cpdef do_work(self):
         c_connection.connection_dowork(self._c_value)
+
+    cpdef get_state(self):
+        return c_connection.connection_get_state(self._c_value)
 
     cpdef subscribe_to_close_event(self, on_close_received):
         self._close_event = c_connection.connection_subscribe_on_connection_close_received(

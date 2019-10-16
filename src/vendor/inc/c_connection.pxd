@@ -36,6 +36,11 @@ cdef extern from "azure_uamqp_c/connection.h":
         CONNECTION_STATE_END,
         CONNECTION_STATE_ERROR
 
+    cdef enum CONNECTION_OPEN_RESULT:
+        CONNECTION_OPEN_OK,
+        CONNECTION_OPEN_ALREADY_OPEN,
+        CONNECTION_OPEN_ERROR
+
     ctypedef CONNECTION_STATE_TAG CONNECTION_STATE
 
     ctypedef void (*ON_CONNECTION_STATE_CHANGED)(void* context, CONNECTION_STATE new_connection_state, CONNECTION_STATE previous_connection_state)
@@ -45,7 +50,7 @@ cdef extern from "azure_uamqp_c/connection.h":
     CONNECTION_HANDLE connection_create(c_xio.XIO_HANDLE io, const char* hostname, const char* container_id, ON_NEW_ENDPOINT on_new_endpoint, void* callback_context)
     CONNECTION_HANDLE connection_create2(c_xio.XIO_HANDLE xio, const char* hostname, const char* container_id, ON_NEW_ENDPOINT on_new_endpoint, void* callback_context, ON_CONNECTION_STATE_CHANGED on_connection_state_changed, void* on_connection_state_changed_context, c_xio.ON_IO_ERROR on_io_error, void* on_io_error_context)
     void connection_destroy(CONNECTION_HANDLE connection)
-    int connection_open(CONNECTION_HANDLE connection)
+    CONNECTION_OPEN_RESULT connection_open(CONNECTION_HANDLE connection)
     int connection_listen(CONNECTION_HANDLE connection)
     int connection_close(CONNECTION_HANDLE connection, const char* condition_value, const char* description, c_amqpvalue.AMQP_VALUE info)
     int connection_set_max_frame_size(CONNECTION_HANDLE connection, stdint.uint32_t max_frame_size)
@@ -58,6 +63,7 @@ cdef extern from "azure_uamqp_c/connection.h":
     int connection_get_properties(CONNECTION_HANDLE connection, c_amqp_definitions.fields* properties)
     int connection_get_remote_max_frame_size(CONNECTION_HANDLE connection, stdint.uint32_t* remote_max_frame_size)
     int connection_set_remote_idle_timeout_empty_frame_send_ratio(CONNECTION_HANDLE connection, double idle_timeout_empty_frame_send_ratio)
+    CONNECTION_STATE connection_get_state(CONNECTION_HANDLE connection)
     stdint.uint64_t connection_handle_deadlines(CONNECTION_HANDLE connection)
     void connection_dowork(CONNECTION_HANDLE connection) nogil
     void connection_set_trace(CONNECTION_HANDLE connection, bint trace_on)

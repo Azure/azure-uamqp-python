@@ -83,6 +83,7 @@ async def test_iothub_client_receive_async(live_iothub_config):
     log.info("Source: {}".format(source))
 
     async with uamqp.ConnectionAsync(live_iothub_config['hostname'], auth, debug=False) as conn:
+        await conn.open_async()
         tasks = [
             _receive_mesages(conn, source + '0', auth),
             _receive_mesages(conn, source + '1', auth)
@@ -94,6 +95,7 @@ async def test_iothub_client_receive_async(live_iothub_config):
            live_iothub_config['key_name'],
            live_iothub_config['access_key'])
         await conn.redirect_async(redirect, new_auth)
+        await conn.open_async()
         tasks = []
         for t in results:
            tasks.append(_receive_mesages(conn, t.address, auth))

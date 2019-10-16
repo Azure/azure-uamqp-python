@@ -2171,3 +2171,21 @@ void connection_unsubscribe_on_connection_close_received(ON_CONNECTION_CLOSED_EV
         event_subscription->context = NULL;
     }
 }
+
+int connection_get_state(CONNECTION_HANDLE connection)
+{
+    CONNECTION_STATE result;
+
+    if (connection == NULL)
+    {
+        LogError("Bad arguments: connection = %p",
+            connection);
+        result = CONNECTION_STATE_ERROR;
+    }
+    else
+    {
+        result = connection->connection_state;
+    }
+
+    return result;
+}

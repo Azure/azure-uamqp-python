@@ -111,6 +111,14 @@ class Connection(object):
         """Close the Connection when exiting a context manager."""
         self.destroy()
 
+    def open(self):
+        self._conn.open()
+        state = self._conn.get_state()
+        while c_uamqp.ConnectionState(state) != c_uamqp.ConnectionState.OPENED:
+            #TODO: ERROR SITUATION
+            state = self._conn.get_state()
+            self.work()
+
     def _create_connection(self, sasl):
         if sasl.consumed:
             raise ValueError("The supplied authentication has already been consumed by "
