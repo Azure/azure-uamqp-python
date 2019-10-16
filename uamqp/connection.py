@@ -132,7 +132,7 @@ class Connection(object):
         while connection_state != c_uamqp.ConnectionState.OPENED:
             connection_state = c_uamqp.ConnectionState(self._conn.get_state())
             if connection_state == c_uamqp.ConnectionState.ERROR or connection_state == c_uamqp.ConnectionState.END:
-                raise ConnectionError('Fail to open connection.')
+                raise errors.AMQPConnectionError('Fail to open connection.')
             self._conn.do_work()
 
     def _close(self):

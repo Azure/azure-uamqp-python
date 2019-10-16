@@ -10,7 +10,7 @@ import functools
 import logging
 
 import uamqp
-from uamqp import c_uamqp, connection
+from uamqp import c_uamqp, connection, errors
 from uamqp.utils import get_running_loop
 
 _logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class ConnectionAsync(connection.Connection):
         while connection_state != c_uamqp.ConnectionState.OPENED:
             connection_state = c_uamqp.ConnectionState(self._conn.get_state())
             if connection_state == c_uamqp.ConnectionState.ERROR or connection_state == c_uamqp.ConnectionState.END:
-                raise ConnectionError('Fail to open connection.')
+                raise errors.AMQPConnectionError('Fail to open connection.')
             await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
 
     async def _close_async(self):
