@@ -36,7 +36,7 @@ cdef extern from "azure_uamqp_c/connection.h":
         CONNECTION_STATE_END,
         CONNECTION_STATE_ERROR
 
-    cdef enum CONNECTION_OPEN_RESULT:
+    ctypedef enum CONNECTION_OPEN_RESULT:
         CONNECTION_OPEN_OK,
         CONNECTION_OPEN_ALREADY_OPEN,
         CONNECTION_OPEN_ERROR

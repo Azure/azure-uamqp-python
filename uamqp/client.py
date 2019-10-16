@@ -138,7 +138,7 @@ class AMQPClient(object):
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or constants.ReceiverSettleMode.PeekLock
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
         self._link_creation_mode = kwargs.pop("link_creation_mode",
-                                              constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                              constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
 
         # AMQP object settings
         self.message_handler = None
@@ -209,7 +209,7 @@ class AMQPClient(object):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
-        if self._connection.cbs and self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
+        if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
             self._session = self._auth._session
         else:
             self._session = self.session_type(
@@ -260,7 +260,7 @@ class AMQPClient(object):
                     outgoing_window=self._outgoing_window,
                     handle_max=self._handle_max,
                     on_attach=self._on_attach)
-            if self._connection.cbs and self._link_creation_mode == LinkCreationMode.CreateLinkOnExistingCbsSession:
+            if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
             else:
                 self._session = self.session_type(

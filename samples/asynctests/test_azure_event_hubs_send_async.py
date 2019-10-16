@@ -89,9 +89,9 @@ async def test_event_hubs_send_links_share_cbs_session_async(live_eventhub_confi
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
         send_client1 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
-                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         send_client2 = uamqp.SendClientAsync(target, auth=sas_auth, debug=False,
-                                             link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                             link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         await send_client1.open_async(connection=conn)
         await send_client2.open_async(connection=conn)
 

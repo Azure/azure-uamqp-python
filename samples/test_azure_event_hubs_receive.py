@@ -312,9 +312,9 @@ def test_event_hubs_receive_links_share_cbs_session(live_eventhub_config):
 
     with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
         partition_0 = uamqp.ReceiveClient(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
-                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         partition_1 = uamqp.ReceiveClient(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
-                                          link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                          link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         try:
             partition_0.open(connection=conn)
             partition_1.open(connection=conn)

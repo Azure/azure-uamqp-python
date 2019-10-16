@@ -164,14 +164,28 @@ class MgmtOpenStatus(Enum):
 class TransportType(Enum):
     """Transport type
     The underlying transport protocol type:
-     Amqp: AMQP over the default TCP transport protocol, it uses port 5671.
-     AmqpOverWebsocket: Amqp over the Web Sockets transport protocol, it uses
-     port 443.
+
+    Amqp: AMQP over the default TCP transport protocol, it uses port 5671.
+
+    AmqpOverWebsocket: Amqp over the Web Sockets transport protocol, it uses
+    port 443.
     """
     Amqp = 1
     AmqpOverWebsocket = 2
 
 
 class LinkCreationMode(Enum):
+    """
+    The underlying link creation mode:
+
+    CreateLinkOnNewSession:
+    A new session will be created and then the created link will be attached to the newly created
+    session.
+
+    TryCreateLinkOnExistingCbsSession:
+    If there is an existing cbs session, then the created link will be attached to the cbs session.
+    If there is no existing cbs session, a new session will be created for the link like mode `CreateLinkOnNewSession`.
+
+    """
     CreateLinkOnNewSession = 1
-    CreateLinkOnExistingCbsSession = 2
+    TryCreateLinkOnExistingCbsSession = 2

@@ -186,9 +186,9 @@ async def test_event_hubs_receive_links_share_cbs_session_async(live_eventhub_co
 
     async with uamqp.ConnectionAsync(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
         partition_0 = uamqp.ReceiveClientAsync(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
-                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         partition_1 = uamqp.ReceiveClientAsync(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10,
-                                               link_creation_mode=uamqp.constants.LinkCreationMode.CreateLinkOnExistingCbsSession)
+                                               link_creation_mode=uamqp.constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
         await partition_0.open_async(connection=conn)
         await partition_1.open_async(connection=conn)
 
