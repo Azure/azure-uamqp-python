@@ -194,6 +194,7 @@ class AMQPClientAsync(client.AMQPClient):
                 loop=self.loop))
         if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
             self._session = self._auth._session
+            self._using_cbs_session = True
         else:
             self._session = self.session_type(
                 self._connection,
@@ -202,6 +203,7 @@ class AMQPClientAsync(client.AMQPClient):
                 handle_max=self._handle_max,
                 on_attach=self._on_attach,
                 loop=self.loop)
+            self._using_cbs_session = False
 
     async def open_async(self, connection=None):
         """Asynchronously open the client. The client can create a new Connection
@@ -246,6 +248,7 @@ class AMQPClientAsync(client.AMQPClient):
                     loop=self.loop))
             if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
+                self._using_cbs_session = True
             else:
                 self._session = self.session_type(
                     self._connection,
@@ -254,6 +257,7 @@ class AMQPClientAsync(client.AMQPClient):
                     handle_max=self._handle_max,
                     on_attach=self._on_attach,
                     loop=self.loop)
+                self._using_cbs_session = False
             if self._keep_alive_interval:
                 self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
         finally:
@@ -275,7 +279,7 @@ class AMQPClientAsync(client.AMQPClient):
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
-        if not self._connection.cbs:
+        if not self._using_cbs_session:
             _logger.info("Closing non-CBS session.")
             await asyncio.shield(self._session.destroy_async())
         else:

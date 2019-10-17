@@ -139,6 +139,7 @@ class AMQPClient(object):
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
         self._link_creation_mode = kwargs.pop("link_creation_mode",
                                               constants.LinkCreationMode.TryCreateLinkOnExistingCbsSession)
+        self._using_cbs_session = False
 
         # AMQP object settings
         self.message_handler = None
@@ -211,6 +212,7 @@ class AMQPClient(object):
                 on_attach=self._on_attach)
         if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
             self._session = self._auth._session
+            self._using_cbs_session = True
         else:
             self._session = self.session_type(
                 self._connection,
@@ -218,6 +220,7 @@ class AMQPClient(object):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
+            self._using_cbs_session = False
 
     def open(self, connection=None):
         """Open the client. The client can create a new Connection
@@ -262,6 +265,7 @@ class AMQPClient(object):
                     on_attach=self._on_attach)
             if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
                 self._session = self._auth._session
+                self._using_cbs_session = True
             else:
                 self._session = self.session_type(
                     self._connection,
@@ -269,6 +273,7 @@ class AMQPClient(object):
                     outgoing_window=self._outgoing_window,
                     handle_max=self._handle_max,
                     on_attach=self._on_attach)
+                self._using_cbs_session = False
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)
                 self._keep_alive_thread.start()
@@ -297,7 +302,7 @@ class AMQPClient(object):
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
-        if not self._connection.cbs:
+        if not self._using_cbs_session:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
         else:
