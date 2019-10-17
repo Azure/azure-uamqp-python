@@ -23,7 +23,8 @@
 #include "windows.h"
 #endif
 
-/* This sample connects to an Event Hub, authenticates using SASL MSSBCBS (SAS token given by a put-token) and receives messages from two receivers. Each receiver has its own session. */
+/* This sample connects to an Event Hub, authenticates using SASL MSSBCBS (SAS token given by a put-token) and receives messages from two receivers.
+   It demonstrates how to create multiple sessions on a single connection. Eech receiver(link) depends on its own session. */
 /* The SAS token is generated based on the policy name/key */
 /* Replace the below settings with your own.*/
 
@@ -200,15 +201,17 @@ int main(int argc, char** argv)
     int* running_context = malloc(sizeof(int) * partition_cnt);
 
     for (int i = 0; i < partition_cnt; i++) {
+        /* create a new session */
         session_handlers[i] = create_session(connection);
         LINK_HANDLE* created_link = NULL;
+        /* create a receiver depending on the new session */
         receiver_handlers[i] = create_receiver(session_handlers[i], i, max_link_credit, &created_link);
+        /* record the underlying link, used for future deallocation */
         link_handlers[i] = *created_link;
 
         int open_status = -1;
 
-        running_context[i] = i;
-
+        running_context[i] = i; /* in this simple example, context for the receiver callback is partition id information */
         open_status = messagereceiver_open(receiver_handlers[i], on_message_received, &running_context[i]);
 
         if (receiver_handlers[i] == NULL || open_status != 0) {
