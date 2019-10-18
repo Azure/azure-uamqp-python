@@ -11,7 +11,7 @@ import uuid
 
 import six
 import uamqp
-from uamqp import c_uamqp, compat, errors, utils
+from uamqp import c_uamqp, compat, errors, utils, constants
 
 _logger = logging.getLogger(__name__)
 
@@ -129,11 +129,12 @@ class Connection(object):
     def _open(self):
         self._conn.open()
         connection_state = c_uamqp.ConnectionState(self._conn.get_state())
-        while connection_state != c_uamqp.ConnectionState.OPENED:
-            connection_state = c_uamqp.ConnectionState(self._conn.get_state())
-            if connection_state in (c_uamqp.ConnectionState.ERROR, c_uamqp.ConnectionState.END):
-                raise errors.AMQPConnectionError('Fail to open connection.')
+        while connection_state not in constants.CONNECTION_DONE_STATES:
             self._conn.do_work()
+            connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+
+        if connection_state != c_uamqp.ConnectionState.OPENED:
+            raise errors.AMQPConnectionError('Fail to open connection.')
 
     def _close(self):
         _logger.info("Shutting down connection %r.", self.container_id)

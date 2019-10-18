@@ -35,9 +35,29 @@ class MessageState(Enum):
     ReceivedSettled = 5
 
 
+class ConnectionSate(Enum):
+    START = c_uamqp.ConnectionState.START
+    HDR_RCVD = c_uamqp.ConnectionState.HDR_RCVD
+    HDR_SENT = c_uamqp.ConnectionState.HDR_SENT
+    HDR_EXCH = c_uamqp.ConnectionState.HDR_EXCH
+    OPEN_PIPE = c_uamqp.ConnectionState.OPEN_PIPE
+    OC_PIPE = c_uamqp.ConnectionState.OC_PIPE
+    OPEN_RCVD = c_uamqp.ConnectionState.OPEN_RCVD
+    OPEN_SENT = c_uamqp.ConnectionState.OPEN_SENT
+    CLOSE_PIPE = c_uamqp.ConnectionState.CLOSE_PIPE
+    OPENED = c_uamqp.ConnectionState.OPENED
+    CLOSE_RCVD = c_uamqp.ConnectionState.CLOSE_RCVD
+    CLOSE_SENT = c_uamqp.ConnectionState.CLOSE_SENT
+    DISCARDING = c_uamqp.ConnectionState.DISCARDING
+    END = c_uamqp.ConnectionState.END
+    ERROR = c_uamqp.ConnectionState.ERROR
+
+
 DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 PENDING_STATES = (MessageState.WaitingForSendAck, MessageState.WaitingToBeSent)
+
+CONNECTION_DONE_STATES = (ConnectionSate.START, ConnectionSate.END, ConnectionSate.ERROR)
 
 
 # Error Codes
