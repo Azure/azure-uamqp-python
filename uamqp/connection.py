@@ -46,6 +46,10 @@ class Connection(object):
     :param idle_timeout: Timeout in milliseconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
+    :param open_timeout: Timeout in milliseconds after which the Connection will close
+     if it still can't get opened. If `None`, the Connection will keep trying to open until
+     opened or meeting an error/end state. Default is `None`.
+    :type open_timeout: int
     :param properties: Connection properties.
     :type properties: dict
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
@@ -69,6 +73,7 @@ class Connection(object):
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  error_policy=None,
                  debug=False,
+                 open_timeout=None,
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
@@ -87,6 +92,7 @@ class Connection(object):
         self._settings = {}
         self._error = None
         self._closing = False
+        self._open_timeout = open_timeout
 
         if max_frame_size:
             self._settings['max_frame_size'] = max_frame_size
@@ -126,10 +132,14 @@ class Connection(object):
         conn.subscribe_to_close_event(self)
         return conn
 
-    def _open(self):
+    def _open(self, timeout=None):
         self._conn.open()
         connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+        timeout = timeout or self._open_timeout
+        timeout_time = (time.time() * 1000 + timeout) if timeout else None
         while connection_state not in constants.CONNECTION_DONE_STATES:
+            if timeout_time and time.time() * 1000 > timeout_time:
+                raise errors.AMQPConnectionOpenTimeoutError('Connection open timeout.')
             self._conn.do_work()
             connection_state = c_uamqp.ConnectionState(self._conn.get_state())
 
@@ -198,10 +208,10 @@ class Connection(object):
                 previous_state, new_state))
             self._error = errors.AMQPClientShutdown()
 
-    def open(self):
+    def open(self, timeout=None):
         try:
             self.lock()
-            self._open()
+            self._open(timeout)
         finally:
             self.release()
 

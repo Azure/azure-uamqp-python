@@ -8,6 +8,7 @@ import asyncio
 import concurrent
 import functools
 import logging
+import time
 
 import uamqp
 from uamqp import c_uamqp, connection, errors, constants
@@ -46,6 +47,10 @@ class ConnectionAsync(connection.Connection):
     :param idle_timeout: Timeout in milliseconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
+    :param open_timeout: Timeout in milliseconds after which the Connection will close
+     if it still can't get opened. If `None`, the Connection will keep trying to open until
+     opened or meeting an error/end state. Default is `None`.
+    :type open_timeout: int
     :param properties: Connection properties.
     :type properties: dict
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
@@ -71,6 +76,7 @@ class ConnectionAsync(connection.Connection):
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  error_policy=None,
                  debug=False,
+                 open_timeout=None,
                  encoding='UTF-8',
                  loop=None):
         self.loop = loop or get_running_loop()
@@ -84,6 +90,7 @@ class ConnectionAsync(connection.Connection):
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
             error_policy=error_policy,
             debug=debug,
+            open_timeout=open_timeout,
             encoding=encoding)
         self._async_lock = asyncio.Lock(loop=self.loop)
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -99,10 +106,14 @@ class ConnectionAsync(connection.Connection):
         await self.destroy_async()
         _logger.debug("Finished exiting connection %r context.", self.container_id)
 
-    async def _open_async(self):
+    async def _open_async(self, timeout=None):
         self._conn.open()
         connection_state = c_uamqp.ConnectionState(self._conn.get_state())
+        timeout = timeout or self._open_timeout
+        timeout_time = (time.time() * 1000 + timeout) if timeout else None
         while connection_state not in constants.CONNECTION_DONE_STATES:
+            if timeout_time and time.time() * 1000 > timeout_time:
+                raise errors.AMQPConnectionOpenTimeoutError('Connection open timeout.')
             await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
             connection_state = c_uamqp.ConnectionState(self._conn.get_state())
 
@@ -119,10 +130,10 @@ class ConnectionAsync(connection.Connection):
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
-    async def open_async(self):
+    async def open_async(self, timeout=None):
         try:
             await self.lock_async()
-            await self._open_async()
+            await self._open_async(timeout)
         finally:
             self.release_async()
 

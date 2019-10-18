@@ -110,7 +110,6 @@ class ErrorPolicy(object):
         return ErrorAction(retry=True)
 
 
-
 class AMQPError(Exception):
     pass
 
@@ -123,6 +122,10 @@ class AMQPClientShutdown(KeyboardInterrupt):
 
 
 class AMQPConnectionError(AMQPError):
+    pass
+
+
+class AMQPConnectionOpenTimeoutError(AMQPConnectionError):
     pass
 
 
