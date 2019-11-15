@@ -138,10 +138,12 @@ class ConnectionAsync(connection.Connection):
             if self._closing:
                 _logger.debug("Connection unlocked but shutting down.")
                 return
-            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
+            await asyncio.sleep(0)
+            self._conn.do_work()
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
+            await asyncio.sleep(0)
             self.release_async()
 
     async def sleep_async(self, seconds):
