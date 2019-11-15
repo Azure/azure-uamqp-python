@@ -15,5 +15,3 @@ fi
 curl -sSO https://www.python.org/ftp/python/$PACKAGE_DIR/python-$PYTHONVERSION-$PACKAGE_TYPE.pkg
 sudo installer -allowUntrusted -pkg python-$PYTHONVERSION-$PACKAGE_TYPE.pkg -target /
 rm -f python-$PYTHONVERSION-$PACKAGE_TYPE.pkg
-
-echo "##vso[task.prependpath]/usr/local/bin"
