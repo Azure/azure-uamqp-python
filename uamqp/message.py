@@ -557,7 +557,7 @@ class BatchMessage(Message):
                     try:
                         if not data.application_properties and self.application_properties:  # Message-like object
                             data.application_properties = self.application_properties
-                        message_bytes = data.encode_message()
+                        message_bytes = data._encode_message()  # pylint: disable=protected-access
                     except AttributeError:  # raw data
                         wrap_message = Message(body=data, application_properties=self.application_properties)
                         message_bytes = wrap_message.encode_message()
@@ -596,7 +596,7 @@ class BatchMessage(Message):
             try:
                 if not data.application_properties and self.application_properties:  # Message-like object
                     data.application_properties = self.application_properties
-                message_bytes = data.encode_message()
+                message_bytes = data._encode_message()  # pylint: disable=protected-access
             except AttributeError:  # raw data
                 wrap_message = Message(body=data, application_properties=self.application_properties)
                 message_bytes = wrap_message.encode_message()
