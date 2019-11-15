@@ -6,7 +6,7 @@ variables:
   PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
-  PythonVersion38: '3.8.0a2'
+  PythonVersion38: '3.8'
 
 jobs:
   - job: 'Windows'
@@ -31,9 +31,9 @@ jobs:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
-        # x64 Python 3.8:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -46,9 +46,9 @@ jobs:
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
-        # x86 Python 3.8:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
@@ -146,10 +146,10 @@ jobs:
           MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   MacOSXDeploymentTarget: '10.9'
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          MacOSXDeploymentTarget: '10.9'
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion38)'
 
     variables:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
@@ -157,6 +157,7 @@ jobs:
       PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.5'
       PythonVersion37: '3.7.0'
+      PythonVersion38: '3.8.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -257,8 +258,8 @@ jobs:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
