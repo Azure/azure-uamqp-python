@@ -410,7 +410,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :param msg_timeout: A timeout in seconds for messages from when they have been
+    :param msg_timeout: A timeout in milliseconds for messages from when they have been
      added to the send queue to when the message is actually sent. This prevents potentially
      expired data from being sent. If set to 0, messages will not expire. Default is 0.
     :type msg_timeout: int
