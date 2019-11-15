@@ -516,7 +516,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding,
-                executor=self._connection._executor,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async())
             return False
@@ -819,7 +818,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 desired_capabilities=self._desired_capabilities,
-                executor=self._connection._executor,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async())
             return False
