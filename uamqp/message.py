@@ -559,7 +559,7 @@ class BatchMessage(Message):
                             data.application_properties = self.application_properties
                         try:
                             message_bytes = data.encode_message()
-                        except AttributeError
+                        except AttributeError:
                             message_bytes = date._encode_message()  # pylint: disable=protected-access
                     except AttributeError:  # raw data
                         wrap_message = Message(body=data, application_properties=self.application_properties)
@@ -601,7 +601,7 @@ class BatchMessage(Message):
                     data.application_properties = self.application_properties
                 try:
                     message_bytes = data.encode_message()
-                except AttributeError
+                except AttributeError:
                     message_bytes = date._encode_message()  # pylint: disable=protected-access
             except AttributeError:  # raw data
                 wrap_message = Message(body=data, application_properties=self.application_properties)
