@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------------
 
 import logging
-import functools
+import asyncio
 
 from uamqp import constants, errors, sender
 from uamqp.utils import get_running_loop

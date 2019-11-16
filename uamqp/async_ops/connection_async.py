@@ -5,8 +5,6 @@
 #--------------------------------------------------------------------------
 
 import asyncio
-import concurrent
-import functools
 import logging
 
 import uamqp
