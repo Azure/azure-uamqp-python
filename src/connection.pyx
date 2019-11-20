@@ -10,6 +10,7 @@ from enum import Enum
 
 # C imports
 from libc cimport stdint
+cimport c_amqp_definitions
 cimport c_connection
 cimport c_xio
 
