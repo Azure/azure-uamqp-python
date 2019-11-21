@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_link(cSession session, const char* name, bint role, AMQPValue source, AMQPValue target):
     new_link = cLink()
-    new_link.create(<c_session.SESSION_HANDLE>session._c_value, name, <c_amqp_definitions.role>role, <c_amqpvalue.AMQP_VALUE>source._c_value, <c_amqpvalue.AMQP_VALUE>target._c_value)
+    new_link.create(session, name, <c_amqp_definitions.role>role, <c_amqpvalue.AMQP_VALUE>source._c_value, <c_amqpvalue.AMQP_VALUE>target._c_value)
     return new_link
 
 
@@ -29,6 +29,7 @@ cdef class cLink(StructBase):
 
     cdef c_link.LINK_HANDLE _c_value
     cdef c_link.ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE _detach_event
+    cdef cSession _session
 
     def __cinit__(self):
         pass
@@ -52,15 +53,18 @@ cdef class cLink(StructBase):
             _logger.debug("Destroying cLink")
             c_link.link_destroy(self._c_value)
             self._c_value = <c_link.LINK_HANDLE>NULL
+            self._session = None
 
-    cdef wrap(self, c_link.LINK_HANDLE value):
+    cdef wrap(self, cLink value):
         self.destroy()
-        self._c_value = value
+        self._session = value._session
+        self._c_value = value._c_value
         self._create()
 
-    cdef create(self, c_session.SESSION_HANDLE session, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target):
+    cdef create(self, cSession session, const char* name, c_amqp_definitions.role role, c_amqpvalue.AMQP_VALUE source, c_amqpvalue.AMQP_VALUE target):
         self.destroy()
-        self._c_value = c_link.link_create(session, name, role, source, target)
+        self._session = session
+        self._c_value = c_link.link_create(<c_session.SESSION_HANDLE>session._c_value, name, role, source, target)
         self._create()
 
     cpdef subscribe_to_detach_event(self, on_detch_received):

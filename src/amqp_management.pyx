@@ -24,6 +24,7 @@ cpdef create_management_operation(cSession session, const char* management_node)
 cdef class cManagementOperation(StructBase):
 
     cdef c_amqp_management.AMQP_MANAGEMENT_HANDLE _c_value
+    cdef _session
 
     def __cinit__(self):
         pass
@@ -41,14 +42,17 @@ cdef class cManagementOperation(StructBase):
             _logger.debug("Destroying cManagementOperation")
             c_amqp_management.amqp_management_destroy(self._c_value)
             self._c_value = <c_amqp_management.AMQP_MANAGEMENT_HANDLE>NULL
+            self._session = None
 
-    cdef wrap(self, c_amqp_management.AMQP_MANAGEMENT_HANDLE value):
+    cdef wrap(self, cManagementOperation value):
         self.destroy()
-        self._c_value = value
+        self._session = value._session
+        self._c_value = value._c_value
         self._validate()
 
     cdef create(self, cSession session, const char* management_node):
         self.destroy()
+        self._session = session
         self._c_value = c_amqp_management.amqp_management_create(<c_session.SESSION_HANDLE>session._c_value, management_node)
         self._validate()
 
