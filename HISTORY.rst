@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.2.4 (2019-11-27)
+++++++++++++++++++
+
+- Fixed bug in calculating send timeout.
+- Removed `ThreadPoolExecutor` in `ConnectionAsync`.
+
 1.2.3 (2019-10-07)
 ++++++++++++++++++
 
