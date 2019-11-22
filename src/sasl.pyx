@@ -114,33 +114,17 @@ cdef class SASLMechanismInterfaceDescription(object):
 cdef class SASLClientIOConfig(object):
 
     cdef c_sasl_mechanism.SASLCLIENTIO_CONFIG _c_value
-    cdef SASLMechanism _sasl_mechanism
-    cdef XIO _underlying_io
 
-    def __cinit__(self):
-        self._c_value = c_sasl_mechanism.SASLCLIENTIO_CONFIG(<c_xio.XIO_HANDLE>NULL, <c_sasl_mechanism.SASL_MECHANISM_HANDLE>NULL)
-
-    @property
-    def underlying_io(self):
-        return self._underlying_io
-
-    @underlying_io.setter
-    def underlying_io(self, XIO value):
-        if <void*>value._c_value is NULL:
+    def __cinit__(self, XIO underlying_io, SASLMechanism sasl_mechanism):
+        if <void*>underlying_io._c_value is NULL:
             raise ValueError("UnderLying IO must not be NULL")
-        self._underlying_io = value
-        self._c_value.underlying_io = value._c_value
-
-    @property
-    def sasl_mechanism(self):
-        return self._sasl_mechanism
-
-    @sasl_mechanism.setter
-    def sasl_mechanism(self, SASLMechanism value):
-        if <void*>value._c_value is NULL:
+        if <void*>sasl_mechanism._c_value is NULL:
             raise ValueError("SASL Mechanism must not be NULL")
-        self._sasl_mechanism = value
-        self._c_value.sasl_mechanism = value._c_value
+
+        self._c_value = c_sasl_mechanism.SASLCLIENTIO_CONFIG(
+            <c_xio.XIO_HANDLE>underlying_io._c_value,
+            <c_sasl_mechanism.SASL_MECHANISM_HANDLE>sasl_mechanism._c_value
+        )
 
 
 cdef class SASLPlainConfig(object):

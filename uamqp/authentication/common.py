@@ -40,6 +40,7 @@ class AMQPAuth(object):
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
                  transport_type=TransportType.Amqp, encoding='UTF-8'):
+        self._underlying_xio = None
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
@@ -219,12 +220,8 @@ class SASLAnonymous(AMQPAuth):
 class _SASLClient(object):
 
     def __init__(self, io, sasl):
-        self._io = io
-        self._sasl_mechanism = sasl.mechanism
-        self._io_config = c_uamqp.SASLClientIOConfig()
-        self._io_config.underlying_io = self._io
-        self._io_config.sasl_mechanism = self._sasl_mechanism
-        self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
+        io_config = c_uamqp.SASLClientIOConfig(io, sasl.mechanism)
+        self._xio = c_uamqp.xio_from_saslioconfig(io_config)
 
     def get_client(self):
         return self._xio
