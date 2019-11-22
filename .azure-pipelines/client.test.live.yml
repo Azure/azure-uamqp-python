@@ -151,7 +151,7 @@ jobs:
       PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.5'
-      PythonVersion37: '3.8.0'
+      PythonVersion38: '3.8.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
