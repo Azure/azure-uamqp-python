@@ -6,14 +6,14 @@ variables:
   PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
-  PythonVersion38: '3.8.0a2'
+  PythonVersion38: '3.8'
 
 jobs:
   - job: 'sdist'
     displayName: 'Source Distribution'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     steps:
       - task: UsePythonVersion@0
@@ -46,7 +46,7 @@ jobs:
   - job: 'MacOS'
 
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
 
     strategy:
       matrix:
@@ -66,17 +66,18 @@ jobs:
           MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   MacOSXDeploymentTarget: '10.9'
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          MacOSXDeploymentTarget: '10.9'
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion38)'
 
     variables:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion27: '2.7.15'
+      PythonVersion27: '2.7.17'
       PythonVersion35: '3.5.4'
-      PythonVersion36: '3.6.5'
-      PythonVersion37: '3.7.0'
+      PythonVersion36: '3.6.8'
+      PythonVersion37: '3.7.5'
+      PythonVersion38: '3.8.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -91,6 +92,9 @@ jobs:
 
       - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
         displayName: 'Select Xcode 9.4.1'
+
+      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+        displayName: 'Install MacOS headers'
 
       - script: source ./install_python_osx.sh
         displayName: 'Install Official Python'
@@ -164,9 +168,9 @@ jobs:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
-        # x64 Python 3.8:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -179,24 +183,16 @@ jobs:
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
-        # x86 Python 3.8:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
-
-      - powershell: |
-          choco install python3 --pre --$(PythonArchitecture) --yes --no-progress --params "/InstallDir:C:\PythonPre"
-          Write-Host "##vso[task.prependpath]C:\PythonPre\Scripts"
-          Write-Host "##vso[task.prependpath]C:\PythonPre"
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
 
       - powershell: |
           Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
@@ -210,6 +206,8 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
 
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
@@ -243,7 +241,7 @@ jobs:
   - job: 'Linux'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     strategy:
       matrix:
@@ -255,24 +253,14 @@ jobs:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           versionSpec: '$(PythonVersion)'
-
-      - script: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get -q -y install python3.8 python3.8-distutils python3.8-venv python3.8-dev
-          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
 
       - script: |
           echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
@@ -318,7 +306,7 @@ jobs:
     condition: ne(variables['System.TeamProject'], 'public')
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     strategy:
       matrix:
