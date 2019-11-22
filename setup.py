@@ -85,16 +85,17 @@ def get_build_env():
 def is_msvc_9_for_python_compiler():
     return is_win and is_27 and os.path.exists("C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0")
 
-def get_generator():
+def get_generator_flags():
+    flags = ["-G"]
     if is_msvc_9_for_python_compiler():
-        return "NMake Makefiles"
-    if is_win:
-        generator = "Visual Studio 9 2008" if is_27 else "Visual Studio 15 2017"
-        if is_x64:
-            return generator + " Win64"
-        else:
-            return generator
-    return "Unix Makefiles"
+        flags.append("\"NMake Makefiles\"")
+    elif is_win:
+        flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 15 2017\"")
+        flags.append("-A")
+        flags.append("x64" if is_x64 else "Win32")
+    else:
+        flags.append("\"Unix Makefiles\"")
+    return " ".join(flags)
 
 
 def get_latest_windows_sdk():
@@ -217,8 +218,8 @@ class build_ext(build_ext_orig):
         logger.info("will build uamqp in %s", self.cmake_build_dir)
         os.chdir(cwd + "/" + self.cmake_build_dir)
 
-        generator = get_generator()
-        logger.info("Building with generator: {}".format(generator))
+        generator_flags = get_generator_flags()
+        logger.info("Building with generator flags: {}".format(generator_flags))
 
         build_env = get_build_env()
         if is_msvc_9_for_python_compiler():
@@ -229,7 +230,7 @@ class build_ext(build_ext_orig):
         configure_command = [
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
-            "-G \"{}\"".format(generator),
+            generator_flags,
             "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"),
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
             "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
