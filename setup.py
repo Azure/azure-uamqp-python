@@ -90,7 +90,7 @@ def get_generator_flags():
     if is_msvc_9_for_python_compiler():
         flags.append("\"NMake Makefiles\"")
     elif is_win:
-        flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 15 2017\"")
+        flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 16 2019\"")
         flags.append("-A")
         flags.append("x64" if is_x64 else "Win32")
     else:

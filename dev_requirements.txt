@@ -1,5 +1,5 @@
 cython==0.28.5
-setuptools>=27.1.2
+setuptools>=34.4.0
 wheel>=0.32.0
 pytest>=3.4.1
 pytest-asyncio>=0.8.0; python_version > '3.4'
