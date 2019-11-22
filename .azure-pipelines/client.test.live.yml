@@ -53,17 +53,9 @@ jobs:
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
-
-      - powershell: |
-          choco install python3 --pre --$(PythonArchitecture) --yes --no-progress --params "/InstallDir:C:\PythonPre"
-          Write-Host "##vso[task.prependpath]C:\PythonPre\Scripts"
-          Write-Host "##vso[task.prependpath]C:\PythonPre"
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
 
       - powershell: |
           Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
@@ -77,6 +69,8 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
 
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
@@ -125,7 +119,7 @@ jobs:
     timeoutInMinutes: 120
 
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
 
     strategy:
       maxParallel: 1
@@ -153,10 +147,10 @@ jobs:
 
     variables:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion27: '2.7.15'
+      PythonVersion27: '2.7.17'
       PythonVersion35: '3.5.4'
-      PythonVersion36: '3.6.5'
-      PythonVersion37: '3.7.0'
+      PythonVersion36: '3.6.8'
+      PythonVersion37: '3.7.5'
       PythonVersion38: '3.8.0'
 
     steps:
@@ -172,6 +166,9 @@ jobs:
 
       - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
         displayName: 'Select Xcode 9.4.1'
+
+      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+        displayName: 'Install MacOS headers'
 
       - script: source ./install_python_osx.sh
         displayName: 'Install Official Python'
@@ -237,7 +234,6 @@ jobs:
           artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
-
   - job: 'Linux'
     
     timeoutInMinutes: 120
@@ -245,7 +241,7 @@ jobs:
     dependsOn: 'MacOS'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     strategy:
       maxParallel: 1
@@ -264,18 +260,8 @@ jobs:
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           versionSpec: '$(PythonVersion)'
-
-      - script: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get -q -y install python3.8 python3.8-distutils python3.8-venv python3.8-dev
-          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
 
       - script: |
           echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
