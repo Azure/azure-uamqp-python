@@ -199,6 +199,11 @@ class AMQPClient(object):
         self._auth = auth
         self._hostname = self._remote_address.hostname
         self._connection.redirect(redirect, auth)
+        self._build_session()
+
+    def _build_session(self):
+        """Build self._session based on current self.connection.
+        """
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
             self._connection.cbs = self._auth.create_authenticator(
                 self._connection,
@@ -251,24 +256,7 @@ class AMQPClient(object):
                 error_policy=self._error_policy,
                 debug=self._debug_trace,
                 encoding=self._encoding)
-            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-                self._connection.cbs = self._auth.create_authenticator(
-                    self._connection,
-                    debug=self._debug_trace,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach)
-                self._session = self._auth._session
-            elif self._connection.cbs:
-                self._session = self._auth._session
-            else:
-                self._session = self.session_type(
-                    self._connection,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach)
+            self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)
                 self._keep_alive_thread.start()
