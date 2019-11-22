@@ -182,6 +182,11 @@ class AMQPClientAsync(client.AMQPClient):
         self._auth = auth
         self._hostname = self._remote_address.hostname
         await self._connection.redirect_async(redirect, auth)
+        await self._build_session()
+
+    async def _build_session(self):
+        """Build self._session based on current self.connection.
+        """
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
             self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
                 self._connection,
@@ -235,26 +240,7 @@ class AMQPClientAsync(client.AMQPClient):
                 error_policy=self._error_policy,
                 debug=self._debug_trace,
                 loop=self.loop)
-            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-                self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
-                    self._connection,
-                    debug=self._debug_trace,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach,
-                    loop=self.loop))
-                self._session = self._auth._session
-            elif self._connection.cbs:
-                self._session = self._auth._session
-            else:
-                self._session = self.session_type(
-                    self._connection,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach,
-                    loop=self.loop)
+            await self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
         finally:
