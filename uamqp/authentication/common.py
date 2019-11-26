@@ -40,7 +40,6 @@ class AMQPAuth(object):
 
     def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
                  transport_type=TransportType.Amqp, encoding='UTF-8'):
-        self._underlying_xio = None
         self._encoding = encoding
         self.hostname = self._encode(hostname)
         self.cert_file = verify
@@ -96,17 +95,17 @@ class AMQPAuth(object):
 
         _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
 
-        self._underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
+        _underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
             cert_data = cert_handle.read()
             try:
-                self._underlying_xio.set_certificates(cert_data)
+                _underlying_xio.set_certificates(cert_data)
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
 
-        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl)  # pylint: disable=attribute-defined-outside-init
+        self.sasl_client = _SASLClient(_underlying_xio, self.sasl)  # pylint: disable=attribute-defined-outside-init
         self.consumed = False  # pylint: disable=attribute-defined-outside-init
 
     def set_tlsio(self, hostname, port):
@@ -123,16 +122,16 @@ class AMQPAuth(object):
         _tlsio_config.hostname = hostname
         _tlsio_config.port = int(port)
 
-        self._underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config) # pylint: disable=attribute-defined-outside-init
+        _underlying_xio = c_uamqp.xio_from_tlsioconfig(_default_tlsio, _tlsio_config) # pylint: disable=attribute-defined-outside-init
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
             cert_data = cert_handle.read()
             try:
-                self._underlying_xio.set_certificates(cert_data)
+                _underlying_xio.set_certificates(cert_data)
             except ValueError:
                 _logger.warning('Unable to set external certificates.')
-        self.sasl_client = _SASLClient(self._underlying_xio, self.sasl) # pylint: disable=attribute-defined-outside-init
+        self.sasl_client = _SASLClient(_underlying_xio, self.sasl) # pylint: disable=attribute-defined-outside-init
         self.consumed = False # pylint: disable=attribute-defined-outside-init
 
     def close(self):
@@ -140,8 +139,7 @@ class AMQPAuth(object):
         all the authentication wrapper objects.
         """
         self.sasl.mechanism.destroy()
-        self.sasl_client.get_client().destroy()
-        self._underlying_xio.destroy()
+        self.sasl_client.close()
 
 
 class SASLPlain(AMQPAuth):
@@ -220,11 +218,22 @@ class SASLAnonymous(AMQPAuth):
 class _SASLClient(object):
 
     def __init__(self, io, sasl):
-        io_config = c_uamqp.SASLClientIOConfig(io, sasl.mechanism)
-        self._xio = c_uamqp.xio_from_saslioconfig(io_config)
+        """Create a SASLClient.
+
+        This will own the input "io" and be responsible for its destruction.
+        """
+        self._underlying_io = io
+        self._mechanism = sasl.mechanism
+
+        self._io_config = c_uamqp.SASLClientIOConfig(io, sasl.mechanism)
+        self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
 
     def get_client(self):
         return self._xio
+
+    def close(self):
+        self._xio.destroy()
+        self._underlying_xio.destroy()
 
 
 class _SASL(object):
