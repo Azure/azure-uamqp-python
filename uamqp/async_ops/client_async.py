@@ -410,7 +410,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :param msg_timeout: A timeout in seconds for messages from when they have been
+    :param msg_timeout: A timeout in milliseconds for messages from when they have been
      added to the send queue to when the message is actually sent. This prevents potentially
      expired data from being sent. If set to 0, messages will not expire. Default is 0.
     :type msg_timeout: int
@@ -516,7 +516,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding,
-                executor=self._connection._executor,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async())
             return False
@@ -819,7 +818,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 desired_capabilities=self._desired_capabilities,
-                executor=self._connection._executor,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async())
             return False
