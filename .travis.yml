@@ -32,6 +32,13 @@ matrix:
         - pytest
         - python ./setup.py check -r -s
         - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+    - os: linux
+      python: "3.8"
+      env: UAMQP_ENV=LINUX38
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
 sudo: required
 services:
   - docker
