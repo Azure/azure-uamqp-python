@@ -3,11 +3,12 @@
 Release History
 ===============
 
-1.2.4 (2019-11-27)
+1.2.4 (2019-12-02)
 ++++++++++++++++++
 
 - Fixed bug in calculating send timeout.
 - Removed `ThreadPoolExecutor` in `ConnectionAsync`.
+- Added support for Python 3.8
 
 1.2.3 (2019-10-07)
 ++++++++++++++++++
