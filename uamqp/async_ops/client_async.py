@@ -196,9 +196,9 @@ class AMQPClientAsync(client.AMQPClient):
                 handle_max=self._handle_max,
                 on_attach=self._on_attach,
                 loop=self.loop))
-            self._session = self._auth._session
+            self._session = self._auth._session  # pylint: disable=protected-access
         elif self._cbs:
-            self._session = self._auth._session
+            self._session = self._auth._session  # pylint: disable=protected-access
         else:
             self._session = self.session_type(
                 self._connection,
