@@ -233,7 +233,7 @@ class _SASLClient(object):
 
     def close(self):
         self._xio.destroy()
-        self._underlying_xio.destroy()
+        self._underlying_io.destroy()
 
 
 class _SASL(object):
