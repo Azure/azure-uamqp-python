@@ -263,6 +263,7 @@ class MessageReceiver(object):
         except TypeError:
             pass
         except errors.LinkRedirect:
+            _logger.info("%r", e)
             raise
         except Exception as e:
             _logger.warning("%r", e)
