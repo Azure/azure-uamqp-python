@@ -3,8 +3,11 @@ set -e
 
 # Inspired by https://github.com/pypa/python-manylinux-demo/blob/a615d78e5042c01a03e1bbb1ca78603c90dbce1f/travis/build-wheels.sh
 
-# To build 64bit wheels, run:
-# docker run --rm -v $PWD:/data -e "UAMQP_REBUILD_PYX=True" local/manylinux_crypto64 /data/build_many_linux.sh
+# To build 64bit manylinux1 wheels, run:
+# docker run --rm -v $PWD:/data -e "PLATFORM=manylinux1_x86_64" -e "UAMQP_REBUILD_PYX=True" azuresdkimages.azurecr.io/manylinux_crypto_x64 /data/build_many_linux.sh
+
+# To build 64bit manylinux2010 wheels, run:
+# docker run --rm -v $PWD:/data -e "PLATFORM=manylinux2010_x86_64" -e "UAMQP_REBUILD_PYX=True" azuresdkimages.azurecr.io/manylinux2010_crypto_x64 /data/build_many_linux.sh
 
 export CPATH="/opt/pyca/cryptography/openssl/include"
 export LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib"
@@ -22,7 +25,7 @@ popd;
 
 # Repair the wheels
 for WHL in /wheelhouse/*; do
-        auditwheel repair $WHL -w /data/wheelhouse/;
+        auditwheel repair --plat $PLATFORM $WHL -w /data/wheelhouse/;
 done;
 
 # Set up env vars to run live tests - otherwise they will be skipped.
