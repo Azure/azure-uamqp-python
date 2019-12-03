@@ -303,11 +303,53 @@ jobs:
 
     strategy:
       matrix:
-        manylinux1:
+        Python27m-manylinux1:
           ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp27-cp27m'
           Platform: 'manylinux1_x86_64'
-        manylinux2010:
+        Python27mu-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp27-cp27mu'
+          Platform: 'manylinux1_x86_64'
+        Python35m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp35-cp35m'
+          Platform: 'manylinux1_x86_64'
+        Python36m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp36-cp36m'
+          Platform: 'manylinux1_x86_64'
+        Python37m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux1_x86_64'
+        Python38-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp38-cp38'
+          Platform: 'manylinux1_x86_64'
+        Python27m-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp27-cp27m'
+          Platform: 'manylinux2010_x86_64'
+        Python27mu-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp27-cp27mu'
+          Platform: 'manylinux2010_x86_64'
+        Python35m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp35-cp35m'
+          Platform: 'manylinux2010_x86_64'
+        Python36m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp36-cp36m'
+          Platform: 'manylinux2010_x86_64'
+        Python37m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux2010_x86_64'
+        Python38-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp38-cp38'
           Platform: 'manylinux2010_x86_64'
 
     steps:
@@ -320,6 +362,7 @@ jobs:
           containerCommand: '/data/build_many_linux.sh'
           envVars: |
             PLATFORM=$(Platform)
+            PYTHON_VERSION=$(PythonVersion)
             UAMQP_REBUILD_PYX=True
           imageName: '$(ContainerImage)'
           qualifyImageName: true
@@ -332,5 +375,5 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifacts'
         inputs:
-          artifactName: uamqp-$(Platform)-x64-whl
+          artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
           pathToPublish: 'wheelhouse'
