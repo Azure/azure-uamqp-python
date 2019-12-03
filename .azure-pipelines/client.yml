@@ -308,13 +308,6 @@ jobs:
     pool:
       vmImage: 'ubuntu-18.04'
 
-    strategy:
-      matrix:
-        x64:
-          PythonArchitecture: 'x64'
-        x86:
-          PythonArchitecture: 'x86'
-
     steps:
       - task: Docker@1
         displayName: 'Build and test with Docker'
@@ -324,7 +317,7 @@ jobs:
           command: 'Run an image'
           containerCommand: '/data/build_many_linux.sh'
           envVars: 'UAMQP_REBUILD_PYX=True'
-          imageName: 'manylinux_crypto_$(PythonArchitecture)'
+          imageName: 'manylinux_crypto_x64'
           qualifyImageName: true
           runInBackground: false
           volumes: '$(System.DefaultWorkingDirectory):/data'
@@ -335,5 +328,5 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifacts'
         inputs:
-          artifactName: uamqp-manylinux1-$(PythonArchitecture)-whl
+          artifactName: uamqp-manylinux1-x64-whl
           pathToPublish: 'wheelhouse'
