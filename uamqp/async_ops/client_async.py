@@ -183,14 +183,15 @@ class AMQPClientAsync(client.AMQPClient):
         self._hostname = self._remote_address.hostname
         await self._connection.redirect_async(redirect, auth)
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-            self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
-                self._connection,
-                debug=self._debug_trace,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach,
-                loop=self.loop),
+            self._connection.cbs = await asyncio.shield(
+                self._auth.create_authenticator_async(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach,
+                    loop=self.loop),
                 loop=self.loop)
             self._session = self._auth._session
         elif self._connection.cbs:
@@ -237,14 +238,15 @@ class AMQPClientAsync(client.AMQPClient):
                 debug=self._debug_trace,
                 loop=self.loop)
             if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-                self._connection.cbs = await asyncio.shield(self._auth.create_authenticator_async(
-                    self._connection,
-                    debug=self._debug_trace,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach,
-                    loop=self.loop),
+                self._connection.cbs = await asyncio.shield(
+                    self._auth.create_authenticator_async(
+                        self._connection,
+                        debug=self._debug_trace,
+                        incoming_window=self._incoming_window,
+                        outgoing_window=self._outgoing_window,
+                        handle_max=self._handle_max,
+                        on_attach=self._on_attach,
+                        loop=self.loop),
                     loop=self.loop)
                 self._session = self._auth._session
             elif self._connection.cbs:
@@ -328,15 +330,16 @@ class AMQPClientAsync(client.AMQPClient):
         """
         while not await self.auth_complete_async():
             await asyncio.sleep(0.05, loop=self.loop)
-        response = await asyncio.shield(self._session.mgmt_request_async(
-            message,
-            operation,
-            op_type=op_type,
-            node=node,
-            callback=callback,
-            encoding=self._encoding,
-            debug=self._debug_trace,
-            **kwargs),
+        response = await asyncio.shield(
+            self._session.mgmt_request_async(
+                message,
+                operation,
+                op_type=op_type,
+                node=node,
+                callback=callback,
+                encoding=self._encoding,
+                debug=self._debug_trace,
+                **kwargs),
             loop=self.loop)
         return response
 
