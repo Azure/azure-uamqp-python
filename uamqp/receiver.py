@@ -269,7 +269,10 @@ class MessageReceiver(object):
 
     def work(self):
         """Update the link status."""
+        pass
+        '''
         self._link.do_work()
+        '''
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
