@@ -133,8 +133,11 @@ class MessageReceiverAsync(receiver.MessageReceiver):
 
     async def work_async(self):
         """Update the link status."""
+        pass
+        '''
         await asyncio.sleep(0)
         self._link.do_work()
+        '''
 
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
