@@ -57,7 +57,7 @@ typedef struct LINK_INSTANCE_TAG
     sequence_no initial_delivery_count;
     uint64_t max_message_size;
     uint64_t peer_max_message_size;
-    uint32_t current_link_credit;
+    int32_t current_link_credit;
     uint32_t max_link_credit;
     uint32_t available;
     fields attach_properties;
