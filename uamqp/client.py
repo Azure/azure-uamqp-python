@@ -877,7 +877,7 @@ class ReceiveClient(AMQPClient):
 
     def __init__(
             self, source, auth=None, client_name=None, debug=False, timeout=0,
-            auto_complete=True, error_policy=None, **kwargs):
+            auto_complete=False, error_policy=None, **kwargs):
         source = source if isinstance(source, address.Address) else address.Source(source)
         self._timeout = timeout
         self._last_activity_timestamp = None

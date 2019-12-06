@@ -773,7 +773,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             loop=None,
             debug=False,
             timeout=0,
-            auto_complete=True,
+            auto_complete=False,
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
