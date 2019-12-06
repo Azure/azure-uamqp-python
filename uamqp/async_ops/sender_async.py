@@ -78,7 +78,7 @@ class MessageSenderAsync(sender.MessageSender):
     def __init__(self, session, source, target,
                  name=None,
                  send_settle_mode=constants.SenderSettleMode.Unsettled,
-                 receive_settle_mode=constants.ReceiverSettleMode.PeekLock,
+                 receive_settle_mode=constants.ReceiverSettleMode.ReceiveAndDelete,
                  max_message_size=constants.MAX_MESSAGE_LENGTH_BYTES,
                  link_credit=None,
                  properties=None,
