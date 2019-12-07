@@ -20,7 +20,7 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_message_receiver(cLink link, callback_context):
     receiver = cMessageReceiver()
-    receiver.create(<c_link.LINK_HANDLE>link._c_value, on_message_receiver_state_changed, <void*>callback_context)
+    receiver.create(link, on_message_receiver_state_changed, <void*>callback_context)
     return receiver
 
 
@@ -28,6 +28,7 @@ cdef class cMessageReceiver(StructBase):
 
     cdef c_message_receiver.MESSAGE_RECEIVER_HANDLE _c_value
     cdef const char* _link_name
+    cdef cLink _link
 
     def __cinit__(self):
         pass
@@ -40,9 +41,10 @@ cdef class cMessageReceiver(StructBase):
         if <void*>self._c_value is NULL:
             self._memory_error()
 
-    cdef create(self, c_link.LINK_HANDLE link, c_message_receiver.ON_MESSAGE_RECEIVER_STATE_CHANGED on_message_sender_state_changed, void* context):
+    cdef create(self, cLink link, c_message_receiver.ON_MESSAGE_RECEIVER_STATE_CHANGED on_message_sender_state_changed, void* context):
         self.destroy()
-        self._c_value = c_message_receiver.messagereceiver_create(link, on_message_sender_state_changed, context)
+        self._link = link
+        self._c_value = c_message_receiver.messagereceiver_create(<c_link.LINK_HANDLE>link._c_value, on_message_sender_state_changed, context)
         self._validate()
         if c_message_receiver.messagereceiver_get_link_name(self._c_value, &self._link_name)!= 0:
             self._value_error("Unable to retrieve message receiver link name.")
@@ -60,6 +62,7 @@ cdef class cMessageReceiver(StructBase):
             _logger.debug("Destroying cMessageReceiver")
             c_message_receiver.messagereceiver_destroy(self._c_value)
             self._c_value = <c_message_receiver.MESSAGE_RECEIVER_HANDLE>NULL
+            self._link = None
 
     cpdef last_received_message_number(self):
         cdef c_amqp_definitions.delivery_number message_number
@@ -100,19 +103,24 @@ cdef class cMessageReceiver(StructBase):
             raise RuntimeError("Unable to send message dispostition 'delivery-modified' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
-    cdef wrap(self, c_message_receiver.MESSAGE_RECEIVER_HANDLE value):
+    cdef wrap(self, cMessageReceiver value):
         self.destroy()
-        self._c_value = value
+        self._link = value._link
+        self._c_value = value._c_value
         self._validate()
 
     cpdef set_trace(self, bint value):
         c_message_receiver.messagereceiver_set_trace(self._c_value, value)
 
 
-#### Callbacks
+#### Callbacks (context is a MessageReceiver instance)
 
 cdef void on_message_receiver_state_changed(void* context, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG new_state, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG previous_state):
     if context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_state_changed during garbage collection, plase be sure to close or use a context manager")
+            return
         context_obj = <object>context
         try:
             context_obj._state_changed(previous_state, new_state)
@@ -121,11 +129,16 @@ cdef void on_message_receiver_state_changed(void* context, c_message_receiver.ME
 
 
 cdef c_amqpvalue.AMQP_VALUE on_message_received(void* context, c_message.MESSAGE_HANDLE message):
-    context_obj = <object>context
     cdef c_message.MESSAGE_HANDLE cloned
     cloned = c_message.message_clone(message)
     wrapped_message = message_factory(cloned)
 
-    if hasattr(context_obj, '_message_received'):
-        context_obj._message_received(wrapped_message)
+    if context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call _message_received during garbage collection")
+            return <c_amqpvalue.AMQP_VALUE>NULL
+        context_obj = <object>context
+        if hasattr(context_obj, '_message_received'):
+            context_obj._message_received(wrapped_message)
     return <c_amqpvalue.AMQP_VALUE>NULL
