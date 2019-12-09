@@ -11,6 +11,7 @@ import copy
 # C imports
 from libc cimport stdint
 
+from cpython.ref cimport PyObject
 cimport c_message_sender
 cimport c_link
 cimport c_async_operation
@@ -22,19 +23,20 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_message_sender(cLink link, callback_context):
     sender = cMessageSender()
-    sender.create(<c_link.LINK_HANDLE>link._c_value, on_message_sender_state_changed, <void*>callback_context)
+    sender.create(link, on_message_sender_state_changed, <void*>callback_context)
     return sender
 
 
 cdef create_message_sender_with_callback(cLink link,c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED callback, void* callback_context):
     sender = cMessageSender()
-    sender.create(<c_link.LINK_HANDLE>link._c_value, callback, callback_context)
+    sender.create(link, callback, callback_context)
     return sender
 
 
 cdef class cMessageSender(StructBase):
 
     cdef c_message_sender.MESSAGE_SENDER_HANDLE _c_value
+    cdef cLink _link
 
     def __cinit__(self):
         pass
@@ -67,15 +69,18 @@ cdef class cMessageSender(StructBase):
             _logger.debug("Destroying cMessageSender")
             c_message_sender.messagesender_destroy(self._c_value)
             self._c_value = <c_message_sender.MESSAGE_SENDER_HANDLE>NULL
+            self._link = None
 
-    cdef wrap(self, c_message_sender.MESSAGE_SENDER_HANDLE value):
+    cdef wrap(self, cMessageSender value):
         self.destroy()
-        self._c_value = value
+        self._link = value._link
+        self._c_value = value._c_value
         self._create()
 
-    cdef create(self, c_link.LINK_HANDLE link, c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED on_message_sender_state_changed, void* context):
+    cdef create(self, cLink link, c_message_sender.ON_MESSAGE_SENDER_STATE_CHANGED on_message_sender_state_changed, void* context):
         self.destroy()
-        self._c_value = c_message_sender.messagesender_create(link, on_message_sender_state_changed, context)
+        self._link = link
+        self._c_value = c_message_sender.messagesender_create(<c_link.LINK_HANDLE>link._c_value, on_message_sender_state_changed, context)
         self._create()
 
     cpdef send(self, cMessage message, c_amqp_definitions.tickcounter_ms_t timeout, callback_context):
@@ -89,7 +94,8 @@ cdef class cMessageSender(StructBase):
         c_message_sender.messagesender_set_trace(self._c_value, value)
 
 
-#### Callbacks
+#### Callbacks (context is a MessageSender instance)
+
 
 cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result, c_amqpvalue.AMQP_VALUE delivery_state):
     cdef c_amqpvalue.AMQP_VALUE send_data
@@ -99,6 +105,10 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
         send_data = c_amqpvalue.amqpvalue_clone(delivery_state)
         wrapped = copy.deepcopy(value_factory(send_data).value)
     if context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call _on_message_sent during garbage collection")
+            return
         context_obj = <object>context
         if hasattr(context_obj, "_on_message_sent"):
             context_obj._on_message_sent(context_obj, send_result, delivery_state=wrapped)
@@ -106,6 +116,10 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
 
 cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):
     if context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_state_changed during garbage collection, plase be sure to close or use a context manager")
+            return
         context_obj = <object>context
         try:
             context_obj._state_changed(previous_state, new_state)

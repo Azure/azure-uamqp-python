@@ -12,8 +12,7 @@ cimport c_utils
 cdef extern from "azure_c_shared_utility/xio.h":
 
     ctypedef void* CONCRETE_IO_HANDLE
-    ctypedef struct XIO_HANDLE:
-        pass
+    ctypedef void* XIO_HANDLE
 
     cdef enum IO_SEND_RESULT_TAG:
         IO_SEND_OK,

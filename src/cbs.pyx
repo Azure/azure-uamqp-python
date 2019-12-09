@@ -51,6 +51,7 @@ cdef class CBSTokenAuth(object):
     cdef unsigned int token_status_code
     cdef const char* token_status_description
     cdef const char* connection_id
+    cdef cSession _session
 
     def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout, const char* connection_id):
         self.state = AUTH_STATUS_IDLE
@@ -65,6 +66,7 @@ cdef class CBSTokenAuth(object):
         remaining_time = expires_at - current_time
         self._refresh_window = int(float(remaining_time) * 0.1)
         self._cbs_handle = c_cbs.cbs_create(<c_session.SESSION_HANDLE>session._c_value)
+        self._session = session
         if <void*>self._cbs_handle == NULL:
             raise MemoryError("Unable to create CBS Handle.")
         if c_cbs.cbs_open_async(self._cbs_handle, <c_cbs.ON_CBS_OPEN_COMPLETE>on_cbs_open_complete, <void*>self, <c_cbs.ON_CBS_ERROR>on_cbs_error, <void*>self) != 0:
@@ -72,12 +74,14 @@ cdef class CBSTokenAuth(object):
 
     def __dealloc__(self):
         _logger.debug("Deallocating CBSTokenAuth")
+        self.destroy()
 
     cpdef destroy(self):
         if <void*>self._cbs_handle is not NULL:
             _logger.debug("Destroying CBSTokenAuth for connection %r", self.connection_id)
             c_cbs.cbs_destroy(self._cbs_handle)
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
+            self._session = None
 
     cpdef set_trace(self, bint trace_on):
         if c_cbs.cbs_set_trace(self._cbs_handle, trace_on) != 0:
