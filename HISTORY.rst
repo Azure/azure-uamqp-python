@@ -3,6 +3,13 @@
 Release History
 ===============
 
+1.2.5 (2019-12-09)
+++++++++++++++++++
+
+- Fixed garbage collection of C objects to prevent crashing on uncontrolled shutdown.
+- Fixed missing event loop references passed into asyncio functions.
+- Demote link redirect logging from warning to info.
+
 1.2.4 (2019-12-02)
 ++++++++++++++++++
 
