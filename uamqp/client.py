@@ -86,7 +86,6 @@ class AMQPClient(object):
     def __init__(
             self, remote_address, auth=None, client_name=None, debug=False,
             error_policy=None, keep_alive_interval=None, **kwargs):
-        self._cbs = None
         self._encoding = kwargs.pop('encoding', None) or 'UTF-8'
         self._transport_type = kwargs.pop('transport_type', None) or TransportType.Amqp
         self._http_proxy = kwargs.pop('http_proxy', None)
@@ -193,10 +192,9 @@ class AMQPClient(object):
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
-        if not self._cbs:
+        if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
-        self._cbs = None
         self._session = None
         self._auth = auth
         self._hostname = self._remote_address.hostname
@@ -206,24 +204,16 @@ class AMQPClient(object):
     def _build_session(self):
         """Build self._session based on current self.connection.
         """
-        if not self._cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-            # pylint: disable=protected-access
-            if self._ext_connection:
-                try:
-                    self._cbs = self._auth._cbs_auth
-                    self._session = self._auth._session
-                except AttributeError:
-                    pass
-            if not self._cbs or not self._session:
-                self._cbs = self._auth.create_authenticator(
-                    self._connection,
-                    debug=self._debug_trace,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach)
-                self._session = self._auth._session  # pylint: disable=protected-access
-        elif self._cbs:
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection.cbs = self._auth.create_authenticator(
+                self._connection,
+                debug=self._debug_trace,
+                incoming_window=self._incoming_window,
+                outgoing_window=self._outgoing_window,
+                handle_max=self._handle_max,
+                on_attach=self._on_attach)
+            self._session = self._auth._session  # pylint: disable=protected-access
+        elif self._connection.cbs:
             self._session = self._auth._session  # pylint: disable=protected-access
         else:
             self._session = self.session_type(
@@ -295,13 +285,11 @@ class AMQPClient(object):
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
-        if not self._cbs:
+        if not self._connection.cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
         else:
-            _logger.debug("CBS close authenticator.")
-            self._auth.close_authenticator()
-            self._cbs = None
+            _logger.debug("CBS session pending.")
         self._session = None
         if not self._ext_connection:
             _logger.debug("Closing exclusive connection.")
@@ -366,7 +354,7 @@ class AMQPClient(object):
         """
         timeout = False
         auth_in_progress = False
-        if self._cbs:
+        if self._connection.cbs:
             timeout, auth_in_progress = self._auth.handle_token()
             if timeout is None and auth_in_progress is None:
                 _logger.debug("No work done.")

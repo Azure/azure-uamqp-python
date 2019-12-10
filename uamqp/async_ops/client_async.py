@@ -175,10 +175,9 @@ class AMQPClientAsync(client.AMQPClient):
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
         # pylint: disable=protected-access
-        if not self._cbs:
+        if not self._connection.cbs:
             _logger.info("Closing non-CBS session.")
             await asyncio.shield(self._session.destroy_async(), loop=self.loop)
-        self._cbs = None
         self._session = None
         self._auth = auth
         self._hostname = self._remote_address.hostname
@@ -188,27 +187,19 @@ class AMQPClientAsync(client.AMQPClient):
     async def _build_session_async(self):
         """Build self._session based on current self.connection.
         """
-        if not self._cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-            # pylint: disable=protected-access
-            if self._ext_connection:
-                try:
-                    self._cbs = self._auth._cbs_auth
-                    self._session = self._auth._session
-                except AttributeError:
-                    pass
-            if not self._cbs or not self._session:
-                self._cbs = await asyncio.shield(
-                    self._auth.create_authenticator_async(
-                        self._connection,
-                        debug=self._debug_trace,
-                        incoming_window=self._incoming_window,
-                        outgoing_window=self._outgoing_window,
-                        handle_max=self._handle_max,
-                        on_attach=self._on_attach,
-                        loop=self.loop),
-                    loop=self.loop)
-                self._session = self._auth._session  # pylint: disable=protected-access
-        elif self._cbs:
+        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
+            self._connection.cbs = await asyncio.shield(
+                self._auth.create_authenticator_async(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach,
+                    loop=self.loop),
+                loop=self.loop)
+            self._session = self._auth._session  # pylint: disable=protected-access
+        elif self._connection.cbs:
             self._session = self._auth._session  # pylint: disable=protected-access
         else:
             self._session = self.session_type(
@@ -273,13 +264,11 @@ class AMQPClientAsync(client.AMQPClient):
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
-        if not self._cbs:
+        if not self._connection.cbs:
             _logger.info("Closing non-CBS session.")
             await asyncio.shield(self._session.destroy_async(), loop=self.loop)
         else:
-            _logger.info("CBS close authenticator.")
-            await self._auth.close_authenticator_async()
-            self._cbs = None
+            _logger.info("CBS session pending %r.", self._connection.container_id)
         self._session = None
         if not self._ext_connection:
             _logger.info("Closing exclusive connection %r.", self._connection.container_id)
@@ -346,7 +335,7 @@ class AMQPClientAsync(client.AMQPClient):
         """
         timeout = False
         auth_in_progress = False
-        if self._cbs:
+        if self._connection.cbs:
             timeout, auth_in_progress = await self._auth.handle_token_async()
             if timeout is None and auth_in_progress is None:
                 _logger.debug("No work done.")
