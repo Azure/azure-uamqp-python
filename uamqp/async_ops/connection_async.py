@@ -98,9 +98,9 @@ class ConnectionAsync(connection.Connection):
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
-        if self.cbs:
+        if self._cbs:
             await self.auth.close_authenticator_async()
-            self.cbs = None
+            self._cbs = None
         self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
