@@ -196,6 +196,7 @@ class AMQPClient(object):
         if not self._cbs:
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
+        self._cbs = None
         self._session = None
         self._auth = auth
         self._hostname = self._remote_address.hostname
@@ -206,14 +207,22 @@ class AMQPClient(object):
         """Build self._session based on current self.connection.
         """
         if not self._cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-            self._cbs = self._auth.create_authenticator(
-                self._connection,
-                debug=self._debug_trace,
-                incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window,
-                handle_max=self._handle_max,
-                on_attach=self._on_attach)
-            self._session = self._auth._session  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            if self._ext_connection:
+                try:
+                    self._cbs = self._auth._cbs_auth
+                    self._session = self._auth._session
+                except AttributeError:
+                    pass
+            if not self._cbs or not self._session:
+                self._cbs = self._auth.create_authenticator(
+                    self._connection,
+                    debug=self._debug_trace,
+                    incoming_window=self._incoming_window,
+                    outgoing_window=self._outgoing_window,
+                    handle_max=self._handle_max,
+                    on_attach=self._on_attach)
+                self._session = self._auth._session  # pylint: disable=protected-access
         elif self._cbs:
             self._session = self._auth._session  # pylint: disable=protected-access
         else:
