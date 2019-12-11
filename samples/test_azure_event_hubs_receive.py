@@ -37,6 +37,18 @@ def get_plain_auth(config):
         config['access_key'])
 
 
+def send_single_message(live_eventhub_config, partition, msg_content):
+    target = "amqps://{}/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        partition
+    )
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
+
+
 def test_event_hubs_simple_receive(live_eventhub_config):
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],
@@ -234,6 +246,35 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
             break
     
     receive_client.close()
+
+
+def test_event_hubs_shared_connection(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'])
+
+    send_single_message(live_eventhub_config, "0", "Message")
+    send_single_message(live_eventhub_config, "1", "Message")
+
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
+        partition_0 = uamqp.ReceiveClient(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
+        partition_1 = uamqp.ReceiveClient(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
+        partition_0.open(connection=conn)
+        partition_1.open(connection=conn)
+
+        try:
+            messages_0 = partition_0.receive_message_batch(1)
+            messages_1 = partition_1.receive_message_batch(1)
+            assert len(messages_0) == 1 and len(messages_1) == 1
+        except:
+            raise
+        finally:
+            partition_0.close()
+            partition_1.close()
 
 
 def test_event_hubs_filter_receive(live_eventhub_config):
