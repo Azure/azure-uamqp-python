@@ -98,6 +98,9 @@ class ConnectionAsync(connection.Connection):
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
+        if self._cbs:
+            await self.auth.close_authenticator_async()
+            self._cbs = None
         self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
@@ -181,7 +184,8 @@ class ConnectionAsync(connection.Connection):
             self.release_async()
 
     async def destroy_async(self):
-        """Close the connection asynchronously.
+        """Close the connection asynchronously, and close any associated
+        CBS authentication session.
         """
         try:
             await self.lock_async()
