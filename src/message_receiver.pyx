@@ -119,7 +119,7 @@ cdef void on_message_receiver_state_changed(void* context, c_message_receiver.ME
     if context != NULL:
         context_pyobj = <PyObject*>context
         if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
-            _logger.warning("Can't call on_state_changed during garbage collection, plase be sure to close or use a context manager")
+            _logger.warning("Can't call on_state_changed during garbage collection, please be sure to close or use a context manager")
             return
         context_obj = <object>context
         try:
