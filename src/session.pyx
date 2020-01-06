@@ -9,6 +9,8 @@ import logging
 
 # C imports
 from libc cimport stdint
+cimport c_amqpvalue
+cimport c_amqp_definitions
 cimport c_session
 cimport c_connection
 
@@ -18,7 +20,7 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_session(Connection connection, on_link_attached_context):
     session = cSession()
-    session.create(connection._c_value, <c_session.ON_LINK_ATTACHED>on_link_attached, <void*>on_link_attached_context)
+    session.create(connection, <c_session.ON_LINK_ATTACHED>on_link_attached, <void*>on_link_attached_context)
     return session
 
 
@@ -26,6 +28,7 @@ cdef class cSession(StructBase):
 
     _links = []
     cdef c_session.SESSION_HANDLE _c_value
+    cdef Connection _connection
 
     def __cinit__(self):
         pass
@@ -85,15 +88,18 @@ cdef class cSession(StructBase):
             _logger.debug("Destroying cSession")
             c_session.session_destroy(self._c_value)
             self._c_value = <c_session.SESSION_HANDLE>NULL
+            self._connection = None
 
-    cdef wrap(self, c_session.SESSION_HANDLE value):
+    cdef wrap(self, cSession value):
         self.destroy()
-        self._c_value = value
+        self._connection = value._connection
+        self._c_value = value._c_value
         self._create()
 
-    cdef create(self, c_connection.CONNECTION_HANDLE connection, c_session.ON_LINK_ATTACHED on_link_attached, void* callback_context):
+    cdef create(self, Connection connection, c_session.ON_LINK_ATTACHED on_link_attached, void* callback_context):
         self.destroy()
-        self._c_value = c_session.session_create(connection, on_link_attached, callback_context)
+        self._connection = connection
+        self._c_value = c_session.session_create(connection._c_value, on_link_attached, callback_context)
         self._create()
 
     cpdef begin(self):

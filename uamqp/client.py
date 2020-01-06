@@ -194,14 +194,19 @@ class AMQPClient(object):
         :param auth: Authentication credentials to the redirected endpoint.
         :type auth: ~uamqp.authentication.common.AMQPAuth
         """
-        # pylint: disable=protected-access
-        if not self._connection.cbs:
+        if not self._connection._cbs:  # pylint: disable=protected-access
             _logger.debug("Closing non-CBS session.")
             self._session.destroy()
         self._session = None
         self._auth = auth
         self._hostname = self._remote_address.hostname
         self._connection.redirect(redirect, auth)
+        self._build_session()
+
+    def _build_session(self):
+        """Build self._session based on current self.connection.
+        """
+        # pylint: disable=protected-access
         if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
             self._connection.cbs = self._auth.create_authenticator(
                 self._connection,
@@ -211,7 +216,7 @@ class AMQPClient(object):
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
         if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
-            self._session = self._auth._session
+            self._session = self._auth._session  # pylint: disable=protected-access
             self._using_cbs_session = True
         else:
             self._session = self.session_type(
@@ -255,25 +260,7 @@ class AMQPClient(object):
                 error_policy=self._error_policy,
                 debug=self._debug_trace,
                 encoding=self._encoding)
-            if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-                self._connection.cbs = self._auth.create_authenticator(
-                    self._connection,
-                    debug=self._debug_trace,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach)
-            if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
-                self._session = self._auth._session
-                self._using_cbs_session = True
-            else:
-                self._session = self.session_type(
-                    self._connection,
-                    incoming_window=self._incoming_window,
-                    outgoing_window=self._outgoing_window,
-                    handle_max=self._handle_max,
-                    on_attach=self._on_attach)
-                self._using_cbs_session = False
+            self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)
                 self._keep_alive_thread.start()
@@ -371,7 +358,7 @@ class AMQPClient(object):
         """
         timeout = False
         auth_in_progress = False
-        if self._connection.cbs:
+        if self._connection._cbs:  # pylint: disable=protected-access
             timeout, auth_in_progress = self._auth.handle_token()
             if timeout is None and auth_in_progress is None:
                 _logger.debug("No work done.")
@@ -433,7 +420,7 @@ class SendClient(AMQPClient):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :param msg_timeout: A timeout in seconds for messages from when they have been
+    :param msg_timeout: A timeout in milliseconds for messages from when they have been
      added to the send queue to when the message is actually sent. This prevents potentially
      expired data from being sent. If set to 0, messages will not expire. Default is 0.
     :type msg_timeout: int
@@ -609,7 +596,7 @@ class SendClient(AMQPClient):
 
     def _get_msg_timeout(self, message):
         current_time = self._counter.get_current_ms()
-        elapsed_time = (current_time - message.idle_time)/1000
+        elapsed_time = (current_time - message.idle_time)
         if self._msg_timeout > 0 and elapsed_time > self._msg_timeout:
             return None
         return self._msg_timeout - elapsed_time if self._msg_timeout > 0 else 0

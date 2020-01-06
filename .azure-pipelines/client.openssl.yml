@@ -2,13 +2,13 @@ trigger: none
 pr: none
 
 variables:
-  OpenSSLVersion: '1.0.2q'
+  OpenSSLVersion: '1.0.2t'
 
 jobs:
   - job: 'OpenSSL'
 
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
 
     strategy:
       matrix:
@@ -20,6 +20,9 @@ jobs:
     steps:
       - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
         displayName: 'Select Xcode 9.4.1'
+
+      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+        displayName: 'Install MacOS headers'
 
       - script: source ./build_openssl_osx.sh
         displayName: 'Build OpenSSL'

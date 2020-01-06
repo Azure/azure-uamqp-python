@@ -10,6 +10,7 @@ from enum import Enum
 
 # C imports
 from libc cimport stdint
+cimport c_amqp_definitions
 cimport c_connection
 cimport c_xio
 
@@ -19,7 +20,7 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_connection(XIO sasl_client, const char* hostname, const char* container_id, callback_context):
     conn = Connection()
-    conn.create(sasl_client._c_value, hostname, container_id, on_connection_state_changed, on_io_error, <void*>callback_context)
+    conn.create(sasl_client, hostname, container_id, on_connection_state_changed, on_io_error, <void*>callback_context)
     return conn
 
 
@@ -52,6 +53,7 @@ cdef class Connection(StructBase):
 
     cdef c_connection.CONNECTION_HANDLE _c_value
     cdef c_connection.ON_CONNECTION_CLOSED_EVENT_SUBSCRIPTION_HANDLE _close_event
+    cdef XIO _sasl_client
 
     def __cinit__(self):
         pass
@@ -75,15 +77,18 @@ cdef class Connection(StructBase):
             _logger.debug("Destroying Connection")
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
+            self._sasl_client = None
 
-    cdef wrap(self, c_connection.CONNECTION_HANDLE value):
+    cdef wrap(self, Connection value):
         self.destroy()
-        self._c_value = value
+        self._sasl_client = value._sasl_client
+        self._c_value = value._c_value
         self._create()
 
-    cdef create(self, c_xio.XIO_HANDLE io, const char* hostname, const char* container_id, c_connection.ON_CONNECTION_STATE_CHANGED on_connection_state_changed, c_xio.ON_IO_ERROR on_io_error, void* callback_context):
+    cdef create(self, XIO sasl_client, const char* hostname, const char* container_id, c_connection.ON_CONNECTION_STATE_CHANGED on_connection_state_changed, c_xio.ON_IO_ERROR on_io_error, void* callback_context):
         self.destroy()
-        self._c_value = c_connection.connection_create2(io, hostname, container_id, NULL, NULL, on_connection_state_changed, callback_context, on_io_error, callback_context)
+        self._sasl_client = sasl_client
+        self._c_value = c_connection.connection_create2(sasl_client._c_value, hostname, container_id, NULL, NULL, on_connection_state_changed, callback_context, on_io_error, callback_context)
         self._create()
 
     cpdef open(self):

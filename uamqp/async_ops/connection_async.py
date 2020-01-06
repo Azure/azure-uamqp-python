@@ -5,8 +5,6 @@
 #--------------------------------------------------------------------------
 
 import asyncio
-import concurrent
-import functools
 import logging
 import time
 
@@ -93,7 +91,6 @@ class ConnectionAsync(connection.Connection):
             open_timeout=open_timeout,
             encoding=encoding)
         self._async_lock = asyncio.Lock(loop=self.loop)
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
@@ -123,9 +120,9 @@ class ConnectionAsync(connection.Connection):
     async def _close_async(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
-        if self.cbs:
+        if self._cbs:
             await self.auth.close_authenticator_async()
-            self.cbs = None
+            self._cbs = None
         self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
@@ -167,10 +164,12 @@ class ConnectionAsync(connection.Connection):
             if self._closing:
                 _logger.debug("Connection unlocked but shutting down.")
                 return
-            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
+            await asyncio.sleep(0, loop=self.loop)
+            self._conn.do_work()
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
+            await asyncio.sleep(0, loop=self.loop)
             self.release_async()
 
     async def sleep_async(self, seconds):
@@ -181,7 +180,7 @@ class ConnectionAsync(connection.Connection):
         """
         try:
             await self.lock_async()
-            await asyncio.sleep(seconds)
+            await asyncio.sleep(seconds, loop=self.loop)
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:

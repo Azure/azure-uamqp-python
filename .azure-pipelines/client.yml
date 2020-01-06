@@ -6,14 +6,14 @@ variables:
   PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
-  PythonVersion38: '3.8.0a2'
+  PythonVersion38: '3.8'
 
 jobs:
   - job: 'sdist'
     displayName: 'Source Distribution'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     steps:
       - task: UsePythonVersion@0
@@ -22,10 +22,14 @@ jobs:
           versionSpec: '$(PythonVersion37)'
 
       - script: |
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
+
+      - script: |
           python --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
           python -m pip install --user -r dev_requirements.txt
-          echo "##vso[task.prependpath]/home/vsts/.local/bin"
         displayName: 'Install dependencies'
       - script: python setup.py sdist
         displayName: 'Build uAMQP sdist'
@@ -42,7 +46,7 @@ jobs:
   - job: 'MacOS'
 
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
 
     strategy:
       matrix:
@@ -62,17 +66,18 @@ jobs:
           MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   MacOSXDeploymentTarget: '10.9'
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          MacOSXDeploymentTarget: '10.9'
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion38)'
 
     variables:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion27: '2.7.15'
+      PythonVersion27: '2.7.17'
       PythonVersion35: '3.5.4'
-      PythonVersion36: '3.6.5'
-      PythonVersion37: '3.7.0'
+      PythonVersion36: '3.6.8'
+      PythonVersion37: '3.7.5'
+      PythonVersion38: '3.8.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -88,15 +93,26 @@ jobs:
       - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
         displayName: 'Select Xcode 9.4.1'
 
+      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+        displayName: 'Install MacOS headers'
+
       - script: source ./install_python_osx.sh
         displayName: 'Install Official Python'
+
+      - script: |
+          echo "Prepending PATH environment variable with directory: /usr/local/bin"
+          echo "##vso[task.prependpath]/usr/local/bin"
+          export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
+          echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+          echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+        displayName: 'Prepare PATH'
 
       - script: |
           $(PythonBin) --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) - --user
           $(PythonBin) -m pip install --user -r dev_requirements.txt
-          echo "##vso[task.prependpath]/Users/vsts/Library/Python/`ls /Users/vsts/Library/Python | head -n1`/bin"
         displayName: 'Install dependencies'
+
       - script: $(PythonBin) setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
@@ -152,9 +168,9 @@ jobs:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
-        # x64 Python 3.8:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -167,35 +183,32 @@ jobs:
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
-        # x86 Python 3.8:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
 
-      - powershell: |
-          choco install python3 --pre --$(PythonArchitecture) --yes --no-progress --params "/InstallDir:C:\PythonPre"
-          Write-Host "##vso[task.prependpath]C:\PythonPre\Scripts"
-          Write-Host "##vso[task.prependpath]C:\PythonPre"
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
       - powershell: |
           Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
           Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
           Get-Content VCForPython27.log
         displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
         condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
+
       - powershell: |
           python --version
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
+
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
@@ -210,6 +223,7 @@ jobs:
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
+
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
@@ -227,7 +241,7 @@ jobs:
   - job: 'Linux'
 
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
 
     strategy:
       matrix:
@@ -239,30 +253,26 @@ jobs:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonVersion: '$(PythonVersion38)'
+        Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
 
     steps:
       - task: UsePythonVersion@0
         displayName: 'Use Python Version'
-        condition: ne(variables['PythonVersion'], variables['PythonVersion38'])
         inputs:
           versionSpec: '$(PythonVersion)'
 
       - script: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get -q -y install python3.8 python3.8-distutils python3.8-venv python3.8-dev
-          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
-        displayName: 'Install Python Version'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion38'])
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
+
       - script: |
           python --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
           python -m pip install --user -r dev_requirements.txt
-          echo "##vso[task.prependpath]/home/vsts/.local/bin"
         displayName: 'Install dependencies'
+
       - script: python setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
@@ -276,6 +286,7 @@ jobs:
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
+
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
@@ -295,14 +306,7 @@ jobs:
     condition: ne(variables['System.TeamProject'], 'public')
 
     pool:
-      vmImage: 'ubuntu-16.04'
-
-    strategy:
-      matrix:
-        x64:
-          PythonArchitecture: 'x64'
-        x86:
-          PythonArchitecture: 'x86'
+      vmImage: 'ubuntu-18.04'
 
     steps:
       - task: Docker@1
@@ -313,7 +317,7 @@ jobs:
           command: 'Run an image'
           containerCommand: '/data/build_many_linux.sh'
           envVars: 'UAMQP_REBUILD_PYX=True'
-          imageName: 'manylinux_crypto_$(PythonArchitecture)'
+          imageName: 'manylinux_crypto_x64'
           qualifyImageName: true
           runInBackground: false
           volumes: '$(System.DefaultWorkingDirectory):/data'
@@ -324,5 +328,5 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifacts'
         inputs:
-          artifactName: uamqp-manylinux1-$(PythonArchitecture)-whl
+          artifactName: uamqp-manylinux1-x64-whl
           pathToPublish: 'wheelhouse'

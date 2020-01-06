@@ -117,7 +117,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 _logger.info("Authentication status: %r, description: %r", error_code, error_description)
                 _logger.info("Authentication Put-Token failed. Retrying.")
                 self.retries += 1  # pylint: disable=no-member
-                await asyncio.sleep(self._retry_policy.backoff)
+                await asyncio.sleep(self._retry_policy.backoff, loop=self.loop)
                 self._cbs_auth.authenticate()
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:

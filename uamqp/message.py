@@ -555,11 +555,21 @@ class BatchMessage(Message):
                 for data in self._body_gen:
                     message_bytes = None
                     try:
-                        if not data.application_properties and self.application_properties:  # Message-like object
-                            data.application_properties = self.application_properties
-                        message_bytes = data.encode_message()
+                        # try to get the internal uamqp Message
+                        internal_uamqp_message = data.message
+                    except AttributeError:
+                        # no inernal message, data could be uamqp Message or raw data
+                        internal_uamqp_message = data
+                    try:
+                        # uamqp Message
+                        if not internal_uamqp_message.application_properties and self.application_properties:
+                            internal_uamqp_message.application_properties = self.application_properties
+                        message_bytes = internal_uamqp_message.encode_message()
                     except AttributeError:  # raw data
-                        wrap_message = Message(body=data, application_properties=self.application_properties)
+                        wrap_message = Message(
+                            body=internal_uamqp_message,
+                            application_properties=self.application_properties
+                        )
                         message_bytes = wrap_message.encode_message()
                     body_size += len(message_bytes)
                     if (body_size + message_size) > self.max_message_length:
@@ -594,11 +604,18 @@ class BatchMessage(Message):
         for data in self._body_gen:
             message_bytes = None
             try:
-                if not data.application_properties and self.application_properties:  # Message-like object
-                    data.application_properties = self.application_properties
-                message_bytes = data.encode_message()
+                # try to get the internal uamqp Message
+                internal_uamqp_message = data.message
+            except AttributeError:
+                # no inernal message, data could be uamqp Message or raw data
+                internal_uamqp_message = data
+            try:
+                # uamqp Message
+                if not internal_uamqp_message.application_properties and self.application_properties:
+                    internal_uamqp_message.application_properties = self.application_properties
+                message_bytes = internal_uamqp_message.encode_message()
             except AttributeError:  # raw data
-                wrap_message = Message(body=data, application_properties=self.application_properties)
+                wrap_message = Message(body=internal_uamqp_message, application_properties=self.application_properties)
                 message_bytes = wrap_message.encode_message()
             body_size += len(message_bytes)
             if (body_size + message_size) > self.max_message_length:

@@ -81,7 +81,7 @@ class Connection(object):
             self.container_id = self.container_id.encode(encoding)
         self.hostname = hostname.encode(encoding) if isinstance(hostname, six.text_type) else hostname
         self.auth = sasl
-        self.cbs = None
+        self._cbs = None
         self.error_policy = error_policy or errors.ErrorPolicy()
         self._debug = debug
         self._conn = self._create_connection(sasl)
@@ -149,9 +149,9 @@ class Connection(object):
     def _close(self):
         _logger.info("Shutting down connection %r.", self.container_id)
         self._closing = True
-        if self.cbs:
+        if self._cbs:
             self.auth.close_authenticator()
-            self.cbs = None
+            self._cbs = None
         self._conn.destroy()
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
