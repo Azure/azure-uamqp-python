@@ -515,6 +515,6 @@ def encode_frame(frame):
     offset = b"\x02"  # Minimum offset of two
 
     frame_data = encode_value(b"", frame_description)
-    size = len(frame_data).to_bytes(4, 'big')
-    header = size + offset + frame.FRAME_TYPE
+    size = len(frame_data) + 8
+    header = size.to_bytes(4, 'big') + offset + frame.FRAME_TYPE
     return header, frame_data

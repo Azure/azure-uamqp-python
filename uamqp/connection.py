@@ -108,10 +108,10 @@ class Connection(object):
         self.max_frame_size = kwargs.pop('max_frame_size', None)
         self.channel_max = kwargs.pop('channel_max', None)
         self.idle_timeout = kwargs.pop('idle_timeout', None)
-        self.outgoing_locales = kwargs.pop('outgoing_locales', [])
-        self.incoming_locales = kwargs.pop('incoming_locales', [])
-        self.offered_capabilities = kwargs.pop('offered_capabilities', [])
-        self.desired_capabilities = kwargs.pop('desired_capabilities', [])
+        self.outgoing_locales = kwargs.pop('outgoing_locales', None)
+        self.incoming_locales = kwargs.pop('incoming_locales', None)
+        self.offered_capabilities = kwargs.pop('offered_capabilities', None)
+        self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
         self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', False)
         self.remote_idle_timeout = None
@@ -216,6 +216,8 @@ class Connection(object):
         if self.state == ConnectionState.OPEN_RCVD:
             return True, None  # TODO: Should there be a state change if a Close frame is received?
         if self.state == ConnectionState.OPEN_SENT:
+            if isinstance(frame, CloseFrame):
+                return True, ConnectionState.CLOSE_RCVD
             return isinstance(frame, OpenFrame), ConnectionState.OPENED
         if self.state == ConnectionState.OC_PIPE:
             return isinstance(frame, HeaderFrame), ConnectionState.CLOSE_PIPE
@@ -228,11 +230,11 @@ class Connection(object):
         return False, None
 
     def _run(self):
-        if self._can_write():
+        while self._can_write():
             try:
                 channel, outgoing_frame = self._outgoing_frames.get_nowait()
             except queue.Empty:
-                pass
+                break
             else:
                 can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
                 if can_send:
@@ -267,12 +269,15 @@ class Connection(object):
 
         self.transport.negotiate()
         self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], HeaderFrame()))
-        self.do_work()
-        try:
-            incoming_header = self._incoming_frames.get_nowait()
-        except queue.Empty:
-            LOGGER.warning("Did not receive reciprocal protocol header. Disconnecting.")
-            self.disconnect()
+        if not self.allow_pipelined_open:
+            self.do_work()
+            try:
+                _, incoming_header = self._incoming_frames.get_nowait()
+                if not isinstance(incoming_header, HeaderFrame):
+                    raise ValueError("Expected AMQP protocol header, received {}".format(incoming_header))
+            except queue.Empty:
+                LOGGER.warning("Did not receive reciprocal protocol header. Disconnecting.")
+                self.disconnect()
 
     def blocking_read(self, timeout=None, **kwargs):
         with self.transport.having_timeout(timeout):
@@ -302,16 +307,6 @@ class Connection(object):
     def close(self, error=None):
         close_frame = CloseFrame(error=error)
         self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], close_frame))
-
-    def send_frame(self, frame, blocking=True):
-        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], frame))
-        if blocking:
-            self._run()
-
-    def receive_frame(self):
-        self._run()
-        _, frame = self._incoming_frames.get()
-        return frame
 
     def do_work(self):
         self._run()

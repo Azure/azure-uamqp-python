@@ -12,9 +12,11 @@ from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
 
+import certifi
+
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
-from ._decode import decode_frame
+from ._decode import decode_frame, decode_empty_frame
 from .performatives import HeaderFrame, TLSHeaderFrame
 
 
@@ -305,7 +307,7 @@ class _AbstractTransport(object):
             self.sock = None
         self.connected = False
 
-    def read(self, unpack=unpack_frame_header):
+    def read(self, unpack=unpack_frame_header, verify_frame_type=0):
         read = self._read
         read_frame_buffer = EMPTY_BUFFER
         try:
@@ -313,7 +315,9 @@ class _AbstractTransport(object):
             read_frame_buffer += frame_header
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
-                return frame_header, frame_type, channel, None, offset  # Empty frame
+                return frame_header, channel, None, offset  # Empty frame or header
+            if verify_frame_type is not None and frame_type != verify_frame_type:
+                raise ValueError("Received unexpected frame type: {}".format(frame_type))
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
@@ -334,7 +338,7 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
-        return frame_header, frame_type, channel, payload, offset
+        return frame_header, channel, payload, offset
 
     def write(self, s):
         try:
@@ -347,12 +351,13 @@ class _AbstractTransport(object):
             raise
 
     def receive_frame(self, verify_frame_type=0):
-        next_frame = self.read()  # (frame_header, frame_type, channel, payload, offset)
-        if next_frame[1] != verify_frame_type:
-            raise ValueError("Received unexpected frame type: {}".format(next_frame[1]))
-        decoded = decode_frame(next_frame[0], next_frame[3], next_frame[4] - 2)
+        header, channel, payload, offset = self.read(verify_frame_type=verify_frame_type)
+        if payload is None:
+            decoded = decode_empty_frame(header)
+        else:
+            decoded = decode_frame(payload, offset - 2)
         print("<- {}".format(decoded))
-        return next_frame[2], decoded
+        return channel, decoded
 
     def send_frame(self, channel, frame):
         header, performative = encode_frame(frame)
@@ -369,7 +374,6 @@ class _AbstractTransport(object):
         pass
 
 
-
 class SSLTransport(_AbstractTransport):
     """Transport that works over SSL."""
 
@@ -382,8 +386,8 @@ class SSLTransport(_AbstractTransport):
     def _setup_transport(self):
         """Wrap the socket in an SSL object."""
         self.sock = self._wrap_socket(self.sock, **self.sslopts)
-        self.sock.do_handshake()
-        self._quick_recv = self.sock.read
+        a = self.sock.do_handshake()
+        self._quick_recv = self.sock.recv
 
     def _wrap_socket(self, sock, context=None, **sslopts):
         if context:
@@ -392,11 +396,13 @@ class SSLTransport(_AbstractTransport):
 
     def _wrap_context(self, sock, sslopts, check_hostname=None, **ctx_options):
         ctx = ssl.create_default_context(**ctx_options)
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(cafile=certifi.where())
         ctx.check_hostname = check_hostname
         return ctx.wrap_socket(sock, **sslopts)
 
     def _wrap_socket_sni(self, sock, keyfile=None, certfile=None,
-                         server_side=False, cert_reqs=ssl.CERT_NONE,
+                         server_side=False, cert_reqs=ssl.CERT_REQUIRED,
                          ca_certs=None, do_handshake_on_connect=False,
                          suppress_ragged_eofs=True, server_hostname=None,
                          ciphers=None, ssl_version=None):
@@ -427,8 +433,9 @@ class SSLTransport(_AbstractTransport):
             'do_handshake_on_connect': do_handshake_on_connect,
             'suppress_ragged_eofs': suppress_ragged_eofs,
             'ciphers': ciphers,
-            'ssl_version': ssl_version
+            #'ssl_version': ssl_version
         }
+        print("SSL options", opts)
 
         sock = ssl.wrap_socket(**opts)
         # Set SNI headers if supported
@@ -483,7 +490,7 @@ class SSLTransport(_AbstractTransport):
 
     def _write(self, s):
         """Write a string out to the SSL socket fully."""
-        write = self.sock.write
+        write = self.sock.send
         while s:
             try:
                 n = write(s)
@@ -499,7 +506,7 @@ class SSLTransport(_AbstractTransport):
 
     def negotiate(self):
         self.send_frame(0, TLSHeaderFrame())
-        channel, returned_header = self.receive_frame()
+        channel, returned_header = self.receive_frame(verify_frame_type=None)
         if not isinstance(returned_header, TLSHeaderFrame):
             raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
                 TLSHeaderFrame.CODE, returned_header.CODE))
@@ -522,7 +529,7 @@ class TCPTransport(_AbstractTransport):
         try:
             while len(rbuf) < n:
                 try:
-                    s = recv(n - len(rbuf))
+                    s = self.sock.read(n - len(rbuf))
                 except socket.error as exc:
                     if exc.errno in _errnos:
                         if initial and self.raise_on_initial_eintr:

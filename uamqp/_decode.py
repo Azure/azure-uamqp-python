@@ -552,19 +552,22 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
     return decoded_values or decoder.decoded_value
 
 
-def decode_frame(header, data, offset):
-    # type: (type, bytes) -> Performative
-    if data is None:
-        if header[0:4] == b'AMQP':
-            layer = header[4]
-            if layer == 0:
-                return HeaderFrame(header=header)
-            if layer == 2:
-                return TLSHeaderFrame(header=header)
-            if layer == 3:
-                return SASLHeaderFrame(header=header)
-            raise ValueError("Received unexpected IO layer: {}".format(layer))
-        raise ValueError("Received empty frame")
+def decode_empty_frame(header):
+    # type: (bytes) -> Performative
+    if header[0:4] == b'AMQP':
+        layer = header[4]
+        if layer == 0:
+            return HeaderFrame(header=header)
+        if layer == 2:
+            return TLSHeaderFrame(header=header)
+        if layer == 3:
+            return SASLHeaderFrame(header=header)
+        raise ValueError("Received unexpected IO layer: {}".format(layer))
+    raise ValueError("Received empty frame")
+
+
+def decode_frame(data, offset):
+    # type: (bytes, bytes, bytes) -> Performative
     _ = data[:offset]  # TODO: Extra data
     byte_buffer = BytesIO(data[offset:])
     descriptor, fields = decode_value(byte_buffer)
@@ -583,7 +586,7 @@ def decode_frame(header, data, offset):
                 kwargs[field.name] = [_FIELD_DEFINITIONS[field.type].decode(v) for v in value] if value else []
             else:
                 kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
-        elif field.type is ObjDefinition:
+        elif isinstance(field.type, ObjDefinition):
             pass  # TODO
         else:
             kwargs[field.name] = value

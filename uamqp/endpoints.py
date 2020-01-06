@@ -8,7 +8,7 @@
 # link. These types are supplied in the source and target ﬁelds of the attach frame when establishing or
 # resuming link. The source is comprised of an address (which the container of the outgoing Link Endpoint will
 # resolve to a Node within that container) coupled with properties which determine:
-# 
+#
 #   - which messages from the sending Node will be sent on the Link
 #   - how sending the message affects the state of that message at the sending Node
 #   - the behavior of Messages which have been transferred on the Link, but have not yet reached a
@@ -100,14 +100,14 @@ class Source(object):
     CODE = 0x00000028
     DEFINITION = (
         FIELD("address", AMQPTypes.string, False, None, False),
-        FIELD("durable", FieldDefinition.terminus_durability, False, "none", False),
-        FIELD("expiry_policy", FieldDefinition.expiry_policy, False, "session-end", False),
+        # FIELD("durable", FieldDefinition.terminus_durability, False, "none", False),
+        # FIELD("expiry_policy", FieldDefinition.expiry_policy, False, "session-end", False),
         FIELD("timeout", FieldDefinition.seconds, False, 0, False),
         FIELD("dynamic", AMQPTypes.boolean, False, False, False),
-        FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
+        # FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
         FIELD("distribution_mode", AMQPTypes.symbol, False, None, False),
-        FIELD("filter", FieldDefinition.filter_set, False, None, False),
-        FIELD("default_outcome", FieldDefinition.outcome, False, None, False),
+        # FIELD("filter", FieldDefinition.filter_set, False, None, False),
+        # FIELD("default_outcome", FieldDefinition.outcome, False, None, False),
         FIELD("outcomes", AMQPTypes.symbol, False, None, True),
         FIELD("capabilities", AMQPTypes.symbol, False, None, True),
     )
