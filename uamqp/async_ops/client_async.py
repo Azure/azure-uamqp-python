@@ -189,8 +189,8 @@ class AMQPClientAsync(client.AMQPClient):
         """Build self._session based on current self.connection.
         """
         # pylint: disable=protected-access
-        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
-            self._connection.cbs = await asyncio.shield(
+        if not self._connection._cbs and isinstance(self._auth, authentication.CBSAsyncAuthMixin):
+            self._connection._cbs = await asyncio.shield(
                 self._auth.create_authenticator_async(
                     self._connection,
                     debug=self._debug_trace,
@@ -200,8 +200,8 @@ class AMQPClientAsync(client.AMQPClient):
                     on_attach=self._on_attach,
                     loop=self.loop),
                 loop=self.loop)
-        if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
-            self._session = self._auth._session  # pylint: disable=protected-access
+        if self._connection._cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
+            self._session = self._auth._session
             self._using_cbs_session = True
         else:
             self._session = self.session_type(

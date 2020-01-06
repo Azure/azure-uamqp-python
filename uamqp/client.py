@@ -207,16 +207,16 @@ class AMQPClient(object):
         """Build self._session based on current self.connection.
         """
         # pylint: disable=protected-access
-        if not self._connection.cbs and isinstance(self._auth, authentication.CBSAuthMixin):
-            self._connection.cbs = self._auth.create_authenticator(
+        if not self._connection._cbs and isinstance(self._auth, authentication.CBSAuthMixin):
+            self._connection._cbs = self._auth.create_authenticator(
                 self._connection,
                 debug=self._debug_trace,
                 incoming_window=self._incoming_window,
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach)
-        if self._connection.cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
-            self._session = self._auth._session  # pylint: disable=protected-access
+        if self._connection._cbs and self._link_creation_mode == LinkCreationMode.TryCreateLinkOnExistingCbsSession:
+            self._session = self._auth._session
             self._using_cbs_session = True
         else:
             self._session = self.session_type(

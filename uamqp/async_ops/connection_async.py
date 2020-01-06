@@ -111,7 +111,8 @@ class ConnectionAsync(connection.Connection):
         while connection_state not in constants.CONNECTION_DONE_STATES:
             if timeout_time and time.time() * 1000 > timeout_time:
                 raise errors.AMQPConnectionOpenTimeoutError('Connection open timeout.')
-            await self.loop.run_in_executor(self._executor, functools.partial(self._conn.do_work))
+            await asyncio.sleep(0, loop=self.loop)
+            self._conn.do_work()
             connection_state = c_uamqp.ConnectionState(self._conn.get_state())
 
         if connection_state != c_uamqp.ConnectionState.OPENED:
