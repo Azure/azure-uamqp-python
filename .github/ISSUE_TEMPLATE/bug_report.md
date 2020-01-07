@@ -7,8 +7,7 @@ assignees: ''
 
 ---
 
-- **Package Name**: 
-- **Package Version**: 
+- **UAMQP Package Version**: 
 - **Operating System**:
 - **Python Version**: 
 
