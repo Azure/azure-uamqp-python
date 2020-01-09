@@ -131,7 +131,7 @@ class Connection(object):
         if self._cbs:
             self.auth.close_authenticator()
             self._cbs = None
-        self._conn.close()
+        self._conn.close(b"amqp:client-error", b"Client shutdown.")
         self.auth = None
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
