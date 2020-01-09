@@ -139,6 +139,7 @@ class AMQPAuth(object):
         all the authentication wrapper objects.
         """
         self.sasl_client.close()
+        self.sasl.close()
 
 
 class SASLPlain(AMQPAuth):
@@ -222,8 +223,6 @@ class _SASLClient(object):
         This will own the input "io" and be responsible for its destruction.
         """
         self._underlying_io = io
-        self._mechanism = sasl.mechanism
-
         self._io_config = c_uamqp.SASLClientIOConfig(io, sasl.mechanism)
         self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
 
@@ -233,7 +232,6 @@ class _SASLClient(object):
     def close(self):
         self._xio.destroy()
         self._underlying_io.destroy()
-        self._mechanism.destroy()
 
 
 class _SASL(object):
@@ -248,6 +246,8 @@ class _SASL(object):
     def _get_mechanism(self):
         return c_uamqp.get_sasl_mechanism()
 
+    def close(self):
+        self.mechanism.destroy()
 
 class _SASLAnonymous(_SASL):
 
