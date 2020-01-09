@@ -223,7 +223,8 @@ class _SASLClient(object):
         This will own the input "io" and be responsible for its destruction.
         """
         self._underlying_io = io
-        self._io_config = c_uamqp.SASLClientIOConfig(io, sasl.mechanism)
+        self._sasl = sasl
+        self._io_config = c_uamqp.SASLClientIOConfig(io, self._sasl.mechanism)
         self._xio = c_uamqp.xio_from_saslioconfig(self._io_config)
 
     def get_client(self):
