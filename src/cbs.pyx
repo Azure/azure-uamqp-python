@@ -83,6 +83,10 @@ cdef class CBSTokenAuth(object):
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
             self._session = None
 
+    cpdef close(self):
+        if c_cbs.cbs_close(self._cbs_handle) != 0:
+            self._value_error("Unable to close CBS link.")
+
     cpdef set_trace(self, bint trace_on):
         if c_cbs.cbs_set_trace(self._cbs_handle, trace_on) != 0:
             raise ValueError("Unable to set debug trace.")

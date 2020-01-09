@@ -87,9 +87,9 @@ class CBSAuthMixin(object):
         _logger.info("Shutting down CBS session on connection: %r.", self._connection.container_id)
         try:
             _logger.debug("Unlocked CBS to close on connection: %r.", self._connection.container_id)
-            self._cbs_auth.destroy()
+            self._cbs_auth.close()
             _logger.info("Auth closed, destroying session on connection: %r.", self._connection.container_id)
-            self._session.destroy()
+            self._session.end()
         finally:
             _logger.info("Finished shutting down CBS session on connection: %r.", self._connection.container_id)
 

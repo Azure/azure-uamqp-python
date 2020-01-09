@@ -131,8 +131,8 @@ class Connection(object):
         if self._cbs:
             self.auth.close_authenticator()
             self._cbs = None
-        self._conn.destroy()
-        self.auth.close()
+        self._conn.close()
+        self.auth = None
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
     def _close_received(self, error):
