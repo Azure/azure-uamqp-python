@@ -134,6 +134,9 @@ class Session(object):
             link.destroy()
         self._session.destroy()
 
+    def end(self):
+        self._session.end(b"amqp:client-error", b"Client shutdown.")
+
     @property
     def incoming_window(self):
         return self._session.incoming_window

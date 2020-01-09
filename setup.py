@@ -236,7 +236,7 @@ class build_ext(build_ext_orig):
             "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
             "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
-            "-DCMAKE_BUILD_TYPE=Release"
+            "-DCMAKE_BUILD_TYPE=Debug"
         ]
 
         joined_cmd = " ".join(configure_command)
