@@ -138,7 +138,6 @@ class AMQPAuth(object):
         """Close the authentication layer and cleanup
         all the authentication wrapper objects.
         """
-        self.sasl.mechanism.destroy()
         self.sasl_client.close()
 
 
@@ -234,6 +233,7 @@ class _SASLClient(object):
     def close(self):
         self._xio.destroy()
         self._underlying_io.destroy()
+        self._mechanism.destroy()
 
 
 class _SASL(object):
