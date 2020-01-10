@@ -358,6 +358,7 @@ static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_res
         }
         else
         {
+            LogError("MGMT message send complete with not ok status");
             /* Codes_SRS_AMQP_MANAGEMENT_01_172: [ If `send_result` is different then `MESSAGE_SEND_OK`: ]*/
             /* Codes_SRS_AMQP_MANAGEMENT_01_168: [ - `context` shall be used as a LIST_ITEM_HANDLE containing the pending operation. ]*/
             LIST_ITEM_HANDLE pending_operation_list_item_handle = (LIST_ITEM_HANDLE)context;
@@ -375,6 +376,7 @@ static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_res
             }
             else
             {
+                LogError("Calling operation complete callback.");
                 /* Codes_SRS_AMQP_MANAGEMENT_01_173: [ - The callback associated with the pending operation shall be called with `AMQP_MANAGEMENT_EXECUTE_OPERATION_ERROR`. ]*/
                 pending_operation_message->on_execute_operation_complete(pending_operation_message->callback_context, AMQP_MANAGEMENT_EXECUTE_OPERATION_ERROR, 0, NULL, NULL);
                 free(pending_operation_message);
@@ -1037,10 +1039,11 @@ int amqp_management_close(AMQP_MANAGEMENT_HANDLE amqp_management)
 
         if (previous_state == AMQP_MANAGEMENT_STATE_OPENING)
         {
+            LogError("AMQP state OPENING. Calling open complete as CANCELLED.");
             /* Codes_SRS_AMQP_MANAGEMENT_01_048: [ `amqp_management_close` on an AMQP management instance that is OPENING shall trigger the `on_amqp_management_open_complete` callback with `AMQP_MANAGEMENT_OPEN_CANCELLED`, while also passing the context passed in `amqp_management_open_async`. ]*/
             amqp_management->on_amqp_management_open_complete(amqp_management->on_amqp_management_open_complete_context, AMQP_MANAGEMENT_OPEN_CANCELLED);
         }
-
+        LogError("Closing message sender");
 
         /* Codes_SRS_AMQP_MANAGEMENT_01_045: [ `amqp_management_close` shall close the AMQP management instance. ]*/
         /* Codes_SRS_AMQP_MANAGEMENT_01_050: [ `amqp_management_close` shall close the message sender by calling `messagesender_close`. ]*/
