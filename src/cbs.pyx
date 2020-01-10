@@ -83,6 +83,10 @@ cdef class CBSTokenAuth(object):
             self._cbs_handle = <c_cbs.CBS_HANDLE>NULL
             self._session = None
 
+    cpdef close(self):
+        if c_cbs.cbs_close(self._cbs_handle) != 0:
+            self._value_error("Unable to close CBS link.")
+
     cpdef set_trace(self, bint trace_on):
         if c_cbs.cbs_set_trace(self._cbs_handle, trace_on) != 0:
             raise ValueError("Unable to set debug trace.")
@@ -177,12 +181,20 @@ cdef class CBSTokenAuth(object):
 
 cdef void on_cbs_open_complete(void *context, c_cbs.CBS_OPEN_COMPLETE_RESULT_TAG open_complete_result):
     if <void*>context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_cbs_open_complete during garbage collection.")
+            return
         context_obj = <object>context
         context_obj._cbs_open_complete(open_complete_result)
 
 
 cdef void on_cbs_error(void* context):
     if <void*>context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_cbs_error during garbage collection.")
+            return
         context_obj = <object>context
         context_obj._cbs_error()
 
@@ -191,6 +203,10 @@ cdef void on_cbs_put_token_complete(void* context, c_cbs.CBS_OPERATION_RESULT_TA
     cdef unsigned int verified_status_code
     cdef const char* verified_description
     if <void*>context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_cbs_put_token_complete during garbage collection.")
+            return
         context_obj = <object>context
         try:
             if <void*>status_code != NULL:

@@ -119,6 +119,7 @@ static void on_underlying_amqp_management_open_complete(void* context, AMQP_MANA
 
             case AMQP_MANAGEMENT_OPEN_ERROR:
                 cbs->cbs_state = CBS_STATE_CLOSED;
+                LogError("Underlying AMQP mgmt open error. CBS state OPENING -> CLOSED. Calling close.");
                 /* Codes_SRS_CBS_01_113: [ When `on_amqp_management_open_complete` reports a failure, the underlying AMQP management shall be closed by calling `amqp_management_close`. ]*/
                 (void)amqp_management_close(cbs->amqp_management);
                 /* Codes_SRS_CBS_01_107: [ If CBS is OPENING and `open_result` is `AMQP_MANAGEMENT_OPEN_ERROR` the callback `on_cbs_open_complete` shall be called with `CBS_OPEN_ERROR` and the `on_cbs_open_complete_context` shall be passed as argument. ]*/
@@ -127,6 +128,7 @@ static void on_underlying_amqp_management_open_complete(void* context, AMQP_MANA
 
             case AMQP_MANAGEMENT_OPEN_CANCELLED:
                 cbs->cbs_state = CBS_STATE_CLOSED;
+                LogError("Underlying AMQP mgmt open cancelled. CBS state OPENING -> CLOSED. Calling close.");
                 /* Codes_SRS_CBS_01_113: [ When `on_amqp_management_open_complete` reports a failure, the underlying AMQP management shall be closed by calling `amqp_management_close`. ]*/
                 (void)amqp_management_close(cbs->amqp_management);
                 /* Codes_SRS_CBS_01_108: [ If CBS is OPENING and `open_result` is `AMQP_MANAGEMENT_OPEN_CANCELLED` the callback `on_cbs_open_complete` shall be called with `CBS_OPEN_CANCELLED` and the `on_cbs_open_complete_context` shall be passed as argument. ]*/
@@ -168,6 +170,7 @@ static void on_underlying_amqp_management_error(void* context)
 
         case CBS_STATE_OPENING:
             cbs->cbs_state = CBS_STATE_CLOSED;
+            LogError("Underlying AMQP mgmt error handler. CBS state OPENING -> CLOSED. Calling close.");
             /* Codes_SRS_CBS_01_114: [ Additionally the underlying AMQP management shall be closed by calling `amqp_management_close`. ]*/
             (void)amqp_management_close(cbs->amqp_management);
             /* Codes_SRS_CBS_01_111: [ If CBS is OPENING the callback `on_cbs_open_complete` shall be called with `CBS_OPEN_ERROR` and the `on_cbs_open_complete_context` shall be passed as argument. ]*/
@@ -192,6 +195,7 @@ static void on_amqp_management_execute_operation_complete(void* context, AMQP_MA
     }
     else
     {
+        LogError("CBS on operation complete.");
         /* Codes_SRS_CBS_01_103: [ The `context` shall be used to obtain the pending operation information stored in the pending operations linked list by calling `singlylinkedlist_item_get_value`. ]*/
         CBS_OPERATION* cbs_operation = (CBS_OPERATION*)singlylinkedlist_item_get_value((LIST_ITEM_HANDLE)context);
         CBS_OPERATION_RESULT cbs_operation_result;
@@ -345,6 +349,7 @@ void cbs_destroy(CBS_HANDLE cbs)
         /* Codes_SRS_CBS_01_100: [ If the CBS instance is not closed, all actions performed by `cbs_close` shall be performed. ]*/
         if (cbs->cbs_state != CBS_STATE_CLOSED)
         {
+            LogError("Starting CBS destroy. Calling mgmt close.");
             (void)amqp_management_close(cbs->amqp_management);
         }
 
@@ -436,6 +441,7 @@ int cbs_close(CBS_HANDLE cbs)
     else
     {
         /* Codes_SRS_CBS_01_044: [ `cbs_close` shall close the CBS instance by calling `amqp_management_close` on the underlying AMQP management handle. ]*/
+        LogError("Starting CBS close. Calling mgmt close.");
         if (amqp_management_close(cbs->amqp_management) != 0)
         {
             /* Codes_SRS_CBS_01_046: [ If `amqp_management_close` fails, `cbs_close` shall fail and return a non-zero value. ]*/
@@ -447,6 +453,7 @@ int cbs_close(CBS_HANDLE cbs)
             if (cbs->cbs_state == CBS_STATE_OPENING)
             {
                 /* Codes_SRS_CBS_01_079: [ If `cbs_close` is called while OPENING, the `on_cbs_open_complete` callback shall be called with `CBS_OPEN_CANCELLED`, while passing the `on_cbs_open_complete_context` as argument. ]*/
+                LogError("CBS state still OPENING, setting to CLOSED.");
                 cbs->on_cbs_open_complete(cbs->on_cbs_open_complete_context, CBS_OPEN_CANCELLED);
             }
 

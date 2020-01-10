@@ -144,6 +144,8 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_TIMEOUT, NULL);
             break;
         case LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED:
+            LogError("Message not delivered.");
+            break;
         default:
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, NULL);
             break;
@@ -696,9 +698,11 @@ static void on_link_state_changed(void* context, LINK_STATE new_link_state, LINK
         }
         break;
     case LINK_STATE_DETACHED:
+        LogError("Link state DETACHED");
         if ((message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN) ||
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_CLOSING))
         {
+            LogError("MessageSender state either OPEN or CLOSING");
             /* switch to closing so that no more requests should be accepted */
             indicate_all_messages_as_error(message_sender);
             set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_IDLE);
@@ -706,8 +710,10 @@ static void on_link_state_changed(void* context, LINK_STATE new_link_state, LINK
         else if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_IDLE)
         {
             /* Any other transition must be an error */
+            LogError("MessageSender state IDLE");
             set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_ERROR);
         }
+        LogError("MessageSender state either OPENING or CLOSING");
         break;
     case LINK_STATE_ERROR:
         if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_ERROR)
@@ -805,8 +811,10 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
     }
     else
     {
+        LogError("Marking all messages as error.");
         indicate_all_messages_as_error(message_sender);
 
+        LogError("Setting sender to closed.");
         if ((message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPENING) ||
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN))
         {
