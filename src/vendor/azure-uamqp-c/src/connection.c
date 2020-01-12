@@ -83,6 +83,7 @@ typedef struct CONNECTION_INSTANCE_TAG
     tickcounter_ms_t last_frame_received_time;
     tickcounter_ms_t last_frame_sent_time;
     fields properties;
+    AMQP_VALUE desired_capabilities;
 
     unsigned int is_underlying_io_open : 1;
     unsigned int idle_timeout_specified : 1;
@@ -380,6 +381,19 @@ static int send_open_frame(CONNECTION_HANDLE connection)
 
                 /* Codes_S_R_S_CONNECTION_01_208: [If the open frame cannot be constructed, the connection shall be closed and set to the END state.] */
                 if (xio_close(connection->io, NULL, NULL) != 0)
+                {
+                    LogError("xio_close failed");
+                }
+
+                connection_set_state(connection, CONNECTION_STATE_END);
+                result = __FAILURE__;
+            }
+            else if ((connection->desired_capabilities != NULL) &&
+                (open_set_desired_capabilities(open_performative, connection->desired_capabilities) != 0))
+            {
+                LogError("Cannot set desired capabilities");
+
+                if(xio_close(connection->io, NULL, NULL) != 0)
                 {
                     LogError("xio_close failed");
                 }
@@ -1247,6 +1261,7 @@ CONNECTION_HANDLE connection_create2(XIO_HANDLE xio, const char* hostname, const
                                 connection->header_bytes_received = 0;
                                 connection->is_remote_frame_received = 0;
                                 connection->properties = NULL;
+                                connection->desired_capabilities = NULL;
 
                                 connection->is_underlying_io_open = 0;
                                 connection->remote_max_frame_size = 512;
@@ -1316,6 +1331,11 @@ void connection_destroy(CONNECTION_HANDLE connection)
         if (connection->properties != NULL)
         {
             amqpvalue_destroy(connection->properties);
+        }
+
+        if (connection->desired_capabilities != NULL)
+        {
+            amqpvalue_destroy(connection->desired_capabilities);
         }
 
         free(connection->host_name);
@@ -1723,6 +1743,99 @@ int connection_get_properties(CONNECTION_HANDLE connection, fields* properties)
             else
             {
                 /* Codes_S_R_S_CONNECTION_01_271: [On success, connection_get_properties shall return 0.] */
+                result = 0;
+            }
+        }
+    }
+
+    return result;
+}
+
+int connection_set_desired_capabilities(CONNECTION_HANDLE connection, AMQP_VALUE desired_capabilities)
+{
+    int result;
+
+    if (connection == NULL)
+    {
+        LogError("NULL connection");
+        result = __FAILURE__;
+    }
+    else
+    {
+        if (connection->connection_state != CONNECTION_STATE_START)
+        {
+            LogError("Connection already open");
+            result = __FAILURE__;
+        }
+        else
+        {
+            if (desired_capabilities == NULL)
+            {
+                if (connection->desired_capabilities != NULL)
+                {
+                    fields_destroy(connection->desired_capabilities);
+                    connection->desired_capabilities = NULL;
+                }
+
+                result = 0;
+            }
+            else
+            {
+                AMQP_VALUE new_desired_capabilities;
+
+                new_desired_capabilities = fields_clone(desired_capabilities);
+                if (new_desired_capabilities == NULL)
+                {
+                    LogError("Cannot clone connection desired capabilities");
+                    result = __FAILURE__;
+                }
+                else
+                {
+                    if (connection->desired_capabilities != NULL)
+                    {
+                        amqpvalue_destroy(connection->desired_capabilities);
+                    }
+
+                    connection->desired_capabilities = new_desired_capabilities;
+
+                    result = 0;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+int connection_get_desired_capabilities(CONNECTION_HANDLE connection, AMQP_VALUE* desired_capabilities)
+{
+    int result;
+
+    if ((connection == NULL) ||
+        (desired_capabilities == NULL))
+    {
+        LogError("Bad arguments: connection = %p, desired capabilities = %p",
+            connection, desired_capabilities);
+        result = __FAILURE__;
+    }
+    else
+    {
+        if (connection->desired_capabilities == NULL)
+        {
+            *desired_capabilities = NULL;
+
+            result = 0;
+        }
+        else
+        {
+            *desired_capabilities = amqpvalue_clone(connection->desired_capabilities);
+            if (*desired_capabilities == NULL)
+            {
+                LogError("Cannot clone desired capabilities");
+                result = __FAILURE__;
+            }
+            else
+            {
                 result = 0;
             }
         }

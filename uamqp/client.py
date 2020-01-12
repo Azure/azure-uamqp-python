@@ -126,6 +126,7 @@ class AMQPClient(object):
         self._properties = kwargs.pop('properties', None)
         self._remote_idle_timeout_empty_frame_send_ratio = kwargs.pop(
             'remote_idle_timeout_empty_frame_send_ratio', None)
+        self._connection_desired_capabilities = kwargs.pop("connection_desired_capabilities", None)
 
         # Session settings
         self._outgoing_window = kwargs.pop('outgoing_window', None) or constants.MAX_FRAME_SIZE_BYTES
@@ -255,7 +256,9 @@ class AMQPClient(object):
                 remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
                 error_policy=self._error_policy,
                 debug=self._debug_trace,
-                encoding=self._encoding)
+                encoding=self._encoding,
+                desired_capabilities=self._connection_desired_capabilities
+                )
             self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)

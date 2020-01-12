@@ -56,6 +56,8 @@ cdef extern from "azure_uamqp_c/connection.h":
     int connection_get_idle_timeout(CONNECTION_HANDLE connection, c_amqp_definitions.milliseconds* idle_timeout)
     int connection_set_properties(CONNECTION_HANDLE connection, c_amqp_definitions.fields properties)
     int connection_get_properties(CONNECTION_HANDLE connection, c_amqp_definitions.fields* properties)
+    int connection_set_desired_capabilities(CONNECTION_HANDLE connection, c_amqpvalue.AMQP_VALUE desired_capabilities)
+    int connection_get_desired_capabilities(CONNECTION_HANDLE connection, c_amqpvalue.AMQP_VALUE* desired_capabilities)
     int connection_get_remote_max_frame_size(CONNECTION_HANDLE connection, stdint.uint32_t* remote_max_frame_size)
     int connection_set_remote_idle_timeout_empty_frame_send_ratio(CONNECTION_HANDLE connection, double idle_timeout_empty_frame_send_ratio)
     stdint.uint64_t connection_handle_deadlines(CONNECTION_HANDLE connection)

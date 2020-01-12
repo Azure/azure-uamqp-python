@@ -69,7 +69,8 @@ class Connection(object):
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  error_policy=None,
                  debug=False,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 desired_capabilities=None):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
         if isinstance(self.container_id, six.text_type):
@@ -102,6 +103,8 @@ class Connection(object):
             self.properties = properties
         if remote_idle_timeout_empty_frame_send_ratio:
             self._conn.remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
+        if desired_capabilities:
+            self.desired_capabilities = desired_capabilities
 
     def __enter__(self):
         """Open the Connection in a context manager."""
@@ -309,6 +312,17 @@ class Connection(object):
         if not isinstance(value, dict):
             raise TypeError("Connection properties must be a dictionary.")
         self._conn.properties = utils.data_factory(value, encoding=self._encoding)
+
+    @property
+    def desired_capabilities(self):
+        return self._conn.desired_capabilities
+
+    @desired_capabilities.setter
+    def desired_capabilities(self, value):
+        if not isinstance(value, uamqp.c_uamqp.AMQPValue):
+            raise TypeError("Connection desired capabilities must be type of uamqp.c_uamqp.AMQPValue.\
+                Please use uamqp.utils.data_factory method to encode desired capabilities first")
+        self._conn.desired_capabilities = value
 
     @property
     def remote_max_frame_size(self):
