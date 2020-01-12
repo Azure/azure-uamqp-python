@@ -356,6 +356,10 @@ static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_res
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_170: [ If `send_result` is `MESSAGE_SEND_OK`, `on_message_send_complete` shall return. ]*/
         }
+        else if (context == NULL)
+        {
+            LogError("Message has already been settled.");
+        }
         else
         {
             LogError("MGMT message send complete with not ok status");
@@ -380,6 +384,8 @@ static void on_message_send_complete(void* context, MESSAGE_SEND_RESULT send_res
                 /* Codes_SRS_AMQP_MANAGEMENT_01_173: [ - The callback associated with the pending operation shall be called with `AMQP_MANAGEMENT_EXECUTE_OPERATION_ERROR`. ]*/
                 pending_operation_message->on_execute_operation_complete(pending_operation_message->callback_context, AMQP_MANAGEMENT_EXECUTE_OPERATION_ERROR, 0, NULL, NULL);
                 free(pending_operation_message);
+                LogError("Setting context to NULL");
+                context = NULL;
             }
         }
     }

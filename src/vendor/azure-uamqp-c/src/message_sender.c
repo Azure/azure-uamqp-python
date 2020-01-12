@@ -144,8 +144,6 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_TIMEOUT, NULL);
             break;
         case LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED:
-            LogError("Message not delivered.");
-            break;
         default:
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, NULL);
             break;
