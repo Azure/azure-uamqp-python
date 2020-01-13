@@ -144,9 +144,8 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_TIMEOUT, NULL);
             break;
         case LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED:
-            LogError("Message not delivered.");
-            break;
         default:
+            LogError("Settling message as error");
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, NULL);
             break;
         }
@@ -811,10 +810,7 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
     }
     else
     {
-        LogError("Marking all messages as error.");
-        indicate_all_messages_as_error(message_sender);
-
-        LogError("Setting sender to closed.");
+        LogError("Setting sender to closing.");
         if ((message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPENING) ||
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN))
         {
@@ -834,6 +830,8 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
         {
             result = 0;
         }
+        LogError("Marking all messages as error.");
+        indicate_all_messages_as_error(message_sender);
     }
 
     return result;
