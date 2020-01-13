@@ -145,20 +145,14 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
             break;
         case LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED:
             LogError("Message not delivered.");
-            if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_CLOSING)
-            {
-                message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, NULL);
-            }
             break;
         default:
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, NULL);
             break;
         }
     }
-    if (message_sender->message_sender_state != MESSAGE_SENDER_STATE_CLOSING)
-    {
-        remove_pending_message(message_sender, pending_send);
-    }
+
+    remove_pending_message(message_sender, pending_send);
 }
 
 static int encode_bytes(void* context, const unsigned char* bytes, size_t length)
