@@ -72,6 +72,8 @@ cdef class SASLMechanism(StructBase):
 
     def __dealloc__(self):
         _logger.debug("Deallocating SASLMechanism")
+        self_pyobj = <PyObject*>self
+        _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
         self.destroy()
 
     cdef _create(self):

@@ -118,6 +118,7 @@ class Connection(object):
         sasl.consumed = True
         conn = c_uamqp.create_connection(
             sasl.sasl_client.get_client(),
+            sasl.sasl.mechanism,
             self.hostname,
             self.container_id,
             self)

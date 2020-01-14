@@ -59,6 +59,8 @@ cdef class XIO(StructBase):
     cpdef destroy(self):
         if <void*>self._c_value is not NULL:
             _logger.debug("Destroying XIO")
+            self_pyobj = <PyObject*>self
+            _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
             c_xio.xio_destroy(self._c_value)
             self._c_value = <c_xio.XIO_HANDLE>NULL
             self._io_config = None
