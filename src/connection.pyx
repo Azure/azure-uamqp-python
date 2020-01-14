@@ -74,6 +74,8 @@ cdef class Connection(StructBase):
             _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
+            self._sasl_client.destroy()
+            self._sasl_mechanism.destroy()
             self._sasl_client = None
             self._sasl_mechanism = None
 
