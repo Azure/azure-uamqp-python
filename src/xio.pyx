@@ -68,7 +68,7 @@ cdef class XIO(StructBase):
             self._io_config = None
             if self._sasl_client is not None:
                 _logger.debug("DEFREF xio underlying_xio")
-                Py_DECREF(sasl_client)
+                Py_DECREF(self._sasl_client)
 
     cdef wrap(self, XIO value):
         self.destroy()

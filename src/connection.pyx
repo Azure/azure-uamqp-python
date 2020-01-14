@@ -76,8 +76,8 @@ cdef class Connection(StructBase):
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
             _logger.debug("DEFREF connection underlying_sasl")
-            Py_DECREF(sasl_client)
-            Py_DECREF(sasl_mech)
+            Py_DECREF(self._sasl_client)
+            Py_DECREF(self._sasl_mechanism)
             self._sasl_client = None
             self._sasl_mechanism = None
 
