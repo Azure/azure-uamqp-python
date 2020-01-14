@@ -10,7 +10,6 @@ from enum import Enum
 
 # C imports
 from libc cimport stdint
-from python_ref cimport Py_INCREF, Py_DECREF 
 cimport c_amqp_definitions
 cimport c_connection
 cimport c_xio
@@ -75,9 +74,6 @@ cdef class Connection(StructBase):
             _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
-            _logger.debug("DEFREF connection underlying_sasl")
-            Py_DECREF(self._sasl_client)
-            Py_DECREF(self._sasl_mechanism)
             self._sasl_client = None
             self._sasl_mechanism = None
 
@@ -90,9 +86,6 @@ cdef class Connection(StructBase):
 
     cdef create(self, XIO sasl_client, SASLMechanism sasl_mech, const char* hostname, const char* container_id, c_connection.ON_CONNECTION_STATE_CHANGED on_connection_state_changed, c_xio.ON_IO_ERROR on_io_error, void* callback_context):
         self.destroy()
-        _logger.debug("INCREF connection underlying_sasl")
-        Py_INCREF(sasl_client)
-        Py_INCREF(sasl_mech)
         self._sasl_client = sasl_client
         self._sasl_mechanism = sasl_mech
         self._c_value = c_connection.connection_create2(sasl_client._c_value, hostname, container_id, NULL, NULL, on_connection_state_changed, callback_context, on_io_error, callback_context)

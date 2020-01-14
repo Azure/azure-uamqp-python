@@ -8,7 +8,6 @@
 import logging
 
 # C imports
-from python_ref cimport Py_INCREF, Py_DECREF 
 cimport c_xio
 cimport c_wsio
 cimport c_sasl_mechanism
@@ -66,9 +65,8 @@ cdef class XIO(StructBase):
             c_xio.xio_destroy(self._c_value)
             self._c_value = <c_xio.XIO_HANDLE>NULL
             self._io_config = None
-            if self._sasl_client is not None:
-                _logger.debug("DEFREF xio underlying_xio")
-                Py_DECREF(self._sasl_client)
+            self._sasl_client = None
+
 
     cdef wrap(self, XIO value):
         self.destroy()
@@ -82,10 +80,7 @@ cdef class XIO(StructBase):
         self._io_config = io_config
         self._c_value = c_xio.xio_create(io_desc, io_params)
         self._create()
-        if underlying_xio is not None:
-            _logger.debug("INCREF xio underlying_xio")
-            Py_INCREF(underlying_xio)
-            self._sasl_client = underlying_xio
+        self._sasl_client = underlying_xio
 
     cpdef set_option(self, const char* option_name, value):
         cdef const void* option_value
