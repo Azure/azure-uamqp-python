@@ -75,6 +75,7 @@ cdef class Connection(StructBase):
             _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
             c_connection.connection_destroy(self._c_value)
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
+            _logger.debug("DEFREF connection underlying_sasl")
             Py_DECREF(sasl_client)
             Py_DECREF(sasl_mech)
             self._sasl_client = None
@@ -89,6 +90,7 @@ cdef class Connection(StructBase):
 
     cdef create(self, XIO sasl_client, SASLMechanism sasl_mech, const char* hostname, const char* container_id, c_connection.ON_CONNECTION_STATE_CHANGED on_connection_state_changed, c_xio.ON_IO_ERROR on_io_error, void* callback_context):
         self.destroy()
+        _logger.debug("INCREF connection underlying_sasl")
         Py_INCREF(sasl_client)
         Py_INCREF(sasl_mech)
         self._sasl_client = sasl_client
