@@ -26,7 +26,7 @@ cpdef xio_from_wsioconfig(WSIOConfig io_config):
 
 cpdef xio_from_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
     xio = XIO()
-    xio.create(io_desc._c_value, io_config, &io_config._c_value, underlying_xio, None)
+    xio.create(io_desc._c_value, io_config, &io_config._c_value, None)
     return xio
 
 
