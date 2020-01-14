@@ -20,23 +20,23 @@ cpdef xio_from_wsioconfig(WSIOConfig io_config):
     cdef const c_xio.IO_INTERFACE_DESCRIPTION* ws_io_interface
     ws_io_interface = c_wsio.wsio_get_interface_description()
     xio = XIO()
-    xio.create(ws_io_interface, io_config, &io_config._c_value)
+    xio.create(ws_io_interface, io_config, &io_config._c_value, None)
     return xio
 
 
 cpdef xio_from_tlsioconfig(IOInterfaceDescription io_desc, TLSIOConfig io_config):
     xio = XIO()
-    xio.create(io_desc._c_value, io_config, &io_config._c_value)
+    xio.create(io_desc._c_value, io_config, &io_config._c_value, underlying_xio, None)
     return xio
 
 
-cpdef xio_from_saslioconfig(SASLClientIOConfig io_config):
+cpdef xio_from_saslioconfig(SASLClientIOConfig io_config, XIO underlying_xio):
     cdef const  c_xio.IO_INTERFACE_DESCRIPTION* interface
     interface = c_sasl_mechanism.saslclientio_get_interface_description()
     if <void*>interface == NULL:
         raise ValueError("Failed to create SASL Client IO Interface description")
     xio = XIO()
-    xio.create(interface, io_config, &io_config._c_value)
+    xio.create(interface, io_config, &io_config._c_value, underlying_xio)
     return xio
 
 
@@ -44,6 +44,7 @@ cdef class XIO(StructBase):
 
     cdef c_xio.XIO_HANDLE _c_value
     cdef object _io_config
+    cdef XIO _sasl_client
 
     def __cinit__(self):
         pass
@@ -69,13 +70,15 @@ cdef class XIO(StructBase):
         self.destroy()
         self._io_config = value._io_config
         self._c_value = value._c_value
+        self._sasl_client = value._sasl_client
         self._create()
 
-    cdef create(self, c_xio.IO_INTERFACE_DESCRIPTION* io_desc, object io_config, void *io_params):
+    cdef create(self, c_xio.IO_INTERFACE_DESCRIPTION* io_desc, object io_config, void *io_params, XIO underlying_xio):
         self.destroy()
         self._io_config = io_config
         self._c_value = c_xio.xio_create(io_desc, io_params)
         self._create()
+        self._sasl_client = underlying_xio
 
     cpdef set_option(self, const char* option_name, value):
         cdef const void* option_value
