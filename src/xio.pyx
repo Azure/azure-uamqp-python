@@ -49,9 +49,9 @@ cdef class XIO(StructBase):
     def __cinit__(self):
         pass
 
-    # def __dealloc__(self):
-    #     _logger.debug("Deallocating XIO")
-    #     self.destroy()
+    def __dealloc__(self):
+        _logger.debug("Deallocating XIO")
+        self.destroy()
 
     cdef _create(self):
         if <void*>self._c_value is NULL:
@@ -65,9 +65,7 @@ cdef class XIO(StructBase):
             c_xio.xio_destroy(self._c_value)
             self._c_value = <c_xio.XIO_HANDLE>NULL
             self._io_config = None
-            if self._sasl_client is not None:
-                self._sasl_client.destroy()
-                self._sasl_client = None
+            self._sasl_client = None
 
 
     cdef wrap(self, XIO value):

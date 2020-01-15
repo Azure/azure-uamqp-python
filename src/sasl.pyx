@@ -70,11 +70,11 @@ cdef class SASLMechanism(StructBase):
     def __cinit__(self):
         pass
 
-    #def __dealloc__(self):
-    #    _logger.debug("Deallocating SASLMechanism")
-    #    self_pyobj = <PyObject*>self
-    #    _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
-    #    self.destroy()
+    def __dealloc__(self):
+        _logger.debug("Deallocating SASLMechanism")
+        self_pyobj = <PyObject*>self
+        _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
+        self.destroy()
 
     cdef _create(self):
         if <void*>self._c_value is NULL:
