@@ -76,6 +76,8 @@ cdef class Connection(StructBase):
             _logger.debug("Finished connection destroy")
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
             _logger.debug("Starting xio destroy destroy")
+            sasl_pyobj = <PyObject*>self._sasl_client
+            _logger.debug("SASL reference count: {}".format(sasl_pyobj.ob_refcnt))
             self._sasl_client.destroy()
             _logger.debug("Starting mechanism destroy")
             self._sasl_mechanism.destroy()
