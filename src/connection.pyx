@@ -73,8 +73,11 @@ cdef class Connection(StructBase):
             self_pyobj = <PyObject*>self
             _logger.debug("Self reference count: {}".format(self_pyobj.ob_refcnt))
             c_connection.connection_destroy(self._c_value)
+            _logger.debug("Finished connection destroy")
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
+            _logger.debug("Starting xio destroy destroy")
             self._sasl_client.destroy()
+            _logger.debug("Starting mechanism destroy")
             self._sasl_mechanism.destroy()
             self._sasl_client = None
             self._sasl_mechanism = None

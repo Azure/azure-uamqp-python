@@ -1307,14 +1307,18 @@ void connection_destroy(CONNECTION_HANDLE connection)
         /* Codes_S_R_S_CONNECTION_01_073: [connection_destroy shall free all resources associated with a connection.] */
         if (connection->is_underlying_io_open)
         {
+            LogError("C closing connection");
             (void)connection_close(connection, NULL, NULL, NULL);
+            LogError("C finished closing connection");
         }
-
+        LogError("Destroying amqp codec");
         amqp_frame_codec_destroy(connection->amqp_frame_codec);
+        LogError("Destroying frame codec");
         frame_codec_destroy(connection->frame_codec);
         tickcounter_destroy(connection->tick_counter);
         if (connection->properties != NULL)
         {
+            LogError("Destroying conn properties");
             amqpvalue_destroy(connection->properties);
         }
 
@@ -1431,12 +1435,12 @@ int connection_close(CONNECTION_HANDLE connection, const char* condition_value, 
 
             connection_set_state(connection, CONNECTION_STATE_END);
         }
-
+        LogError("Starting xio close");
         if (xio_close(connection->io, NULL, NULL) != 0)
         {
             LogError("xio_close failed");
         }
-
+        LogError("underlying io closed");
         connection->is_underlying_io_open = 1;
 
         result = 0;
