@@ -75,6 +75,9 @@ cdef class Connection(StructBase):
             c_connection.connection_destroy(self._c_value)
             _logger.debug("Finished connection destroy")
             self._c_value = <c_connection.CONNECTION_HANDLE>NULL
+            sasl_pyobj = <PyObject*>self._sasl_client
+            _logger.debug("SASL reference count: {}".format(sasl_pyobj.ob_refcnt))
+            _logger.debug("{}".format(self._sasl_client))
             self._sasl_client = None
             self._sasl_mechanism = None
 
