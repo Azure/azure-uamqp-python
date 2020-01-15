@@ -185,6 +185,10 @@ cdef class Connection(StructBase):
 
 cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STATE_TAG new_connection_state, c_connection.CONNECTION_STATE_TAG previous_connection_state):
     if <void*>context != NULL:
+        context_pyobj = <PyObject*>context
+        if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
+            _logger.warning("Can't call on_connection_state_changed during garbage collection")
+            return
         context_obj = <object>context
         try:
             context_obj._state_changed(previous_connection_state, new_connection_state)
