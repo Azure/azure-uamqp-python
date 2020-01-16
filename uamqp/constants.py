@@ -57,7 +57,11 @@ DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
 RECEIVE_STATES = (MessageState.ReceivedSettled, MessageState.ReceivedUnsettled)
 PENDING_STATES = (MessageState.WaitingForSendAck, MessageState.WaitingToBeSent)
 
-CONNECTION_DONE_STATES = (ConnectionSate.START, ConnectionSate.END, ConnectionSate.ERROR)
+CONNECTION_DONE_STATES = (
+    c_uamqp.ConnectionState.OPENED,
+    c_uamqp.ConnectionState.END,
+    c_uamqp.ConnectionState.ERROR
+)
 
 
 # Error Codes
