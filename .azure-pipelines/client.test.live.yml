@@ -68,6 +68,7 @@ jobs:
           python --version
           Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python
           python -m pip install -r dev_requirements.txt
+          python -m pip install -r iot_requirements.txt
         displayName: 'Install dependencies'
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
@@ -185,6 +186,7 @@ jobs:
           $(PythonBin) --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) - --user
           $(PythonBin) -m pip install --user -r dev_requirements.txt
+          $(PythonBin) -m pip install --user -r iot_requirements.txt
         displayName: 'Install dependencies'
 
       - script: $(PythonBin) setup.py bdist_wheel
@@ -272,6 +274,7 @@ jobs:
           python --version
           curl -sS https://bootstrap.pypa.io/get-pip.py | python - --user
           python -m pip install --user -r dev_requirements.txt
+          python -m pip install --user -r iot_requirements.txt
         displayName: 'Install dependencies'
 
       - script: python setup.py bdist_wheel

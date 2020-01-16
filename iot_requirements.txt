@@ -1,0 +1,8 @@
+azure-cli-core
+azure-cli-iot
+azure-cli-profile
+azure-cli-extension
+azure-cli-configure
+azure-cli-resource
+azure-cli-cloud
+https://github.com/Azure/azure-iot-cli-extension/archive/master.zip
