@@ -54,6 +54,16 @@ class AMQPClient(object):
     :type idle_timeout: int
     :param properties: Connection properties.
     :type properties: dict
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint to be sent in the link ATTACH frame.
+     To create an desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
+    :param connection_desired_capabilities: The extension capabilities desired from the peer endpoint to be sent in the connection OPEN frame.
+     To create a desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type connection_desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
      idle time for Connections with no activity. Value must be between
      0.0 and 1.0 inclusive. Default is 0.5.
@@ -826,11 +836,6 @@ class ReceiveClient(AMQPClient):
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
-    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
-     To create an desired_capabilities object, please do as follows:
-        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
-        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
-    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_properties: Metadata to be sent in the Link ATTACH frame.
