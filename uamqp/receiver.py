@@ -52,7 +52,8 @@ class MessageReceiver(object):
      from the service that the message was successfully sent. If set to 'Settled',
      the client will not wait for confirmation and assume success.
     :type send_settle_mode: ~uamqp.constants.SenderSettleMode
-    :param desired_capabilities: The extension capabilities desired from the peer endpoint to be sent in the link ATTACH frame.
+    :param desired_capabilities: The extension capabilities desired from the peer 
+     endpoint to be sent in the link ATTACH frame.
      To create a desired_capabilities object, please do as follows:
         - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
         - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
