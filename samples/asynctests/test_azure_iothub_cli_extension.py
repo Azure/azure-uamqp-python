@@ -43,6 +43,8 @@ def test_iothub_monitor_events(live_iothub_config):
     try:
         import azext_iot.operations.events3._events as events3
         import azext_iot.operations.events3._builders as builders
+        events3.DEBUG = False
+        builders.DEBUG = False
     except ImportError:
         pytest.skip("Only runs in IoT CLI env.")
 
@@ -69,7 +71,23 @@ def test_iothub_monitor_feedback(live_iothub_config):
 
 
 def test_iothub_c2d_message_send(live_iothub_config):
-    pytest.skip("Not yet implemented")
+    try:
+        import azext_iot.operations.events3._events as events3
+        import azext_iot.operations.events3._builders as builders
+        events3.DEBUG = False
+        builders.DEBUG = False
+    except ImportError:
+        pytest.skip("Only runs in IoT CLI env.")
+
+    target = _get_iot_conn_str(live_iothub_config)
+    msg_id, errors = events3.send_c2d_message(
+        target=target,
+        device_id=live_iothub_config["device"],
+        data="IoT CLI extension test",                                 
+        ack='full')
+
+    assert msg_id
+    assert not errors
 
 
 if __name__ == '__main__':
