@@ -1,8 +1,8 @@
-azure-cli-core
-azure-cli-iot
-azure-cli-profile
-azure-cli-extension
-azure-cli-configure
-azure-cli-resource
-azure-cli-cloud
-https://github.com/Azure/azure-iot-cli-extension/archive/master.zip
+azure-cli-core; python_version < '3.8'
+azure-cli-iot; python_version < '3.8'
+azure-cli-profile; python_version < '3.8'
+azure-cli-extension; python_version < '3.8'
+azure-cli-configure; python_version < '3.8'
+azure-cli-resource; python_version < '3.8'
+azure-cli-cloud; python_version < '3.8'
+https://github.com/Azure/azure-iot-cli-extension/archive/master.zip; python_version < '3.8'
