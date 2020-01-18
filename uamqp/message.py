@@ -4,9 +4,19 @@
 # license information.
 #--------------------------------------------------------------------------
 
+from enum import Enum
+
 from .types import AMQPTypes, FieldDefinition
 from .constants import FIELD
 from .performatives import Performative
+
+
+class MessageBodyType(Enum):
+
+    DATA = 0
+    SEQUENCE = 1
+    VALUE = 2
+    EMPTY = 3
 
 
 class Header(Performative):
@@ -149,14 +159,10 @@ class BareMessage(object):
     deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
     following sections:
 
-        - Zero or one header.
-        - Zero or one delivery-annotations.
-        - Zero or one message-annotations.
         - Zero or one properties.
         - Zero or one application-properties.
         - The body consists of either: one or more data sections, one or more amqp-sequence sections,
           or a single amqp-value section.
-        - Zero or one footer.
 
     :param ~uamqp.message.Properties: Immutable properties of the Message.
         The properties section is used for a deﬁned set of standard properties of the message. The properties
@@ -176,10 +182,29 @@ class BareMessage(object):
     SECTIONS = {
         0x00000073: FIELD("properties", Properties, False, None, False),
         0x00000074: FIELD("application_properties", AMQPTypes.map, False, None, False),
-        0x00000075: FIELD("data_body", AMQPTypes.binary, False, None, True),
-        0x00000076: FIELD("sequence_body", AMQPTypes.list, False, None, False),
-        0x00000077: FIELD("value_body", None, False, None, False),
+        0x00000075: FIELD("_data_body", AMQPTypes.binary, False, None, True),
+        0x00000076: FIELD("_sequence_body", AMQPTypes.list, False, None, False),
+        0x00000077: FIELD("_value_body", None, False, None, False),
     }
+
+    def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None):
+        self._data_body = None
+        self._sequence_body = None
+        self._value_body = None
+        if data:
+            self.body_type = MessageBodyType.DATA
+            self._data_body = data
+        elif sequence:
+            self.body_type = MessageBodyType.SEQUENCE
+            self._sequence_body = sequence
+        elif value:
+            self.body_type = MessageBodyType.VALUE
+            self._value_body = value
+        else:
+            self.body_type = MessageBodyType.EMPTY
+            self.body = None
+        self.properties = properties
+        self.application_properties = application_properties
 
 
 class AnnotatedMessage(BareMessage):
@@ -192,10 +217,14 @@ class AnnotatedMessage(BareMessage):
     deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
     following sections:
 
+        - Zero or one header.
+        - Zero or one delivery-annotations.
+        - Zero or one message-annotations.
         - Zero or one properties.
         - Zero or one application-properties.
         - The body consists of either: one or more data sections, one or more amqp-sequence sections,
           or a single amqp-value section.
+        - Zero or one footer.
 
     :param ~uamqp.message.Header header: Transport headers for a Message.
         The header section carries standard delivery details about the transfer of a Message through the AMQP
@@ -250,3 +279,26 @@ class AnnotatedMessage(BareMessage):
         0x00000077: FIELD("value_body", None, False, None, False),
         0x00000078: FIELD("footer", FieldDefinition.annotations, False, None, False),
     }
+
+        def __init__(
+            self,
+            data=None,
+            sequence=None,
+            value=None,
+            header=None,
+            delivery_annotations=None,
+            message_annotations=None,
+            properties=None,
+            application_properties=None,
+            footer=None):
+        self.header = header
+        self.delivery_annotations = delivery_annotations
+        self.message_annotations = message_annotations
+        self.footer = footer
+        super(self, AnnotatedMessage).__init__(
+            data=data,
+            sequence=sequence,
+            value=value,
+            properties=properties,
+            application_properties=application_properties
+        )

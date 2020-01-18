@@ -481,13 +481,11 @@ def encode_value(output, value, **kwargs):
     return output
 
 
-def encode_frame(frame):
+def describe_performative(performative):
     # type: (Performative) -> Tuple(bytes, bytes)
-    if isinstance(frame, HeaderFrame):
-        return frame.header, None
     body = []
-    for field in frame.DEFINITION:
-        value = frame.__dict__[field.name]
+    for field in performative.DEFINITION:
+        value = performative.__dict__[field.name]
         if value is None and field.mandatory:
             raise ValueError("Performative missing mandatory field {}".format(field.name))
         if value is None:
@@ -505,13 +503,21 @@ def encode_frame(frame):
             else:
                 body.append({TYPE: field.type, VALUE: value})
 
-    frame_description = {
+    return {
         TYPE: AMQPTypes.described,
         VALUE: (
-            {TYPE: AMQPTypes.ulong, VALUE: frame.CODE},
+            {TYPE: AMQPTypes.ulong, VALUE: performative.CODE},
             {TYPE: AMQPTypes.list, VALUE: body}
         )
     }
+
+
+def encode_frame(frame):
+    # type: (Performative) -> Tuple(bytes, bytes)
+    if isinstance(frame, HeaderFrame):
+        return frame.header, None
+
+    frame_description = describe_performative(frame)
     offset = b"\x02"  # Minimum offset of two
 
     frame_data = encode_value(b"", frame_description)
