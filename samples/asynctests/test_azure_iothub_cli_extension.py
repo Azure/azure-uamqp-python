@@ -66,12 +66,10 @@ def test_iothub_monitor_events(live_iothub_config):
         devices=device_ids
     )
 
-def test_iothub_monitor_feedback(live_iothub_config):
-    pytest.skip("Not yet implemented")
-
-
-def test_iothub_c2d_message_send(live_iothub_config):
+def test_iothub_c2d_message_send_and_monitor_feedback(live_iothub_config):
     try:
+        from azext_iot.operations.hub import iot_simulate_device
+        from azext_iot.common.utility import execute_onthread
         import azext_iot.operations.events3._events as events3
         import azext_iot.operations.events3._builders as builders
         events3.DEBUG = False
@@ -80,14 +78,30 @@ def test_iothub_c2d_message_send(live_iothub_config):
         pytest.skip("Only runs in IoT CLI env.")
 
     target = _get_iot_conn_str(live_iothub_config)
+
     msg_id, errors = events3.send_c2d_message(
         target=target,
         device_id=live_iothub_config["device"],
         data="IoT CLI extension test",                                 
         ack='full')
-
     assert msg_id
     assert not errors
+
+    iot_simulate_device(
+        cmd=None,
+        device_id=live_iothub_config["device"],
+        hub_name=live_iothub_config["hub_name"],
+        receive_settle='complete',
+        data="IoT CLI extension test",
+        msg_count=5,
+        msg_interval=1,
+        protocol_type='http',
+        login=target['cs']) 
+
+    events3.monitor_feedback(
+        target=target,
+        device_id=live_iothub_config["device"],
+        wait_on_id=msg_id)
 
 
 if __name__ == '__main__':
