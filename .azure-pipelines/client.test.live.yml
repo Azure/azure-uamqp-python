@@ -84,8 +84,8 @@ jobs:
       - powershell: |
           $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+          pytest tests --durations=0 --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --durations=0 --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
           EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
@@ -207,8 +207,8 @@ jobs:
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+          pytest tests --durations=0 --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --durations=0 --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
           EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
@@ -287,8 +287,8 @@ jobs:
 
       - script: |
           python -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+          pytest tests --durations=0 --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --durations=0 --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
           EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
