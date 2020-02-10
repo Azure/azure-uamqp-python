@@ -175,12 +175,22 @@ class Connection(object):
                 _new_state = c_uamqp.ConnectionState.UNKNOWN
             self._state = _new_state
             _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
-            if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
+            if (_new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD)\
+                    or _new_state == c_uamqp.ConnectionState.DISCARDING:
                 if not self._closing and not self._error:
-                    _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
-                                 self.container_id, self._closing, self._error)
-                    condition = b"amqp:unknown-error"
-                    description = b"Connection in an unexpected error state."
+                    if _new_state == c_uamqp.ConnectionState.DISCARDING:
+                        _logger.info("Connection with ID %r has been discarded.", self.container_id)
+                        condition = b"amqp:connection:forced"
+                        description = b"Connection has been discarded."
+                    else:
+                        _logger.info(
+                            "Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
+                            self.container_id,
+                            self._closing,
+                            self._error
+                        )
+                        condition = b"amqp:unknown-error"
+                        description = b"Connection in an unexpected error state."
                     self._error = errors._process_connection_error(self.error_policy, condition, description, None)  # pylint: disable=protected-access
         except KeyboardInterrupt:
             _logger.error("Received shutdown signal while updating connection state from {} to {}".format(
