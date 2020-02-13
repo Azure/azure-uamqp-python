@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.2.6 (unreleased)
+1.2.6 (2020-02-13)
 ++++++++++++++++++
 
 - Fixed seg fault in tearing down a failed link with unsent pending messages.
