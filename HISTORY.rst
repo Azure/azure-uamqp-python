@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.2.6 (2020-02-13)
+++++++++++++++++++
+
+- Fixed seg fault in tearing down a failed link with unsent pending messages.
+
+
 1.2.5 (2019-12-10)
 ++++++++++++++++++
 
@@ -11,12 +17,14 @@ Release History
 - Fixed bug in noneffective flow control when large messages are received.
 - Demote link redirect logging from warning to info.
 
+
 1.2.4 (2019-12-02)
 ++++++++++++++++++
 
 - Fixed bug in calculating send timeout.
 - Removed `ThreadPoolExecutor` in `ConnectionAsync`.
 - Added support for Python 3.8
+
 
 1.2.3 (2019-10-07)
 ++++++++++++++++++
@@ -28,10 +36,12 @@ Release History
 - Added delivery-tag to `Message` (azure-sdk-for-python issue #7336).
 - Added method `work` to `MessageReceiver` and `work_async` to `MessageReceiverAsync` responsible for updating link status.
 
+
 1.2.2 (2019-07-02)
 ++++++++++++++++++
 
 - Made bug fix in asyncio.get_event_loop backwards-compatible for now by just printing a warning rather than raising an error. In the next major version bump we can disable entirely.
+
 
 1.2.1 (2019-06-20)
 ++++++++++++++++++
