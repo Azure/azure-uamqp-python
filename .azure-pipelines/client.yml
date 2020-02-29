@@ -90,10 +90,10 @@ jobs:
           pipeline: 119 # azure-uamqp-python - openssl
           project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
-      - script: sudo xcode-select --switch /Applications/Xcode_9.4.1.app
-        displayName: 'Select Xcode 9.4.1'
+      - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
+        displayName: 'Select Xcode 11.3.1'
 
-      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+      - script: sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.15.pkg -target /
         displayName: 'Install MacOS headers'
 
       - script: source ./install_python_osx.sh
