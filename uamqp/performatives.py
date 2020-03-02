@@ -96,7 +96,7 @@ class OpenFrame(Performative):
     :param int max_frame_size: Proposed maximum frame size in bytes.
         The largest frame size that the sending peer is able to accept on this Connection.
         If this field is not set it means that the peer does not impose any specific limit. A peer MUST NOT send
-        frames larger than its partner can handle. A peer that receives anoversized frame MUST close the Connection
+        frames larger than its partner can handle. A peer that receives an oversized frame MUST close the Connection
         with the framing-error error-code. Both peers MUST accept frames of up to 512 (MIN-MAX-FRAME-SIZE)
         octets large.
     :param int channel_max: The maximum channel number that may be used on the Connection.

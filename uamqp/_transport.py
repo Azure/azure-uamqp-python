@@ -351,12 +351,12 @@ class _AbstractTransport(object):
             raise
 
     def receive_frame(self, verify_frame_type=0):
-        header, channel, payload, offset = self.read(verify_frame_type=verify_frame_type)
+        header, channel, payload, offset = self.read(verify_frame_type=verify_frame_type) 
         if payload is None:
             decoded = decode_empty_frame(header)
         else:
             decoded = decode_frame(payload, offset - 2)
-        print("<- {}".format(decoded))
+        print("ICH{} <- {}".format(channel, decoded))
         return channel, decoded
 
     def send_frame(self, channel, frame):
@@ -364,11 +364,11 @@ class _AbstractTransport(object):
         if performative is None:
             data = header
         else:
-            channel = struct.pack('>H', channel)
-            data = header + channel +performative
+            encoded_channel = struct.pack('>H', channel)
+            data = header + encoded_channel + performative
 
         self.write(data)
-        print("-> {}".format(frame))
+        print("OCH{} -> {}".format(channel, frame))
 
     def negotiate(self, encode, decode):
         pass
@@ -435,7 +435,6 @@ class SSLTransport(_AbstractTransport):
             'ciphers': ciphers,
             #'ssl_version': ssl_version
         }
-        print("SSL options", opts)
 
         sock = ssl.wrap_socket(**opts)
         # Set SNI headers if supported
@@ -454,7 +453,10 @@ class SSLTransport(_AbstractTransport):
     def _shutdown_transport(self):
         """Unwrap a SSL socket, so we can call shutdown()."""
         if self.sock is not None:
-            self.sock = self.sock.unwrap()
+            try:
+                self.sock = self.sock.unwrap()
+            except OSError:
+                pass
 
     def _read(self, n, initial=False,
               _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):

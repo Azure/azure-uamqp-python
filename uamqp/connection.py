@@ -9,10 +9,12 @@ import queue
 import struct
 import uuid
 import logging
+from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 
 from ._transport import Transport, SSLTransport
+from .session import Session
 from .performatives import (
     HeaderFrame,
     OpenFrame,
@@ -71,6 +73,15 @@ class ConnectionState(Enum):
     END = 13
 
 
+class EmptyChannel(queue.Queue):
+
+    def outgoing_frame(self):
+        frame = self.get_nowait()
+        self.task_done()
+        return frame
+
+    incoming_frame = queue.Queue.put
+
 class Connection(object):
     """
     :param str container_id: The ID of the source container.
@@ -120,17 +131,17 @@ class Connection(object):
         self.last_frame_received_time = None
         self.last_frame_sent_time = None
 
-        self.sessions = {}
-        self.endpoints = [
-            {'OUTGOING': 0, 'INCOMING': 1}
-        ]
+        self.outgoing_endpoints = {
+            0: EmptyChannel(maxsize=DEFAULT_LINK_CREDIT)  # Initial outgoing channel
+        }
+        self.incoming_endpoints = {
+            0: EmptyChannel(maxsize=DEFAULT_LINK_CREDIT)  # Initial incoming channel
+        }
 
-        self._outgoing_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
-        self._incoming_frames = queue.Queue(maxsize=DEFAULT_LINK_CREDIT)
         self._thread_pool = kwargs.pop('executor', None)
         self._thread_lock = threading.Lock if self._thread_pool else None
-        self._on_receive_open_frame = kwargs.get('open_frame_hook')
-        self._on_receive_close_frame = kwargs.get('close_frame_hook')
+        self._on_receive_open_frame = kwargs.pop('open_frame_hook', None)
+        self._on_receive_close_frame = kwargs.pop('close_frame_hook', None)
         self._is_underlying_io_open = False
         self._idle_timeout_specified = False
         self._is_remote_frame_received = False
@@ -170,6 +181,19 @@ class Connection(object):
             ConnectionState.DISCARDING,
             ConnectionState.END
         )
+
+    def _get_next_outgoing_channel(self):
+        # type: () -> int
+        """Get the next available outgoing channel number within the max channel limit.
+
+        :raises ValueError: If maximum channels has been reached.
+        :returns: The next available outgoing channel number.
+        :rtype: int
+        """
+        if (len(self.incoming_endpoints) + len(self.outgoing_endpoints)) >= self.channel_max:
+            raise ValueError("Maximum number of channels ({}) has been reached.".format(self.channel_max))
+        next_channel = next(i for i in range(1, self.channel_max) if i not in self.incoming_endpoints)
+        return next_channel
 
     def _is_outgoing_frame_legal(self, frame):  # pylint: disable=too-many-return-statements
         # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
@@ -229,35 +253,70 @@ class Connection(object):
             return True, ConnectionState.END if isinstance(frame, CloseFrame) else None
         return False, None
 
-    def _run(self):
-        while self._can_write():
-            try:
-                channel, outgoing_frame = self._outgoing_frames.get_nowait()
-            except queue.Empty:
-                break
+    def _process_incoming_frame(self, channel, frame):
+        if isinstance(frame, OpenFrame):
+            self.max_frame_size = frame.max_frame_size
+            self.channel_max = frame.channel_max
+            self.remote_idle_timeout = frame.idle_timeout
+        elif isinstance(frame, HeaderFrame):
+            self.incoming_endpoints[channel].incoming_frame(frame)
+        elif isinstance(frame, CloseFrame):
+            return  # TODO: Process close receipt
+        else:
+            incoming_channel = 1
+            if incoming_channel in self.incoming_endpoints:
+                self.incoming_endpoints[incoming_channel].incoming_frame(frame)
+            elif incoming_channel in self.outgoing_endpoints:
+                self.incoming_endpoints[incoming_channel] = self.outgoing_endpoints[incoming_channel]
+                self.incoming_endpoints[incoming_channel].incoming_frame(frame)
             else:
-                can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
-                if can_send:
-                    self.transport.send_frame(channel, outgoing_frame)
-                    self._set_state(next_state)
-                else:
-                    raise TypeError("Attempt to send frame {} in illegal state {}".format(
-                        type(outgoing_frame), self.state))
+                raise ValueError("unknown channel", self.incoming_endpoints, self.outgoing_endpoints)
+
+    def _run(self):
+        for channel, endpoint in self.outgoing_endpoints.items():
+            while self._can_write():
+                try:
+                    outgoing_frame = endpoint.outgoing_frame()
+                    if outgoing_frame:
+                        can_send, next_state = self._is_outgoing_frame_legal(outgoing_frame)
+                        if can_send:
+                            self.last_frame_sent_time = datetime.now()
+                            self.transport.send_frame(channel, outgoing_frame)
+                            self._set_state(next_state)
+                        else:
+                            raise TypeError("Attempt to send frame {} in illegal state {}".format(
+                                type(outgoing_frame), self.state))
+                    else:
+                        break  # This Session cannot write. Skip.
+                except queue.Empty:
+                    break  # Move to next endpoint if this queue is empty
+            else:
+                break  # Stop looping all endpoints if connection can no longer write
+
         if self._can_read():
             channel, incoming_frame = self.transport.receive_frame()
             legal, new_state = self._is_incoming_frame_legal(incoming_frame)
             if legal:
+                self._is_remote_frame_received = True
+                self.last_frame_received_time = datetime.now()
                 self._set_state(new_state)
-                self._incoming_frames.put((channel, incoming_frame))
+                self._process_incoming_frame(channel, incoming_frame)
             else:
                 raise TypeError("Received illegal frame {} in current state {}".format(
                     type(incoming_frame), self.state))
 
-    def begin_session(self, session, **kwargs):
-        pass
+    def begin_session(self, session=None, **kwargs):
+        assigned_channel = self._get_next_outgoing_channel()
+        session = session or Session(assigned_channel, **kwargs)
+        self.outgoing_endpoints[assigned_channel] = session
+        session.begin()
+        return session
 
     def end_session(self, session, **kwargs):
-        pass
+        try:
+            self.outgoing_endpoints[session.channel].end()
+        except KeyError:
+            raise ValueError("No running session that matches input value.")
 
     def connect(self):
         if not self._is_underlying_io_open:
@@ -268,16 +327,17 @@ class Connection(object):
                 self._thread_pool.__enter__()
 
         self.transport.negotiate()
-        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], HeaderFrame()))
+        self.outgoing_endpoints[0].put(HeaderFrame())
         if not self.allow_pipelined_open:
             self.do_work()
             try:
-                _, incoming_header = self._incoming_frames.get_nowait()
+                incoming_header = self.incoming_endpoints[0].get_nowait()
                 if not isinstance(incoming_header, HeaderFrame):
                     raise ValueError("Expected AMQP protocol header, received {}".format(incoming_header))
             except queue.Empty:
-                LOGGER.warning("Did not receive reciprocal protocol header. Disconnecting.")
-                self.disconnect()
+                if self.state not in (ConnectionState.HDR_EXCH):
+                    LOGGER.warning("Did not receive reciprocal protocol header. Disconnecting.")
+                    self.disconnect()
 
     def blocking_read(self, timeout=None, **kwargs):
         with self.transport.having_timeout(timeout):
@@ -302,11 +362,11 @@ class Connection(object):
             desired_capabilities=self.desired_capabilities,
             properties=self.properties,
         )
-        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], open_frame))
+        self.outgoing_endpoints[0].put(open_frame)
 
     def close(self, error=None):
         close_frame = CloseFrame(error=error)
-        self._outgoing_frames.put((self.endpoints[0]['OUTGOING'], close_frame))
+        self.outgoing_endpoints[0].put(close_frame)
 
     def do_work(self):
         self._run()

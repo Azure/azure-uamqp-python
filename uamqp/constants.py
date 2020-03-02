@@ -35,5 +35,8 @@ SASL_REVISION = 0  #: Protocol revision.
 #: size until they have agreed a definitive maximum frame size for that Connection.
 MIN_MAX_FRAME_SIZE = 512
 
+INCOMING_WINDOW = 64 * 1024
+OUTGOING_WIDNOW = 64 * 1024
+
 
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
