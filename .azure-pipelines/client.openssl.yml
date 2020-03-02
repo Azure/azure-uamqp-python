@@ -2,20 +2,14 @@ trigger: none
 pr: none
 
 variables:
-  OpenSSLVersion: '1.0.2t'
+  OpenSSLVersion: '1.0.2u'
+  MacOSXDeploymentTarget: '10.9'
 
 jobs:
   - job: 'OpenSSL'
 
     pool:
       vmImage: 'macOS-10.15'
-
-    strategy:
-      matrix:
-        MacOS 10.6:
-          MacOSXDeploymentTarget: '10.6'
-        MacOS 10.9:
-          MacOSXDeploymentTarget: '10.9'
 
     steps:
       - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app

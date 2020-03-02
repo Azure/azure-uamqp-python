@@ -125,33 +125,29 @@ jobs:
       maxParallel: 1
       matrix:
         Python 2.7:
-          MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python2'
           PythonVersion: '$(PythonVersion27)'
         Python 3.5:
-          MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion35)'
         Python 3.6:
-          MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
-          MacOSXDeploymentTarget: '10.6'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
         Python 3.8:
-          MacOSXDeploymentTarget: '10.9'
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion38)'
 
     variables:
+      MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
       PythonVersion27: '2.7.17'
       PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.8'
-      PythonVersion37: '3.7.5'
-      PythonVersion38: '3.8.0'
+      PythonVersion37: '3.7.6'
+      PythonVersion38: '3.8.2'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -188,7 +184,7 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
-          CMAKE_OSX_ARCHITECTURES: 'i386;x86_64'
+          CMAKE_OSX_ARCHITECTURES: 'x86_64'
           CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
           LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
           MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Python 3.8+ are only build for OSX 10.9+
-PACKAGE_TYPE="macosx10.6"
-if [[ "$PYTHONVERSION" =~ ^3.8 ]]; then
-  PACKAGE_TYPE="macosx10.9"
+# Python 3.5 is only built for OSX 10.6+
+PACKAGE_TYPE="macosx10.9"
+if [[ "$PYTHONVERSION" =~ ^3.5 ]]; then
+  PACKAGE_TYPE="macosx10.6"
 fi
 
 # Handle prerelease versions
