@@ -7,7 +7,7 @@ rm -f openssl-$OPENSSL_VERSION.tar.gz
 mv openssl-$OPENSSL_VERSION openssl_src
 
 # Compile x86_64
-cd ../openssl_src
+cd openssl_src
 ./Configure darwin64-x86_64-cc enable-ec_nistp_64_gcc_128 no-ssl2 no-ssl3 no-zlib no-shared no-comp --prefix=$DEST/openssl --openssldir=$DEST/openssl
 make depend
 make
