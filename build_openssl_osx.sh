@@ -1,34 +1,19 @@
 #!/bin/bash
 
-# Modified from https://gist.github.com/tmiz/1441111
-
 # Acquire sources
 curl -sSO https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
 tar -xzf openssl-$OPENSSL_VERSION.tar.gz
 rm -f openssl-$OPENSSL_VERSION.tar.gz
-
-# Set up two build environments
-cp -R openssl-$OPENSSL_VERSION openssl_i386_src
-mv openssl-$OPENSSL_VERSION openssl_x86_64_src
-
-# Compile i386
-cd openssl_i386_src
-./Configure darwin-i386-cc no-ssl2 no-ssl3 no-zlib no-shared no-comp --prefix=$DEST/openssl --openssldir=$DEST/openssl
-make depend
-make
-make install_sw
-mv $DEST/openssl $DEST/openssl_i386
+mv openssl-$OPENSSL_VERSION openssl_src
 
 # Compile x86_64
-cd ../openssl_x86_64_src
+cd ../openssl_src
 ./Configure darwin64-x86_64-cc enable-ec_nistp_64_gcc_128 no-ssl2 no-ssl3 no-zlib no-shared no-comp --prefix=$DEST/openssl --openssldir=$DEST/openssl
 make depend
 make
 make install_sw
-mv $DEST/openssl $DEST/openssl_x86_64
 
-# Move files into place and generate universal binaries
+# Move files into place
 cd $DEST
-cp -a ./openssl_x86_64/. ./openssl/
-lipo -create openssl_i386/lib/libcrypto.a openssl_x86_64/lib/libcrypto.a -output openssl/lib/libazcrypto.a
-lipo -create openssl_i386/lib/libssl.a openssl_x86_64/lib/libssl.a -output openssl/lib/libazssl.a
+mv openssl/lib/libcrypto.a openssl/lib/libazcrypto.a
+mv openssl/lib/libssl.a openssl/lib/libazssl.a
