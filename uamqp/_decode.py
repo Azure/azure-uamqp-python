@@ -30,6 +30,7 @@ from .performatives import (
     SASLChallenge,
     SASLResponse,
     SASLOutcome)
+from .endpoints import Source, Target
 
 
 PERFORMATIVES = {
@@ -49,6 +50,11 @@ PERFORMATIVES = {
     0x00000044: SASLOutcome
 }
 
+COMPOSITES = {
+    0x00000028: Source,
+    0x00000029: Target,
+}
+
 
 class DecoderState(object):  # pylint: disable=no-init
     constructor = 'CONSTRUCTOR'
@@ -58,11 +64,12 @@ class DecoderState(object):  # pylint: disable=no-init
 
 class Decoder(object):
 
-    def __init__(self, length):
+    def __init__(self, length, composite=False):
         self.state = DecoderState.constructor
         self.bytes_remaining = length
         self.decoded_value = {}
         self.constructor_byte = None
+        self.composite = composite
 
     def still_working(self):
         if self.bytes_remaining is None:
@@ -74,6 +81,7 @@ class Decoder(object):
             return
         if self.bytes_remaining - num_bytes < 0:
             raise ValueError("Buffer bytes exhausted.")
+
         self.bytes_remaining -= num_bytes
 
 
@@ -375,14 +383,17 @@ def decode_list_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        items = decode_value(buffer, length_bytes=size, count=count)
+        if decoder.composite:
+            items = decode_value(buffer, length_bytes=size - 1, count=count)
+        else:
+            items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = items
         decoder.progress(2)
         decoder.progress(size)
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding list.")
+        raise ValueError("Error decoding small list.")
     decoder.state = DecoderState.done
 
 
@@ -398,7 +409,7 @@ def decode_list_large(decoder, buffer):
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding list.")
+        raise ValueError("Error decoding large list.")
     decoder.state = DecoderState.done
 
 
@@ -414,7 +425,7 @@ def decode_map_small(decoder, buffer):
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding map.")
+        raise ValueError("Error decoding small map.")
     decoder.state = DecoderState.done
 
 
@@ -430,7 +441,7 @@ def decode_map_large(decoder, buffer):
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding map.")
+        raise ValueError("Error decoding large map.")
     decoder.state = DecoderState.done
 
 
@@ -446,7 +457,7 @@ def decode_array_small(decoder, buffer):
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding list.")
+        raise ValueError("Error decoding small array.")
     decoder.state = DecoderState.done
 
 
@@ -462,7 +473,7 @@ def decode_array_large(decoder, buffer):
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding list.")
+        raise ValueError("Error decoding large array.")
     decoder.state = DecoderState.done
 
 
@@ -470,12 +481,17 @@ def decode_described(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
         descriptor = decode_value(buffer)
-        value = decode_value(buffer)
-        decoder.decoded_value = (descriptor, value)
+        try:
+            composite_type = COMPOSITES[descriptor]
+            value = decode_value(buffer, composite=True)
+            decoder.decoded_value = (composite_type, value)
+        except KeyError:
+            value = decode_value(buffer)
+            decoder.decoded_value = (descriptor, value)
     except ValueError:
         raise
     except Exception:
-        raise ValueError("Error decoding list.")
+        raise ValueError("Error decoding described value.")
     decoder.state = DecoderState.done
 
 
@@ -513,9 +529,9 @@ _DECODE_MAP = {
 }
 
 
-def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
+def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None, composite=False):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    decoder = Decoder(length=length_bytes)
+    decoder = Decoder(length=length_bytes, composite=composite)
     decoded_values = []
 
     while decoder.still_working():
@@ -524,8 +540,8 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
                 decoder.constructor_byte = _read(buffer, 1)
             except ValueError:
                 break
-            if decoder.constructor_byte != ConstructorBytes.null:
-                decoder.progress(1)
+            #if decoder.constructor_byte != ConstructorBytes.null:
+            decoder.progress(1)
             decode_constructor(decoder)
         elif decoder.state == DecoderState.type_data:
             try:
@@ -587,7 +603,18 @@ def decode_frame(data, offset):
             else:
                 kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
         elif isinstance(field.type, ObjDefinition):
-            pass  # TODO
+            obj_kwargs = {}
+            obj_type, obj_values = value
+            for obj_index, obj_value in enumerate(obj_values):
+                obj_field = obj_type.DEFINITION[obj_index]
+                if isinstance(obj_field.type, FieldDefinition):
+                    if obj_field.multiple:
+                        obj_kwargs[obj_field.name] = [_FIELD_DEFINITIONS[obj_field.type].decode(v) for v in obj_value] if obj_value else []
+                    else:
+                        obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
+                else:
+                    obj_kwargs[obj_field.name] = obj_value
+            kwargs[field.name] = obj_type(**obj_kwargs)
         else:
             kwargs[field.name] = value
     return frame_type(**kwargs)

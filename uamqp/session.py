@@ -13,9 +13,12 @@ from urllib.parse import urlparse
 from enum import Enum
 
 from .constants import INCOMING_WINDOW, OUTGOING_WIDNOW
+from .endpoints import Source, Target
+from .link import Link
 from .performatives import (
     BeginFrame,
     EndFrame,
+    FlowFrame
 )
 
 
@@ -60,11 +63,13 @@ class Session(object):
     """
 
     def __init__(self, channel, **kwargs):
+        self.name = kwargs.pop('name', None) or str(uuid.uuid4())
         self.state = SessionState.UNMAPPED
         self.channel = channel
 
         self.remote_channel = kwargs.pop('remote_channel', None)
         self.next_outgoing_id = kwargs.pop('next_outgoing_id', 0)
+        self.next_incoming_id = None
         self.incoming_window = kwargs.pop('incoming_window', INCOMING_WINDOW)
         self.outgoing_window = kwargs.pop('outgoing_window', OUTGOING_WIDNOW)
         self.handle_max = kwargs.get('handle_max', None)
@@ -76,6 +81,8 @@ class Session(object):
         self.remote_outgoing_window = kwargs.pop('remote_outgoing_window', None)
         self.links = {}
         self._outgoing_frames = queue.Queue()
+        self._output_handles = {}
+        self._input_handles = {}
 
         self._on_receive_begin_frame = kwargs.pop('begin_frame_hook', None)
         self._on_receive_end_frame = kwargs.pop('end_frame_hook', None)
@@ -112,7 +119,7 @@ class Session(object):
             return
         previous_state = self.state
         self.state = new_state
-        print("Session state changed: {} -> {}".format(previous_state, new_state))
+        print("Session '{}' state changed: {} -> {}".format(self.name, previous_state, new_state))
 
     def _can_read(self):
         # type: () -> bool
@@ -128,14 +135,46 @@ class Session(object):
             SessionState.END_RCVD,
         )
 
+    def _get_next_output_handle(self):
+        # type: () -> int
+        """Get the next available outgoing handle number within the max handle limit.
+
+        :raises ValueError: If maximum handle has been reached.
+        :returns: The next available outgoing handle number.
+        :rtype: int
+        """
+        if len(self._output_handles) >= self.handle_max:
+            raise ValueError("Maximum number of handles ({}) has been reached.".format(self.handle_max))
+        next_handle = next(i for i in range(1, self.handle_max) if i not in self._output_handles)
+        return next_handle
+
     def _process_incoming_frame(self, frame):
         # type: (int, Performative) -> None
         if isinstance(frame, BeginFrame):
             self.remote_channel = frame.remote_channel
-        # if channel not in self.incoming_endpoints:
-        #     self.incoming_endpoints[channel] = Session.from_incoming_frame(frame)
-        # else:
-        #     self.incoming_endpoints[channel].incoming_frame(frame)
+            self.handle_max = frame.handle_max
+            self.next_incoming_id = frame.next_outgoing_id
+            self.remote_incoming_window = frame.incoming_window
+            self.remote_outgoing_window = frame.outgoing_window
+        elif isinstance(frame, EndFrame):
+            return # TODO process end
+        else:
+            try:
+                link_handle = frame.handle
+                self._input_handles[link_handle].incoming_frame(frame)
+                return
+            except (AttributeError, KeyError):
+                # We don't recognize incoming link handle
+                pass
+            try:
+                # If this is an ATTACH frame, associate with a link or create a new one.
+                self._input_handles[frame.handle] = self.links[frame.name]
+                self._input_handles[link_handle].incoming_frame(frame)
+            except (AttributeError, KeyError):
+                # Frame is either not an ATTACH frame, or we didn't initiate
+                # the link.
+                # TODO: Accept a service-initiated link
+                print("Unrecognized frame: ", frame)
 
     def _is_outgoing_frame_legal(self, frame):  # pylint: disable=too-many-return-statements
         # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
@@ -171,6 +210,28 @@ class Session(object):
             return True, SessionState.UNMAPPED if isinstance(frame, EndFrame) else None
         return False, None
 
+    def _get_one_outgoing_frame(self):  # TODO: ouch
+        if not self._can_write:
+            return None
+        frame = None
+        try:
+            frame = self._outgoing_frames.get_nowait()
+        except queue.Empty:
+            print("no session frames, checking links")
+            for link in self.links.values():
+                try:
+                    frame = link.outgoing_frame()
+                    if frame:
+                        print("found outgoing link frame")
+                        break
+                except queue.Empty as e:
+                    frame = e
+        try:
+            raise frame
+        except TypeError:
+            return frame
+
+
     def incoming_frame(self, frame):
         if self._can_read:
             legal, new_state = self._is_incoming_frame_legal(frame)
@@ -181,9 +242,9 @@ class Session(object):
                 raise TypeError("Received illegal frame {} in current state {}".format(type(frame), self.state))
 
     def outgoing_frame(self):
-        if not self._can_write:
+        frame = self._get_one_outgoing_frame()
+        if not frame:
             return None
-        frame = self._outgoing_frames.get_nowait()
         legal, new_state = self._is_outgoing_frame_legal(frame)
         if legal:
             self._set_state(new_state)
@@ -206,3 +267,35 @@ class Session(object):
     def end(self, error=None):
         end_frame = EndFrame(error=error)
         self._outgoing_frames.put(end_frame)
+
+    def attach_receiver_link(self, **kwargs):
+        assigned_handle = self._get_next_output_handle()
+        name = kwargs.pop('name', None) or str(uuid.uuid4())
+        link = Link(assigned_handle, **kwargs)
+        self.links[name] = link
+        self._output_handles[assigned_handle] = link
+        link.attach()
+        return link
+
+    def attach_sender_link(self, **kwargs):
+        assigned_handle = self._get_next_output_handle()
+        name = kwargs.pop('name', None) or str(uuid.uuid4())
+        link = Link(
+            handle=assigned_handle,
+            name=name,
+            role='SENDER',
+            source=kwargs.pop('source', None) or Source(address="sender-link-{}".format(name)),
+            **kwargs)
+        self._output_handles[assigned_handle] = link
+        self.links[name] = link
+        link.attach()
+        return link
+
+    def attach_request_response_link_pair(self):
+        raise NotImplementedError('Pending')
+
+    def detach_link(self, link, error=None):
+        try:
+            self.links[link.name].detach(error=error)
+        except KeyError:
+            raise ValueError("No running link that matches input value.")

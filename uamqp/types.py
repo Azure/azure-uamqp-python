@@ -54,6 +54,11 @@ class FieldDefinition(Enum):
     annotations = "annotations"
     message_id = "message-id"
     app_properties = "application-properties"
+    terminus_durability = "terminus-durability"
+    expiry_policy = "terminus-expiry-policy"
+    distribution_mode = "distribution-mode"
+    node_properties = "node-properties"
+    filter_set = "filter-set"
 
 
 class ObjDefinition(Enum):

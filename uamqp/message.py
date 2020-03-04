@@ -280,7 +280,7 @@ class AnnotatedMessage(BareMessage):
         0x00000078: FIELD("footer", FieldDefinition.annotations, False, None, False),
     }
 
-        def __init__(
+    def __init__(
             self,
             data=None,
             sequence=None,
@@ -295,7 +295,7 @@ class AnnotatedMessage(BareMessage):
         self.delivery_annotations = delivery_annotations
         self.message_annotations = message_annotations
         self.footer = footer
-        super(self, AnnotatedMessage).__init__(
+        super(AnnotatedMessage, self).__init__(
             data=data,
             sequence=sequence,
             value=value,

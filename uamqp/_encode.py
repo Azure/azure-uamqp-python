@@ -485,7 +485,7 @@ def describe_performative(performative):
     # type: (Performative) -> Tuple(bytes, bytes)
     body = []
     for field in performative.DEFINITION:
-        value = performative.__dict__[field.name]
+        value = performative.__dict__.get(field.name)
         if value is None and field.mandatory:
             raise ValueError("Performative missing mandatory field {}".format(field.name))
         if value is None:
@@ -496,7 +496,7 @@ def describe_performative(performative):
             else:
                 body.append(_FIELD_DEFINITIONS[field.type].encode(value))
         elif isinstance(field.type, ObjDefinition):
-            body.append(value.encode())
+            body.append(describe_performative(value))
         else:
             if field.multiple:
                 body.append({TYPE: AMQPTypes.array, VALUE: [{TYPE: field.type, VALUE: v} for v in value]})

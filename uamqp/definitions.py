@@ -11,6 +11,7 @@ import uuid
 import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, SASLCode
+from .endpoints import TerminusDurability, ExpiryPolicy
 from .error import (
     AMQPError,
     ErrorCondition,
@@ -88,13 +89,14 @@ class SenderSettleModeField(object):
     @staticmethod
     def decode(value):
         # type: (int) -> str
-        if value not in [0, 1, 2]:
-            raise ValueError("Invalid SenderSettleMode: {}".format(value))
-        if value == 0:
-            return 'UNSETTLED'
-        if value == 1:
-            return 'SETTLED'
-        return 'MIXED'
+        # if value not in [0, 1, 2]:
+        #     raise ValueError("Invalid SenderSettleMode: {}".format(value))
+        # if value == 0:
+        #     return 'UNSETTLED'
+        # if value == 1:
+        #     return 'SETTLED'
+        # return 'MIXED'
+        return value
 
 
 class ReceiverSettleModeField(object):
@@ -115,9 +117,9 @@ class ReceiverSettleModeField(object):
     def encode(value):
         # type: (Union[int, str]) -> Dict[str, Any]
 
-        if value == 'FIRST':
+        if value == 'FIRST':  # PeekLock
             return {TYPE: AMQPTypes.ubyte, VALUE: 0}
-        if value == 'SECOND':
+        if value == 'SECOND':  # ReceiveAndDelete
             return {TYPE: AMQPTypes.ubyte, VALUE: 1}
         if value not in [0, 1]:
             raise ValueError("Invalid ReceiverSettleMode: {}".format(value))
@@ -126,11 +128,12 @@ class ReceiverSettleModeField(object):
     @staticmethod
     def decode(value):
         # type: (int) -> str
-        if value not in [0, 1]:
-            raise ValueError("Invalid ReceiverSettleMode: {}".format(value))
-        if value == 0:
-            return 'FIRST'
-        return 'SECOND'
+        # if value not in [0, 1]:
+        #     raise ValueError("Invalid ReceiverSettleMode: {}".format(value))
+        # if value == 0:
+        #     return 'FIRST'
+        # return 'SECOND'
+        return value
 
 
 class HandleField(object):
@@ -244,8 +247,8 @@ class SequenceNoField(object):
     @staticmethod
     def decode(value):
         # type: (int) -> int
-        if value is None:
-            raise TypeError("Invalid NULL sequence no.")
+        #if value is None:
+        #    raise TypeError("Invalid NULL sequence no.")
         return value
 
 
@@ -418,7 +421,6 @@ class AnnotationsField(object):
     key does not begin with the string 'x-opt-' an AMQP container MUST detach the link with the not-implemented
     amqp-error.
 
-
     <type name="annotations" class="restricted" source="map"/>
     """
 
@@ -443,6 +445,34 @@ class AnnotationsField(object):
         return value or {}
 
 
+class AppPropertiesField(object):
+    """The application-properties section is a part of the bare message used for structured application data.
+
+    <type name="application-properties" class="restricted" source="map" provides="section">
+        <descriptor name="amqp:application-properties:map" code="0x00000000:0x00000074"/>
+    </type>
+
+    Intermediaries may use the data within this structure for the purposes of ﬁltering or routing.
+    The keys of this map are restricted to be of type string (which excludes the possibility of a null key)
+    and the values are restricted to be of simple types only, that is (excluding map, list, and array types).
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        if not value:
+            return {TYPE: AMQPTypes.null, VALUE: None}
+        fields = {TYPE: AMQPTypes.map, VALUE:[]}
+        for key, data in value.items():
+            fields[VALUE].append(({TYPE: AMQPTypes.string, VALUE: key}, data))
+        return fields
+
+    @staticmethod
+    def decode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        return value or {}
+
+
 class MessageIDField(object):
     """
     <type name="message-id-ulong" class="restricted" source="ulong" provides="message-id"/>
@@ -452,7 +482,7 @@ class MessageIDField(object):
     """
     @staticmethod
     def encode(value):
-        # type: (Any) -> Dict[str, Any]
+        # type: (Any) -> Dict[str, Union[int, uuid.UUID, bytes, str]]
         if isinstance(value, int):
             return {TYPE: AMQPTypes.ulong, VALUE: value}
         elif isinstance(value, uuid.UUID):
@@ -493,6 +523,165 @@ class SASLCodeField(object):
         return SASLCode(value)
 
 
+class TerminusDurabilityField(object):
+    """Durability policy for a terminus.
+
+    <type name="terminus-durability" class="restricted" source="uint">
+        <choice name="none" value="0"/>
+        <choice name="configuration" value="1"/>
+        <choice name="unsettled-state" value="2"/>
+    </type>
+    
+    Determines which state of the terminus is held durably.
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (TerminusDurability) -> Dict[str, Union[AMQPTypes, int]]
+        return {TYPE: AMQPTypes.uint, VALUE: value.value}
+
+    @staticmethod
+    def decode(value):
+        # type: (int) -> TerminusDurability
+        return TerminusDurability(value)
+
+
+class ExpiryPolicyField(object):
+    """Expiry policy for a terminus.
+
+    <type name="terminus-expiry-policy" class="restricted" source="symbol">
+        <choice name="link-detach" value="link-detach"/>
+        <choice name="session-end" value="session-end"/>
+        <choice name="connection-close" value="connection-close"/>
+        <choice name="never" value="never"/>
+    </type>
+    
+    Determines when the expiry timer of a terminus starts counting down from the timeout
+    value. If the link is subsequently re-attached before the terminus is expired, then the
+    count down is aborted. If the conditions for the terminus-expiry-policy are subsequently
+    re-met, the expiry timer restarts from its originally conﬁgured timeout value.
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (ExpiryPolicy) -> Dict[str, Union[AMQPTypes, bytes]]
+        return {TYPE: AMQPTypes.symbol, VALUE: value.value}
+
+    @staticmethod
+    def decode(value):
+        # type: (bytes) -> ExpiryPolicy
+        return ExpiryPolicy(value)
+
+
+class DistributionModeField(object):
+    """Link distribution policy.
+
+    <type name="std-dist-mode" class="restricted" source="symbol" provides="distribution-mode">
+        <choice name="move" value="move"/>
+        <choice name="copy" value="copy"/>
+    </type>
+    
+    Policies for distributing messages when multiple links are connected to the same node.
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (DistributionMode) -> Dict[str, Union[AMQPTypes, bytes]]
+        return {TYPE: AMQPTypes.symbol, VALUE: value.value}
+
+    @staticmethod
+    def decode(value):
+        # type: (bytes) -> DistributionMode
+        return DistributionMode(value)
+
+
+class NodePropertiesField(object):
+    """Properties of a node.
+
+    <type name="node-properties" class="restricted" source="fields"/>
+    
+    A symbol-keyed map containing properties of a node used when requesting creation or reporting
+    the creation of a dynamic node. The following common properties are deﬁned::
+    
+        - `lifetime-policy`: The lifetime of a dynamically generated node. Deﬁnitionally, the lifetime will
+          never be less than the lifetime of the link which caused its creation, however it is possible to extend
+          the lifetime of dynamically created node using a lifetime policy. The value of this entry MUST be of a type
+          which provides the lifetime-policy archetype. The following standard lifetime-policies are deﬁned below:
+          delete-on-close, delete-on-no-links, delete-on-no-messages or delete-on-no-links-or-messages.
+        
+        - `supported-dist-modes`: The distribution modes that the node supports. The value of this entry MUST be one or
+          more symbols which are valid distribution-modes. That is, the value MUST be of the same type as would be valid
+          in a ﬁeld deﬁned with the following attributes:
+          type="symbol" multiple="true" requires="distribution-mode"
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        if not value:
+            return {TYPE: AMQPTypes.null, VALUE: None}
+        # TODO
+        fields = {TYPE: AMQPTypes.map, VALUE:[]}
+        # fields[{TYPE: AMQPTypes.symbol, VALUE: b'lifetime-policy'}] = {
+        #     TYPE: AMQPTypes.described,
+        #     VALUE: (
+        #         {TYPE: AMQPTypes.ulong, VALUE: value['lifetime_policy'].value},
+        #         {TYPE: AMQPTypes.list, VALUE: []}
+        #     )
+        # }
+        # fields[{TYPE: AMQPTypes.symbol, VALUE: b'supported-dist-modes'}] = {}
+        return fields
+
+    @staticmethod
+    def decode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        return value or {}
+
+
+class FilterSetField(object):
+    """A set of predicates to ﬁlter the Messages admitted onto the Link.
+
+    <type name="filter-set" class="restricted" source="map"/>
+
+    A set of named ﬁlters. Every key in the map MUST be of type symbol, every value MUST be either null or of a
+    described type which provides the archetype ﬁlter. A ﬁlter acts as a function on a message which returns a
+    boolean result indicating whether the message can pass through that ﬁlter or not. A message will pass
+    through a ﬁlter-set if and only if it passes through each of the named ﬁlters. If the value for a given key is
+    null, this acts as if there were no such key present (i.e., all messages pass through the null ﬁlter).
+
+    Filter types are a deﬁned extension point. The ﬁlter types that a given source supports will be indicated
+    by the capabilities of the source.
+    """
+
+    @staticmethod
+    def encode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        if not value:
+            return {TYPE: AMQPTypes.null, VALUE: None}
+        fields = {TYPE: AMQPTypes.map, VALUE:[]}
+        for name, data in value.items():
+            if data is None:
+                described_filter = {TYPE: AMQPTypes.null, VALUE: None}
+            else:
+                if isinstance(name, six.text_type):
+                    name = name.encode('utf-8')
+                descriptor, filter_value = data
+                described_filter = {
+                    TYPE: AMQPTypes.described,
+                    VALUE: (
+                        {TYPE: AMQPTypes.symbol, VALUE: descriptor},
+                        filter_value
+                    )
+                }
+            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: name}, described_filter))
+        return fields
+
+    @staticmethod
+    def decode(value):
+        # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+        return value or {}
+
+
 _FIELD_DEFINITIONS = {
     FieldDefinition.role: RoleField,
     FieldDefinition.sender_settle_mode: SenderSettleModeField,
@@ -510,5 +699,11 @@ _FIELD_DEFINITIONS = {
     FieldDefinition.error: ErrorField,
     FieldDefinition.annotations: AnnotationsField,
     FieldDefinition.message_id: MessageIDField,
+    FieldDefinition.app_properties: AppPropertiesField,
     FieldDefinition.sasl_code: SASLCodeField,
+    FieldDefinition.terminus_durability: TerminusDurabilityField,
+    FieldDefinition.expiry_policy: ExpiryPolicyField,
+    FieldDefinition.distribution_mode: DistributionModeField,
+    FieldDefinition.node_properties: NodePropertiesField,
+    FieldDefinition.filter_set: FilterSetField,
 }

@@ -248,7 +248,8 @@ class AttachFrame(Performative):
         (i.e. deliveries where resume is not set to true) to its partner (and a receiving endpoint which sent an
         incomplete unsettled map MUST detach with an error on receiving a transfer which does not have the resume
         flag set to true).
-    :param int initial_delivery_count:
+    :param int initial_delivery_count: This MUST NOT be null if role is sender,
+        and it is ignored if the role is receiver.
     :param int max_message_size: The maximum message size supported by the link endpoint.
         This field indicates the maximum message size supported by the link endpoint. Any attempt to deliver a
         message larger than this results in a message-size-exceeded link-error. If this field is zero or unset,
@@ -271,8 +272,8 @@ class AttachFrame(Performative):
         FIELD("role", FieldDefinition.role, True, None, False),
         FIELD("send_settle_mode", FieldDefinition.sender_settle_mode, False, "MIXED", False),
         FIELD("rcv_settle_mode", FieldDefinition.receiver_settle_mode, False, "FIRST", False),
-        FIELD("source", ObjDefinition.source, True, None, False),
-        FIELD("target", ObjDefinition.target, True, None, False),
+        FIELD("source", ObjDefinition.source, False, None, False),
+        FIELD("target", ObjDefinition.target, False, None, False),
         FIELD("unsettled", AMQPTypes.map, False, None, False),
         FIELD("incomplete_unsettled", AMQPTypes.boolean, False, False, False),
         FIELD("initial_delivery_count", FieldDefinition.sequence_no, False, None, False),
@@ -432,11 +433,11 @@ class DispositionFrame(Performative):
     The disposition frame may reference deliveries from many different links associated with a session,
     although all links MUST have the directionality indicated by the specified role. Note that it is possible
     for a disposition sent from sender to receiver to refer to a delivery which has not yet completed
-    (i.e. a delivery which is spread over multiple frames and not all frames have yetbeen sent). The use of such
+    (i.e. a delivery which is spread over multiple frames and not all frames have yet been sent). The use of such
     interleaving is discouraged in favor of carrying the modified state on the next transfer performative for
     the delivery. The disposition performative may refer to deliveries on links that are no longer attached.
     As long as the links have not been closed or detached with an error then the deliveries are still "live" and
-    theupdated state MUST be applied.
+    the updated state MUST be applied.
 
     :param str role: Directionality of disposition.
         The role identifies whether the disposition frame contains information about sending link endpoints

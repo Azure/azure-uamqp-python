@@ -132,6 +132,9 @@ class AMQPError(object):
         self.condition = condition
         self.description = description
         self.info = info
+    
+    def __repr__(self):
+        return "{}({})".format(self.__class__.__name__, self.condition)
 
 
 class AMQPConnectionError(AMQPError):

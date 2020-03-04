@@ -6,9 +6,10 @@
 
 from .types import AMQPTypes, FieldDefinition
 from .constants import FIELD
+from .performative import Performative
 
 
-class DeliveryState(object):
+class DeliveryState(Performative):
     """The Messaging layer deﬁnes a concrete set of delivery states which can be used (via the disposition frame)
     to indicate the state of the message at the receiver.
 
@@ -33,18 +34,6 @@ class DeliveryState(object):
     """
     NAME = None
     CODE = None
-
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-    def __str__(self):
-        return "{{{} [{}]}}".format(self.NAME, self.__dict__)
-
-    def encode(self, value):
-        pass  # TODO
-
-    def decode(self):
-        pass  # TODO
 
 
 class Received(DeliveryState):
