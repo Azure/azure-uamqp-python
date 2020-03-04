@@ -158,5 +158,5 @@ class Link(object):
         self._outgoing_frames.put((attach_frame))
 
     def detach(self, error=None):
-        detach_frame = DetachFrame(error=error)
+        detach_frame = DetachFrame(handle=self.handle, error=error)
         self._outgoing_frames.put(detach_frame)
