@@ -150,14 +150,12 @@ class HandleField(object):
     def encode(value):
         # type: (int) -> Dict[str, Any]
         if value is None:
-            raise TypeError("Invalid NULL Handle")
+            {TYPE: AMQPTypes.null, VALUE: value}
         return {TYPE: AMQPTypes.uint, VALUE: value}
 
     @staticmethod
     def decode(value):
-        # type: (int) -> int
-        if value is None:
-            raise TypeError("Invalid NULL Handle")
+        # type: (Optional[int]) -> Optional[int]
         return value
 
 
@@ -223,8 +221,6 @@ class DeliveryTagField(object):
     @staticmethod
     def decode(value):
         # type: (bytes) -> bytes
-        if value is None:
-            raise TypeError("Invalid NULL delivery tag")
         return value
 
 
@@ -446,7 +442,11 @@ class AnnotationsField(object):
     @staticmethod
     def decode(value):
         # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
-        return value or {}
+        decoded = {}
+        if value:
+            for key, data in value:
+                decoded[key] = data
+        return decoded
 
 
 class AppPropertiesField(object):
@@ -474,7 +474,11 @@ class AppPropertiesField(object):
     @staticmethod
     def decode(value):
         # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
-        return value or {}
+        decoded = {}
+        if value:
+            for key, data in value:
+                decoded[key] = data
+        return decoded
 
 
 class MessageIDField(object):

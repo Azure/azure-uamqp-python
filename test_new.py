@@ -36,11 +36,25 @@ def main():
         rcv_settle_mode='SECOND'
     )
     c.do_work()
-    for i in range(100):
+    for i in range(2):
         message = BareMessage(data=b'HelloFromPython')
         link.send_message(message)
     c.do_work()
     c.do_work()
+    c.do_work()
+    session.detach_link(link)
+    c.do_work()
+    source = Source(address="amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(
+        config['hostname'],
+        config['event_hub']))
+    link = session.attach_receiver_link(
+        source=source,
+        send_settle_mode='UNSETTLED',
+        rcv_settle_mode='SECOND',
+        max_message_size=1048576,
+    )
+    for i in range(10):
+        c.do_work()
     session.detach_link(link)
     c.do_work()
     c.end_session(session)

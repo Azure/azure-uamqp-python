@@ -108,16 +108,20 @@ class Link(object):
     def _process_incoming_frame(self, frame):
         # type: (int, Performative) -> None
         if isinstance(frame, AttachFrame):
-            self.remote_handle = frame.handle
-            self.max_message_size = frame.max_message_size
-            self.offered_capabilities = frame.offered_capabilities
-            self.properties.update(frame.properties)
-            flow_frame = FlowFrame(
-                handle=self.handle,
-                delivery_count=self.delivery_count,
-                link_credit=self.link_credit,
-            )
-            self._outgoing_frames.put((flow_frame))
+            if frame.source and frame.target:
+                self.remote_handle = frame.handle
+                self.max_message_size = frame.max_message_size
+                self.offered_capabilities = frame.offered_capabilities
+                self.properties.update(frame.properties)
+                print("FLOW FRAME", self.handle)
+                flow_frame = FlowFrame(
+                    handle=self.handle,
+                    delivery_count=self.delivery_count,
+                    link_credit=self.link_credit,
+                )
+                self._outgoing_frames.put((flow_frame))
+            else:
+                print("Link is error state")
         # if channel not in self.incoming_endpoints:
         #     self.incoming_endpoints[channel] = Session.from_incoming_frame(frame)
         # else:
@@ -154,6 +158,7 @@ class Link(object):
         raise TypeError("Attempt to send frame {} in illegal state.".format(type(frame)))
 
     def attach(self, **kwargs):
+        print("ATTACH HANDLE", self.handle)
         attach_frame = kwargs.get('attach_frame') or AttachFrame(
             name=self.name,
             handle=self.handle,
@@ -176,9 +181,8 @@ class Link(object):
 
     def send_message(self, message):
         transfer_frame = TransferFrame(
-            message,
+            _payload=message,
             handle=self.handle,
-            delivery_id=self.delivery_count,
             delivery_tag=bytes(self.delivery_count),
             message_format=message.FORMAT,
             settled=False,

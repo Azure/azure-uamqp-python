@@ -425,10 +425,6 @@ class TransferFrame(Performative):
         FIELD("batchable", AMQPTypes.boolean, False, False, False),  
     )
 
-    def __init__(self, payload, **kwargs):
-        self._payload = payload
-        super(TransferFrame, self).__init__(**kwargs)
-
 
 class DispositionFrame(Performative):
     """DISPOSITION performative. Inform remote peer of delivery state changes.

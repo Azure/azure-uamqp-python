@@ -187,10 +187,10 @@ class BareMessage(object):
         0x00000077: FIELD("_value_body", None, False, None, False),
     }
 
-    def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None):
-        self._data_body = None
-        self._sequence_body = None
-        self._value_body = None
+    def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None, **kwargs):
+        self._data_body = kwargs.get('_data_body')
+        self._sequence_body = kwargs.get('_sequence_body')
+        self._value_body = kwargs.get('_value_body')
         if data:
             self.body_type = MessageBodyType.DATA
             self._data_body = data
@@ -299,7 +299,8 @@ class AnnotatedMessage(BareMessage):
             message_annotations=None,
             properties=None,
             application_properties=None,
-            footer=None):
+            footer=None,
+            **kwargs):
         self.header = header
         self.delivery_annotations = delivery_annotations
         self.message_annotations = message_annotations
@@ -309,5 +310,6 @@ class AnnotatedMessage(BareMessage):
             sequence=sequence,
             value=value,
             properties=properties,
-            application_properties=application_properties
+            application_properties=application_properties,
+            **kwargs
         )

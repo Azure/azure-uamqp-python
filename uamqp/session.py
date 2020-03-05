@@ -10,13 +10,15 @@ import logging
 from enum import Enum
 
 from .constants import INCOMING_WINDOW, OUTGOING_WIDNOW
-from .endpoints import Source
+from .endpoints import Source, Target
 from .link import Link
 from .performatives import (
     BeginFrame,
     EndFrame,
     FlowFrame,
-    TransferFrame
+    AttachFrame,
+    TransferFrame,
+    DispositionFrame
 )
 
 
@@ -63,31 +65,27 @@ class Session(object):
     def __init__(self, channel, **kwargs):
         self.name = kwargs.pop('name', None) or str(uuid.uuid4())
         self.state = SessionState.UNMAPPED
-
+        self.handle_max = kwargs.get('handle_max', None)
+        self.properties = kwargs.pop('properties', None)
         self.channel = channel
-        self.remote_channel = kwargs.pop('remote_channel', None)
-
+        self.remote_channel = None
         self.next_outgoing_id = kwargs.pop('next_outgoing_id', 0)
         self.next_incoming_id = None
-        self.incoming_window = kwargs.pop('incoming_window', INCOMING_WINDOW)
-        self.outgoing_window = kwargs.pop('outgoing_window', OUTGOING_WIDNOW)
-        
-        self.handle_max = kwargs.get('handle_max', None)
-        self.offered_capabilities = kwargs.pop('offered_capabilities', None)
+        self.target_incoming_window = kwargs.pop('incoming_window', INCOMING_WINDOW)
+        self.target_outgoing_window = kwargs.pop('outgoing_window', OUTGOING_WIDNOW)
+        self.incoming_window = self.target_incoming_window
+        self.outgoing_window = self.target_outgoing_window
+        self.remote_incoming_window = None
+        self.remote_outgoing_window = None
+        self.offered_capabilities = None
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
-
-        self.remote_incoming_window = kwargs.pop('remote_incoming_window', None)
-        self.remote_outgoing_window = kwargs.pop('remote_outgoing_window', None)
 
         self.links = {}
         self._output_handles = {}
         self._input_handles = {}
         self._outgoing_frames = queue.Queue()
-
         self._on_receive_begin_frame = kwargs.pop('begin_frame_hook', None)
         self._on_receive_end_frame = kwargs.pop('end_frame_hook', None)
-
-        self.properties = kwargs.pop('properties', None) or kwargs
 
     def __enter__(self):
         self.begin()
@@ -98,19 +96,7 @@ class Session(object):
 
     @classmethod
     def from_incoming_frame(cls, channel, frame):
-        if not isinstance(frame, BeginFrame):
-            raise TypeError("Frame received on channel with no Session: {}".format(frame))
-        session = cls(
-            channel,
-            remote_channel=frame.remote_channel,
-            next_outgoing_id=frame.next_outgoing_id,
-            remote_incoming_window=frame.incoming_window,
-            remote_outgoing_window=frame.outgoing_window,
-            handle_max=frame.handle_max,
-            offered_capabilities=frame.offered_capabilities,
-            desired_capabilities=frame.desired_capabilities)
-        session.state = SessionState.BEGIN_RCVD
-        return session
+        raise NotImplementedError()
 
     def _set_state(self, new_state):
         # type: (SessionState) -> None
@@ -153,14 +139,20 @@ class Session(object):
         if isinstance(frame, TransferFrame):
             self.next_incoming_id += 1
             self.remote_outgoing_window -= 1
-            #self.incoming_window -= 1
+            self.incoming_window -= 1
             self._input_handles[frame.handle].incoming_frame(frame)
+        elif isinstance(frame, DispositionFrame):
+            for handle in self._input_handles.values():
+                handle.incoming_frame(frame)
         elif isinstance(frame, BeginFrame):
             self.remote_channel = frame.remote_channel
             self.handle_max = frame.handle_max
             self.next_incoming_id = frame.next_outgoing_id
             self.remote_incoming_window = frame.incoming_window
             self.remote_outgoing_window = frame.outgoing_window
+        elif isinstance(frame, AttachFrame):
+            self._input_handles[frame.handle] = self.links[frame.name]
+            self._input_handles[frame.handle].incoming_frame(frame)
         elif isinstance(frame, FlowFrame):
             self.next_incoming_id = frame.next_outgoing_id
             self.next_outgoing_id = frame.next_incoming_id
@@ -171,22 +163,7 @@ class Session(object):
         elif isinstance(frame, EndFrame):
             return # TODO process end
         else:
-            try:
-                link_handle = frame.handle
-                self._input_handles[link_handle].incoming_frame(frame)
-                return
-            except (AttributeError, KeyError):
-                # We don't recognize incoming link handle
-                pass
-            try:
-                # If this is an ATTACH frame, associate with a link or create a new one.
-                self._input_handles[frame.handle] = self.links[frame.name]
-                self._input_handles[link_handle].incoming_frame(frame)
-            except (AttributeError, KeyError):
-                # Frame is either not an ATTACH frame, or we didn't initiate
-                # the link.
-                # TODO: Accept a service-initiated link
-                print("Unrecognized frame: ", frame)
+            print("Unrecognized frame: ", frame)
 
     def _is_outgoing_frame_legal(self, frame):  # pylint: disable=too-many-return-statements
         # type: (Performative) -> Tuple(bool, Optional[ConnectionState])
@@ -243,7 +220,6 @@ class Session(object):
         except TypeError:
             return frame
 
-
     def incoming_frame(self, frame):
         if self._can_read:
             legal, new_state = self._is_incoming_frame_legal(frame)
@@ -258,9 +234,10 @@ class Session(object):
         if not frame:
             return None
         elif isinstance(frame, TransferFrame):
-            self.next_outgoing_id +- 1
+            frame.delivery_id = self.next_outgoing_id
+            self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
-            #self.outgoing_window -= 1
+            self.outgoing_window -= 1
         elif isinstance(frame, FlowFrame):
             frame.next_incoming_id = self.next_incoming_id
             frame.incoming_window = self.incoming_window
@@ -292,7 +269,13 @@ class Session(object):
     def attach_receiver_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
         name = kwargs.pop('name', None) or str(uuid.uuid4())
-        link = Link(assigned_handle, **kwargs)
+        link = Link(
+            handle=assigned_handle,
+            name=name,
+            role='RECEIVER',
+            initial_delivery_count=None,
+            target=kwargs.pop('target', None) or Target(address="receiver-link-{}".format(name)),
+            **kwargs)
         self.links[name] = link
         self._output_handles[assigned_handle] = link
         link.attach()

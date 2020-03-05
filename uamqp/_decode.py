@@ -31,6 +31,7 @@ from .performatives import (
     SASLResponse,
     SASLOutcome)
 from .endpoints import Source, Target
+from .message import AnnotatedMessage, Header, Properties
 from .outcomes import (
     Received,
     Accepted,
@@ -38,6 +39,10 @@ from .outcomes import (
     Released,
     Modified,
 )
+
+
+_MESSAGE_PERFORMATIVES = [Header, Properties]
+
 
 PERFORMATIVES = {
     0x00000010: OpenFrame,
@@ -314,26 +319,32 @@ def decode_uuid(decoder, buffer):
 def decode_binary_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>B', _read(buffer, 1))[0]
-    data = _read(buffer, length)
-    try:
-        decoder.decoded_value = data
-    except Exception:
-        raise ValueError("Error reading binary data: {}".format(data))
     decoder.progress(1)
-    decoder.progress(length)
+    if length == 0:
+        decoder.decoded_value = None
+    else:
+        data = _read(buffer, length)
+        try:
+            decoder.decoded_value = data
+        except Exception:
+            raise ValueError("Error reading binary data: {}".format(data))
+        decoder.progress(length)
     decoder.state = DecoderState.done
 
 
 def decode_binary_large(decoder, buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>L', _read(buffer, 4))[0]
-    data = _read(buffer, length)
-    try:
-        decoder.decoded_value = data
-    except Exception:
-        raise ValueError("Error reading binary data: {}".format(data))
     decoder.progress(4)
-    decoder.progress(length)
+    if length == 0:
+        decoder.decoded_value = None
+    else:
+        data = _read(buffer, length)
+        try:
+            decoder.decoded_value = data
+        except Exception:
+            raise ValueError("Error reading binary data: {}".format(data))
+        decoder.progress(length)
     decoder.state = DecoderState.done
 
 
@@ -435,7 +446,10 @@ def decode_map_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        items = decode_value(buffer, length_bytes=size, count=count)
+        if decoder.composite:
+            items = decode_value(buffer, length_bytes=size - 1, count=count)
+        else:
+            items = decode_value(buffer, length_bytes=size, count=count)
         decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
         decoder.progress(2)
         decoder.progress(size)
@@ -498,18 +512,45 @@ def decode_described(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
         descriptor = decode_value(buffer)
-        try:
-            composite_type = COMPOSITES[descriptor]
+        if descriptor == TransferFrame.CODE:
             value = decode_value(buffer, composite=True)
-            decoder.decoded_value = (composite_type, value)
-        except KeyError:
-            value = decode_value(buffer)
             decoder.decoded_value = (descriptor, value)
+        else:
+            try:
+                composite_type = COMPOSITES[descriptor]
+                value = decode_value(buffer, composite=True)
+                decoder.decoded_value = (composite_type, value)
+            except KeyError:
+                value = decode_value(buffer, composite=decoder.composite)
+                decoder.decoded_value = (descriptor, value)
     except ValueError:
         raise
     except Exception:
         raise ValueError("Error decoding described value.")
     decoder.state = DecoderState.done
+
+
+def decode_message_section(field, decoded_values, value):
+    # type: (Decoder, IO) -> None
+    if value is None:
+        return
+    if field.type in _MESSAGE_PERFORMATIVES:
+        obj_kwargs = {}
+        for obj_index, obj_value in enumerate(value):
+            obj_field = field.type.DEFINITION[obj_index]
+            if isinstance(obj_field.type, FieldDefinition):
+                obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
+            else:
+                obj_kwargs[obj_field.name] = obj_value
+        decoded_values[field.name] = field.type(**obj_kwargs)
+    if isinstance(field.type, FieldDefinition):
+        decoded_values[field.name] = _FIELD_DEFINITIONS[field.type].decode(value) if value else None
+    elif field.multiple:
+        existing = decoded_values.get(field.name, [])
+        existing.append(value)
+        decoded_values[field.name] = existing
+    else:
+        decoded_values[field.name] = value
 
 
 _DECODE_MAP = {
@@ -558,7 +599,6 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None, c
                 decoder.constructor_byte = _read(buffer, 1)
             except ValueError:
                 break
-            #if decoder.constructor_byte != ConstructorBytes.null:
             decoder.progress(1)
             decode_constructor(decoder)
         elif decoder.state == DecoderState.type_data:
@@ -600,6 +640,34 @@ def decode_empty_frame(header):
     raise ValueError("Received empty frame")
 
 
+def decode_payload(buffer, length):
+    # type: (IO, Optional[int], bool) -> Dict[str, Any]
+    decoder = Decoder(length, composite=True)
+    decoded_values = {}
+
+    while decoder.still_working():
+        if decoder.state == DecoderState.constructor:
+            try:
+                decoder.constructor_byte = _read(buffer, 1)
+            except ValueError:
+                break
+            decoder.progress(1)
+            decode_constructor(decoder)
+        elif decoder.state == DecoderState.type_data:
+            decode_described(decoder, buffer)
+            decode_message_section(
+                AnnotatedMessage.SECTIONS[decoder.decoded_value[0]],
+                decoded_values,
+                decoder.decoded_value[1])
+        else:
+            raise ValueError("Invalid decoder state {}".format(decoder.state))
+        if decoder.state == DecoderState.done and (decoded_values or decoder.bytes_remaining):
+            decoder.state = DecoderState.constructor
+            decoder.decoded_value = {}
+            decoder.constructor_byte = None
+    return AnnotatedMessage(**decoded_values)
+
+
 def decode_frame(data, offset):
     # type: (bytes, bytes, bytes) -> Performative
     _ = data[:offset]  # TODO: Extra data
@@ -621,6 +689,9 @@ def decode_frame(data, offset):
             else:
                 kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
         elif isinstance(field.type, ObjDefinition):
+            if not value:
+                kwargs[field.name] = None
+                continue
             obj_kwargs = {}
             obj_type, obj_values = value
             for obj_index, obj_value in enumerate(obj_values):
@@ -635,4 +706,7 @@ def decode_frame(data, offset):
             kwargs[field.name] = obj_type(**obj_kwargs)
         else:
             kwargs[field.name] = value
-    return frame_type(**kwargs)
+    decoded_frame = frame_type(**kwargs)
+    if frame_type == TransferFrame:
+        decoded_frame._payload = decode_payload(byte_buffer, length=len(data[byte_buffer.tell():]))
+    return decoded_frame
