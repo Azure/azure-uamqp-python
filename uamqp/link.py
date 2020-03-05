@@ -12,11 +12,12 @@ import logging
 from urllib.parse import urlparse
 from enum import Enum
 
-# from .constants import 
+from .constants import DEFAULT_LINK_CREDIT
 from .performatives import (
     AttachFrame,
     DetachFrame,
     TransferFrame,
+    FlowFrame,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -52,11 +53,13 @@ class Link(object):
         self.role = role
         self.source = source
         self.target = target
+        self.link_credit = kwargs.pop('link_credit', None) or DEFAULT_LINK_CREDIT
         self.send_settle_mode = kwargs.pop('send_settle_mode', 'MIXED')
         self.rcv_settle_mode = kwargs.pop('rcv_settle_mode', 'FIRST')
         self.unsettled = kwargs.pop('unsettled', None)
         self.incomplete_unsettled = kwargs.pop('incomplete_unsettled', None)
         self.initial_delivery_count = kwargs.pop('initial_delivery_count', 0)
+        self.delivery_count = self.initial_delivery_count
         self.max_message_size = kwargs.pop('max_message_size', None)
 
         self.remote_handle = kwargs.pop('remote_handle', None)
@@ -105,7 +108,16 @@ class Link(object):
     def _process_incoming_frame(self, frame):
         # type: (int, Performative) -> None
         if isinstance(frame, AttachFrame):
-            pass
+            self.remote_handle = frame.handle
+            self.max_message_size = frame.max_message_size
+            self.offered_capabilities = frame.offered_capabilities
+            self.properties.update(frame.properties)
+            flow_frame = FlowFrame(
+                handle=self.handle,
+                delivery_count=self.delivery_count,
+                link_credit=self.link_credit,
+            )
+            self._outgoing_frames.put((flow_frame))
         # if channel not in self.incoming_endpoints:
         #     self.incoming_endpoints[channel] = Session.from_incoming_frame(frame)
         # else:
@@ -137,6 +149,7 @@ class Link(object):
             return None
         frame = self._outgoing_frames.get_nowait()
         if self._is_outgoing_frame_legal(frame):
+            #self.delivery_count += 1
             return frame
         raise TypeError("Attempt to send frame {} in illegal state.".format(type(frame)))
 
@@ -160,3 +173,16 @@ class Link(object):
     def detach(self, error=None):
         detach_frame = DetachFrame(handle=self.handle, error=error)
         self._outgoing_frames.put(detach_frame)
+
+    def send_message(self, message):
+        transfer_frame = TransferFrame(
+            message,
+            handle=self.handle,
+            delivery_id=self.delivery_count,
+            delivery_tag=bytes(self.delivery_count),
+            message_format=message.FORMAT,
+            settled=False,
+            more=False,
+        )
+        self._outgoing_frames.put(transfer_frame)
+        self.delivery_count += 1

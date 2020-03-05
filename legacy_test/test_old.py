@@ -25,11 +25,6 @@ def get_logger(level):
 
 log = get_logger(logging.INFO)
 
-def get_plain_auth(config):
-    return authentication.SASLPlain(
-        config['hostname'],
-        config['key_name'],
-        config['access_key'])
 
 def test_event_hubs_simple_send(live_eventhub_config):
     msg_content = b"Hello world"
@@ -40,6 +35,22 @@ def test_event_hubs_simple_send(live_eventhub_config):
     result = uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
     assert result == [uamqp.constants.MessageState.SendComplete]
 
+def test_event_hubs_client_receive(live_eventhub_config):
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['plain_hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'])
+
+    with uamqp.ReceiveClient(source, auth=plain_auth, debug=True, timeout=5000, prefetch=500) as receive_client:
+        messages = receive_client.receive_message_batch(max_batch_size=500)
+        while messages:
+            for m in messages:
+                print(m)
+            messages = receive_client.receive_message_batch(max_batch_size=500)
 
 def test_event_hubs_client_send_sync(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
@@ -122,9 +133,13 @@ def test_event_hubs_client_send_multiple_sync(live_eventhub_config):
 def test_event_hubs_single_send_sync(live_eventhub_config):
     annotations={b"x-opt-partition-key": b"PartitionKeyInfo"}
     msg_content = b"hello world"
+    plain_auth = authentication.SASLPlain(
+        live_eventhub_config['plain_hostname'],
+        live_eventhub_config['key_name'],
+        live_eventhub_config['access_key'])
 
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClient(target, auth=get_plain_auth(live_eventhub_config), debug=True)
+    target = "amqps://{}/{}".format(live_eventhub_config['plain_hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClient(target, auth=plain_auth, debug=True)
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
         send_client.send_message(message)
@@ -152,4 +167,4 @@ def test_event_hubs_batch_send_sync(live_eventhub_config):
 
 
 if __name__ == '__main__':
-    test_event_hubs_single_send_sync(config)
+    test_event_hubs_client_receive(config)

@@ -6,7 +6,7 @@
 
 from .types import AMQPTypes, FieldDefinition
 from .constants import FIELD
-from .performative import Performative
+from .performatives import Performative
 
 
 class DeliveryState(Performative):

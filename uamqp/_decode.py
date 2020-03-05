@@ -31,7 +31,13 @@ from .performatives import (
     SASLResponse,
     SASLOutcome)
 from .endpoints import Source, Target
-
+from .outcomes import (
+    Received,
+    Accepted,
+    Rejected,
+    Released,
+    Modified,
+)
 
 PERFORMATIVES = {
     0x00000010: OpenFrame,
@@ -51,6 +57,11 @@ PERFORMATIVES = {
 }
 
 COMPOSITES = {
+    0x00000023: Received,
+    0x00000024: Accepted,
+    0x00000025: Rejected,
+    0x00000026: Released,
+    0x00000027: Modified,
     0x00000028: Source,
     0x00000029: Target,
 }
@@ -378,6 +389,12 @@ def decode_symbol_large(decoder, buffer):
     decoder.state = DecoderState.done
 
 
+def decode_empty_list(decoder, buffer):
+    # type: (Decoder, IO) -> None
+    decoder.decoded_value = []
+    decoder.state = DecoderState.done
+
+
 def decode_list_small(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
@@ -519,6 +536,7 @@ _DECODE_MAP = {
     ConstructorBytes.string_large: decode_string_large,
     ConstructorBytes.symbol_small: decode_symbol_small,
     ConstructorBytes.symbol_large: decode_symbol_large,
+    ConstructorBytes.list_0: decode_empty_list,
     ConstructorBytes.list_small: decode_list_small,
     ConstructorBytes.list_large: decode_list_large,
     ConstructorBytes.map_small: decode_map_small,

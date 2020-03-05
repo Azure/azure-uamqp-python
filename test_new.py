@@ -8,6 +8,7 @@ import os
 from uamqp import Connection
 from uamqp.sasl import SASLTransport, SASLAnonymousCredential, SASLPlainCredential
 from uamqp.endpoints import Source, Target
+from uamqp.message import BareMessage
 
 from legacy_test.live_settings import config
 
@@ -28,12 +29,17 @@ def main():
     session2 = c.begin_session()
     c.do_work()
 
-    target = Target(address="amqps://{}/{}".format(config['hostname'], config['event_hub']))
+    target = Target(address="amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub']))
     link = session.attach_sender_link(
         target=target,
-        send_settle_mode='SETTLED',
+        send_settle_mode='UNSETTLED',
         rcv_settle_mode='SECOND'
     )
+    c.do_work()
+    for i in range(100):
+        message = BareMessage(data=b'HelloFromPython')
+        link.send_message(message)
+    c.do_work()
     c.do_work()
     session.detach_link(link)
     c.do_work()

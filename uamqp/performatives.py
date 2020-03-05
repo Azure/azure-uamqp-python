@@ -360,7 +360,7 @@ class TransferFrame(Performative):
         This field MUST be specified for the first transfer of a multi transfer message and may only be omitted
         for continuation transfers.
     :param bool settled: If not set on the first (or only) transfer for a delivery, then the settled flag MUST
-        be interpreted as being false. For subsequent transfers if the settled flag is left unsetthen it MUST be
+        be interpreted as being false. For subsequent transfers if the settled flag is left unset then it MUST be
         interpreted as true if and only if the value of the settled flag on any of the preceding transfers was
         true; if no preceding transfer was sent with settled being true then the value when unset MUST be taken
         as false. If the negotiated value for snd-settle-mode at attachment is settled, then this field MUST be
@@ -382,7 +382,7 @@ class TransferFrame(Performative):
     :param bytes state: The state of the delivery at the sender.
         When set this informs the receiver of the state of the delivery at the sender. This is particularly useful
         when transfers of unsettled deliveries are resumed after a resuming a link. Setting the state on the
-        transfer can be thought of as being equivalent tosending a disposition immediately before the transfer
+        transfer can be thought of as being equivalent to sending a disposition immediately before the transfer
         performative, i.e. it is the state of the delivery (not the transfer) that existed at the point the frame
         was sent. Note that if the transfer performative (or an earlier disposition performative referring to the
         delivery) indicates that the delivery has attained a terminal state, then no future transfer or disposition
@@ -422,8 +422,12 @@ class TransferFrame(Performative):
         FIELD("state", ObjDefinition.delivery_state, False, None, False),
         FIELD("resume", AMQPTypes.boolean, False, False, False),
         FIELD("aborted", AMQPTypes.boolean, False, False, False),
-        FIELD("batchable", AMQPTypes.boolean, False, False, False),
+        FIELD("batchable", AMQPTypes.boolean, False, False, False),  
     )
+
+    def __init__(self, payload, **kwargs):
+        self._payload = payload
+        super(TransferFrame, self).__init__(**kwargs)
 
 
 class DispositionFrame(Performative):
@@ -461,7 +465,7 @@ class DispositionFrame(Performative):
     DEFINITION = (
         FIELD("role", FieldDefinition.role, True, None, False),
         FIELD("first", FieldDefinition.delivery_number, True, None, False),
-        FIELD("list", FieldDefinition.delivery_number, False, None, False),
+        FIELD("last", FieldDefinition.delivery_number, False, None, False),
         FIELD("settled", AMQPTypes.boolean, False, False, False),
         FIELD("state", ObjDefinition.delivery_state, False, None, False),
         FIELD("batchable", AMQPTypes.boolean, False, False, False),

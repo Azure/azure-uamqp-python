@@ -4,21 +4,19 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import threading
 import queue
-import struct
 import uuid
 import logging
-from urllib.parse import urlparse
 from enum import Enum
 
 from .constants import INCOMING_WINDOW, OUTGOING_WIDNOW
-from .endpoints import Source, Target
+from .endpoints import Source
 from .link import Link
 from .performatives import (
     BeginFrame,
     EndFrame,
-    FlowFrame
+    FlowFrame,
+    TransferFrame
 )
 
 
@@ -65,24 +63,26 @@ class Session(object):
     def __init__(self, channel, **kwargs):
         self.name = kwargs.pop('name', None) or str(uuid.uuid4())
         self.state = SessionState.UNMAPPED
-        self.channel = channel
 
+        self.channel = channel
         self.remote_channel = kwargs.pop('remote_channel', None)
+
         self.next_outgoing_id = kwargs.pop('next_outgoing_id', 0)
         self.next_incoming_id = None
         self.incoming_window = kwargs.pop('incoming_window', INCOMING_WINDOW)
         self.outgoing_window = kwargs.pop('outgoing_window', OUTGOING_WIDNOW)
+        
         self.handle_max = kwargs.get('handle_max', None)
         self.offered_capabilities = kwargs.pop('offered_capabilities', None)
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
-        self.current_transfer_id = None
         self.remote_incoming_window = kwargs.pop('remote_incoming_window', None)
         self.remote_outgoing_window = kwargs.pop('remote_outgoing_window', None)
+
         self.links = {}
-        self._outgoing_frames = queue.Queue()
         self._output_handles = {}
         self._input_handles = {}
+        self._outgoing_frames = queue.Queue()
 
         self._on_receive_begin_frame = kwargs.pop('begin_frame_hook', None)
         self._on_receive_end_frame = kwargs.pop('end_frame_hook', None)
@@ -150,12 +150,24 @@ class Session(object):
 
     def _process_incoming_frame(self, frame):
         # type: (int, Performative) -> None
-        if isinstance(frame, BeginFrame):
+        if isinstance(frame, TransferFrame):
+            self.next_incoming_id += 1
+            self.remote_outgoing_window -= 1
+            #self.incoming_window -= 1
+            self._input_handles[frame.handle].incoming_frame(frame)
+        elif isinstance(frame, BeginFrame):
             self.remote_channel = frame.remote_channel
             self.handle_max = frame.handle_max
             self.next_incoming_id = frame.next_outgoing_id
             self.remote_incoming_window = frame.incoming_window
             self.remote_outgoing_window = frame.outgoing_window
+        elif isinstance(frame, FlowFrame):
+            self.next_incoming_id = frame.next_outgoing_id
+            self.next_outgoing_id = frame.next_incoming_id
+            self.remote_incoming_window = frame.incoming_window
+            self.remote_outgoing_window = frame.outgoing_window
+            if frame.handle:
+                self._input_handles[frame.handle].incoming_frame(frame)
         elif isinstance(frame, EndFrame):
             return # TODO process end
         else:
@@ -245,6 +257,15 @@ class Session(object):
         frame = self._get_one_outgoing_frame()
         if not frame:
             return None
+        elif isinstance(frame, TransferFrame):
+            self.next_outgoing_id +- 1
+            self.remote_incoming_window -= 1
+            #self.outgoing_window -= 1
+        elif isinstance(frame, FlowFrame):
+            frame.next_incoming_id = self.next_incoming_id
+            frame.incoming_window = self.incoming_window
+            frame.next_outgoing_id = self.next_outgoing_id
+            frame.outgoing_window = self.outgoing_window
         legal, new_state = self._is_outgoing_frame_legal(frame)
         if legal:
             self._set_state(new_state)

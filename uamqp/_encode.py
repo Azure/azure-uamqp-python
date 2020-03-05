@@ -15,6 +15,10 @@ import six
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
 from .performatives import Performative, HeaderFrame
+from .message import Header, Properties, BareMessage
+
+
+_MESSAGE_PERFORMATIVES = [Header, Properties]
 
 
 def _construct(byte, construct):
@@ -512,6 +516,35 @@ def describe_performative(performative):
     }
 
 
+def encode_payload(output, payload):
+    # type: (Message) -> Tuple(bytes, bytes)
+    for section_code, section_def in payload.SECTIONS.items():
+        section_value = payload.__dict__.get(section_def.name)
+        if section_value is None:
+            continue
+        if section_def.type in _MESSAGE_PERFORMATIVES:
+            output = encode_value(output, describe_performative(section_value))
+        elif isinstance(section_def.type, FieldDefinition):
+            output = encode_value(output, {
+                TYPE: AMQPTypes.described,
+                VALUE: (
+                    {TYPE: AMQPTypes.ulong, VALUE: section_code},
+                    _FIELD_DEFINITIONS[section_def.type].encode(section_value)
+                )
+            })
+        elif section_def.type is not None:
+            output = encode_value(output, {
+                TYPE: AMQPTypes.described,
+                VALUE: (
+                    {TYPE: AMQPTypes.ulong, VALUE: section_code},
+                    {TYPE: section_def.type, VALUE: section_value}
+                )
+            })
+        else:
+            output = encode_value(output, section_value)
+    return output
+
+
 def encode_frame(frame):
     # type: (Performative) -> Tuple(bytes, bytes)
     if isinstance(frame, HeaderFrame):
@@ -521,6 +554,10 @@ def encode_frame(frame):
     offset = b"\x02"  # Minimum offset of two
 
     frame_data = encode_value(b"", frame_description)
+    try:
+        frame_data = encode_payload(frame_data, frame._payload)
+    except AttributeError:
+        pass
     size = len(frame_data) + 8
     header = size.to_bytes(4, 'big') + offset + frame.FRAME_TYPE
     return header, frame_data

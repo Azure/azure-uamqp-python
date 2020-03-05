@@ -11,7 +11,7 @@ import uuid
 import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, SASLCode
-from .endpoints import TerminusDurability, ExpiryPolicy
+from .endpoints import TerminusDurability, ExpiryPolicy, DistributionMode
 from .error import (
     AMQPError,
     ErrorCondition,
@@ -353,7 +353,11 @@ class FieldsField(object):
     @staticmethod
     def decode(value):
         # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
-        return value or {}
+        decoded = {}
+        if value:
+            for key, data in value:
+                decoded[key] = data
+        return decoded
 
 
 class ErrorField(object):

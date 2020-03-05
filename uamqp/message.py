@@ -202,9 +202,18 @@ class BareMessage(object):
             self._value_body = value
         else:
             self.body_type = MessageBodyType.EMPTY
-            self.body = None
         self.properties = properties
         self.application_properties = application_properties
+
+    @property
+    def body(self):
+        if self.body_type == MessageBodyType.DATA:
+            return self._data_body
+        if self.body_type == MessageBodyType.SEQUENCE:
+            return self._sequence_body
+        if self.body_type == MessageBodyType.VALUE:
+            return self._value_body
+        return None
 
 
 class AnnotatedMessage(BareMessage):
@@ -274,9 +283,9 @@ class AnnotatedMessage(BareMessage):
         0x00000072: FIELD("message_annotations", FieldDefinition.annotations, False, None, False),
         0x00000073: FIELD("properties", Properties, False, None, False),
         0x00000074: FIELD("application_properties", AMQPTypes.map, False, None, False),
-        0x00000075: FIELD("data_body", AMQPTypes.binary, False, None, True),
-        0x00000076: FIELD("sequence_body", AMQPTypes.list, False, None, False),
-        0x00000077: FIELD("value_body", None, False, None, False),
+        0x00000075: FIELD("_data_body", AMQPTypes.binary, False, None, True),
+        0x00000076: FIELD("_sequence_body", AMQPTypes.list, False, None, False),
+        0x00000077: FIELD("_value_body", None, False, None, False),
         0x00000078: FIELD("footer", FieldDefinition.annotations, False, None, False),
     }
 
