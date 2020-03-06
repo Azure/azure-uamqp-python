@@ -132,10 +132,18 @@ class AMQPError(object):
         self.condition = condition
         self.description = description
         self.info = info
-    
+
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self.condition)
 
+
+class AMQPDecodeError(AMQPError):
+    """An error occurred while decoding an incoming frame.
+
+    :param ~uamqp.ErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
 class AMQPConnectionError(AMQPError):
     """Details of a Connection-level error.

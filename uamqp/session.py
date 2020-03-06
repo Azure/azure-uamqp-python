@@ -17,6 +17,7 @@ from .performatives import (
     EndFrame,
     FlowFrame,
     AttachFrame,
+    DetachFrame,
     TransferFrame,
     DispositionFrame
 )
@@ -65,18 +66,17 @@ class Session(object):
     def __init__(self, channel, **kwargs):
         self.name = kwargs.pop('name', None) or str(uuid.uuid4())
         self.state = SessionState.UNMAPPED
-        self.handle_max = kwargs.get('handle_max', None)
+        self.handle_max = kwargs.get('handle_max', 4294967295)
         self.properties = kwargs.pop('properties', None)
         self.channel = channel
         self.remote_channel = None
         self.next_outgoing_id = kwargs.pop('next_outgoing_id', 0)
         self.next_incoming_id = None
-        self.target_incoming_window = kwargs.pop('incoming_window', INCOMING_WINDOW)
-        self.target_outgoing_window = kwargs.pop('outgoing_window', OUTGOING_WIDNOW)
-        self.incoming_window = self.target_incoming_window
-        self.outgoing_window = self.target_outgoing_window
-        self.remote_incoming_window = None
-        self.remote_outgoing_window = None
+        self.incoming_window = kwargs.pop('incoming_window', 1)
+        self.outgoing_window = kwargs.pop('outgoing_window', 1)
+        self.target_incoming_window = self.incoming_window
+        self.remote_incoming_window = 0
+        self.remote_outgoing_window = 0
         self.offered_capabilities = None
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
@@ -140,28 +140,53 @@ class Session(object):
             self.next_incoming_id += 1
             self.remote_outgoing_window -= 1
             self.incoming_window -= 1
-            self._input_handles[frame.handle].incoming_frame(frame)
+            try:
+                self._input_handles[frame.handle].incoming_frame(frame)
+            except KeyError:
+                pass  TODO: "unattached handle"
+            if self.incoming_window == 0:
+                self.incoming_window = self.target_incoming_window
+                self.flow()
         elif isinstance(frame, DispositionFrame):
             for handle in self._input_handles.values():
                 handle.incoming_frame(frame)
+        elif isinstance(frame, FlowFrame):
+            self.next_incoming_id = frame.next_outgoing_id
+            remote_incoming_id = frame.next_incoming_id or self.next_outgoing_id  # TODO "initial-outgoing-id"
+            self.remote_incoming_window = remote_incoming_id + frame.incoming_window - self.next_outgoing_id
+            self.remote_outgoing_window = frame.outgoing_window
+            if frame.handle:
+                self._input_handles[frame.handle].incoming_frame(frame)
+            while self.remote_incoming_window > 0:
+                for link in self._output_handles.values():
+                    pass  # TODO: If role==SENDER, send all pending deliveries
+        elif isinstance(frame, AttachFrame):
+            try:
+                self._input_handles[frame.handle] = self.links[frame.name]
+                self._input_handles[frame.handle].incoming_frame(frame)
+            except KeyError:  # Server-initiated link
+                outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
+                new_link = Link.from_incoming_frame(outgoing_handle, frame)
+                self.links[frame.name] = new_link
+                self._output_handles[outgoing_handle] = new_link
+                self._input_handles[frame.handle] = new_link
+        elif isinstance(frame, DetachFrame):
+            try:
+                self.detach_link(
+                    self._input_handles[frame.handle],
+                    closed=frame.closed,
+                    error=frame.error)
+            except KeyError:
+                pass  # TODO: close session with unattached-handle
         elif isinstance(frame, BeginFrame):
             self.remote_channel = frame.remote_channel
             self.handle_max = frame.handle_max
             self.next_incoming_id = frame.next_outgoing_id
             self.remote_incoming_window = frame.incoming_window
             self.remote_outgoing_window = frame.outgoing_window
-        elif isinstance(frame, AttachFrame):
-            self._input_handles[frame.handle] = self.links[frame.name]
-            self._input_handles[frame.handle].incoming_frame(frame)
-        elif isinstance(frame, FlowFrame):
-            self.next_incoming_id = frame.next_outgoing_id
-            self.next_outgoing_id = frame.next_incoming_id
-            self.remote_incoming_window = frame.incoming_window
-            self.remote_outgoing_window = frame.outgoing_window
-            if frame.handle:
-                self._input_handles[frame.handle].incoming_frame(frame)
         elif isinstance(frame, EndFrame):
-            return # TODO process end
+            if self.state == SessionState.END_RCVD:
+                self.end()
         else:
             print("Unrecognized frame: ", frame)
 
@@ -206,12 +231,10 @@ class Session(object):
         try:
             frame = self._outgoing_frames.get_nowait()
         except queue.Empty:
-            print("no session frames, checking links")
             for link in self.links.values():
                 try:
                     frame = link.outgoing_frame()
                     if frame:
-                        print("found outgoing link frame")
                         break
                 except queue.Empty as e:
                     frame = e
@@ -234,10 +257,14 @@ class Session(object):
         if not frame:
             return None
         elif isinstance(frame, TransferFrame):
+            if self.remote_incoming_window == 0:
+                pass  # TODO: SESSION_SEND_TRANSFER_BUSY
             frame.delivery_id = self.next_outgoing_id
             self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
             self.outgoing_window -= 1
+            # TODO validate max frame size and break into multipl deliveries
+            # TODO set transfer state
         elif isinstance(frame, FlowFrame):
             frame.next_incoming_id = self.next_incoming_id
             frame.incoming_window = self.incoming_window
@@ -249,9 +276,9 @@ class Session(object):
             return frame
         raise TypeError("Attempt to send frame {} in illegal state {}".format(type(frame), self.state))
 
-    def begin(self, **kwargs):
-        begin_frame = kwargs.get('begin_frame') or BeginFrame(
-            remote_channel=self.remote_channel,
+    def begin(self):
+        begin_frame = BeginFrame(
+            remote_channel=self.remote_channel,  # TODO: set if state == BEGIN_RCVD
             next_outgoing_id=self.next_outgoing_id,
             outgoing_window=self.outgoing_window,
             incoming_window=self.incoming_window,
@@ -261,10 +288,21 @@ class Session(object):
             properties=self.properties,
         )
         self._outgoing_frames.put((begin_frame))
+    
+    def flow(self):
+        flow_frame = FlowFrame(
+            next_incoming_id=self.next_incoming_id,
+            incoming_window=self.incoming_window,
+            next_outgoing_id=self.next_outgoing_id,
+            outgoing_window=self.outgoing_window,
+        )
+        self._outgoing_frames.put((flow_frame))
 
     def end(self, error=None):
+        # type: (Optional[AMQPError]) -> None
         end_frame = EndFrame(error=error)
         self._outgoing_frames.put(end_frame)
+        # TODO: destroy all links
 
     def attach_receiver_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
@@ -298,8 +336,12 @@ class Session(object):
     def attach_request_response_link_pair(self):
         raise NotImplementedError('Pending')
 
-    def detach_link(self, link, error=None):
+    def detach_link(self, link, closed=False, error=None):
         try:
-            self.links[link.name].detach(error=error)
+            self.links[link.name].detach(closed=closed, error=error)
+            del self.links[link.name]
+            # TODO check link state before deleting handles
+            #del self._input_handles[link.remote_handle]
+            del self._output_handles[link.handle]
         except KeyError:
             raise ValueError("No running link that matches input value.")

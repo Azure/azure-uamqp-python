@@ -113,7 +113,6 @@ class Link(object):
                 self.max_message_size = frame.max_message_size
                 self.offered_capabilities = frame.offered_capabilities
                 self.properties.update(frame.properties)
-                print("FLOW FRAME", self.handle)
                 flow_frame = FlowFrame(
                     handle=self.handle,
                     delivery_count=self.delivery_count,
@@ -158,7 +157,6 @@ class Link(object):
         raise TypeError("Attempt to send frame {} in illegal state.".format(type(frame)))
 
     def attach(self, **kwargs):
-        print("ATTACH HANDLE", self.handle)
         attach_frame = kwargs.get('attach_frame') or AttachFrame(
             name=self.name,
             handle=self.handle,
@@ -175,8 +173,8 @@ class Link(object):
         )
         self._outgoing_frames.put((attach_frame))
 
-    def detach(self, error=None):
-        detach_frame = DetachFrame(handle=self.handle, error=error)
+    def detach(self, closed=False, error=None):
+        detach_frame = DetachFrame(handle=self.handle, closed=closed, error=error)
         self._outgoing_frames.put(detach_frame)
 
     def send_message(self, message):
