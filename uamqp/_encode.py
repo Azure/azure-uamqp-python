@@ -554,10 +554,6 @@ def encode_frame(frame):
     offset = b"\x02"  # Minimum offset of two
 
     frame_data = encode_value(b"", frame_description)
-    try:
-        frame_data = encode_payload(frame_data, frame._payload)
-    except AttributeError:
-        pass
     size = len(frame_data) + 8
     header = size.to_bytes(4, 'big') + offset + frame.FRAME_TYPE
     return header, frame_data

@@ -708,5 +708,5 @@ def decode_frame(data, offset):
             kwargs[field.name] = value
     decoded_frame = frame_type(**kwargs)
     if frame_type == TransferFrame:
-        decoded_frame._payload = decode_payload(byte_buffer, length=len(data[byte_buffer.tell():]))
+        decoded_frame._payload = data[byte_buffer.tell():]
     return decoded_frame
