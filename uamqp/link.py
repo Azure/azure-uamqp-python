@@ -5,7 +5,6 @@
 #--------------------------------------------------------------------------
 
 import threading
-import queue
 import struct
 import uuid
 import logging
@@ -16,7 +15,13 @@ from io import BytesIO
 
 from ._decode import decode_payload
 from ._encode import encode_payload
-from .constants import DEFAULT_LINK_CREDIT
+from .constants import (
+    DEFAULT_LINK_CREDIT,
+    SessionState,
+    SessionTransferState,
+    LinkDeliverySettleReason,
+    LinkState
+)
 from .performatives import (
     AttachFrame,
     DetachFrame,
@@ -27,23 +32,6 @@ from .performatives import (
 
 _LOGGER = logging.getLogger(__name__)
 
-
-class LinkDeliverySettleReason(Enum):
-
-    DispositionReceived = 0
-    Settled = 1
-    NotDelivered = 2
-    Timeout = 3
-    Cancelled = 4
-
-
-class LinkState(Enum):
-
-    DETACHED = 0
-    ATTACH_SENT = 1
-    ATTACH_RCVD = 2
-    ATTACHED = 3
-    ERROR = 4
 
 class PendingDelivery(object):
 
@@ -97,7 +85,6 @@ class Link(object):
         self._is_closed = False
         self._send_links = {}
         self._receive_links = {}
-        self._outgoing_frames = queue.Queue()
         self._pending_deliveries = {}
         self._received_payload = b""
 
@@ -135,9 +122,6 @@ class Link(object):
         elif self._session.state == SessionState.DISCARDING:
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)
-        elif self._session.state == SessionState.ERROR:
-            self._remove_pending_deliveries()
-            self._set_state(LinkState.ERROR)
 
     def _process_incoming_message(self, message):
         return None  # return delivery state
@@ -154,7 +138,7 @@ class Link(object):
             target=self.target,
             #unsettled=self.unsettled,
             #incomplete_unsettled=self.incomplete_unsettled,
-            initial_delivery_count=self.initial_delivery_count is self.role == 'SENDER' else None,
+            initial_delivery_count=self.initial_delivery_count if self.role == 'SENDER' else None,
             max_message_size=self.max_message_size,
             offered_capabilities=self.offered_capabilities if self.state == LinkState.ATTACH_RCVD else None,
             desired_capabilities=self.desired_capabilities if self.state == LinkState.DETACHED else None,
@@ -167,11 +151,16 @@ class Link(object):
             _LOGGER.info("Cannot get source or target. Detaching link")
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
-
+            raise ValueError("Invalid link")
+        elif self._is_closed:
+            raise ValueError("Invalid link")
         self.remote_handle = frame.handle
         self.remote_max_message_size = frame.max_message_size
         self.offered_capabilities = frame.offered_capabilities
-        self.properties.update(frame.properties)
+        if self.properties:
+            self.properties.update(frame.properties)
+        else:
+            self.properties = frame.properties
         if self.state == LinkState.DETACHED:
             self._set_state(LinkState.ATTACH_RCVD)
         elif self.state == LinkState.ATTACH_SENT:
@@ -194,7 +183,7 @@ class Link(object):
 
     def _outgoing_TRANSFER(self, delivery):
         delivery_count = self.delivery_count + 1
-        settled=self.send_settle_mode != 'UNSETTLED'
+        settled = self.send_settle_mode != 'UNSETTLED'
         delivery.frame = TransferFrame(
             handle=self.handle,
             delivery_tag=bytes(delivery_count),
@@ -208,9 +197,9 @@ class Link(object):
             self.delivery_count = delivery_count
             self.current_link_credit -= 1
             if settled:  # TODO: what about the MIXED mode?
-                delivery.on_settled(LinkDeliverySettleReason.settled, None)
+                delivery.on_settled(LinkDeliverySettleReason.Settled, None)
             else:
-                self._pending_deliveries[delivery.id] = delivery
+                self._pending_deliveries[delivery.frame.delivery_id] = delivery
 
     def _incoming_TRANSFER(self, frame):
         self.current_link_credit -= 1
@@ -258,7 +247,7 @@ class Link(object):
     def _incoming_DETACH(self, frame):
         if self.state == LinkState.ATTACHED:
             self._outgoing_DETACH(close=frame.closed)
-        else if frame.close and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
+        elif frame.closed and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
             # Received a closing detach after we sent a non-closing detach.
             # In this case, we MUST signal that we closed by reattaching and then sending a closing detach.
             self._outgoing_ATTACH()
@@ -269,18 +258,6 @@ class Link(object):
             self._set_state(LinkState.ERROR)
         else:
             self._set_state(LinkState.DETACHED)
-
-    def _update_pending_delivery_status(self):
-        now = time.time()
-        if self.current_link_credit <= 0:
-            self.current_link_credit = self.link_credit
-            self._outgoing_FLOW()
-        expired = []
-        for delivery in self._pending_deliveries.values():
-            if delivery.timeout and (delivery.start - now) >= delivery.timeout:
-                expired.append(delivery.id)
-                delivery.on_settled(LinkDeliverySettleReason.Timeout, None)
-        self._pending_deliveries = {i: d for i, d in self._pending_deliveries if i not if expired}
 
     def attach(self):
         if self._is_closed:
@@ -309,7 +286,7 @@ class Link(object):
             raise ValueError("Link is busy (no available credit).")
         delivery = PendingDelivery(
             on_delivery_settled=kwargs.get('on_send_complete'),
-            timeout=kwargs.get('timeout')
+            timeout=kwargs.get('timeout'),
             link=self,
             message=message,
         )

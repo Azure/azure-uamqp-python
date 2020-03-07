@@ -6,7 +6,9 @@
 
 from enum import Enum
 
-from .constants import PORT
+from .constants import PORT, FIELD
+from .performatives import Performative
+from .types import AMQPTypes, FieldDefinition
 
 
 class ErrorCondition(Enum):
@@ -120,7 +122,7 @@ class LinkErrorCondition(Enum):
     Stolen = b"amqp:link:stolen"
 
 
-class AMQPError(object):
+class AMQPError(Performative):
     """Details of an error.
 
     :param ~uamqp.ErrorCondition condition: The error code.
@@ -128,10 +130,38 @@ class AMQPError(object):
     :param info: A dictionary of additional data associated with the error.
     """
 
-    def __init__(self, condition, description=None, info=None):
-        self.condition = condition
-        self.description = description
-        self.info = info
+    NAME = "ERROR"
+    CODE = 0x0000001d
+    DEFINITION = (
+        FIELD('condition', AMQPTypes.symbol, True, None, False),
+        FIELD('description', AMQPTypes.string, False, None, False),
+        FIELD('info', FieldDefinition.fields, False, None, False),
+    )
+
+    def __new__(cls, condition=None, description=None, info=None):
+        error_instance = super(AMQPError, cls).__new__(cls)
+        # if b":link:" in condition:
+        #     condition = LinkErrorCondition(condition)
+        #     if condition == LinkErrorCondition.Redirect:
+        #         return AMQPLinkRedirect.__init__(condition, description=description, info=info)
+        #     else:
+        #         return AMQPLinkError.__init__(condition, description=description, info=info)        
+        # elif b":session:" in condition:
+        #     condition = SessionErrorCondition(condition)
+        #     return AMQPSessionError.__init__(condition, description=description, info=info)
+        # elif b":connection:" in condition:
+        #     condition = ConnectionErrorCondition(condition)
+        #     if condition == ConnectionErrorCondition.Redirect:
+        #         return AMQPConnectionRedirect.__init__(condition, description=description, info=info)
+        #     else:
+        #         return AMQPConnectionError.__init__(condition, description=description, info=info)
+        # else:
+        try:
+            condition = ErrorCondition(condition)
+        except ValueError:
+            pass
+        error_instance.__init__(condition=condition, description=description, info=info)
+        return error_instance
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self.condition)

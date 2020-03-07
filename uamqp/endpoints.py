@@ -167,6 +167,9 @@ class Source(Performative):
         FIELD("capabilities", AMQPTypes.symbol, False, None, True),
     )
 
+    def __repr__(self):
+        return "Source({})".format(self.address)
+
 
 class Target(Performative):
     """For containers which do not implement address resolution (and do not admit spontaneous link attachment
@@ -216,3 +219,6 @@ class Target(Performative):
         FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
         FIELD("capabilities", AMQPTypes.symbol, False, None, True),
     )
+
+    def __repr__(self):
+        return "Target({})".format(self.address)

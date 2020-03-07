@@ -65,6 +65,7 @@ class ObjDefinition(Enum):
     source = "source"
     target = "target"
     delivery_state = "delivery-state"
+    error = "error"
 
 
 class ConstructorBytes(object):  # pylint: disable=no-init

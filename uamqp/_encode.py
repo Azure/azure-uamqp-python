@@ -547,13 +547,15 @@ def encode_payload(output, payload):
 
 def encode_frame(frame):
     # type: (Performative) -> Tuple(bytes, bytes)
+    if frame is None:
+        size = 8
+        header = size.to_bytes(4, 'big') + Performative.FRAME_OFFSET + Performative.FRAME_TYPE
+        return header, None
     if isinstance(frame, HeaderFrame):
         return frame.header, None
 
     frame_description = describe_performative(frame)
-    offset = b"\x02"  # Minimum offset of two
-
     frame_data = encode_value(b"", frame_description)
     size = len(frame_data) + 8
-    header = size.to_bytes(4, 'big') + offset + frame.FRAME_TYPE
+    header = size.to_bytes(4, 'big') + frame.FRAME_OFFSET + frame.FRAME_TYPE
     return header, frame_data

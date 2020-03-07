@@ -28,9 +28,9 @@ class ReceiverLink(Link):
 
     def _incoming_ATTACH(self, frame):
         super(ReceiverLink, self)._incoming_ATTACH(frame)
-        if not frame.initial_delivery_count:
+        if frame.initial_delivery_count is None:
             _LOGGER.info("Cannot get initial-delivery-count. Detaching link")
-            self._remove_pending_deliveries(True)
+            self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
         self.delivery_count = frame.initial_delivery_count
         self.current_link_credit = self.link_credit

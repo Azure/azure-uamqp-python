@@ -30,11 +30,12 @@ class Performative(object):
     NAME = None
     CODE = None
     FRAME_TYPE = b'\x00'
+    FRAME_OFFSET = b"\x02"
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def __str__(self):
+    def __repr__(self):
         return "{{{} [{}]}}".format(self.NAME, self.__dict__)
 
 
@@ -144,7 +145,7 @@ class OpenFrame(Performative):
         FIELD("hostname", AMQPTypes.string, False, None, False),
         FIELD("max_frame_size", AMQPTypes.uint, False, 4294967295, False),
         FIELD("channel_max", AMQPTypes.ushort, False, 65535, False),
-        FIELD("idle_timeout", FieldDefinition.milliseconds, False, None, False),
+        FIELD("idle_timeout", AMQPTypes.uint, False, None, False),
         FIELD("outgoing_locales", FieldDefinition.ietf_language_tag, False, None, True),
         FIELD("incoming_locales", FieldDefinition.ietf_language_tag, False, None, True),
         FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
@@ -485,7 +486,7 @@ class DetachFrame(Performative):
     DEFINITION = (
         FIELD("handle", FieldDefinition.handle, True, None, False),
         FIELD("closed", AMQPTypes.boolean, False, False, False),
-        FIELD("error", FieldDefinition.error, False, None, False),
+        FIELD("error", ObjDefinition.error, False, None, False),
     )
 
 
@@ -500,7 +501,7 @@ class EndFrame(Performative):
     """
     NAME = "END"
     CODE = 0x00000017
-    DEFINITION = (FIELD("error", FieldDefinition.error, False, None, False),)
+    DEFINITION = (FIELD("error", ObjDefinition.error, False, None, False),)
 
 
 class CloseFrame(Performative):
@@ -516,7 +517,7 @@ class CloseFrame(Performative):
     """
     NAME = "CLOSE"
     CODE = 0x00000018
-    DEFINITION = (FIELD("error", FieldDefinition.error, False, None, False),)
+    DEFINITION = (FIELD("error", ObjDefinition.error, False, None, False),)
 
 
 class SASLMechanism(Performative):

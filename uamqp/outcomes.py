@@ -4,7 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from .types import AMQPTypes, FieldDefinition
+from .types import AMQPTypes, FieldDefinition, ObjDefinition
 from .constants import FIELD
 from .performatives import Performative
 
@@ -100,8 +100,10 @@ class Rejected(DeliveryState):
     """
     NAME = "REJECTED"
     CODE = 0x00000025
-    DEFINITION = (FIELD("error", FieldDefinition.error, False, None, False),)
+    DEFINITION = (FIELD("error", ObjDefinition.error, False, None, False),)
 
+    def __repr__(self):
+        return "Rejected(error={})".format(self.error)
 
 class Released(DeliveryState):
     """The released outcome.

@@ -11,6 +11,7 @@ import struct
 from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
+import logging
 
 import certifi
 
@@ -46,6 +47,7 @@ except ImportError:  # pragma: no cover
         return fcntl.fcntl(fd, fcntl.F_SETFD, flags)
 
 
+_LOGGER = logging.getLogger(__name__)
 _UNAVAIL = {errno.EAGAIN, errno.EINTR, errno.ENOENT, errno.EWOULDBLOCK}
 
 AMQP_PORT = 5672
@@ -357,7 +359,7 @@ class _AbstractTransport(object):
         else:
             decoded = decode_frame(payload, offset - 2)
             # TODO: Catch decode error and return amqp:decode-error
-        print("ICH{} <- {}".format(channel, decoded))
+        _LOGGER.info("ICH%d <- %r", channel, decoded)
         return channel, decoded
 
     def send_frame(self, channel, frame):
@@ -369,7 +371,7 @@ class _AbstractTransport(object):
             data = header + encoded_channel + performative
 
         self.write(data)
-        print("OCH{} -> {}".format(channel, frame))
+        _LOGGER.info("OCH%d -> %r", channel, frame)
 
     def negotiate(self, encode, decode):
         pass

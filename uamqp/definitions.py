@@ -12,17 +12,6 @@ import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, SASLCode
 from .endpoints import TerminusDurability, ExpiryPolicy, DistributionMode
-from .error import (
-    AMQPError,
-    ErrorCondition,
-    AMQPConnectionError,
-    AMQPConnectionRedirect,
-    ConnectionErrorCondition,
-    AMQPSessionError,
-    SessionErrorCondition,
-    AMQPLinkError,
-    AMQPLinkRedirect,
-    LinkErrorCondition)
 
 
 class RoleField(object):
@@ -356,63 +345,6 @@ class FieldsField(object):
         return decoded
 
 
-class ErrorField(object):
-    """Details of an error.
-
-    <type name="error" class="composite" source="list">
-        <descriptor name="amqp:error:list" code="0x00000000:0x0000001d"/>
-        <field name="condition" type="symbol" requires="error-condition" mandatory="true"/>
-        <field name="description" type="string"/>
-        <field name="info" type="fields"/>
-    </type>
-    """
-
-    @staticmethod
-    def encode(value):
-        # type: (Optional[AMQPError]) -> Dict[str, Any]
-        if not value:
-            return {TYPE: AMQPTypes.null, VALUE: None}
-        encoded = ({TYPE: AMQPTypes.ulong, VALUE: 29}, [])
-        try:
-            encoded[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition.value})
-        except AttributeError:
-            encoded[1].append({TYPE: AMQPTypes.symbol, VALUE: value.condition})
-        encoded[1].append(value.description or None)
-        encoded[1].append(FieldsField.encode(value.info))
-        return encoded
-
-    @staticmethod
-    def decode(value):
-        # type: (Optional[Tuple(int, List[Any])]) -> Optional[AMQPError]
-        decoded = None
-        if value and value[0] == 29:
-            condition = value[1][0]
-            description = value[1][1] if len(value[1]) > 1 else None
-            info = value[1][2] if len(value[1]) > 2 else {}
-            try:
-                if b":link:" in condition:
-                    condition = LinkErrorCondition(condition)
-                    if condition == LinkErrorCondition.Redirect:
-                        decoded = AMQPLinkRedirect(condition, description=description, info=info)
-                    else:
-                        decoded = AMQPLinkError(condition, description=description, info=info)
-                elif b":session:" in condition:
-                    condition = SessionErrorCondition(condition)
-                    decoded = AMQPSessionError(condition, description=description, info=info)
-                elif b":connection:" in condition:
-                    condition = ConnectionErrorCondition(condition)
-                    if condition == ConnectionErrorCondition.Redirect:
-                        decoded = AMQPConnectionRedirect(condition, description=description, info=info)
-                    else:
-                        decoded = AMQPConnectionError(condition, description=description, info=info)
-                else:
-                    condition = ErrorCondition(condition)
-                    decoded = AMQPError(condition, description=description, info=info)
-            except ValueError:
-                decoded = AMQPError(condition, description=description, info=info)
-        return decoded
-
-
 class AnnotationsField(object):
     """The annotations type is a map where the keys are restricted to be of type symbol or of type ulong.
 
@@ -704,7 +636,6 @@ _FIELD_DEFINITIONS = {
     FieldDefinition.message_format: MessageFormatField,
     FieldDefinition.ietf_language_tag: IETFLanguageTagField,
     FieldDefinition.fields: FieldsField,
-    FieldDefinition.error: ErrorField,
     FieldDefinition.annotations: AnnotationsField,
     FieldDefinition.message_id: MessageIDField,
     FieldDefinition.app_properties: AppPropertiesField,

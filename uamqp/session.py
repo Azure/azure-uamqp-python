@@ -4,12 +4,17 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import queue
 import uuid
 import logging
 from enum import Enum
 
-from .constants import INCOMING_WINDOW, OUTGOING_WIDNOW
+from .constants import (
+    INCOMING_WINDOW,
+    OUTGOING_WIDNOW,
+    ConnectionState,
+    SessionState,
+    SessionTransferState
+)
 from .endpoints import Source, Target
 from .sender import SenderLink
 from .receiver import ReceiverLink
@@ -23,40 +28,7 @@ from .performatives import (
     DispositionFrame
 )
 
-
-DEFAULT_LINK_CREDIT = 1000
 _LOGGER = logging.getLogger(__name__)
-
-
-class SessionState(Enum):
-    #: In the UNMAPPED state, the Session endpoint is not mapped to any incoming or outgoing channels on the
-    #: Connection endpoint. In this state an endpoint cannot send or receive frames.
-    UNMAPPED = 0
-    #: In the BEGIN_SENT state, the Session endpoint is assigned an outgoing channel number, but there is no entry
-    #: in the incoming channel map. In this state the endpoint may send frames but cannot receive them.
-    BEGIN_SENT = 1
-    #: In the BEGIN_RCVD state, the Session endpoint has an entry in the incoming channel map, but has not yet
-    #: been assigned an outgoing channel number. The endpoint may receive frames, but cannot send them.
-    BEGIN_RCVD = 2
-    #: In the MAPPED state, the Session endpoint has both an outgoing channel number and an entry in the incoming
-    #: channel map. The endpoint may both send and receive frames.
-    MAPPED = 3
-    #: In the END_SENT state, the Session endpoint has an entry in the incoming channel map, but is no longer
-    #: assigned an outgoing channel number. The endpoint may receive frames, but cannot send them.
-    END_SENT = 4
-    #: In the END_RCVD state, the Session endpoint is assigned an outgoing channel number, but there is no entry in
-    #: the incoming channel map. The endpoint may send frames, but cannot receive them.
-    END_RCVD = 5
-    #: The DISCARDING state is a variant of the END_SENT state where the end is triggered by an error. In this
-    #: case any incoming frames on the session MUST be silently discarded until the peer’s end frame is received.
-    DISCARDING = 6
-
-
-class SessionTransferState(Enum):
-
-    Okay = 0
-    Error = 1
-    Busy = 2
 
 
 class Session(object):
@@ -92,7 +64,6 @@ class Session(object):
         self._connection = connection
         self._output_handles = {}
         self._input_handles = {}
-        self._outgoing_frames = queue.Queue()
 
     def __enter__(self):
         self.begin()
@@ -122,8 +93,6 @@ class Session(object):
     def _on_connection_state_change(self):
         if self._connection.state == ConnectionState.CLOSE_RCVD or self._connection.state == ConnectionState.END:
             self._set_state(SessionState.DISCARDING)
-        elif self._connection.state == ConnectionState.ERROR:
-            self._set_state(SessionState.ERROR)
 
     def _get_next_output_handle(self):
         # type: () -> int
@@ -192,13 +161,15 @@ class Session(object):
             self.links[frame.name] = new_link
             self._output_handles[outgoing_handle] = new_link
             self._input_handles[frame.handle] = new_link
+        except ValueError:
+            pass  # TODO: Reject link
     
     def _outgoing_FLOW(self, frame=None):
         flow_frame = frame or FlowFrame()
-        flow_frame.next_incoming_id = self.next_incoming_id,
-        flow_frame.incoming_window = self.incoming_window,
-        flow_frame.next_outgoing_id = self.next_outgoing_id,
-        flow_frame.outgoing_window = self.outgoing_window,
+        flow_frame.next_incoming_id = self.next_incoming_id
+        flow_frame.incoming_window = self.incoming_window
+        flow_frame.next_outgoing_id = self.next_outgoing_id
+        flow_frame.outgoing_window = self.outgoing_window
         self._connection._process_outgoing_frame(self.channel, flow_frame)
 
     def _incoming_FLOW(self, frame):
@@ -208,8 +179,8 @@ class Session(object):
         self.remote_outgoing_window = frame.outgoing_window
         if frame.handle:
             self._input_handles[frame.handle].incoming_frame(frame)
-        while self.remote_incoming_window > 0:
-            for link in self._output_handles.values():
+        for link in self._output_handles.values():
+            if self.remote_incoming_window > 0:
                 link._incoming_FLOW(frame)
 
     def _outgoing_TRANSFER(self, delivery):
@@ -252,30 +223,34 @@ class Session(object):
         try:
             link = self._input_handles[frame.handle]
             link._incoming_DETACH(frame)
-            if link._is_closed:
-                del self.links[link.name]
-                del self._input_handles[link.remote_handle]
-                del self._output_handles[link.handle]
+            # if link._is_closed:  TODO
+            #     self.links.pop(link.name, None)
+            #     self._input_handles.pop(link.remote_handle, None)
+            #     self._output_handles.pop(link.handle, None)
         except KeyError:
             pass  # TODO: close session with unattached-handle
 
-    def begin(self):
+    def begin(self, block=True):
         self._outgoing_BEGIN()
         self._set_state(SessionState.BEGIN_SENT)
+        if block:  # TODO: timeout
+            while self.state == SessionState.BEGIN_SENT:
+                self._connection.listen()
 
-    def end(self, error=None):
+    def end(self, error=None, block=True):
         # type: (Optional[AMQPError]) -> None
         if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
             self._outgoing_END(error=error)
         # TODO: destroy all links
-        if error:
-            self._set_state(SessionState.DISCARDING)
-        else:
-            self._set_state(SessionState.END_SENT)
+        new_state = SessionState.DISCARDING if error else SessionState.END_SENT
+        self._set_state(new_state)
+        if block:  # TODO: timeout
+            while self.state == new_state:
+                self._connection.listen()
 
     def attach_receiver_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = ReceiverLink(handle=assigned_handle, **kwargs)
+        link = ReceiverLink(self, handle=assigned_handle, **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
         link.attach()
@@ -283,7 +258,7 @@ class Session(object):
 
     def attach_sender_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = SenderLink(handle=assigned_handle, **kwargs)
+        link = SenderLink(self, handle=assigned_handle, **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         link.attach()
@@ -295,9 +270,9 @@ class Session(object):
     def detach_link(self, link, close=False, error=None):
         try:
             self.links[link.name].detach(close=close, error=error)
-            del self.links[link.name]
-            # TODO check link state before deleting handles
-            #del self._input_handles[link.remote_handle]
-            del self._output_handles[link.handle]
+            # if link._is_closed:  TODO
+            #     self.links.pop(link.name, None)
+            #     self._input_handles.pop(link.remote_handle, None)
+            #     self._output_handles.pop(link.handle, None)
         except KeyError:
             raise ValueError("No running link that matches input value.")

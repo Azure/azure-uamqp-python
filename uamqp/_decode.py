@@ -8,11 +8,14 @@
 import struct
 import uuid
 from io import BytesIO
+import logging
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
 from .types import FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
+from .error import AMQPError
 from .performatives import (
+    Performative,
     HeaderFrame,
     TLSHeaderFrame,
     SASLHeaderFrame,
@@ -41,6 +44,7 @@ from .outcomes import (
 )
 
 
+_LOGGER = logging.getLogger(__name__)
 _MESSAGE_PERFORMATIVES = [Header, Properties]
 
 
@@ -69,6 +73,7 @@ COMPOSITES = {
     0x00000027: Modified,
     0x00000028: Source,
     0x00000029: Target,
+    0x0000001d: AMQPError,
 }
 
 
@@ -80,12 +85,11 @@ class DecoderState(object):  # pylint: disable=no-init
 
 class Decoder(object):
 
-    def __init__(self, length, composite=False):
+    def __init__(self, length):
         self.state = DecoderState.constructor
         self.bytes_remaining = length
         self.decoded_value = {}
         self.constructor_byte = None
-        self.composite = composite
 
     def still_working(self):
         if self.bytes_remaining is None:
@@ -411,13 +415,10 @@ def decode_list_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        if decoder.composite:
-            items = decode_value(buffer, length_bytes=size - 1, count=count)
-        else:
-            items = decode_value(buffer, length_bytes=size, count=count)
+        items = decode_value(buffer, length_bytes=size - 1, count=count)
         decoder.decoded_value = items
         decoder.progress(2)
-        decoder.progress(size)
+        decoder.progress(size - 1)
     except ValueError:
         raise
     except Exception:
@@ -430,10 +431,10 @@ def decode_list_large(decoder, buffer):
     try:
         size = struct.unpack('>L', _read(buffer, 4))[0]
         count = struct.unpack('>L', _read(buffer, 4))[0]
-        items = decode_value(buffer, length_bytes=size, count=count)
+        items = decode_value(buffer, length_bytes=size - 4, count=count)
         decoder.decoded_value = items
         decoder.progress(8)
-        decoder.progress(size)
+        decoder.progress(size - 4)
     except ValueError:
         raise
     except Exception:
@@ -446,13 +447,10 @@ def decode_map_small(decoder, buffer):
     try:
         size = struct.unpack('>B', _read(buffer, 1))[0]
         count = struct.unpack('>B', _read(buffer, 1))[0]
-        if decoder.composite:
-            items = decode_value(buffer, length_bytes=size - 1, count=count)
-        else:
-            items = decode_value(buffer, length_bytes=size, count=count)
+        items = decode_value(buffer, length_bytes=size - 1, count=count)
         decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
         decoder.progress(2)
-        decoder.progress(size)
+        decoder.progress(size - 1)
     except ValueError:
         raise
     except Exception:
@@ -465,10 +463,10 @@ def decode_map_large(decoder, buffer):
     try:
         size = struct.unpack('>L', _read(buffer, 4))[0]
         count = struct.unpack('>L', _read(buffer, 4))[0]
-        items = decode_value(buffer, length_bytes=size, count=count)
+        items = decode_value(buffer, length_bytes=size - 4, count=count)
         decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
         decoder.progress(8)
-        decoder.progress(size)
+        decoder.progress(size - 4)
     except ValueError:
         raise
     except Exception:
@@ -484,7 +482,7 @@ def decode_array_small(decoder, buffer):
         items = decode_value(buffer, length_bytes=size - 1, sub_constructors=False, count=count)
         decoder.decoded_value = items
         decoder.progress(2)
-        decoder.progress(size)
+        decoder.progress(size - 1)
     except ValueError:
         raise
     except Exception:
@@ -500,7 +498,7 @@ def decode_array_large(decoder, buffer):
         items = decode_value(buffer, length_bytes=size - 4, sub_constructors=False, count=count)
         decoder.decoded_value = items
         decoder.progress(8)
-        decoder.progress(size)
+        decoder.progress(size - 4)
     except ValueError:
         raise
     except Exception:
@@ -511,22 +509,20 @@ def decode_array_large(decoder, buffer):
 def decode_described(decoder, buffer):
     # type: (Decoder, IO) -> None
     try:
+        start_position = buffer.tell()
         descriptor = decode_value(buffer)
-        if descriptor == TransferFrame.CODE:
-            value = decode_value(buffer, composite=True)
+        value = decode_value(buffer)
+        decoder.decoded_value = (descriptor, value)
+        try:
+            composite_type = COMPOSITES[descriptor]
+            decoder.decoded_value = (composite_type, value)
+        except KeyError:
             decoder.decoded_value = (descriptor, value)
-        else:
-            try:
-                composite_type = COMPOSITES[descriptor]
-                value = decode_value(buffer, composite=True)
-                decoder.decoded_value = (composite_type, value)
-            except KeyError:
-                value = decode_value(buffer, composite=decoder.composite)
-                decoder.decoded_value = (descriptor, value)
     except ValueError:
         raise
     except Exception:
         raise ValueError("Error decoding described value.")
+    decoder.progress(buffer.tell() - start_position)
     decoder.state = DecoderState.done
 
 
@@ -588,9 +584,9 @@ _DECODE_MAP = {
 }
 
 
-def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None, composite=False):
+def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    decoder = Decoder(length=length_bytes, composite=composite)
+    decoder = Decoder(length=length_bytes)
     decoded_values = []
 
     while decoder.still_working():
@@ -637,12 +633,14 @@ def decode_empty_frame(header):
         if layer == 3:
             return SASLHeaderFrame(header=header)
         raise ValueError("Received unexpected IO layer: {}".format(layer))
-    raise ValueError("Received empty frame")
+    elif header[5] == Performative.FRAME_TYPE:
+        return None
+    raise ValueError("Received unrecognized empty frame")
 
 
 def decode_payload(buffer, length):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    decoder = Decoder(length, composite=True)
+    decoder = Decoder(length)
     decoded_values = {}
 
     while decoder.still_working():
@@ -667,10 +665,30 @@ def decode_payload(buffer, length):
             decoder.constructor_byte = None
     return AnnotatedMessage(**decoded_values)
 
+def build_decoded_object(field, value):
+    if not value:
+        return {field.name: None}
+
+    obj_kwargs = {}
+    obj_type, obj_values = value
+    for obj_index, obj_value in enumerate(obj_values):
+        obj_field = obj_type.DEFINITION[obj_index]
+        if isinstance(obj_field.type, FieldDefinition):
+            if obj_field.multiple:
+                obj_kwargs[obj_field.name] = [_FIELD_DEFINITIONS[obj_field.type].decode(v) for v in obj_value] if obj_value else []
+            else:
+                obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
+        elif isinstance(obj_field.type, ObjDefinition):
+            obj_kwargs.update(build_decoded_object(obj_field, obj_value))
+        else:
+            obj_kwargs[obj_field.name] = obj_value
+    return {field.name: obj_type(**obj_kwargs)}
+
 
 def decode_frame(data, offset):
     # type: (bytes, bytes, bytes) -> Performative
     _ = data[:offset]  # TODO: Extra data
+    #_LOGGER.debug("Incoming bytes: %r", data)
     byte_buffer = BytesIO(data[offset:])
     descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]
@@ -689,21 +707,7 @@ def decode_frame(data, offset):
             else:
                 kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
         elif isinstance(field.type, ObjDefinition):
-            if not value:
-                kwargs[field.name] = None
-                continue
-            obj_kwargs = {}
-            obj_type, obj_values = value
-            for obj_index, obj_value in enumerate(obj_values):
-                obj_field = obj_type.DEFINITION[obj_index]
-                if isinstance(obj_field.type, FieldDefinition):
-                    if obj_field.multiple:
-                        obj_kwargs[obj_field.name] = [_FIELD_DEFINITIONS[obj_field.type].decode(v) for v in obj_value] if obj_value else []
-                    else:
-                        obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
-                else:
-                    obj_kwargs[obj_field.name] = obj_value
-            kwargs[field.name] = obj_type(**obj_kwargs)
+            kwargs.update(build_decoded_object(field, value))
         else:
             kwargs[field.name] = value
     decoded_frame = frame_type(**kwargs)
