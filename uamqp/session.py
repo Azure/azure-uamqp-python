@@ -149,7 +149,7 @@ class Session(object):
             desired_capabilities=self.desired_capabilities if self.state == SessionState.UNMAPPED else None,
             properties=self.properties,
         )
-        self._connection._outgoing_BEGIN(begin_frame)
+        self._connection._process_outgoing_frame(self.channel, begin_frame)
 
     def _incoming_BEGIN(self, frame):
         self.handle_max = frame.handle_max
@@ -166,7 +166,7 @@ class Session(object):
 
     def _outgoing_END(self, error=None):
         end_frame = EndFrame(error=error)
-        self._connection._outgoing_END(end_frame)
+        self._connection._outgoing_END(self.channel, end_frame)
 
     def _incoming_END(self, frame):
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
@@ -176,7 +176,7 @@ class Session(object):
         self._set_state(SessionState.UNMAPPED)
 
     def _outgoing_ATTACH(self, frame):
-        self._connection._outgoing_ATTACH(frame)
+        self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_ATTACH(self, frame):
         try:
@@ -184,7 +184,10 @@ class Session(object):
             self._input_handles[frame.handle]._incoming_ATTACH(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
-            new_link = Link.from_incoming_frame(self, outgoing_handle, frame)
+            if frame.role == 'SENDER':
+                new_link = ReceiverLink.from_incoming_frame(self, outgoing_handle, frame)
+            else:
+                new_link = SenderLink.from_incoming_frame(self, outgoing_handle, frame)
             new_link._incoming_ATTACH(frame)
             self.links[frame.name] = new_link
             self._output_handles[outgoing_handle] = new_link
@@ -196,7 +199,7 @@ class Session(object):
         flow_frame.incoming_window = self.incoming_window,
         flow_frame.next_outgoing_id = self.next_outgoing_id,
         flow_frame.outgoing_window = self.outgoing_window,
-        self._connection._outgoing_FLOW(flow_frame)
+        self._connection._process_outgoing_frame(self.channel, flow_frame)
 
     def _incoming_FLOW(self, frame):
         self.next_incoming_id = frame.next_outgoing_id
@@ -216,7 +219,7 @@ class Session(object):
             delivery.transfer_state = SessionTransferState.Busy
         else:
             delivery.frame.delivery_id = self.next_outgoing_id
-            self._connection._outgoing_TRANSFER(delivery)
+            self._connection._process_outgoing_frame(self.channel, delivery.frame)
             self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
             self.outgoing_window -= 1
@@ -236,31 +239,29 @@ class Session(object):
             self._outgoing_FLOW()
 
     def _outgoing_DISPOSITION(self, frame):
-        self._connection._outgoing_DISPOSITION(frame)
+        self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_DISPOSITION(self, frame):
         for link in self._input_handles.values():
             link._incoming_DISPOSITION(frame)
 
     def _outgoing_DETACH(self, frame):
-        self._connection._outgoing_DISPOSITION(frame)
+        self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_DETACH(self, frame):
         try:
-            self._input_handles[frame.handle]._incoming_DETACH(frame)
-            del self.links[link.name]
-            # TODO check link state before deleting handles
-            #del self._input_handles[link.remote_handle]
-            del self._output_handles[link.handle]
+            link = self._input_handles[frame.handle]
+            link._incoming_DETACH(frame)
+            if link._is_closed:
+                del self.links[link.name]
+                del self._input_handles[link.remote_handle]
+                del self._output_handles[link.handle]
         except KeyError:
             pass  # TODO: close session with unattached-handle
 
     def begin(self):
         self._outgoing_BEGIN()
         self._set_state(SessionState.BEGIN_SENT)
-    
-    def flow(self):
-        self._outgoing_FLOW()
 
     def end(self, error=None):
         # type: (Optional[AMQPError]) -> None

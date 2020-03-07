@@ -142,11 +142,6 @@ class Link(object):
     def _process_incoming_message(self, message):
         return None  # return delivery state
 
-    def _on_send_complete(self, delivery, result):  # TODO: remove?
-        if self.send_settle_mode == 'SETTLED':
-            delivery = self._pending_deliveries.pop(delivery.frame.delivery_id)
-            delivery.on_settled(LinkDeliverySettleReason.settled, None)
-
     def _outgoing_ATTACH(self):
         self.delivery_count = self.initial_delivery_count
         attach_frame = AttachFrame(
