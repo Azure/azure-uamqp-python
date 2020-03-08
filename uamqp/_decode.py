@@ -624,6 +624,7 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
 
 def decode_empty_frame(header):
     # type: (bytes) -> Performative
+    _LOGGER.debug("Empty header bytes: %s", header)
     if header[0:4] == b'AMQP':
         layer = header[4]
         if layer == 0:
@@ -633,8 +634,8 @@ def decode_empty_frame(header):
         if layer == 3:
             return SASLHeaderFrame(header=header)
         raise ValueError("Received unexpected IO layer: {}".format(layer))
-    elif header[5] == Performative.FRAME_TYPE:
-        return None
+    elif header[5] == 0:
+        return "EMPTY"
     raise ValueError("Received unrecognized empty frame")
 
 
@@ -688,7 +689,7 @@ def build_decoded_object(field, value):
 def decode_frame(data, offset):
     # type: (bytes, bytes, bytes) -> Performative
     _ = data[:offset]  # TODO: Extra data
-    #_LOGGER.debug("Incoming bytes: %r", data)
+    _LOGGER.debug("Incoming bytes: %r", data)
     byte_buffer = BytesIO(data[offset:])
     descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]

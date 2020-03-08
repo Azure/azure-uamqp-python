@@ -33,25 +33,6 @@ from .performatives import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class PendingDelivery(object):
-
-    def __init__(self, **kwargs):
-        self.message = kwargs.get('message')
-        self.frame = None
-        self.on_delivery_settled = kwargs.get('on_delivery_settled')
-        self.link = kwargs.get('link')
-        self.start = time.time()
-        self.transfer_state = None
-        self.timeout = kwargs.get('timeout')
-    
-    def on_settled(self, reason, state):
-        if self.on_delivery_settled:
-            try:
-                self.on_delivery_settled(self.message, reason, state)
-            except Exception as e:
-                _LOGGER.warning("Message 'on_send_complete' callback failed: {}".format(e))
-
-
 class Link(object):
     """
 
@@ -109,7 +90,10 @@ class Link(object):
         self.state = new_state
         _LOGGER.info("Link '{}' state changed: {} -> {}".format(self.name, previous_state, new_state))
 
-    def _remove_pending_deliveries(self):
+    def _evaluate_timeout(self):
+        pass
+
+    def _remove_pending_deliveries(self):  # TODO: move to sender
         for delivery in self._pending_deliveries.values():
             delivery.on_settled(LinkDeliverySettleReason.NotDelivered, None)
         self._pending_deliveries = {}
@@ -122,9 +106,6 @@ class Link(object):
         elif self._session.state == SessionState.DISCARDING:
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)
-
-    def _process_incoming_message(self, message):
-        return None  # return delivery state
 
     def _outgoing_ATTACH(self):
         self.delivery_count = self.initial_delivery_count
@@ -147,12 +128,12 @@ class Link(object):
         self._session._outgoing_ATTACH(attach_frame)
 
     def _incoming_ATTACH(self, frame):
-        if not frame.source or not frame.target:  # TODO: not sure if we should check here
+        if self._is_closed:
+            raise ValueError("Invalid link")
+        elif not frame.source or not frame.target:  # TODO: not sure if we should check here
             _LOGGER.info("Cannot get source or target. Detaching link")
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
-            raise ValueError("Invalid link")
-        elif self._is_closed:
             raise ValueError("Invalid link")
         self.remote_handle = frame.handle
         self.remote_max_message_size = frame.max_message_size
@@ -180,63 +161,6 @@ class Link(object):
 
     def _incoming_FLOW(self, frame):
         pass
-
-    def _outgoing_TRANSFER(self, delivery):
-        delivery_count = self.delivery_count + 1
-        settled = self.send_settle_mode != 'UNSETTLED'
-        delivery.frame = TransferFrame(
-            handle=self.handle,
-            delivery_tag=bytes(delivery_count),
-            message_format=delivery.message.FORMAT,
-            settled=settled,
-            more=False,
-            _payload=encode_payload(b"", delivery.message)
-        )
-        self._session._outgoing_TRANSFER(delivery)
-        if delivery.transfer_state == SessionTransferState.Okay:
-            self.delivery_count = delivery_count
-            self.current_link_credit -= 1
-            if settled:  # TODO: what about the MIXED mode?
-                delivery.on_settled(LinkDeliverySettleReason.Settled, None)
-            else:
-                self._pending_deliveries[delivery.frame.delivery_id] = delivery
-
-    def _incoming_TRANSFER(self, frame):
-        self.current_link_credit -= 1
-        self.delivery_count += 1
-        self.received_delivery_id = frame.delivery_id
-        if not self.received_delivery_id and not self._received_payload:
-            pass  # TODO: delivery error
-        if self._received_payload or frame.more:
-            self._received_payload += frame._payload
-        if not frame.more:
-            payload_data = self._received_payload or frame._payload
-            byte_buffer = BytesIO(payload_data)
-            decoded_message = decode_payload(byte_buffer, length=len(payload_data))
-            delivery_state = self._process_incoming_message(decoded_message)
-            if delivery_state:
-                self._outgoing_DISPOSITION(frame.delivery_id, delivery_state)
-
-    def _outgoing_DISPOSITION(self, delivery_id, delivery_state):
-        disposition_frame = DispositionFrame(
-            role=self.role,
-            first=delivery_id,
-            last=delivery_id,
-            settled=True,
-            state=delivery_state,
-            # batchable=
-        )
-        self._session._outgoing_DISPOSITION(disposition_frame)
-
-    def _incoming_DISPOSITION(self, frame):
-        if not frame.settled:
-            return
-        range_end = (frame.last or frame.first) + 1
-        settled_ids = [i for i in range(frame.first, range_end)]
-        remove = {id: d for id, d in self._pending_deliveries.items() if id in settled_ids}
-        for delivery_id, delivery in remove.items():
-            self._pending_deliveries.pop(delivery_id)
-            delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame.state)
 
     def _outgoing_DETACH(self, close=False, error=None):
         detach_frame = DetachFrame(handle=self.handle, closed=close, error=error)
@@ -276,31 +200,3 @@ class Link(object):
         elif self.state == LinkState.ATTACHED:
             self._outgoing_DETACH(close=close, error=error)
             self._set_state(LinkState.ATTACH_SENT)
-
-    def send_transfer(self, message, **kwargs):
-        if self._is_closed:
-            raise ValueError("Link already closed.")
-        if self.state != LinkState.ATTACHED:
-            raise ValueError("Link is not attached.")
-        if self.current_link_credit == 0:
-            raise ValueError("Link is busy (no available credit).")
-        delivery = PendingDelivery(
-            on_delivery_settled=kwargs.get('on_send_complete'),
-            timeout=kwargs.get('timeout'),
-            link=self,
-            message=message,
-        )
-        self._outgoing_TRANSFER(delivery)
-        return delivery.frame.delivery_id
-    
-    def cancel_transfer(self, delivery_id):
-        try:
-            delivery = self._pending_deliveries.pop(delivery_id)
-            delivery.on_settled(LinkDeliverySettleReason.Cancelled, None)
-        except KeyError:
-            raise ValueError("No pending delivery with ID '{}' found.".format(delivery_id))
-
-    def send_disposition(self, delivery_id, delivery_state=None):
-        if self._is_closed:
-            raise ValueError("Link already closed.")
-        self._outgoing_DISPOSITION(delivery_id, delivery_state)

@@ -90,6 +90,10 @@ class Session(object):
         for link in self.links.values():
             link._on_session_state_change()
 
+    def _evaluate_timeout(self):
+        for link in self.links.values():
+            link._evaluate_timeout()
+
     def _on_connection_state_change(self):
         if self._connection.state == ConnectionState.CLOSE_RCVD or self._connection.state == ConnectionState.END:
             self._set_state(SessionState.DISCARDING)
@@ -135,7 +139,7 @@ class Session(object):
 
     def _outgoing_END(self, error=None):
         end_frame = EndFrame(error=error)
-        self._connection._outgoing_END(self.channel, end_frame)
+        self._connection._process_outgoing_frame(self.channel, end_frame)
 
     def _incoming_END(self, frame):
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
@@ -178,10 +182,11 @@ class Session(object):
         self.remote_incoming_window = remote_incoming_id + frame.incoming_window - self.next_outgoing_id
         self.remote_outgoing_window = frame.outgoing_window
         if frame.handle:
-            self._input_handles[frame.handle].incoming_frame(frame)
-        for link in self._output_handles.values():
-            if self.remote_incoming_window > 0:
-                link._incoming_FLOW(frame)
+            self._input_handles[frame.handle]._incoming_FLOW(frame)
+        else:
+            for link in self._output_handles.values():
+                if self.remote_incoming_window > 0 and not link._is_closed:
+                    link._incoming_FLOW(frame)
 
     def _outgoing_TRANSFER(self, delivery):
         if self.state != SessionState.MAPPED:

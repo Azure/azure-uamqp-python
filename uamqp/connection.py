@@ -136,7 +136,8 @@ class Connection(object):
                     received = self.transport.receive_frame(**kwargs)
             else:
                 received = self.transport.receive_frame(**kwargs)
-            self.last_frame_received_time = time.time()
+            if received[1]:
+                self.last_frame_received_time = time.time()
             return received
         _LOGGER.warning("Cannot read frame in current state: {}".format(self.state))
 
@@ -196,7 +197,7 @@ class Connection(object):
             hostname=self.hostname,
             max_frame_size=self.max_frame_size,
             channel_max=self.channel_max,
-            idle_timeout=self.idle_timeout * 1000 if self.idle_timeout else None,  # Convert to milliseconds
+            idle_timeout=None,#self.idle_timeout * 1000 if self.idle_timeout else None,  # Convert to milliseconds
             outgoing_locales=self.outgoing_locales,
             incoming_locales=self.incoming_locales,
             offered_capabilities=self.offered_capabilities if self.state == ConnectionState.OPEN_RCVD else None,
@@ -246,9 +247,9 @@ class Connection(object):
             self._set_state(ConnectionState.END)
             return
         if channel > self.channel_max:
-            _LOGGER("Invalid channel")
+            _LOGGER.error("Invalid channel")
         if frame.error:
-            _LOGGER("Connection error: {}".format(frame.error))
+            _LOGGER.error("Connection error: {}".format(frame.error))
         self._set_state(ConnectionState.CLOSE_RCVD)
         self._outgoing_CLOSE()
         self._disconnect()
@@ -269,8 +270,8 @@ class Connection(object):
             self.incoming_endpoints[channel]._incoming_END(frame)
         except KeyError:
             pass  # TODO: channel error
-        self.incoming_endpoints.pop(channel)
-        self.outgoing_endpoints.pop(channel)
+        #self.incoming_endpoints.pop(channel)  # TODO
+        #self.outgoing_endpoints.pop(channel)  # TODO
 
     def _process_incoming_frame(self, channel, frame):
         try:
@@ -283,11 +284,11 @@ class Connection(object):
             getattr(self.incoming_endpoints[channel], process)(frame)
             return
         except NameError:
-            pass  # Empty Frame
+            pass  # Empty Frame or socket timeout
         except KeyError:
             pass  #TODO: channel error
         except AttributeError:
-            _LOGGER.error("Unrecognized incoming frame: {}".format(e))
+            _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
 
     def _process_outgoing_frame(self, channel, frame):
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
@@ -310,11 +311,15 @@ class Connection(object):
         return False
 
     def listen(self, timeout=None, **kwargs):
+        new_frame = self._read_frame(timeout=timeout)
+        if not new_frame:
+            raise ValueError("Connection closed.")
+        self._process_incoming_frame(*new_frame)
         now = time.time()
-        if not self._get_local_timeout(now) and not self._get_remote_timeout(now):
-            self._process_incoming_frame(*self._read_frame(timeout=timeout))
-        else:
-            self.close(error=None)  # timeout
+        for session in self.outgoing_endpoints.values():
+            session._evaluate_timeout()
+        if self._get_local_timeout(now) or self._get_remote_timeout(now):
+            self._outgoing_CLOSE(error=None)  # timeout
 
     def begin_session(self, session=None, block=True, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()

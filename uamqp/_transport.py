@@ -353,14 +353,17 @@ class _AbstractTransport(object):
             raise
 
     def receive_frame(self, verify_frame_type=0):
-        header, channel, payload, offset = self.read(verify_frame_type=verify_frame_type) 
-        if payload is None:
-            decoded = decode_empty_frame(header)
-        else:
-            decoded = decode_frame(payload, offset - 2)
-            # TODO: Catch decode error and return amqp:decode-error
-        _LOGGER.info("ICH%d <- %r", channel, decoded)
-        return channel, decoded
+        try:
+            header, channel, payload, offset = self.read(verify_frame_type=verify_frame_type) 
+            if not payload:
+                decoded = decode_empty_frame(header)
+            else:
+                decoded = decode_frame(payload, offset - 2)
+                # TODO: Catch decode error and return amqp:decode-error
+            _LOGGER.info("ICH%d <- %r", channel, decoded)
+            return channel, decoded
+        except socket.timeout:
+            return None, None
 
     def send_frame(self, channel, frame):
         header, performative = encode_frame(frame)

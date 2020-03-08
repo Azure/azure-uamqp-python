@@ -14,7 +14,7 @@ import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
-from .performatives import Performative, HeaderFrame
+from .performatives import Performative, HeaderFrame, TransferFrame
 from .message import Header, Properties, BareMessage
 
 
@@ -556,6 +556,9 @@ def encode_frame(frame):
 
     frame_description = describe_performative(frame)
     frame_data = encode_value(b"", frame_description)
+    if isinstance(frame, TransferFrame):
+        frame_data += frame._payload
+
     size = len(frame_data) + 8
     header = size.to_bytes(4, 'big') + frame.FRAME_OFFSET + frame.FRAME_TYPE
     return header, frame_data
