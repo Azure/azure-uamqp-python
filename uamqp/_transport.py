@@ -182,6 +182,31 @@ class _AbstractTransport(object):
                 if timeout != prev:
                     sock.settimeout(prev)
 
+    @contextmanager
+    def non_blocking(self):
+        non_bocking_timeout = 0.0
+        sock = self.sock
+        prev = sock.gettimeout()
+        if prev != non_bocking_timeout:
+            sock.settimeout(non_bocking_timeout)
+        try:
+            yield self.sock
+        except SSLError as exc:
+            if 'timed out' in str(exc):
+                # http://bugs.python.org/issue10272
+                raise socket.timeout()
+            elif 'The operation did not complete' in str(exc):
+                # Non-blocking SSL sockets can throw SSLError
+                raise socket.timeout()
+            raise
+        except socket.error as exc:
+            if get_errno(exc) == errno.EWOULDBLOCK:
+                raise socket.timeout()
+            raise
+        finally:
+            if non_bocking_timeout != prev:
+                sock.settimeout(prev)
+
     def _connect(self, host, port, timeout):
         e = None
 

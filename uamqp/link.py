@@ -88,7 +88,7 @@ class Link(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Link '{}' state changed: {} -> {}".format(self.name, previous_state, new_state))
+        _LOGGER.info("Link '%s' state changed: %r -> %r", self.name, previous_state, new_state)
 
     def _evaluate_timeout(self):
         pass

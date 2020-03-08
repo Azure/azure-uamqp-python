@@ -9,9 +9,8 @@ except Exception:
     from urllib.parse import quote_plus
 
 import uamqp
-from uamqp import authentication
-
-from live_settings import config as live_eventhub_config
+from uamqp.sasl import SASLPlainCredential
+from legacy_test.live_settings import config as live_eventhub_config
 
 #logging.basicConfig(level=logging.INFO)
 
@@ -24,7 +23,7 @@ parser.add_argument("-l", "--link_credit", help="Link credit", default=5000, typ
 parser.add_argument("-v", "--verbose", help="Enable verbose output", action="store_false")
 parser.add_argument("-t", "--run_type", help="1 for sync receive with multiple threads,"
                                              " 2 for sync receive with single thread, 3 for async receive", default=2, type=int)
-parser.add_argument("-w", "--wait_timeout", help="timeout when receive, unit is milliseconds", default=20, type=int)
+parser.add_argument("-w", "--wait_timeout", help="timeout when receive, unit is milliseconds", default=0.02, type=int)
 
 args = parser.parse_args()
 
@@ -90,17 +89,14 @@ async def client_receive_async(args, client, partition):
 
 def create_and_open_receive_client(args, partition, clients_arr=None):
     print("Creating and opening receive client:{}".format(partition))
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
-        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
-
+    creds = SASLPlainCredential(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],
         live_eventhub_config['event_hub'],
         '$default',
         str(partition))
     global_msg_cnt_dict[partition] = 0
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=args.link_credit)
+    receive_client = uamqp.ReceiveClient(live_eventhub_config['hostname'], source, auth=creds, idle_timeout=5, prefetch=args.link_credit)
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
@@ -203,7 +199,7 @@ async def async_create_and_open_receive_client(args, partition):
         '$default',
         partition)
 
-    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, debug=False, timeout=5000, prefetch=args.link_credit)
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, debug=True, timeout=5000, prefetch=args.link_credit)
     await receive_client.open_async()
     while not await receive_client.client_ready_async():
         await asyncio.sleep(0.05)

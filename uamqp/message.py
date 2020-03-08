@@ -188,9 +188,9 @@ class BareMessage(object):
     }
 
     def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None, **kwargs):
-        self._data_body = kwargs.get('_data_body')
-        self._sequence_body = kwargs.get('_sequence_body')
-        self._value_body = kwargs.get('_value_body')
+        data = kwargs.get('_data_body') or data
+        sequence = kwargs.get('_sequence_body') or sequence
+        value = kwargs.get('_value_body') or value
         if data:
             self.body_type = MessageBodyType.DATA
             self._data_body = data

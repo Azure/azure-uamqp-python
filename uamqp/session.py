@@ -86,7 +86,7 @@ class Session(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Session '{}' state changed: {} -> {}".format(self.name, previous_state, new_state))
+        _LOGGER.info("Session '%s' state changed: %r -> %r", self.name, previous_state, new_state)
         for link in self.links.values():
             link._on_session_state_change()
 

@@ -30,6 +30,9 @@ log = get_logger(logging.DEBUG)
 def message_send_complete(message, reason, state):
     print("MESSAGE SEND COMPLETE", reason, state)
 
+def message_received(message):
+    print("MESSAGE RECEIVED", str(message.body))
+
 def main():
     creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])
     c = Connection(
@@ -37,7 +40,8 @@ def main():
         transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
         max_frame_size=65536,
         channel_max=65535,
-        idle_timeout=10)
+        idle_timeout=10,
+        read_timeout=0.0)
 
     c.open()
     session = c.begin_session(
@@ -51,11 +55,12 @@ def main():
         send_settle_mode='UNSETTLED',
         rcv_settle_mode='SECOND'
     )
-    c.listen()
+    while link.state.value != 3: #'ATTACHED':
+        print(link.state.value)
+        c.listen()
     for i in range(2):
         message = BareMessage(data=b'HelloFromPython')
         link.send_transfer(message, on_send_complete=message_send_complete, timeout=2)
-    time.sleep(2)
     c.listen(timeout=2)
     c.listen(timeout=2)
     c.listen(timeout=3)
@@ -70,9 +75,11 @@ def main():
         send_settle_mode='UNSETTLED',
         rcv_settle_mode='SECOND',
         max_message_size=1048576,
+        on_message_received=message_received,
     )
     while True:
-        c.listen(timeout=2)
+        print("LISTENING")
+        c.listen(wait=2)
     print("DETACHING RECEIVER")
     session.detach_link(link, close=True)
     c.listen()

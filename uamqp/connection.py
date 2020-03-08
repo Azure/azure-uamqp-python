@@ -99,7 +99,7 @@ class Connection(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Connection '{}' state changed: {} -> {}".format(self.container_id, previous_state, new_state))
+        _LOGGER.info("Connection '%s' state changed: %r -> %r", self.container_id, previous_state, new_state)
         for session in self.outgoing_endpoints.values():
             session._on_connection_state_change()
 
@@ -129,17 +129,21 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    def _read_frame(self, timeout=None, **kwargs):
+    def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
-            if timeout:
-                with self.transport.having_timeout(timeout):
+            if wait == False:
+                with self.transport.non_blocking():
                     received = self.transport.receive_frame(**kwargs)
-            else:
+            elif wait == True:
                 received = self.transport.receive_frame(**kwargs)
+            else:
+                with self.transport.having_timeout(timeout=wait):
+                    received = self.transport.receive_frame(**kwargs)
+     
             if received[1]:
                 self.last_frame_received_time = time.time()
             return received
-        _LOGGER.warning("Cannot read frame in current state: {}".format(self.state))
+        _LOGGER.warning("Cannot read frame in current state: %r", self.state)
 
     def _can_write(self):
         # type: () -> bool
@@ -160,7 +164,7 @@ class Connection(object):
                     self.transport.send_frame(channel, frame, **kwargs)
             self.transport.send_frame(channel, frame, **kwargs)
         else:
-            _LOGGER.warning("Cannot write frame in current state: {}".format(self.state))
+            _LOGGER.warning("Cannot write frame in current state: %r", self.state)
 
     def _get_next_outgoing_channel(self):
         # type: () -> int
@@ -284,7 +288,7 @@ class Connection(object):
             getattr(self.incoming_endpoints[channel], process)(frame)
             return
         except NameError:
-            pass  # Empty Frame or socket timeout
+            time.sleep(0.1)  # Empty Frame or socket timeout
         except KeyError:
             pass  #TODO: channel error
         except AttributeError:
@@ -310,16 +314,19 @@ class Connection(object):
                 self._outgoing_EMPTY()
         return False
 
-    def listen(self, timeout=None, **kwargs):
-        new_frame = self._read_frame(timeout=timeout)
+    def listen(self, wait=False, **kwargs):
+        if self.state == ConnectionState.END:
+            raise ValueError("Connection closed.")
+        new_frame = self._read_frame(wait=wait)
         if not new_frame:
             raise ValueError("Connection closed.")
         self._process_incoming_frame(*new_frame)
-        now = time.time()
-        for session in self.outgoing_endpoints.values():
-            session._evaluate_timeout()
-        if self._get_local_timeout(now) or self._get_remote_timeout(now):
-            self._outgoing_CLOSE(error=None)  # timeout
+        if self.state not in [ConnectionState.OC_PIPE, ConnectionState.CLOSE_PIPE, ConnectionState.DISCARDING, ConnectionState.CLOSE_SENT]:
+            now = time.time()
+            for session in self.outgoing_endpoints.values():
+                session._evaluate_timeout()
+            if self._get_local_timeout(now) or self._get_remote_timeout(now):
+                self.close(error=None, wait=wait)  # timeout
 
     def begin_session(self, session=None, block=True, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()
@@ -331,27 +338,31 @@ class Connection(object):
             session.begin(block=False)
         return session
 
-    def end_session(self, session, block=True, **kwargs):
+    def end_session(self, session, wait=True, **kwargs):
+        if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
+            return
         try:
-            if block and not self.allow_pipelined_open:
+            if wait and not self.allow_pipelined_open:
                 self.outgoing_endpoints[session.channel].end()
             else:
                 self.outgoing_endpoints[session.channel].end(block=False)
         except KeyError:
             raise ValueError("No running session that matches input value.")
 
-    def open(self, block=True):
+    def open(self, wait=True):
         self._connect()
         self._outgoing_OPEN()
         if self.state == ConnectionState.HDR_EXCH:
             self._set_state(ConnectionState.OPEN_SENT)
         elif self.state == ConnectionState.HDR_SENT:
             self._set_state(ConnectionState.OPEN_PIPE)
-        if block and not self.allow_pipelined_open:  # TODO: timeout
+        if wait and not self.allow_pipelined_open:  # TODO: timeout
             while self.state != ConnectionState.OPENED:
                 self.listen()
 
-    def close(self, error=None, block=True):
+    def close(self, error=None, wait=True):
+        if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
+            return
         self._outgoing_CLOSE(error=error)
         if self.state == ConnectionState.OPEN_PIPE:
             self._set_state(ConnectionState.OC_PIPE)
@@ -361,6 +372,6 @@ class Connection(object):
             self._set_state(ConnectionState.DISCARDING)
         else:
             self._set_state(ConnectionState.CLOSE_SENT)
-        if block:  # TODO: block for a timeout
+        if wait:  # TODO: block for a timeout
             while self.state != ConnectionState.END:
                 self.listen()

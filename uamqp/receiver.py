@@ -38,10 +38,20 @@ class ReceiverLink(Link):
         role = 'RECEIVER'
         target = kwargs.pop('target', None) or Target(address="receiver-link-{}".format(name))
         super(ReceiverLink, self).__init__(session, handle, name, role, source, target, **kwargs)
-
+        self.on_message_received = kwargs.get('on_message_received')
+        self.on_transfer_received = kwargs.get('on_transfer_received')
+        if not self.on_message_received and not self.on_transfer_received:
+            raise ValueError("Must specify either a message or transfer handler.")
 
     def _process_incoming_message(self, frame, message):
-        pass
+        try:
+            if self.on_message_received:
+                return self.on_message_received(message)
+            elif self.on_transfer_received:
+                return self.on_transfer_received(frame, message)
+        except Exception as e:
+            _LOGGER.error("Handler function failed with error: %r", e)
+        return None
 
     def _incoming_ATTACH(self, frame):
         super(ReceiverLink, self)._incoming_ATTACH(frame)
