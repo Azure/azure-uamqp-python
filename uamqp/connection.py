@@ -27,6 +27,13 @@ from .constants import (
 
 
 _LOGGER = logging.getLogger(__name__)
+_CLOSING_STATES = (
+    ConnectionState.OC_PIPE,
+    ConnectionState.CLOSE_PIPE,
+    ConnectionState.DISCARDING,
+    ConnectionState.CLOSE_SENT,
+    ConnectionState.END
+)
 
 
 class Connection(object):
@@ -131,6 +138,7 @@ class Connection(object):
 
     def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
+            print("listening")
             if wait == False:
                 received = self.transport.receive_frame(**kwargs)
             elif wait == True:
@@ -148,13 +156,7 @@ class Connection(object):
     def _can_write(self):
         # type: () -> bool
         """Whether the connection is in a state where it is legal to write outgoing frames."""
-        return self.state not in (
-            ConnectionState.CLOSE_PIPE,
-            ConnectionState.OC_PIPE,
-            ConnectionState.CLOSE_SENT,
-            ConnectionState.DISCARDING,
-            ConnectionState.END
-        )
+        return self.state not in _CLOSING_STATES
 
     def _send_frame(self, channel, frame, timeout=None, **kwargs):
         if self._can_write():
@@ -300,13 +302,13 @@ class Connection(object):
         if self.state not in [ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
         self._send_frame(channel, frame)
-    
+
     def _get_local_timeout(self, now):
         if self.idle_timeout:
             time_since_last_received = now - self.last_frame_received_time
             return time_since_last_received > self.idle_timeout
         return False
-    
+
     def _get_remote_timeout(self, now):
         if self.remote_idle_timeout:
             time_since_last_sent = now - self.last_frame_sent_time
@@ -317,11 +319,11 @@ class Connection(object):
     def listen(self, wait=False, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
-        new_frame = self._read_frame(wait=wait)
+        new_frame = self._read_frame(wait=wait, **kwargs)
         if not new_frame:
             raise ValueError("Connection closed.")
         self._process_incoming_frame(*new_frame)
-        if self.state not in [ConnectionState.OC_PIPE, ConnectionState.CLOSE_PIPE, ConnectionState.DISCARDING, ConnectionState.CLOSE_SENT]:
+        if self.state not in _CLOSING_STATES:
             now = time.time()
             for session in self.outgoing_endpoints.values():
                 session._evaluate_status()
