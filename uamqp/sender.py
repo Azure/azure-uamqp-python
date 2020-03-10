@@ -59,13 +59,14 @@ class SenderLink(Link):
         super(SenderLink, self).__init__(session, handle, name, role, source, target, **kwargs)
         self._unsent_messages = []
 
-    def _evaluate_timeout(self):
+    def _evaluate_status(self):
+        super(SenderLink, self)._evaluate_status()
         self._update_pending_delivery_status()
 
     def _incoming_ATTACH(self, frame):
         super(SenderLink, self)._incoming_ATTACH(frame)
         self.current_link_credit = 0
-        self._update_pending_delivery_status()
+        self._evaluate_status()
 
     def _incoming_FLOW(self, frame):
         rcv_link_credit = frame.link_credit
@@ -115,9 +116,6 @@ class SenderLink(Link):
 
     def _update_pending_delivery_status(self):
         now = time.time()
-        if self.current_link_credit <= 0:
-            self.current_link_credit = self.link_credit
-            self._outgoing_FLOW()
         expired = []
         for delivery in self._pending_deliveries.values():
             if delivery.timeout and (now - delivery.start) >= delivery.timeout:

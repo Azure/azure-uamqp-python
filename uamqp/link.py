@@ -90,8 +90,10 @@ class Link(object):
         self.state = new_state
         _LOGGER.info("Link '%s' state changed: %r -> %r", self.name, previous_state, new_state)
 
-    def _evaluate_timeout(self):
-        pass
+    def _evaluate_status(self):
+        if self.current_link_credit <= 0:
+            self.current_link_credit = self.link_credit
+            self._outgoing_FLOW()
 
     def _remove_pending_deliveries(self):  # TODO: move to sender
         for delivery in self._pending_deliveries.values():

@@ -90,9 +90,9 @@ class Session(object):
         for link in self.links.values():
             link._on_session_state_change()
 
-    def _evaluate_timeout(self):
+    def _evaluate_status(self):
         for link in self.links.values():
-            link._evaluate_timeout()
+            link._evaluate_status()
 
     def _on_connection_state_change(self):
         if self._connection.state == ConnectionState.CLOSE_RCVD or self._connection.state == ConnectionState.END:
@@ -240,7 +240,7 @@ class Session(object):
         self._set_state(SessionState.BEGIN_SENT)
         if block:  # TODO: timeout
             while self.state == SessionState.BEGIN_SENT:
-                self._connection.listen()
+                self._connection.listen(wait=False)
 
     def end(self, error=None, block=True):
         # type: (Optional[AMQPError]) -> None
@@ -251,7 +251,7 @@ class Session(object):
         self._set_state(new_state)
         if block:  # TODO: timeout
             while self.state == new_state:
-                self._connection.listen()
+                self._connection.listen(wait=False)
 
     def attach_receiver_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
