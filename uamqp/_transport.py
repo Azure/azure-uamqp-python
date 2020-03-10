@@ -128,6 +128,7 @@ class _AbstractTransport(object):
         self.connected = False
         self.sock = None
         self.raise_on_initial_eintr = raise_on_initial_eintr
+        self._read_buffer = EMPTY_BUFFER
         self.host, self.port = to_host_port(host)
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
@@ -302,7 +303,7 @@ class _AbstractTransport(object):
         #             pack('ll', sec, usec),
         #         )
         self._setup_transport()
-        self.sock.settimeout(0.0)  # set socket back to non-blocking mode
+        self.sock.settimeout(0.1)  # set socket back to non-blocking mode
 
     def _get_tcp_socket_defaults(self, sock):
         tcp_opts = {}
@@ -361,16 +362,21 @@ class _AbstractTransport(object):
 
     def read(self, unpack=unpack_frame_header, verify_frame_type=0):
         read = self._read
+        read_frame_buffer = EMPTY_BUFFER
         try:
+            print("READING header")
             frame_header = read(8, initial=True)
+            read_frame_buffer += frame_header
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
+                print("RETURNING header")
                 return frame_header, channel, None, offset  # Empty frame or header
             #if verify_frame_type is not None and frame_type != verify_frame_type:
             #    raise ValueError("Received unexpected frame type: {}".format(frame_type))
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
+            print("READING payload", size, frame_header)
             offset_size = size - 8  # Size without frameheader
             payload = bytearray(offset_size)
             if size > SIGNED_INT_MAX:
@@ -378,7 +384,9 @@ class _AbstractTransport(object):
                 read(offset_size - SIGNED_INT_MAX, buffer=payload)
             else:
                 read(offset_size, buffer=payload)
+            read_frame_buffer += payload
         except socket.timeout:
+            self._read_buffer = read_frame_buffer + self._read_buffer
             raise
         except (OSError, IOError, SSLError, socket.error) as exc:
             # Don't disconnect for ssl read time outs
@@ -388,6 +396,7 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
+        print("RETURNING frame")
         return frame_header, channel, payload, offset
 
     def write(self, s):
@@ -433,6 +442,7 @@ class SSLTransport(_AbstractTransport):
 
     def __init__(self, host, connect_timeout=None, ssl=None, **kwargs):
         self.sslopts = ssl if isinstance(ssl, dict) else {}
+        self._read_buffer = EMPTY_BUFFER
         super(SSLTransport, self).__init__(
             host, connect_timeout=connect_timeout, **kwargs)
 
@@ -515,13 +525,17 @@ class SSLTransport(_AbstractTransport):
         # According to SSL_read(3), it can at most return 16kb of data.
         # Thus, we use an internal read buffer like TCPTransport._read
         # to get the exact number of bytes wanted.
+        rbuf = self._read_buffer
         byte_buffer = buffer or bytearray(toread)
         view = memoryview(byte_buffer)
+        print("Starting frame read")
         try:
             while toread:
+                print("Still reading", toread)
                 try:
                     nbytes = self.sock.recv_into(view, toread)
                 except socket.error as exc:
+                    print("Ignoring error", exc)
                     # ssl.sock.read may cause a SSLerror without errno
                     # http://bugs.python.org/issue10272
                     if isinstance(exc, SSLError) and 'timed out' in str(exc):
