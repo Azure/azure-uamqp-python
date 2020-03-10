@@ -182,9 +182,12 @@ class AMQPClient(object):
         self._shutdown = True
         if not self._session:
             return  # already closed.
-        self._connection.end_session(self._session)
+        if self._link:
+            self._session.detach_link(self._link, close=True)
+            self._link = None
+        self._connection.end_session(self._session, wait=False)
         self._session = None
-        self._connection.close()
+        self._connection.close(wait=False)
 
     def auth_complete(self):
         """Whether the authentication handshake is complete during
@@ -779,18 +782,15 @@ class ReceiveClient(AMQPClient):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            while receiving and self._received_messages.qsize() < max_batch_size:
+            while receiving:
                 if timeout and time.time() > timeout:
                     expired = True
                     break
-                before = self._received_messages.qsize()
                 receiving = self.do_work()
-                received = self._received_messages.qsize() - before
-                if self._received_messages.qsize() > 0 and received == 0:
-                    # No new messages arrived, but we have some - so return what we have.
-                    expired = True
+            while len(batch) < max_batch_size:
+                try:
+                    batch.append(self._received_messages.get_nowait())
+                    self._received_messages.task_done()
+                except queue.Empty:
                     break
-            while not self._received_messages.empty() and len(batch) < max_batch_size:
-                batch.append(self._received_messages.get())
-                self._received_messages.task_done()
         return batch
