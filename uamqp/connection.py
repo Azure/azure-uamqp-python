@@ -111,7 +111,7 @@ class Connection(object):
         self._outgoing_HEADER()
         self._set_state(ConnectionState.HDR_SENT)
         if not self.allow_pipelined_open:
-            self._process_incoming_frame(*self._read_frame())
+            self._process_incoming_frame(*self._read_frame(wait=True))
             if self.state != ConnectionState.HDR_EXCH:
                 self._disconnect()
                 raise ValueError("Did not receive reciprocal protocol header. Disconnecting.")
@@ -132,12 +132,12 @@ class Connection(object):
     def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                with self.transport.non_blocking():
-                    received = self.transport.receive_frame(**kwargs)
-            elif wait == True:
                 received = self.transport.receive_frame(**kwargs)
+            elif wait == True:
+                with self.transport.block():
+                    received = self.transport.receive_frame(**kwargs)
             else:
-                with self.transport.having_timeout(timeout=wait):
+                with self.transport.block_with_timeout(timeout=wait):
                     received = self.transport.receive_frame(**kwargs)
      
             if received[1]:
@@ -160,7 +160,7 @@ class Connection(object):
         if self._can_write():
             self.last_frame_sent_time = time.time()
             if timeout:
-                with self.transport.having_timeout(timeout):
+                with self.transport.block_with_timeout(timeout):
                     self.transport.send_frame(channel, frame, **kwargs)
             self.transport.send_frame(channel, frame, **kwargs)
         else:
@@ -324,7 +324,7 @@ class Connection(object):
         if self.state not in [ConnectionState.OC_PIPE, ConnectionState.CLOSE_PIPE, ConnectionState.DISCARDING, ConnectionState.CLOSE_SENT]:
             now = time.time()
             for session in self.outgoing_endpoints.values():
-                session._evaluate_timeout()
+                session._evaluate_status()
             if self._get_local_timeout(now) or self._get_remote_timeout(now):
                 self.close(error=None, wait=wait)  # timeout
 
@@ -358,7 +358,7 @@ class Connection(object):
             self._set_state(ConnectionState.OPEN_PIPE)
         if wait and not self.allow_pipelined_open:  # TODO: timeout
             while self.state != ConnectionState.OPENED:
-                self.listen()
+                self.listen(wait=False)
 
     def close(self, error=None, wait=True):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
@@ -374,4 +374,4 @@ class Connection(object):
             self._set_state(ConnectionState.CLOSE_SENT)
         if wait:  # TODO: block for a timeout
             while self.state != ConnectionState.END:
-                self.listen()
+                self.listen(wait=False)

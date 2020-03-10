@@ -74,26 +74,27 @@ class SASLTransport(SSLTransport):
         super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
     def negotiate(self):
-        self.send_frame(0, SASLHeaderFrame())
-        _, returned_header = self.receive_frame()
-        if not isinstance(returned_header, SASLHeaderFrame):
-            raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
-                SASLHeaderFrame.CODE, returned_header.CODE))
+        with self.block():
+            self.send_frame(0, SASLHeaderFrame())
+            _, returned_header = self.receive_frame()
+            if not isinstance(returned_header, SASLHeaderFrame):
+                raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
+                    SASLHeaderFrame.CODE, returned_header.CODE))
 
-        _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
-        if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
-            raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
-        sasl_init = SASLInit(
-            mechanism=self.credential.mechanism,
-            initial_response=self.credential.start(),
-            hostname=self.host)
-        self.send_frame(0, sasl_init)
+            _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
+            if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
+                raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
+            sasl_init = SASLInit(
+                mechanism=self.credential.mechanism,
+                initial_response=self.credential.start(),
+                hostname=self.host)
+            self.send_frame(0, sasl_init)
 
-        _, next_frame = self.receive_frame(verify_frame_type=1)
-        if not isinstance(next_frame, SASLOutcome):
-            raise NotImplementedError("Unsupport SASL challenge")
-        if next_frame.code == SASLCode.ok:
-            return
-        else:
-            raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(
-                next_frame.code, next_frame.additional_data))
+            _, next_frame = self.receive_frame(verify_frame_type=1)
+            if not isinstance(next_frame, SASLOutcome):
+                raise NotImplementedError("Unsupport SASL challenge")
+            if next_frame.code == SASLCode.ok:
+                return
+            else:
+                raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(
+                    next_frame.code, next_frame.additional_data))

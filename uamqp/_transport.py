@@ -156,7 +156,7 @@ class _AbstractTransport(object):
             raise
 
     @contextmanager
-    def having_timeout(self, timeout):
+    def block_with_timeout(self, timeout):
         if timeout is None:
             yield self.sock
         else:
@@ -181,6 +181,31 @@ class _AbstractTransport(object):
             finally:
                 if timeout != prev:
                     sock.settimeout(prev)
+
+    @contextmanager
+    def block(self):
+        bocking_timeout = None
+        sock = self.sock
+        prev = sock.gettimeout()
+        if prev != bocking_timeout:
+            sock.settimeout(bocking_timeout)
+        try:
+            yield self.sock
+        except SSLError as exc:
+            if 'timed out' in str(exc):
+                # http://bugs.python.org/issue10272
+                raise socket.timeout()
+            elif 'The operation did not complete' in str(exc):
+                # Non-blocking SSL sockets can throw SSLError
+                raise socket.timeout()
+            raise
+        except socket.error as exc:
+            if get_errno(exc) == errno.EWOULDBLOCK:
+                raise socket.timeout()
+            raise
+        finally:
+            if bocking_timeout != prev:
+                sock.settimeout(prev)
 
     @contextmanager
     def non_blocking(self):
@@ -268,16 +293,17 @@ class _AbstractTransport(object):
         self._set_socket_options(socket_settings)
 
         # set socket timeouts
-        for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
-                                  (socket.SO_RCVTIMEO, read_timeout)):
-            if interval is not None:
-                sec = int(interval)
-                usec = int((interval - sec) * 1000000)
-                self.sock.setsockopt(
-                    socket.SOL_SOCKET, timeout,
-                    pack('ll', sec, usec),
-                )
+        # for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
+        #                           (socket.SO_RCVTIMEO, read_timeout)):
+        #     if interval is not None:
+        #         sec = int(interval)
+        #         usec = int((interval - sec) * 1000000)
+        #         self.sock.setsockopt(
+        #             socket.SOL_SOCKET, timeout,
+        #             pack('ll', sec, usec),
+        #         )
         self._setup_transport()
+        self.sock.settimeout(0.0)  # set socket back to non-blocking mode
 
     def _get_tcp_socket_defaults(self, sock):
         tcp_opts = {}
@@ -343,8 +369,8 @@ class _AbstractTransport(object):
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
                 return frame_header, channel, None, offset  # Empty frame or header
-            if verify_frame_type is not None and frame_type != verify_frame_type:
-                raise ValueError("Received unexpected frame type: {}".format(frame_type))
+            #if verify_frame_type is not None and frame_type != verify_frame_type:
+            #    raise ValueError("Received unexpected frame type: {}".format(frame_type))
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
@@ -538,11 +564,12 @@ class SSLTransport(_AbstractTransport):
             s = s[n:]
 
     def negotiate(self):
-        self.send_frame(0, TLSHeaderFrame())
-        channel, returned_header = self.receive_frame(verify_frame_type=None)
-        if not isinstance(returned_header, TLSHeaderFrame):
-            raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
-                TLSHeaderFrame.CODE, returned_header.CODE))
+        with self.block():
+            self.send_frame(0, TLSHeaderFrame())
+            channel, returned_header = self.receive_frame(verify_frame_type=None)
+            if not isinstance(returned_header, TLSHeaderFrame):
+                raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
+                    TLSHeaderFrame.CODE, returned_header.CODE))
 
 
 class TCPTransport(_AbstractTransport):
