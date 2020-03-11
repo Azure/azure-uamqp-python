@@ -364,26 +364,21 @@ class _AbstractTransport(object):
         read = self._read
         read_frame_buffer = EMPTY_BUFFER
         try:
-            print("READING header")
             frame_header = read(8, initial=True)
             read_frame_buffer += frame_header
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
-                print("RETURNING header")
                 return frame_header, channel, None, offset  # Empty frame or header
             #if verify_frame_type is not None and frame_type != verify_frame_type:
             #    raise ValueError("Received unexpected frame type: {}".format(frame_type))
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
-            print("READING payload", size, frame_header)
-            offset_size = size - 8  # Size without frameheader
-            payload = bytearray(offset_size)
             if size > SIGNED_INT_MAX:
-                read(SIGNED_INT_MAX, buffer=payload)
-                read(offset_size - SIGNED_INT_MAX, buffer=payload)
+                payload = read(SIGNED_INT_MAX)
+                payload += read(size - SIGNED_INT_MAX)
             else:
-                read(offset_size, buffer=payload)
+                payload = read(size - len(frame_header))
             read_frame_buffer += payload
         except socket.timeout:
             self._read_buffer = read_frame_buffer + self._read_buffer
@@ -396,7 +391,6 @@ class _AbstractTransport(object):
             if get_errno(exc) not in _UNAVAIL:
                 self.connected = False
             raise
-        print("RETURNING frame")
         return frame_header, channel, payload, offset
 
     def write(self, s):
@@ -450,6 +444,7 @@ class SSLTransport(_AbstractTransport):
         """Wrap the socket in an SSL object."""
         self.sock = self._wrap_socket(self.sock, **self.sslopts)
         a = self.sock.do_handshake()
+        self._quick_recv = self.sock.recv
 
     def _wrap_socket(self, sock, context=None, **sslopts):
         if context:
@@ -520,22 +515,18 @@ class SSLTransport(_AbstractTransport):
             except OSError:
                 pass
 
-    def _read(self, toread, initial=False, buffer=None,
+    def _read(self, n, initial=False,
               _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
         # According to SSL_read(3), it can at most return 16kb of data.
         # Thus, we use an internal read buffer like TCPTransport._read
         # to get the exact number of bytes wanted.
+        recv = self._quick_recv
         rbuf = self._read_buffer
-        byte_buffer = buffer or bytearray(toread)
-        view = memoryview(byte_buffer)
-        print("Starting frame read")
         try:
-            while toread:
-                print("Still reading", toread)
+            while len(rbuf) < n:
                 try:
-                    nbytes = self.sock.recv_into(view, toread)
+                    s = recv(n - len(rbuf))  # see note above
                 except socket.error as exc:
-                    print("Ignoring error", exc)
                     # ssl.sock.read may cause a SSLerror without errno
                     # http://bugs.python.org/issue10272
                     if isinstance(exc, SSLError) and 'timed out' in str(exc):
@@ -547,11 +538,14 @@ class SSLTransport(_AbstractTransport):
                             raise socket.timeout()
                         continue
                     raise
-                view = view[nbytes:]
-                toread -= nbytes
+                if not s:
+                    raise IOError('Server unexpectedly closed connection')
+                rbuf += s
         except:  # noqa
+            self._read_buffer = rbuf
             raise
-        return byte_buffer
+        result, self._read_buffer = rbuf[:n], rbuf[n:]
+        return result
 
     def _write(self, s):
         """Write a string out to the SSL socket fully."""
@@ -585,25 +579,32 @@ class TCPTransport(_AbstractTransport):
         # Setup to _write() directly to the socket, and
         # do our own buffered reads.
         self._write = self.sock.sendall
+        self._read_buffer = EMPTY_BUFFER
+        self._quick_recv = self.sock.recv
 
-    def _read(self, n, initial=False, buffer=None, _errnos=(errno.EAGAIN, errno.EINTR)):
+    def _read(self, n, initial=False, _errnos=(errno.EAGAIN, errno.EINTR)):
         """Read exactly n bytes from the socket."""
-        rbuf = buffer or bytearray(n)
-        received_length = 0
+        recv = self._quick_recv
+        rbuf = self._read_buffer
         try:
-            while received_length < n:
+            while len(rbuf) < n:
                 try:
-                    num_bytes = self.sock.read_into(rbuf, n - received_length)
+                    s = self.sock.read(n - len(rbuf))
                 except socket.error as exc:
                     if exc.errno in _errnos:
                         if initial and self.raise_on_initial_eintr:
                             raise socket.timeout()
                         continue
                     raise
-                received_length += num_bytes
+                if not s:
+                    raise IOError('Server unexpectedly closed connection')
+                rbuf += s
         except:  # noqa
+            self._read_buffer = rbuf
             raise
-        return rbuf
+
+        result, self._read_buffer = rbuf[:n], rbuf[n:]
+        return result
 
 
 def Transport(host, connect_timeout=None, ssl=False, **kwargs):
