@@ -104,11 +104,6 @@ class Decoder(object):
         self.decoded_value = {}
         self.constructor_byte = None
 
-    def still_working(self):
-        if self.bytes_remaining is None:
-            return self.state != DecoderState.done
-        return self.bytes_remaining > 0
-
     def progress(self, num_bytes):
         if self.bytes_remaining is None:
             return
@@ -148,12 +143,7 @@ def decode_empty_list(decoder):
 def decode_boolean(decoder, buffer):
     # type: (Decoder, IO) -> None
     data = buffer.read(1)
-    if data == b'\x00':
-        decoder.decoded_value = False
-    elif data == b'\x01':
-        decoder.decoded_value = True
-    else:
-        raise ValueError("Invalid boolean value: {}".format(data))
+    decoder.decoded_value = data == b'\x01'
     decoder.progress(1)
     decoder.state = DecoderState.done
 
@@ -522,14 +512,11 @@ def decode_described(decoder, buffer):
     decoder.state = DecoderState.done
 
 
-def decode_message_section(decoder, buffer, message):
+def decode_message_section(buffer, message):
     # type: (Decoder, IO) -> None
-    start_position = buffer.tell()
     descriptor = decode_value(buffer)
     section_type = MESSAGE_SECTIONS[descriptor]
     message[section_type] = decode_value(buffer)
-    decoder.progress(buffer.tell() - start_position)
-    decoder.state = DecoderState.done
 
 
 _CONSTUCTOR_MAP = {
@@ -574,12 +561,26 @@ _DECODE_MAP = {
 }
 
 
+def decode_array_values(buffer, count):
+    decoded_values = []
+    constructor = buffer.read(1)
+    try:
+        value = _CONSTUCTOR_MAP[constructor]()
+        return [value] * count
+    except KeyError:
+        type_decoder = _DECODE_MAP[constructor]
+        for _ in range(count):
+            decoded_values.append(type_decoder(buffer))
+    return decoded_values
+
+
+
 def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     decoder = Decoder(length=length_bytes)
     decoded_values = []
 
-    while decoder.still_working():
+    while decoder.state != DecoderState.done:
         if decoder.state == DecoderState.constructor:
             decoder.constructor_byte = buffer.read(1)
             decoder.progress(1)
@@ -587,14 +588,11 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
                 _CONSTUCTOR_MAP[decoder.constructor_byte](decoder)
             except KeyError:
                 decoder.state = DecoderState.type_data
-        elif decoder.state == DecoderState.type_data:
-            try:
-                _DECODE_MAP[decoder.constructor_byte](decoder, buffer)
-            except KeyError:
-                raise ValueError("Invalid constructor byte: {}".format(decoder.constructor_byte))
-        else:
-            raise ValueError("Invalid decoder state {}".format(decoder.state))
-        if decoder.state == DecoderState.done and (decoded_values or decoder.bytes_remaining):
+
+        if decoder.state == DecoderState.type_data:
+            _DECODE_MAP[decoder.constructor_byte](decoder, buffer)
+
+        if decoded_values or decoder.bytes_remaining:
             decoded_values.append(decoder.decoded_value)
             if sub_constructors:
                 decoder.state = DecoderState.constructor
@@ -603,11 +601,13 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
             else:
                 decoder.state = DecoderState.type_data
                 decoder.decoded_value = {}
+        if decoder.bytes_remaining == 0:
+            break
 
     if count is not None:
         items = decoded_values or [decoder.decoded_value]
-        if len(items) != count:
-            raise ValueError("Mismatching length: Expected {} items, received {}.".format(count, len(items)))     
+        #if len(items) != count:
+        #    raise ValueError("Mismatching length: Expected {} items, received {}.".format(count, len(items)))     
         return items
     return decoded_values or decoder.decoded_value
 
@@ -629,34 +629,24 @@ def decode_empty_frame(header):
     raise ValueError("Received unrecognized empty frame")
 
 
-def decode_payload(buffer, length):
+def decode_payload(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    decoder = Decoder(length)
     message = {}
-
-    while decoder.still_working():
-        if decoder.state == DecoderState.constructor:
-            decoder.constructor_byte = buffer.read(1)
-            decoder.progress(1)
-            decoder.state = DecoderState.type_data
-        elif decoder.state == DecoderState.type_data:
-            decode_message_section(decoder, buffer, message)
+    while True:
+        constructor = buffer.read(1)
+        if constructor:
+            decode_message_section(buffer, message)
         else:
-            raise ValueError("Invalid decoder state {}".format(decoder.state))
-        if decoder.state == DecoderState.done and decoder.bytes_remaining:
-            decoder.state = DecoderState.constructor
-            decoder.decoded_value = {}
-            decoder.constructor_byte = None
+            break  # Finished stream
     return message
 
 
-def decode_frame(data, size):
+def decode_frame(data):
     # type: (memoryview, int) -> namedtuple
     #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
     byte_buffer = BytesIO(data)
     descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]
     if frame_type == TransferFrame:
-        remaining_bytes = size - byte_buffer.tell()
-        fields.append(decode_payload(byte_buffer, remaining_bytes))
+        fields.append(decode_payload(byte_buffer))
     return frame_type(*fields)

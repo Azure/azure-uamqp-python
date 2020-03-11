@@ -368,7 +368,7 @@ class _AbstractTransport(object):
             read_frame_buffer.write(frame_header)
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
-                return frame_header, channel, None, offset  # Empty frame or header
+                return frame_header, channel, None  # Empty frame or header
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
@@ -393,7 +393,7 @@ class _AbstractTransport(object):
                 self.connected = False
             raise
         offset -= 2
-        return frame_header, channel, payload[offset:], payload_size - offset
+        return frame_header, channel, payload[offset:]
 
     def write(self, s):
         try:
@@ -410,11 +410,11 @@ class _AbstractTransport(object):
         max_batch_size = batch or 1
         while len(frames) < max_batch_size:
             try:
-                header, channel, payload, payload_size = self.read(verify_frame_type=verify_frame_type) 
+                header, channel, payload = self.read(verify_frame_type=verify_frame_type) 
                 if not payload:
                     decoded = decode_empty_frame(header)
                 else:
-                    decoded = decode_frame(payload, payload_size)
+                    decoded = decode_frame(payload)
                     # TODO: Catch decode error and return amqp:decode-error
                 _LOGGER.info("ICH%d <- %r", channel, decoded)
                 if not batch:
