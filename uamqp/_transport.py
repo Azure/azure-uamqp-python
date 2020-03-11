@@ -405,18 +405,25 @@ class _AbstractTransport(object):
                 self.connected = False
             raise
 
-    def receive_frame(self, verify_frame_type=0):
-        try:
-            header, channel, payload, payload_size = self.read(verify_frame_type=verify_frame_type) 
-            if not payload:
-                decoded = decode_empty_frame(header)
-            else:
-                decoded = decode_frame(payload, payload_size)
-                # TODO: Catch decode error and return amqp:decode-error
-            _LOGGER.info("ICH%d <- %r", channel, decoded)
-            return channel, decoded
-        except socket.timeout:
-            return None, None
+    def receive_frame(self, batch=None, verify_frame_type=0):
+        frames = []
+        max_batch_size = batch or 1
+        while len(frames) < max_batch_size:
+            try:
+                header, channel, payload, payload_size = self.read(verify_frame_type=verify_frame_type) 
+                if not payload:
+                    decoded = decode_empty_frame(header)
+                else:
+                    decoded = decode_frame(payload, payload_size)
+                    # TODO: Catch decode error and return amqp:decode-error
+                _LOGGER.info("ICH%d <- %r", channel, decoded)
+                if not batch:
+                    return channel, decoded
+            except socket.timeout:
+                if not batch:
+                    return None, None
+                break
+        return frames
 
     def send_frame(self, channel, frame):
         header, performative = encode_frame(frame)
