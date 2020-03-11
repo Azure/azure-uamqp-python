@@ -129,7 +129,7 @@ class Link(object):
         )
         self._session._outgoing_ATTACH(attach_frame)
 
-    def _incoming_ATTACH(self, frame):
+    def _incoming_attach(self, frame):
         if self._is_closed:
             raise ValueError("Invalid link")
         elif not frame.source or not frame.target:  # TODO: not sure if we should check here
@@ -161,7 +161,7 @@ class Link(object):
         )
         self._session._outgoing_FLOW(flow_frame)
 
-    def _incoming_FLOW(self, frame):
+    def _incoming_flow(self, frame):
         pass
 
     def _outgoing_DETACH(self, close=False, error=None):
@@ -170,7 +170,7 @@ class Link(object):
         if close:
             self._is_closed = True
 
-    def _incoming_DETACH(self, frame):
+    def _incoming_detach(self, frame):
         if self.state == LinkState.ATTACHED:
             self._outgoing_DETACH(close=frame.closed)
         elif frame.closed and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:

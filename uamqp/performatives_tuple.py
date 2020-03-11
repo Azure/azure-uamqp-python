@@ -4,7 +4,9 @@
 # license information.
 #--------------------------------------------------------------------------
 
+from collections import namedtuple
 import struct
+import sys
 
 from .types import AMQPTypes, FieldDefinition, ObjDefinition
 from .constants import (
@@ -19,50 +21,66 @@ from .constants import (
     SASL_REVISION,
     FIELD)
 
+_CAN_ADD_DOCSTRING = sys.version_info.major >= 3
+
 
 def _as_bytes(value):
     return struct.pack('>B', value)
 
 
-
 class HeaderFrame(object):
     """AMQP Header protocol negotiation."""
 
+    __name__ = 'header'
     CODE = b"AMQP\x00"
 
-    def __init__(self, header=None, **kwargs):
+    def __init__(self, header=None):
         self.version = "{}.{}.{}".format(MAJOR, MINOR, REVISION)
         self.header = self.CODE + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
         if header and header != self.header:
             raise ValueError("Mismatching AMQP protocol version.")
 
 
-class SASLHeaderFrame(object):
+class SASLHeaderFrame(HeaderFrame):
     """SASL Header protocol negotiation."""
 
     CODE = b"AMQP\x03"
 
-    def __init__(self, header=None, **kwargs):
+    def __init__(self, header=None):
         self.version = "{}.{}.{}".format(SASL_MAJOR, SASL_MINOR, SASL_REVISION)
         self.header = self.CODE + _as_bytes(SASL_MAJOR) + _as_bytes(SASL_MINOR) + _as_bytes(SASL_REVISION)
         if header and header != self.header:
             raise ValueError("Mismatching AMQP SASL protocol version.")
 
 
-class TLSHeaderFrame(object):
+class TLSHeaderFrame(HeaderFrame):
     """SASL Header protocol negotiation."""
 
     CODE = b"AMQP\x02"
 
-    def __init__(self, header=None, **kwargs):  # pylint: disable=super-init-not-called
+    def __init__(self, header=None):
         self.version = "{}.{}.{}".format(TLS_MAJOR, TLS_MINOR, TLS_REVISION)
         self.header = self.CODE + _as_bytes(TLS_MAJOR) + _as_bytes(TLS_MINOR) + _as_bytes(TLS_REVISION)
         if header and header != self.header:
             raise ValueError("Mismatching AMQP TLS protocol version.")
 
 
-class OpenFrame(Performative):
-    """OPEN performative. Negotiate Connection parameters.
+OpenFrame = namedtuple(
+    'open',
+    [
+        'container_id',
+        'hostname',
+        'max_frame_size',
+        'channel_max',
+        'idle_timeout',
+        'outgoing_locales',
+        'incoming_locales',
+        'offered_capabilities',
+        'desired_capabilities',
+        'properties'
+    ])
+if _CAN_ADD_DOCSTRING:
+    OpenFrame.__doc__ = """OPEN performative. Negotiate Connection parameters.
 
     The first frame sent on a connection in either direction MUST contain an Open body.
     (Note that theConnection header which is sent first on the Connection is *not* a frame.)
@@ -88,7 +106,7 @@ class OpenFrame(Performative):
         is the maximum number of Sessions that can be simultaneously active on the Connection. A peer MUST not use
         channel numbers outside the range that its partner can handle. A peer that receives a channel number
         outside the supported range MUST close the Connection with the framing-error error-code.
-    :param timedelta idle_timeout: Idle time-out in milliseconds.
+    :param int idle_timeout: Idle time-out in milliseconds.
         The idle time-out required by the sender. A value of zero is the same as if it was not set (null). If the
         receiver is unable or unwilling to support the idle time-out then it should close the connection with
         an error explaining why (eg, because it is too small). If the value is not set, then the sender does not
@@ -121,24 +139,22 @@ class OpenFrame(Performative):
         container. A list of commonly defined connection properties and their meanings can be found
         here: http://www.amqp.org/specification/1.0/connection-properties.
     """
-    NAME = "OPEN"
-    CODE = 0x00000010
-    DEFINITION = (
-        FIELD("container_id", AMQPTypes.string, True, None, False),
-        FIELD("hostname", AMQPTypes.string, False, None, False),
-        FIELD("max_frame_size", AMQPTypes.uint, False, 4294967295, False),
-        FIELD("channel_max", AMQPTypes.ushort, False, 65535, False),
-        FIELD("idle_timeout", AMQPTypes.uint, False, None, False),
-        FIELD("outgoing_locales", FieldDefinition.ietf_language_tag, False, None, True),
-        FIELD("incoming_locales", FieldDefinition.ietf_language_tag, False, None, True),
-        FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("properties", FieldDefinition.fields, False, None, False),
-    )
 
 
-class BeginFrame(Performative):
-    """BEGING performative. Begin a Session on a channel.
+BeginFrame = namedtuple(
+    'begin',
+    [
+        'remote_channel',
+        'next_outgoing_id',
+        'incoming_window',
+        'outgoing_window',
+        'handle_max',
+        'offered_capabilities',
+        'desired_capabilities',
+        'properties'
+    ])
+if _CAN_ADD_DOCSTRING:
+    BeginFrame.__doc__ = """BEGIN performative. Begin a Session on a channel.
 
     Indicate that a Session has begun on the channel.
 
@@ -172,22 +188,28 @@ class BeginFrame(Performative):
         container. A list of commonly defined session properties and their meanings can be found
         here: http://www.amqp.org/specification/1.0/session-properties.
     """
-    NAME = "BEGIN"
-    CODE = 0x00000011
-    DEFINITION = (
-        FIELD("remote_channel", AMQPTypes.ushort, False, None, False),
-        FIELD("next_outgoing_id", FieldDefinition.transfer_number, True, None, False),
-        FIELD("incoming_window", AMQPTypes.uint, True, None, False),
-        FIELD("outgoing_window", AMQPTypes.uint, True, None, False),
-        FIELD("handle_max", FieldDefinition.handle, False, 4294967295, False),
-        FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("properties", FieldDefinition.fields, False, None, False),
-    )
 
 
-class AttachFrame(Performative):
-    """ATTACH performative. Attach a Link to a Session.
+AttachFrame = namedtuple(
+    'attach',
+    [
+        'name',
+        'handle',
+        'role',
+        'send_settle_mode',
+        'rcv_settle_mode',
+        'source',
+        'target',
+        'unsettled',
+        'incomplete_unsettled',
+        'initial_delivery_count',
+        'max_message_size',
+        'offered_capabilities',
+        'desired_capabilities',
+        'properties'
+    ])
+if _CAN_ADD_DOCSTRING:
+    AttachFrame.__doc__ = """ATTACH performative. Attach a Link to a Session.
 
     The attach frame indicates that a Link Endpoint has been attached to the Session. The opening flag
     is used to indicate that the Link Endpoint is newly created.
@@ -248,28 +270,25 @@ class AttachFrame(Performative):
         container. A list of commonly defined link properties and their meanings can be found
         here: http://www.amqp.org/specification/1.0/link-properties.
     """
-    NAME = "ATTACH"
-    CODE = 0x00000012
-    DEFINITION = (
-        FIELD("name", AMQPTypes.string, True, None, False),
-        FIELD("handle", FieldDefinition.handle, True, None, False),
-        FIELD("role", FieldDefinition.role, True, None, False),
-        FIELD("send_settle_mode", FieldDefinition.sender_settle_mode, False, "MIXED", False),
-        FIELD("rcv_settle_mode", FieldDefinition.receiver_settle_mode, False, "FIRST", False),
-        FIELD("source", ObjDefinition.source, False, None, False),
-        FIELD("target", ObjDefinition.target, False, None, False),
-        FIELD("unsettled", AMQPTypes.map, False, None, False),
-        FIELD("incomplete_unsettled", AMQPTypes.boolean, False, False, False),
-        FIELD("initial_delivery_count", FieldDefinition.sequence_no, False, None, False),
-        FIELD("max_message_size", AMQPTypes.ulong, False, None, False),
-        FIELD("offered_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("desired_capabilities", AMQPTypes.symbol, False, None, True),
-        FIELD("properties", FieldDefinition.fields, False, None, False),
-    )
 
 
-class FlowFrame(Performative):
-    """FLOW performative. Update link state.
+FlowFrame = namedtuple(
+    'flow',
+    [
+        'next_incoming_id',
+        'incoming_window',
+        'next_outgoing_id',
+        'outgoing_window',
+        'handle',
+        'delivery_count',
+        'link_credit',
+        'available',
+        'drain',
+        'echo',
+        'properties'
+    ])
+if _CAN_ADD_DOCSTRING:
+    FlowFrame.__doc__ = """FLOW performative. Update link state.
 
     Updates the flow state for the specified Link.
 
@@ -308,25 +327,25 @@ class FlowFrame(Performative):
         A list of commonly defined link state properties and their meanings can be found
         here: http://www.amqp.org/specification/1.0/link-state-properties.
     """
-    NAME = "FLOW"
-    CODE = 0x00000013
-    DEFINITION = (
-        FIELD("next_incoming_id", FieldDefinition.transfer_number, False, None, False),
-        FIELD("incoming_window", AMQPTypes.uint, True, None, False),
-        FIELD("next_outgoing_id", FieldDefinition.transfer_number, True, None, False),
-        FIELD("outgoing_window", AMQPTypes.uint, True, None, False),
-        FIELD("handle", FieldDefinition.handle, False, None, False),
-        FIELD("delivery_count", FieldDefinition.sequence_no, False, None, False),
-        FIELD("link_credit", AMQPTypes.uint, False, None, False),
-        FIELD("available", AMQPTypes.uint, False, None, False),
-        FIELD("drain", AMQPTypes.boolean, False, False, False),
-        FIELD("echo", AMQPTypes.boolean, False, False, False),
-        FIELD("properties", FieldDefinition.fields, False, None, False),
-    )
 
 
-class TransferFrame(Performative):
-    """TRANSFER performative. Transfer a Message.
+TransferFrame = namedtuple(
+    'transfer',
+    [
+        'handle',
+        'delivery_id',
+        'delivery_tag',
+        'message_format',
+        'settled',
+        'more',
+        'rcv_settle_mode',
+        'state',
+        'resume',
+        'aborted',
+        'batchable'
+    ])
+if _CAN_ADD_DOCSTRING:
+    TransferFrame.__doc__ = """TRANSFER performative. Transfer a Message.
 
     The transfer frame is used to send Messages across a Link. Messages may be carried by a single transfer up
     to the maximum negotiated frame size for the Connection. Larger Messages may be split across several
@@ -393,25 +412,20 @@ class TransferFrame(Performative):
         for the delivery. The batchable value does not form part of the transfer state, and is not retained if a
         link is suspended and subsequently resumed.
     """
-    NAME = "TRANSFER"
-    CODE = 0x00000014
-    DEFINITION = (
-        FIELD("handle", FieldDefinition.handle, True, None, False),
-        FIELD("delivery_id", FieldDefinition.delivery_number, False, None, False),
-        FIELD("delivery_tag", FieldDefinition.delivery_tag, False, None, False),
-        FIELD("message_format", FieldDefinition.message_format, False, None, False),
-        FIELD("settled", AMQPTypes.boolean, False, None, False),
-        FIELD("more", AMQPTypes.boolean, False, False, False),
-        FIELD("rcv_settle_mode", FieldDefinition.receiver_settle_mode, False, None, False),
-        FIELD("state", ObjDefinition.delivery_state, False, None, False),
-        FIELD("resume", AMQPTypes.boolean, False, False, False),
-        FIELD("aborted", AMQPTypes.boolean, False, False, False),
-        FIELD("batchable", AMQPTypes.boolean, False, False, False),  
-    )
 
 
-class DispositionFrame(Performative):
-    """DISPOSITION performative. Inform remote peer of delivery state changes.
+DispositionFrame = namedtuple(
+    'disposition',
+    [
+        'role',
+        'first',
+        'last',
+        'settled',
+        'state',
+        'batchable'
+    ])
+if _CAN_ADD_DOCSTRING:
+    DispositionFrame.__doc__ = """DISPOSITION performative. Inform remote peer of delivery state changes.
 
     The disposition frame is used to inform the remote peer of local changes in the state of deliveries.
     The disposition frame may reference deliveries from many different links associated with a session,
@@ -440,20 +454,10 @@ class DispositionFrame(Performative):
         of the updated delivery states. This hint may be used to artificially increase the amount of batching an
         implementation uses when communicating delivery states, and thereby save bandwidth.
     """
-    NAME = "DISPOSITION"
-    CODE = 0x00000015
-    DEFINITION = (
-        FIELD("role", FieldDefinition.role, True, None, False),
-        FIELD("first", FieldDefinition.delivery_number, True, None, False),
-        FIELD("last", FieldDefinition.delivery_number, False, None, False),
-        FIELD("settled", AMQPTypes.boolean, False, False, False),
-        FIELD("state", ObjDefinition.delivery_state, False, None, False),
-        FIELD("batchable", AMQPTypes.boolean, False, False, False),
-    )
 
-
-class DetachFrame(Performative):
-    """DETACH performative. Detach the Link Endpoint from the Session.
+DetachFrame = namedtuple('detach', ['handle', 'closed', 'error'])
+if _CAN_ADD_DOCSTRING:
+    DetachFrame.__doc__ = """DETACH performative. Detach the Link Endpoint from the Session.
 
     Detach the Link Endpoint from the Session. This un-maps the handle and makes it available for
     use by other Links
@@ -464,17 +468,11 @@ class DetachFrame(Performative):
         If set, this field indicates that the Link is being detached due to an error condition.
         The value of the field should contain details on the cause of the error.
     """
-    NAME = "DETACH"
-    CODE = 0x00000016
-    DEFINITION = (
-        FIELD("handle", FieldDefinition.handle, True, None, False),
-        FIELD("closed", AMQPTypes.boolean, False, False, False),
-        FIELD("error", ObjDefinition.error, False, None, False),
-    )
 
 
-class EndFrame(Performative):
-    """END performative. End the Session.
+EndFrame = namedtuple('end', ['error'])
+if _CAN_ADD_DOCSTRING:
+    EndFrame.__doc__ = """END performative. End the Session.
 
     Indicates that the Session has ended.
 
@@ -482,13 +480,11 @@ class EndFrame(Performative):
         If set, this field indicates that the Session is being ended due to an error condition.
         The value of the field should contain details on the cause of the error.
     """
-    NAME = "END"
-    CODE = 0x00000017
-    DEFINITION = (FIELD("error", ObjDefinition.error, False, None, False),)
 
 
-class CloseFrame(Performative):
-    """CLOSE performative. Signal a Connection close.
+CloseFrame = namedtuple('close', ['error'])
+if _CAN_ADD_DOCSTRING:
+    CloseFrame.__doc__ = """CLOSE performative. Signal a Connection close.
 
     Sending a close signals that the sender will not be sending any more frames (or bytes of any other kind) on
     the Connection. Orderly shutdown requires that this frame MUST be written by the sender. It is illegal to
@@ -498,13 +494,11 @@ class CloseFrame(Performative):
         If set, this field indicates that the Connection is being closed due to an error condition.
         The value of the field should contain details on the cause of the error.
     """
-    NAME = "CLOSE"
-    CODE = 0x00000018
-    DEFINITION = (FIELD("error", ObjDefinition.error, False, None, False),)
 
 
-class SASLMechanism(Performative):
-    """Advertise available sasl mechanisms.
+SASLMechanism = namedtuple('sasl_mechanism', ['sasl_server_mechanisms'])
+if _CAN_ADD_DOCSTRING:
+    SASLMechanism.__doc__ = """Advertise available sasl mechanisms.
 
     dvertises the available SASL mechanisms that may be used for authentication.
 
@@ -514,14 +508,11 @@ class SASLMechanism(Performative):
         authenticate with it, then it should send a list of one element with its value as the SASL mechanism
         ANONYMOUS. The server mechanisms are ordered in decreasing level of preference.
     """
-    NAME = 'SASL-MECHANISM'
-    CODE = 0x00000040
-    DEFINITION = (FIELD('sasl_server_mechanisms', AMQPTypes.symbol, True, None, True),)
-    FRAME_TYPE = b'\x01'
 
 
-class SASLInit(Performative):
-    """Initiate sasl exchange.
+SASLInit = namedtuple('sasl_init', ['mechanism', 'initial_response', 'hostname'])
+if _CAN_ADD_DOCSTRING:
+    SASLInit.__doc__ = """Initiate sasl exchange.
 
     Selects the sasl mechanism and provides the initial response if needed.
 
@@ -542,45 +533,32 @@ class SASLInit(Performative):
         in RFC-4366, if a TLS layer is used, in which case this field SHOULD benull or contain the same value.
         It is undefined what a different value to those already specific means.
     """
-    NAME = 'SASL-INIT'
-    CODE = 0x00000041
-    DEFINITION = (
-        FIELD('mechanism', AMQPTypes.symbol, True, None, False),
-        FIELD('initial_response', AMQPTypes.binary, False, None, False),
-        FIELD('hostname', AMQPTypes.string, False, None, False),
-    )
-    FRAME_TYPE = b'\x01'
 
 
-class SASLChallenge(Performative):
-    """Security mechanism challenge.
+SASLChallenge = namedtuple('sasl_challenge', ['challenge'])
+if _CAN_ADD_DOCSTRING:
+    SASLChallenge.__doc__ = """Security mechanism challenge.
 
     Send the SASL challenge data as defined by the SASL specification.
 
     :param bytes challenge: Security challenge data.
         Challenge information, a block of opaque binary data passed to the security mechanism.
     """
-    NAME = 'SASL-CHALLENGE'
-    CODE = 0x00000042
-    DEFINITION = (FIELD('challenge', AMQPTypes.binary, True, None, False),)
-    FRAME_TYPE = b'\x01'
 
 
-class SASLResponse(Performative):
-    """Security mechanism response.
+SASLResponse = namedtuple('sasl_response', ['response'])
+if _CAN_ADD_DOCSTRING:
+    SASLResponse.__doc__ = """Security mechanism response.
 
     Send the SASL response data as defined by the SASL specification.
 
     :param bytes response: Security response data.
     """
-    NAME = 'SASL-RESPONSE'
-    CODE = 0x00000043
-    DEFINITION = (FIELD('response', AMQPTypes.binary, True, None, False),)
-    FRAME_TYPE = b'\x01'
 
 
-class SASLOutcome(Performative):
-    """Indicates the outcome of the sasl dialog.
+SASLOutcome = namedtuple('sasl_outcome', ['code', 'additional_data'])
+if _CAN_ADD_DOCSTRING:
+    SASLOutcome.__doc__ = """Indicates the outcome of the sasl dialog.
 
     This frame indicates the outcome of the SASL dialog. Upon successful completion of the SASL dialog the
     Security Layer has been established, and the peers must exchange protocol headers to either starta nested
@@ -592,10 +570,3 @@ class SASLOutcome(Performative):
         The additional-data field carries additional data on successful authentication outcomeas specified by
         the SASL specification (RFC-4422). If the authentication is unsuccessful, this field is not set.
     """
-    NAME = 'SASL-OUTCOME'
-    CODE = 0x00000044
-    DEFINITION = (
-        FIELD('code', FieldDefinition.sasl_code, True, None, False),
-        FIELD('additional_data', AMQPTypes.binary, False, None, False)
-    )
-    FRAME_TYPE = b'\x01'

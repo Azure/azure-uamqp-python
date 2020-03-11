@@ -14,7 +14,8 @@ import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
-from .performatives import Performative, HeaderFrame, TransferFrame
+from .performatives import Performative, TransferFrame
+from .performatives_tuple import HeaderFrame
 from .message import Header, Properties, BareMessage
 
 

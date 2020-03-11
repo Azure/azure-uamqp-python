@@ -63,12 +63,12 @@ class SenderLink(Link):
         super(SenderLink, self)._evaluate_status()
         self._update_pending_delivery_status()
 
-    def _incoming_ATTACH(self, frame):
-        super(SenderLink, self)._incoming_ATTACH(frame)
+    def _incoming_attach(self, frame):
+        super(SenderLink, self)._incoming_attach(frame)
         self.current_link_credit = 0
         self._evaluate_status()
 
-    def _incoming_FLOW(self, frame):
+    def _incoming_flow(self, frame):
         rcv_link_credit = frame.link_credit
         rcv_delivery_count = frame.delivery_count
         if frame.handle:
@@ -103,7 +103,7 @@ class SenderLink(Link):
         elif delivery.transfer_state == SessionTransferState.Error:
             raise ValueError("Message failed to send")
 
-    def _incoming_DISPOSITION(self, frame):
+    def _incoming_disposition(self, frame):
         if not frame.settled:
             return
         range_end = (frame.last or frame.first) + 1

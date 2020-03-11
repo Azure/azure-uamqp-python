@@ -53,8 +53,8 @@ class ReceiverLink(Link):
             _LOGGER.error("Handler function failed with error: %r", e)
         return None
 
-    def _incoming_ATTACH(self, frame):
-        super(ReceiverLink, self)._incoming_ATTACH(frame)
+    def _incoming_attach(self, frame):
+        super(ReceiverLink, self)._incoming_attach(frame)
         if frame.initial_delivery_count is None:
             _LOGGER.info("Cannot get initial-delivery-count. Detaching link")
             self._remove_pending_deliveries()
@@ -63,7 +63,7 @@ class ReceiverLink(Link):
         self.current_link_credit = self.link_credit
         self._outgoing_FLOW()
 
-    def _incoming_TRANSFER(self, frame):
+    def _incoming_transfer(self, frame):
         self.current_link_credit -= 1
         self.delivery_count += 1
         self.received_delivery_id = frame.delivery_id
@@ -74,8 +74,8 @@ class ReceiverLink(Link):
         if not frame.more:
             payload_data = self._received_payload or frame._payload
             byte_buffer = BytesIO(payload_data)
-            decoded_message = decode_payload(byte_buffer, length=len(payload_data))
-            delivery_state = self._process_incoming_message(frame, decoded_message)
+            #decoded_message = decode_payload(byte_buffer, length=len(payload_data))
+            delivery_state = self._process_incoming_message(frame, payload_data)
             if not frame.settled and delivery_state:
                 self._outgoing_DISPOSITION(frame.delivery_id, delivery_state)
 

@@ -18,7 +18,7 @@ import certifi
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
 from ._decode import decode_frame, decode_empty_frame
-from .performatives import HeaderFrame, TLSHeaderFrame
+from .performatives_tuple import HeaderFrame, TLSHeaderFrame
 
 
 try:

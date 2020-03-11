@@ -10,9 +10,9 @@ from enum import Enum
 from ._transport import SSLTransport
 from .types import AMQPTypes, TYPE, VALUE, SASLCode
 from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD
-from .performatives import (
+from .performatives import SASLInit
+from .performatives_tuple import (
     SASLHeaderFrame,
-    SASLInit,
     SASLOutcome,
     SASLResponse,
     SASLChallenge
@@ -93,7 +93,7 @@ class SASLTransport(SSLTransport):
             _, next_frame = self.receive_frame(verify_frame_type=1)
             if not isinstance(next_frame, SASLOutcome):
                 raise NotImplementedError("Unsupport SASL challenge")
-            if next_frame.code == SASLCode.ok:
+            if next_frame.code == 0:#SASLCode.ok:
                 return
             else:
                 raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(

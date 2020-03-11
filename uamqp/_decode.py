@@ -14,8 +14,7 @@ from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 from .types import FieldDefinition, ObjDefinition, ConstructorBytes
 from .definitions import _FIELD_DEFINITIONS
 from .error import AMQPError
-from .performatives import (
-    Performative,
+from .performatives_tuple import (
     HeaderFrame,
     TLSHeaderFrame,
     SASLHeaderFrame,
@@ -35,7 +34,7 @@ from .performatives import (
     SASLOutcome)
 from .endpoints import Source, Target
 from .message import AnnotatedMessage, Header, Properties
-from .outcomes import (
+from .outcomes_tuple import (
     Received,
     Accepted,
     Rejected,
@@ -684,25 +683,7 @@ def decode_frame(data, offset):
     byte_buffer = BytesIO(data[offset:])
     descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]
-
-    kwargs = {}
-    for index, field in enumerate(frame_type.DEFINITION):
-        value = fields[index]
-        if value is None:
-            if field.mandatory:
-                raise ValueError("Frame {} missing mandatory field {}".format(frame_type, field.name))
-            if field.default is not None:
-                value = field.default
-        if isinstance(field.type, FieldDefinition):
-            if field.multiple:
-                kwargs[field.name] = [_FIELD_DEFINITIONS[field.type].decode(v) for v in value] if value else []
-            else:
-                kwargs[field.name] = _FIELD_DEFINITIONS[field.type].decode(value)
-        elif isinstance(field.type, ObjDefinition):
-            kwargs.update(build_decoded_object(field, value))
-        else:
-            kwargs[field.name] = value
-    decoded_frame = frame_type(**kwargs)
+    decoded_frame = frame_type(*fields)
     if frame_type == TransferFrame:
         decoded_frame._payload = data[byte_buffer.tell():]
     return decoded_frame

@@ -14,8 +14,8 @@ from enum import Enum
 
 from ._transport import Transport, SSLTransport
 from .session import Session
+from .performatives_tuple import HeaderFrame
 from .performatives import (
-    HeaderFrame,
     OpenFrame,
     CloseFrame,
 )
@@ -138,7 +138,6 @@ class Connection(object):
 
     def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
-            print("listening")
             if wait == False:
                 received = self.transport.receive_frame(**kwargs)
             elif wait == True:
@@ -189,7 +188,7 @@ class Connection(object):
         self.last_frame_sent_time = time.time()
         self._send_frame(0, header_frame)
 
-    def _incoming_HEADER(self, channel, frame):
+    def _incoming_header(self, channel, frame):
         if self.state == ConnectionState.START:
             self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
@@ -212,7 +211,7 @@ class Connection(object):
         )
         self._send_frame(0, open_frame)
 
-    def _incoming_OPEN(self, channel, frame):
+    def _incoming_open(self, channel, frame):
         if channel != 0:
             _LOGGER.error("OPEN frame received on a channel that is not 0.")
             self.close(error=None)  # TODO: not allowed
@@ -240,7 +239,7 @@ class Connection(object):
         close_frame = CloseFrame(error=error)
         self._send_frame(0, close_frame)
 
-    def _incoming_CLOSE(self, channel, frame):
+    def _incoming_close(self, channel, frame):
         disconnect_states = [
             ConnectionState.HDR_RCVD,
             ConnectionState.HDR_EXCH,
@@ -261,19 +260,19 @@ class Connection(object):
         self._disconnect()
         self._set_state(ConnectionState.END)
 
-    def _incoming_BEGIN(self, channel, frame):
+    def _incoming_begin(self, channel, frame):
         try:
             existing_session = self.outgoing_endpoints[frame.remote_channel]
             self.incoming_endpoints[channel] = existing_session
-            self.incoming_endpoints[channel]._incoming_BEGIN(frame)
+            self.incoming_endpoints[channel]._incoming_begin(frame)
         except KeyError:
             new_session = Session.from_incoming_frame(self, channel, frame)
             self.incoming_endpoints[channel] = new_session
-            new_session._incoming_BEGIN(frame)
+            new_session._incoming_begin(frame)
 
-    def _incoming_END(self, channel, frame):
+    def _incoming_end(self, channel, frame):
         try:
-            self.incoming_endpoints[channel]._incoming_END(frame)
+            self.incoming_endpoints[channel]._incoming_end(frame)
         except KeyError:
             pass  # TODO: channel error
         #self.incoming_endpoints.pop(channel)  # TODO
@@ -281,7 +280,7 @@ class Connection(object):
 
     def _process_incoming_frame(self, channel, frame):
         try:
-            process = '_incoming_' + frame.NAME
+            process = '_incoming_' + frame.__name__
             getattr(self, process)(channel, frame)
             return
         except AttributeError:
