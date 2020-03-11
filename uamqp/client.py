@@ -215,7 +215,7 @@ class AMQPClient(object):
             return False
         return True
 
-    def do_work(self):
+    def do_work(self, **kwargs):
         """Run a single connection iteration.
         This will return `True` if the connection is still open
         and ready to be used for further work, or `False` if it needs
@@ -228,7 +228,7 @@ class AMQPClient(object):
             return False
         if not self.client_ready():
             return True
-        return self._client_run()
+        return self._client_run(**kwargs)
 
 
 class SendClient(AMQPClient):
@@ -712,7 +712,7 @@ class ReceiveClient(AMQPClient):
             return False
         return True
 
-    def _client_run(self):
+    def _client_run(self, **kwargs):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.
@@ -720,7 +720,7 @@ class ReceiveClient(AMQPClient):
         :rtype: bool
         """
         try:
-            self._connection.listen(wait=self._socket_timeout)
+            self._connection.listen(wait=self._socket_timeout, **kwargs)
         except ValueError:
             _logger.info("Timeout reached, closing receiver.")
             self._shutdown = True
@@ -786,7 +786,7 @@ class ReceiveClient(AMQPClient):
                 if timeout and time.time() > timeout:
                     expired = True
                     break
-                receiving = self.do_work()
+                receiving = self.do_work(batch=None)
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())

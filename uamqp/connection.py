@@ -96,8 +96,6 @@ class Connection(object):
 
     def __exit__(self, *args):
         self.close()
-        self.listen()
-        self._disconnect()
 
     def _set_state(self, new_state):
         # type: (ConnectionState) -> None
@@ -136,16 +134,32 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    def _read_frame(self, wait=True, batch=None, **kwargs):
+    def _read_frame_batch(self, batch_size, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                received = self.transport.receive_frame(batch=batch, **kwargs)
+                received = self.transport.receive_frame(batch=batch_size, **kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame(batch=batch, **kwargs)
+                    received = self.transport.receive_frame(batch=batch_size, **kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame(batch=batch, **kwargs)
+                    received = self.transport.receive_frame(batch=batch_size, **kwargs)
+     
+            if received:
+                self.last_frame_received_time = time.time()
+            return received
+        _LOGGER.warning("Cannot read frame in current state: %r", self.state)
+
+    def _read_frame(self, wait=True, **kwargs):
+        if self._can_read():
+            if wait == False:
+                received = self.transport.receive_frame(**kwargs)
+            elif wait == True:
+                with self.transport.block():
+                    received = self.transport.receive_frame( **kwargs)
+            else:
+                with self.transport.block_with_timeout(timeout=wait):
+                    received = self.transport.receive_frame(**kwargs)
      
             if received[1]:
                 self.last_frame_received_time = time.time()
@@ -318,10 +332,15 @@ class Connection(object):
     def listen(self, wait=False, batch=None, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
-        new_frame = self._read_frame(wait=wait, batch=batch, **kwargs)
-        if not new_frame:
-            raise ValueError("Connection closed.")
-        self._process_incoming_frame(*new_frame)
+        if batch:
+            new_frames = self._read_frame_batch(batch, wait=wait, **kwargs)
+        else:
+            new_frame = self._read_frame(wait=wait, batch=batch, **kwargs)
+            new_frames = [new_frame]
+            if not new_frame:
+                raise ValueError("Connection closed.")
+        for new_frame in new_frames:
+            self._process_incoming_frame(*new_frame)
         if self.state not in _CLOSING_STATES:
             now = time.time()
             for session in self.outgoing_endpoints.values():
@@ -376,3 +395,4 @@ class Connection(object):
         if wait:  # TODO: block for a timeout
             while self.state != ConnectionState.END:
                 self.listen(wait=False)
+        self._disconnect()
