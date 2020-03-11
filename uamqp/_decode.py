@@ -32,7 +32,7 @@ from .performatives_tuple import (
     SASLChallenge,
     SASLResponse,
     SASLOutcome)
-from .endpoints import Source, Target
+from .endpoints_tuple import Source, Target
 from .message_tuple import Header, Properties
 from .outcomes_tuple import (
     Received,
@@ -46,6 +46,16 @@ from .outcomes_tuple import (
 _LOGGER = logging.getLogger(__name__)
 _MESSAGE_PERFORMATIVES = [Header, Properties]
 _HEADER_PREFIX = memoryview(b'AMQP')
+
+
+_CONSTUCTOR_MAP = {
+    ConstructorBytes.null: None,
+    ConstructorBytes.bool_true: True,
+    ConstructorBytes.bool_false: False,
+    ConstructorBytes.uint_0: 0,
+    ConstructorBytes.list_0: [],
+    ConstructorBytes.ulong_0: 0,
+}
 
 
 PERFORMATIVES = {
@@ -90,426 +100,207 @@ MESSAGE_SECTIONS = {
 }
 
 
-class DecoderState(object):  # pylint: disable=no-init
-    constructor = 'CONSTRUCTOR'
-    type_data = 'TYPE_DATA'
-    done = 'DONE'
-
-
-class Decoder(object):
-
-    def __init__(self, length):
-        self.state = DecoderState.constructor
-        self.bytes_remaining = length
-        self.decoded_value = {}
-        self.constructor_byte = None
-
-    def progress(self, num_bytes):
-        if self.bytes_remaining is None:
-            return
-        self.bytes_remaining -= num_bytes
-
-
-def decode_null(decoder):
+def decode_boolean(buffer):
     # type: (Decoder, IO) -> None
-    decoder.decoded_value = None
-    decoder.state = DecoderState.done
+    return buffer.read(1) == b'\x01'
 
 
-def decode_true(decoder):
+def decode_ubyte(buffer):
     # type: (Decoder, IO) -> None
-    decoder.decoded_value = True
-    decoder.state = DecoderState.done
+    return struct.unpack('>B', buffer.read(1))[0]
 
 
-def decode_false(decoder):
+def decode_ushort(buffer):
     # type: (Decoder, IO) -> None
-    decoder.decoded_value = False
-    decoder.state = DecoderState.done
+    return struct.unpack('>H', buffer.read(2))[0]
 
 
-def decode_zero(decoder):
+def decode_uint_small(buffer):
     # type: (Decoder, IO) -> None
-    decoder.decoded_value = 0
-    decoder.state = DecoderState.done
+    return struct.unpack('>B', buffer.read(1))[0]
 
 
-def decode_empty_list(decoder):
+def decode_uint_large(buffer):
     # type: (Decoder, IO) -> None
-    decoder.decoded_value = []
-    decoder.state = DecoderState.done
+    return struct.unpack('>I', buffer.read(4))[0]
 
 
-def decode_boolean(decoder, buffer):
+def decode_ulong_small(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    decoder.decoded_value = data == b'\x01'
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>B', buffer.read(1))[0]
 
 
-def decode_ubyte(decoder, buffer):
+def decode_ulong_large(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>B', data)[0]
-    except Exception:
-        raise ValueError("Invalid ubyte value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>Q',  buffer.read(8))[0]
 
 
-def decode_ushort(decoder, buffer):
+def decode_byte(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(2)
-    try:
-        decoder.decoded_value = struct.unpack('>H', data)[0]
-    except Exception:
-        raise ValueError("Invalid ushort value: {}".format(data))
-    decoder.progress(2)
-    decoder.state = DecoderState.done
+    return struct.unpack('>b', buffer.read(1))[0]
 
 
-def decode_uint_small(decoder, buffer):
+def decode_short(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>B', data)[0]
-    except Exception:
-        raise ValueError("Invalid uint value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>h', buffer.read(2))[0]
 
 
-def decode_uint_large(decoder, buffer):
+def decode_int_small(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(4)
-    try:
-        decoder.decoded_value = struct.unpack('>I', data)[0]
-    except Exception:
-        raise ValueError("Invalid uint value: {}".format(data))
-    decoder.progress(4)
-    decoder.state = DecoderState.done
+    return struct.unpack('>b', buffer.read(1))[0]
 
 
-def decode_ulong_small(decoder, buffer):
+def decode_int_large(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>B', data)[0]
-    except Exception:
-        raise ValueError("Invalid ulong value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>i', buffer.read(4))[0]
 
 
-def decode_ulong_large(decoder, buffer):
+def decode_long_small(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(8)
-    try:
-        decoder.decoded_value = struct.unpack('>Q', data)[0]
-    except Exception:
-        raise ValueError("Invalid ulong value: {}".format(data))
-    decoder.progress(8)
-    decoder.state = DecoderState.done
+    return struct.unpack('>b', buffer.read(1))[0]
 
 
-def decode_byte(decoder, buffer):
+def decode_long_large(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>b', data)[0]
-    except Exception:
-        raise ValueError("Invalid byte value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>q', buffer.read(8))[0]
 
 
-def decode_short(decoder, buffer):
+def decode_float(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(2)
-    try:
-        decoder.decoded_value = struct.unpack('>h', data)[0]
-    except Exception:
-        raise ValueError("Invalid short value: {}".format(data))
-    decoder.progress(2)
-    decoder.state = DecoderState.done
+    return struct.unpack('>f', buffer.read(4))[0]
 
 
-def decode_int_small(decoder, buffer):
+def decode_double(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>b', data)[0]
-    except Exception:
-        raise ValueError("Invalid int value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return struct.unpack('>d', buffer.read(8))[0]
 
 
-def decode_int_large(decoder, buffer):
+def decode_timestamp(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(4)
-    try:
-        decoder.decoded_value = struct.unpack('>i', data)[0]
-    except Exception:
-        raise ValueError("Invalid int value: {}".format(data))
-    decoder.progress(4)
-    decoder.state = DecoderState.done
+    return struct.unpack('>q', buffer.read(8))[0]
 
 
-def decode_long_small(decoder, buffer):
+def decode_uuid(buffer):
     # type: (Decoder, IO) -> None
-    data = buffer.read(1)
-    try:
-        decoder.decoded_value = struct.unpack('>b', data)[0]
-    except Exception:
-        raise ValueError("Invalid long value: {}".format(data))
-    decoder.progress(1)
-    decoder.state = DecoderState.done
+    return uuid.UUID(bytes=buffer.read(16))
 
 
-def decode_long_large(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    data = buffer.read(8)
-    try:
-        decoder.decoded_value = struct.unpack('>q', data)[0]
-    except Exception:
-        raise ValueError("Invalid long value: {}".format(data))
-    decoder.progress(8)
-    decoder.state = DecoderState.done
-
-
-def decode_float(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    data = buffer.read(4)
-    try:
-        decoder.decoded_value = struct.unpack('>f', data)[0]
-    except Exception:
-        raise ValueError("Invalid float value: {}".format(data))
-    decoder.progress(4)
-    decoder.state = DecoderState.done
-
-
-def decode_double(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    data = buffer.read(8)
-    try:
-        decoder.decoded_value = struct.unpack('>d', data)[0]
-    except Exception:
-        raise ValueError("Invalid double value: {}".format(data))
-    decoder.progress(8)
-    decoder.state = DecoderState.done
-
-
-def decode_timestamp(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    data = buffer.read(8)
-    try:
-        decoder.decoded_value = struct.unpack('>q', data)[0]  # TODO: datetime
-    except Exception:
-        raise ValueError("Invalid timestamp value: {}".format(data))
-    decoder.progress(8)
-    decoder.state = DecoderState.done
-
-
-def decode_uuid(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    data = buffer.read(16)
-    try:
-        decoder.decoded_value = uuid.UUID(bytes=data)
-    except Exception:
-        raise ValueError("Invalid UUID value: {}".format(data))
-    decoder.progress(16)
-    decoder.state = DecoderState.done
-
-
-def decode_binary_small(decoder, buffer):
+def decode_binary_small(buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>B', buffer.read(1))[0]
-    if length == 0:
-        decoder.decoded_value = None
-    else:
-        data = buffer.read(length)
-        try:
-            decoder.decoded_value = data
-        except Exception:
-            raise ValueError("Error reading binary data: {}".format(data))
-    decoder.progress(1 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length) or None
 
 
-def decode_binary_large(decoder, buffer):
+def decode_binary_large(buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>L', buffer.read(4))[0]
-    if length == 0:
-        decoder.decoded_value = None
-    else:
-        data = buffer.read(length)
-        try:
-            decoder.decoded_value = data
-        except Exception:
-            raise ValueError("Error reading binary data: {}".format(data))
-    decoder.progress(4 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length) or None
 
 
-def decode_string_small(decoder, buffer):
+def decode_string_small(buffer):  # TODO: Optional decode strings
     # type: (Decoder, IO) -> None
     length = struct.unpack('>B', buffer.read(1))[0]
-    data = buffer.read(length)
-    try:
-        decoder.decoded_value = data.decode('utf-8')
-    except Exception:
-        raise ValueError("Error reading string data: {}".format(data))
-    decoder.progress(1 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length).decode('utf-8') or None
 
 
-def decode_string_large(decoder, buffer):
+def decode_string_large(buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>L', buffer.read(4))[0]
-    data = buffer.read(length)
-    try:
-        decoder.decoded_value = data.decode('utf-8')
-    except Exception:
-        raise ValueError("Error reading string data: {}".format(data))
-    decoder.progress(4 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length).decode('utf-8') or None
 
 
-def decode_symbol_small(decoder, buffer):
+def decode_symbol_small(buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>B', buffer.read(1))[0]
-    data = buffer.read(length)
-    try:
-        decoder.decoded_value = data
-    except Exception:
-        raise ValueError("Error reading symbol data: {}".format(data))
-    decoder.progress(1 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length) or None
 
 
-def decode_symbol_large(decoder, buffer):
+def decode_symbol_large(buffer):
     # type: (Decoder, IO) -> None
     length = struct.unpack('>L', buffer.read(4))[0]
-    data = buffer.read(length)
-    try:
-        decoder.decoded_value = data
-    except Exception:
-        raise ValueError("Error reading symbol data: {}".format(data))
-    decoder.progress(4 + length)
-    decoder.state = DecoderState.done
+    return buffer.read(length) or None
 
 
-def decode_list_small(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>B', buffer.read(1))[0]
-        count = struct.unpack('>B', buffer.read(1))[0]
-        items = decode_value(buffer, length_bytes=size - 1, count=count)
-        decoder.decoded_value = items
-        decoder.progress(2 + size - 1)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding small list.")
-    decoder.state = DecoderState.done
-
-
-def decode_list_large(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>L', buffer.read(4))[0]
-        count = struct.unpack('>L', buffer.read(4))[0]
-        items = decode_value(buffer, length_bytes=size - 4, count=count)
-        decoder.decoded_value = items
-        decoder.progress(8 + size - 4)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding large list.")
-    decoder.state = DecoderState.done
-
-
-def decode_map_small(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>B', buffer.read(1))[0]
-        count = struct.unpack('>B', buffer.read(1))[0]
-        items = decode_value(buffer, length_bytes=size - 1, count=count)
-        decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
-        decoder.progress(2 + size - 1)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding small map.")
-    decoder.state = DecoderState.done
-
-
-def decode_map_large(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>L', buffer.read(4))[0]
-        count = struct.unpack('>L', buffer.read(4))[0]
-        items = decode_value(buffer, length_bytes=size - 4, count=count)
-        decoder.decoded_value = [(items[i], items[i+1]) for i in range(0, len(items), 2)]
-        decoder.progress(8 + size - 4)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding large map.")
-    decoder.state = DecoderState.done
-
-
-def decode_array_small(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>B', buffer.read(1))[0]
-        count = struct.unpack('>B', buffer.read(1))[0]
-        items = decode_value(buffer, length_bytes=size - 1, sub_constructors=False, count=count)
-        decoder.decoded_value = items
-        decoder.progress(2 + size - 1)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding small array.")
-    decoder.state = DecoderState.done
-
-
-def decode_array_large(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        size = struct.unpack('>L', buffer.read(4))[0]
-        count = struct.unpack('>L', buffer.read(4))[0]
-        items = decode_value(buffer, length_bytes=size - 4, sub_constructors=False, count=count)
-        decoder.decoded_value = items
-        decoder.progress(8 + size - 4)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding large array.")
-    decoder.state = DecoderState.done
-
-
-def decode_described(decoder, buffer):
-    # type: (Decoder, IO) -> None
-    try:
-        start_position = buffer.tell()
-        descriptor = decode_value(buffer)
-        value = decode_value(buffer)
-        decoder.decoded_value = (descriptor, value)
+def decode_list_values(buffer, count):
+    decoded_values = []
+    for _ in range(count):
+        constructor = buffer.read(1)
         try:
-            composite_type = COMPOSITES[descriptor]
-            decoder.decoded_value = (composite_type, value)
+            value = _CONSTUCTOR_MAP[constructor]
+            decoded_values.append(value)
         except KeyError:
-            decoder.decoded_value = (descriptor, value)
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Error decoding described value.")
-    decoder.progress(buffer.tell() - start_position)
-    decoder.state = DecoderState.done
+            type_decoder = _DECODE_MAP[constructor]
+            decoded_values.append(type_decoder(buffer))
+    return decoded_values
+
+
+def decode_list_small(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(1)  # Discard size
+    count = struct.unpack('>B', buffer.read(1))[0]
+    return decode_list_values(buffer, count)
+
+
+def decode_list_large(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(4)  # Discard size
+    count = struct.unpack('>L', buffer.read(4))[0]
+    return decode_list_values(buffer, count)
+
+
+def decode_map_small(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(1)  # Discard size
+    count = struct.unpack('>B', buffer.read(1))[0]
+    values = decode_list_values(buffer, count)
+    return dict([(values[i], values[i+1]) for i in range(0, count, 2)])
+
+
+def decode_map_large(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(4)  # Discard size
+    count = struct.unpack('>L', buffer.read(4))[0]
+    values = decode_list_values(buffer, count)
+    return dict([(values[i], values[i+1]) for i in range(0, count, 2)])
+
+
+def decode_array_values(buffer, count):
+    decoded_values = []
+    constructor = buffer.read(1)
+    try:
+        value = _CONSTUCTOR_MAP[constructor]
+        return [value] * count
+    except KeyError:
+        type_decoder = _DECODE_MAP[constructor]
+        for _ in range(count):
+            decoded_values.append(type_decoder(buffer))
+    return decoded_values
+
+
+def decode_array_small(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(1)  # Discard size
+    count = struct.unpack('>B', buffer.read(1))[0]
+    return decode_array_values(buffer, count)
+
+
+def decode_array_large(buffer):
+    # type: (Decoder, IO) -> None
+    _ = buffer.read(4)  # Discard size
+    count = struct.unpack('>L', buffer.read(4))[0]
+    return decode_array_values(buffer, count)
+
+
+def decode_described(buffer):
+    # type: (Decoder, IO) -> None
+    descriptor = decode_value(buffer)
+    value = decode_value(buffer)
+    try:
+        composite_type = COMPOSITES[descriptor]
+        #print("BUIDLING TYPE", composite_type, value)
+        return composite_type(*value)
+    except KeyError:
+        return value
 
 
 def decode_message_section(buffer, message):
@@ -519,14 +310,7 @@ def decode_message_section(buffer, message):
     message[section_type] = decode_value(buffer)
 
 
-_CONSTUCTOR_MAP = {
-    ConstructorBytes.null: decode_null,
-    ConstructorBytes.bool_true: decode_true,
-    ConstructorBytes.bool_false: decode_false,
-    ConstructorBytes.uint_0: decode_zero,
-    ConstructorBytes.list_0: decode_empty_list,
-    ConstructorBytes.ulong_0: decode_zero,
-}
+
 _DECODE_MAP = {
     ConstructorBytes.bool: decode_boolean,
     ConstructorBytes.ubyte: decode_ubyte,
@@ -561,55 +345,16 @@ _DECODE_MAP = {
 }
 
 
-def decode_array_values(buffer, count):
-    decoded_values = []
-    constructor = buffer.read(1)
-    try:
-        value = _CONSTUCTOR_MAP[constructor]()
-        return [value] * count
-    except KeyError:
-        type_decoder = _DECODE_MAP[constructor]
-        for _ in range(count):
-            decoded_values.append(type_decoder(buffer))
-    return decoded_values
-
-
-
-def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
+def decode_value(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    decoder = Decoder(length=length_bytes)
-    decoded_values = []
-
-    while decoder.state != DecoderState.done:
-        if decoder.state == DecoderState.constructor:
-            decoder.constructor_byte = buffer.read(1)
-            decoder.progress(1)
-            try:
-                _CONSTUCTOR_MAP[decoder.constructor_byte](decoder)
-            except KeyError:
-                decoder.state = DecoderState.type_data
-
-        if decoder.state == DecoderState.type_data:
-            _DECODE_MAP[decoder.constructor_byte](decoder, buffer)
-
-        if decoded_values or decoder.bytes_remaining:
-            decoded_values.append(decoder.decoded_value)
-            if sub_constructors:
-                decoder.state = DecoderState.constructor
-                decoder.decoded_value = {}
-                decoder.constructor_byte = None
-            else:
-                decoder.state = DecoderState.type_data
-                decoder.decoded_value = {}
-        if decoder.bytes_remaining == 0:
-            break
-
-    if count is not None:
-        items = decoded_values or [decoder.decoded_value]
-        #if len(items) != count:
-        #    raise ValueError("Mismatching length: Expected {} items, received {}.".format(count, len(items)))     
-        return items
-    return decoded_values or decoder.decoded_value
+    constructor = buffer.read(1)
+    #print("constructing")
+    try:
+        value = _CONSTUCTOR_MAP[constructor]
+    except KeyError:
+        value = _DECODE_MAP[constructor](buffer)
+    #print("Decoded value", value)
+    return value
 
 
 def decode_empty_frame(header):
@@ -644,9 +389,11 @@ def decode_payload(buffer):
 def decode_frame(data):
     # type: (memoryview, int) -> namedtuple
     #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
-    byte_buffer = BytesIO(data)
-    descriptor, fields = decode_value(byte_buffer)
-    frame_type = PERFORMATIVES[descriptor]
+    buffer = BytesIO(data)
+    _ = buffer.read(1)  # First byte is always described type constructor
+    frame_type = PERFORMATIVES[decode_value(buffer)]
+    fields = decode_value(buffer)
+    
     if frame_type == TransferFrame:
-        fields.append(decode_payload(byte_buffer))
+        fields.append(decode_payload(buffer))
     return frame_type(*fields)
