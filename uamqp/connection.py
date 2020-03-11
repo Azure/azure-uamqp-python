@@ -188,7 +188,7 @@ class Connection(object):
         self.last_frame_sent_time = time.time()
         self._send_frame(0, header_frame)
 
-    def _incoming_header(self, channel, frame):
+    def _incoming_HeaderFrame(self, channel, frame):
         if self.state == ConnectionState.START:
             self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
@@ -280,7 +280,7 @@ class Connection(object):
 
     def _process_incoming_frame(self, channel, frame):
         try:
-            process = '_incoming_' + frame.__name__
+            process = '_incoming_' + frame.__class__.__name__
             getattr(self, process)(channel, frame)
             return
         except AttributeError:
@@ -289,7 +289,7 @@ class Connection(object):
             getattr(self.incoming_endpoints[channel], process)(frame)
             return
         except NameError:
-            time.sleep(0.1)  # Empty Frame or socket timeout
+            return  # Empty Frame or socket timeout
         except KeyError:
             pass  #TODO: channel error
         except AttributeError:

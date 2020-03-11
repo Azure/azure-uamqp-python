@@ -33,7 +33,7 @@ from .performatives_tuple import (
     SASLResponse,
     SASLOutcome)
 from .endpoints import Source, Target
-from .message import AnnotatedMessage, Header, Properties
+from .message_tuple import Header, Properties
 from .outcomes_tuple import (
     Received,
     Accepted,
@@ -45,6 +45,7 @@ from .outcomes_tuple import (
 
 _LOGGER = logging.getLogger(__name__)
 _MESSAGE_PERFORMATIVES = [Header, Properties]
+_HEADER_PREFIX = memoryview(b'AMQP')
 
 
 PERFORMATIVES = {
@@ -73,6 +74,19 @@ COMPOSITES = {
     0x00000028: Source,
     0x00000029: Target,
     0x0000001d: AMQPError,
+}
+
+
+MESSAGE_SECTIONS = {
+    0x00000070: "header",
+    0x00000071: "delivery_annotations",
+    0x00000072: "message_annotations",
+    0x00000073: "properties",
+    0x00000074: "application_properties",
+    0x00000075: "data",
+    0x00000076: "sequence",
+    0x00000077: "value",
+    0x00000078: "footer"
 }
 
 
@@ -508,27 +522,14 @@ def decode_described(decoder, buffer):
     decoder.state = DecoderState.done
 
 
-def decode_message_section(field, decoded_values, value):
+def decode_message_section(decoder, buffer, message):
     # type: (Decoder, IO) -> None
-    if value is None:
-        return
-    if field.type in _MESSAGE_PERFORMATIVES:
-        obj_kwargs = {}
-        for obj_index, obj_value in enumerate(value):
-            obj_field = field.type.DEFINITION[obj_index]
-            if isinstance(obj_field.type, FieldDefinition):
-                obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
-            else:
-                obj_kwargs[obj_field.name] = obj_value
-        decoded_values[field.name] = field.type(**obj_kwargs)
-    if isinstance(field.type, FieldDefinition):
-        decoded_values[field.name] = _FIELD_DEFINITIONS[field.type].decode(value) if value else None
-    elif field.multiple:
-        existing = decoded_values.get(field.name, [])
-        existing.append(value)
-        decoded_values[field.name] = existing
-    else:
-        decoded_values[field.name] = value
+    start_position = buffer.tell()
+    descriptor = decode_value(buffer)
+    section_type = MESSAGE_SECTIONS[descriptor]
+    message[section_type] = decode_value(buffer)
+    decoder.progress(buffer.tell() - start_position)
+    decoder.state = DecoderState.done
 
 
 _CONSTUCTOR_MAP = {
@@ -540,7 +541,6 @@ _CONSTUCTOR_MAP = {
     ConstructorBytes.ulong_0: decode_zero,
 }
 _DECODE_MAP = {
-    
     ConstructorBytes.bool: decode_boolean,
     ConstructorBytes.ubyte: decode_ubyte,
     ConstructorBytes.ushort: decode_ushort,
@@ -615,7 +615,7 @@ def decode_value(buffer, length_bytes=None, sub_constructors=True, count=None):
 def decode_empty_frame(header):
     # type: (bytes) -> Performative
     _LOGGER.debug("Empty header bytes: %s", header)
-    if header[0:4] == b'AMQP':
+    if header[0:4] == _HEADER_PREFIX:
         layer = header[4]
         if layer == 0:
             return HeaderFrame(header=header)
@@ -632,58 +632,31 @@ def decode_empty_frame(header):
 def decode_payload(buffer, length):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     decoder = Decoder(length)
-    decoded_values = {}
+    message = {}
 
     while decoder.still_working():
         if decoder.state == DecoderState.constructor:
             decoder.constructor_byte = buffer.read(1)
             decoder.progress(1)
-            try:
-                _CONSTUCTOR_MAP[decoder.constructor_byte](decoder)
-            except KeyError:
-                decoder.state = DecoderState.type_data
+            decoder.state = DecoderState.type_data
         elif decoder.state == DecoderState.type_data:
-            decode_described(decoder, buffer)
-            decode_message_section(
-                AnnotatedMessage.SECTIONS[decoder.decoded_value[0]],
-                decoded_values,
-                decoder.decoded_value[1])
+            decode_message_section(decoder, buffer, message)
         else:
             raise ValueError("Invalid decoder state {}".format(decoder.state))
-        if decoder.state == DecoderState.done and (decoded_values or decoder.bytes_remaining):
+        if decoder.state == DecoderState.done and decoder.bytes_remaining:
             decoder.state = DecoderState.constructor
             decoder.decoded_value = {}
             decoder.constructor_byte = None
-    return AnnotatedMessage(**decoded_values)
-
-def build_decoded_object(field, value):
-    if not value:
-        return {field.name: None}
-
-    obj_kwargs = {}
-    obj_type, obj_values = value
-    for obj_index, obj_value in enumerate(obj_values):
-        obj_field = obj_type.DEFINITION[obj_index]
-        if isinstance(obj_field.type, FieldDefinition):
-            if obj_field.multiple:
-                obj_kwargs[obj_field.name] = [_FIELD_DEFINITIONS[obj_field.type].decode(v) for v in obj_value] if obj_value else []
-            else:
-                obj_kwargs[obj_field.name] = _FIELD_DEFINITIONS[obj_field.type].decode(obj_value) if obj_value else None
-        elif isinstance(obj_field.type, ObjDefinition):
-            obj_kwargs.update(build_decoded_object(obj_field, obj_value))
-        else:
-            obj_kwargs[obj_field.name] = obj_value
-    return {field.name: obj_type(**obj_kwargs)}
+    return message
 
 
-def decode_frame(data, offset):
-    # type: (bytes, bytes, bytes) -> Performative
-    _ = data[:offset]  # TODO: Extra data
-    _LOGGER.debug("Incoming bytes: %r", data)
-    byte_buffer = BytesIO(data[offset:])
+def decode_frame(data, size):
+    # type: (memoryview, int) -> namedtuple
+    #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
+    byte_buffer = BytesIO(data)
     descriptor, fields = decode_value(byte_buffer)
     frame_type = PERFORMATIVES[descriptor]
-    decoded_frame = frame_type(*fields)
     if frame_type == TransferFrame:
-        decoded_frame._payload = data[byte_buffer.tell():]
-    return decoded_frame
+        remaining_bytes = size - byte_buffer.tell()
+        fields.append(decode_payload(byte_buffer, remaining_bytes))
+    return frame_type(*fields)

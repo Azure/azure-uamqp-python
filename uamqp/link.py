@@ -13,8 +13,6 @@ from urllib.parse import urlparse
 from enum import Enum
 from io import BytesIO
 
-from ._decode import decode_payload
-from ._encode import encode_payload
 from .constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,

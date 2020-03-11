@@ -342,7 +342,8 @@ TransferFrame = namedtuple(
         'state',
         'resume',
         'aborted',
-        'batchable'
+        'batchable',
+        'payload'
     ])
 if _CAN_ADD_DOCSTRING:
     TransferFrame.__doc__ = """TRANSFER performative. Transfer a Message.

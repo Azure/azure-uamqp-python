@@ -70,11 +70,9 @@ class ReceiverLink(Link):
         if not self.received_delivery_id and not self._received_payload:
             pass  # TODO: delivery error
         if self._received_payload or frame.more:
-            self._received_payload += frame._payload
+            self._received_payload += frame.payload  # TODO: Fix multi-part messages
         if not frame.more:
-            payload_data = self._received_payload or frame._payload
-            byte_buffer = BytesIO(payload_data)
-            #decoded_message = decode_payload(byte_buffer, length=len(payload_data))
+            payload_data = self._received_payload or frame.payload
             delivery_state = self._process_incoming_message(frame, payload_data)
             if not frame.settled and delivery_state:
                 self._outgoing_DISPOSITION(frame.delivery_id, delivery_state)
