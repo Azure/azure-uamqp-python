@@ -137,13 +137,13 @@ class Connection(object):
     def _read_frame_batch(self, batch_size, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                received = self.transport.receive_frame(batch=batch_size, **kwargs)
+                received = self.transport.receive_frame_batch(batch_size, **kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame(batch=batch_size, **kwargs)
+                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame(batch=batch_size, **kwargs)
+                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
      
             if received:
                 self.last_frame_received_time = time.time()

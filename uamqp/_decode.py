@@ -33,7 +33,7 @@ from .performatives_tuple import (
     SASLResponse,
     SASLOutcome)
 from .endpoints_tuple import Source, Target
-from .message_tuple import Header, Properties
+from .message_tuple import Header, Properties, AnnotatedMessage
 from .outcomes_tuple import (
     Received,
     Accepted,
@@ -297,7 +297,6 @@ def decode_described(buffer):
     value = decode_value(buffer)
     try:
         composite_type = COMPOSITES[descriptor]
-        #print("BUIDLING TYPE", composite_type, value)
         return composite_type(*value)
     except KeyError:
         return value
@@ -307,53 +306,23 @@ def decode_message_section(buffer, message):
     # type: (Decoder, IO) -> None
     descriptor = decode_value(buffer)
     section_type = MESSAGE_SECTIONS[descriptor]
-    message[section_type] = decode_value(buffer)
-
-
-
-_DECODE_MAP = {
-    ConstructorBytes.bool: decode_boolean,
-    ConstructorBytes.ubyte: decode_ubyte,
-    ConstructorBytes.ushort: decode_ushort,
-    ConstructorBytes.uint_small: decode_uint_small,
-    ConstructorBytes.uint_large: decode_uint_large,
-    ConstructorBytes.ulong_small: decode_ulong_small,
-    ConstructorBytes.ulong_large: decode_ulong_large,
-    ConstructorBytes.byte: decode_byte,
-    ConstructorBytes.short: decode_short,
-    ConstructorBytes.int_small: decode_int_small,
-    ConstructorBytes.int_large: decode_int_large,
-    ConstructorBytes.long_small: decode_long_small,
-    ConstructorBytes.long_large: decode_long_large,
-    ConstructorBytes.float: decode_float,
-    ConstructorBytes.double: decode_double,
-    ConstructorBytes.timestamp: decode_timestamp,
-    ConstructorBytes.uuid: decode_uuid,
-    ConstructorBytes.binary_small: decode_binary_small,
-    ConstructorBytes.binary_large: decode_binary_large,
-    ConstructorBytes.string_small: decode_string_small,
-    ConstructorBytes.string_large: decode_string_large,
-    ConstructorBytes.symbol_small: decode_symbol_small,
-    ConstructorBytes.symbol_large: decode_symbol_large,
-    ConstructorBytes.list_small: decode_list_small,
-    ConstructorBytes.list_large: decode_list_large,
-    ConstructorBytes.map_small: decode_map_small,
-    ConstructorBytes.map_large: decode_map_large,
-    ConstructorBytes.array_small: decode_array_small,
-    ConstructorBytes.array_large: decode_array_large,
-    ConstructorBytes.descriptor: decode_described,
-}
+    value = decode_value(buffer)
+    if section_type == 'data':
+        try:
+            message[section_type].append(value)
+        except KeyError:
+            message[section_type] = [value]
+    else:
+        message[section_type] = value
 
 
 def decode_value(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     constructor = buffer.read(1)
-    #print("constructing")
     try:
         value = _CONSTUCTOR_MAP[constructor]
     except KeyError:
         value = _DECODE_MAP[constructor](buffer)
-    #print("Decoded value", value)
     return value
 
 
@@ -395,5 +364,40 @@ def decode_frame(data):
     fields = decode_value(buffer)
     
     if frame_type == TransferFrame:
-        fields.append(decode_payload(buffer))
+        fields.append(buffer)
     return frame_type(*fields)
+
+
+
+_DECODE_MAP = {
+    ConstructorBytes.bool: decode_boolean,
+    ConstructorBytes.ubyte: decode_ubyte,
+    ConstructorBytes.ushort: decode_ushort,
+    ConstructorBytes.uint_small: decode_uint_small,
+    ConstructorBytes.uint_large: decode_uint_large,
+    ConstructorBytes.ulong_small: decode_ulong_small,
+    ConstructorBytes.ulong_large: decode_ulong_large,
+    ConstructorBytes.byte: decode_byte,
+    ConstructorBytes.short: decode_short,
+    ConstructorBytes.int_small: decode_int_small,
+    ConstructorBytes.int_large: decode_int_large,
+    ConstructorBytes.long_small: decode_long_small,
+    ConstructorBytes.long_large: decode_long_large,
+    ConstructorBytes.float: decode_float,
+    ConstructorBytes.double: decode_double,
+    ConstructorBytes.timestamp: decode_timestamp,
+    ConstructorBytes.uuid: decode_uuid,
+    ConstructorBytes.binary_small: decode_binary_small,
+    ConstructorBytes.binary_large: decode_binary_large,
+    ConstructorBytes.string_small: decode_string_small,
+    ConstructorBytes.string_large: decode_string_large,
+    ConstructorBytes.symbol_small: decode_symbol_small,
+    ConstructorBytes.symbol_large: decode_symbol_large,
+    ConstructorBytes.list_small: decode_list_small,
+    ConstructorBytes.list_large: decode_list_large,
+    ConstructorBytes.map_small: decode_map_small,
+    ConstructorBytes.map_large: decode_map_large,
+    ConstructorBytes.array_small: decode_array_small,
+    ConstructorBytes.array_large: decode_array_large,
+    ConstructorBytes.descriptor: decode_described,
+}

@@ -146,68 +146,7 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-class BareMessage(object):
-    """The bare message consists of sections standard properties, application-properties,
-    and application-data (the body).
-
-    The bare message is immutable within the AMQP network. That is none of the sections can be changed by
-    any node acting as an AMQP intermediary. If a section of the bare message is omitted, one may not be
-    inserted by an intermediary. The exact encoding of sections of the bare message MUST NOT be modiﬁed.
-    This preserves message hashes, HMACs and signatures based on the binary encoding of the bare message.
-
-    The exact structure of a message, together with its encoding, is deﬁned by the message format. This document
-    deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
-    following sections:
-
-        - Zero or one properties.
-        - Zero or one application-properties.
-        - The body consists of either: one or more data sections, one or more amqp-sequence sections,
-          or a single amqp-value section.
-
-    :param ~uamqp.message.Properties: Immutable properties of the Message.
-        The properties section is used for a deﬁned set of standard properties of the message. The properties
-        section is part of the bare message and thus must, if retransmitted by an intermediary, remain completely
-        unaltered.
-    :param dict application_properties: The application-properties section is a part of the bare message used
-        for structured application data. Intermediaries may use the data within this structure for the purposes
-        of ﬁltering or routing. The keys of this map are restricted to be of type string (which excludes the
-        possibility of a null key) and the values are restricted to be of simple types only (that is excluding
-        map, list, and array types).
-    :param list(bytes) data_body: A data section contains opaque binary data.
-    :param list sequence_body: A sequence section contains an arbitrary number of structured data elements.
-    :param value_body: An amqp-value section contains a single AMQP value.
-    """
-
-    def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None, **kwargs):
-        data = kwargs.get('_data_body') or data
-        sequence = kwargs.get('_sequence_body') or sequence
-        value = kwargs.get('_value_body') or value
-        if data:
-            self.body_type = MessageBodyType.DATA
-            self._data_body = data
-        elif sequence:
-            self.body_type = MessageBodyType.SEQUENCE
-            self._sequence_body = sequence
-        elif value:
-            self.body_type = MessageBodyType.VALUE
-            self._value_body = value
-        else:
-            self.body_type = MessageBodyType.EMPTY
-        self.properties = properties
-        self.application_properties = application_properties
-
-    @property
-    def body(self):
-        if self.body_type == MessageBodyType.DATA:
-            return self._data_body
-        if self.body_type == MessageBodyType.SEQUENCE:
-            return self._sequence_body
-        if self.body_type == MessageBodyType.VALUE:
-            return self._value_body
-        return None
-
-
-class AnnotatedMessage(BareMessage):
+class AnnotatedMessage(object):
     """An annotated message consists of the bare message plus sections for annotation at the head and tail
     of the bare message.
 
@@ -281,15 +220,30 @@ class AnnotatedMessage(BareMessage):
             application_properties=None,
             footer=None,
             **kwargs):
+        if data:
+            self.body_type = MessageBodyType.DATA
+            self._data_body = data
+        elif sequence:
+            self.body_type = MessageBodyType.SEQUENCE
+            self._sequence_body = sequence
+        elif value:
+            self.body_type = MessageBodyType.VALUE
+            self._value_body = value
+        else:
+            self.body_type = MessageBodyType.EMPTY
+        self.properties = properties
+        self.application_properties = application_properties
         self.header = header
         self.delivery_annotations = delivery_annotations
         self.message_annotations = message_annotations
         self.footer = footer
-        super(AnnotatedMessage, self).__init__(
-            data=data,
-            sequence=sequence,
-            value=value,
-            properties=properties,
-            application_properties=application_properties,
-            **kwargs
-        )
+
+    @property
+    def body(self):
+        if self.body_type == MessageBodyType.DATA:
+            return self._data_body
+        if self.body_type == MessageBodyType.SEQUENCE:
+            return self._sequence_body
+        if self.body_type == MessageBodyType.VALUE:
+            return self._value_body
+        return None

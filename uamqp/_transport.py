@@ -12,6 +12,8 @@ from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 import certifi
 
@@ -134,6 +136,8 @@ class _AbstractTransport(object):
         self.read_timeout = read_timeout
         self.write_timeout = write_timeout
         self.socket_settings = socket_settings
+        self.thread_pool = None
+        self.socket_lock = Lock()
 
     def connect(self):
         try:
@@ -148,6 +152,7 @@ class _AbstractTransport(object):
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
             # has _not_ been sent
             self.connected = True
+            self.thread_pool = ThreadPoolExecutor(max_workers=10)
         except (OSError, IOError, SSLError):
             # if not fully connected, close socket, and reraise error
             if self.sock and not self.connected:
@@ -350,6 +355,7 @@ class _AbstractTransport(object):
         raise NotImplementedError('Must be overriden in subclass')
 
     def close(self):
+        self.thread_pool.shutdown()
         if self.sock is not None:
             self._shutdown_transport()
             # Call shutdown first to make sure that pending messages
@@ -360,7 +366,7 @@ class _AbstractTransport(object):
             self.sock = None
         self.connected = False
 
-    def read(self, unpack=unpack_frame_header, verify_frame_type=0):  # TODO: verify frame type?
+    def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
         read = self._read
         read_frame_buffer = BytesIO()
         try:
@@ -405,23 +411,41 @@ class _AbstractTransport(object):
                 self.connected = False
             raise
 
-    def receive_frame(self, batch=None, verify_frame_type=0):
+    def receive_frame(self, *args, **kwargs):
+        try:
+            header, channel, payload = self.read(**kwargs) 
+            if not payload:
+                decoded = decode_empty_frame(header)
+            else:
+                decoded = decode_frame(payload)
+            # TODO: Catch decode error and return amqp:decode-error
+            _LOGGER.info("ICH%d <- %r", channel, decoded)
+            return channel, decoded
+        except socket.timeout:
+            return None, None
+
+    def receive_frame_with_lock(self, *args, **kwargs):
+        try:
+            with self.socket_lock:
+                header, channel, payload = self.read(**kwargs) 
+            if not payload:
+                decoded = decode_empty_frame(header)
+            else:
+                decoded = decode_frame(payload)
+            return channel, decoded
+        except socket.timeout:
+            return None, None
+
+    def receive_frame_batch(self, batch, **kwargs):
+        if self.thread_pool:
+            return self.thread_pool.map(self.receive_frame_with_lock, range(batch))
         frames = []
-        max_batch_size = batch or 1
-        while len(frames) < max_batch_size:
+        while len(frames) < batch:
             try:
-                header, channel, payload = self.read(verify_frame_type=verify_frame_type) 
-                if not payload:
-                    decoded = decode_empty_frame(header)
-                else:
-                    decoded = decode_frame(payload)
-                    # TODO: Catch decode error and return amqp:decode-error
-                _LOGGER.info("ICH%d <- %r", channel, decoded)
-                if not batch:
-                    return channel, decoded
+                header, channel, payload = self.read(**kwargs) 
+                decoded = decode_bytes(header, payload)
+                frames.append((channel, decoded))
             except socket.timeout:
-                if not batch:
-                    return None, None
                 break
         return frames
 
