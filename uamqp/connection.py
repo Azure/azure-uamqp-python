@@ -80,12 +80,13 @@ class Connection(object):
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
         self.properties = kwargs.pop('properties', None)
 
-        self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', False)
+        self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)
         self.remote_idle_timeout = None
         self.remote_idle_timeout_send_frame = None
         self.idle_timeout_empty_frame_send_ratio = kwargs.get('idle_timeout_empty_frame_send_ratio', 0.5)
         self.last_frame_received_time = None
         self.last_frame_sent_time = None
+        self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
 
         self.outgoing_endpoints = {}
         self.incoming_endpoints = {}
@@ -156,7 +157,7 @@ class Connection(object):
                 received = self.transport.receive_frame(**kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame( **kwargs)
+                    received = self.transport.receive_frame(**kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
                     received = self.transport.receive_frame(**kwargs)
@@ -312,7 +313,7 @@ class Connection(object):
     def _process_outgoing_frame(self, channel, frame):
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
             raise ValueError("Connection not configured to allow pipeline send.")
-        if self.state not in [ConnectionState.OPENED]:
+        if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
         self._send_frame(channel, frame)
 
@@ -328,6 +329,22 @@ class Connection(object):
             if time_since_last_sent > self.remote_idle_timeout_send_frame:
                 self._outgoing_EMPTY()
         return False
+    
+    def _wait_for_response(self, wait, end_state):
+        # type: (Union[bool, float], ConnectionState) -> None
+        if wait == True:
+            self.listen(wait=False)
+            while self.state != end_state:
+                time.sleep(self.idle_wait_time)
+                self.listen(wait=False)
+        elif wait:
+            self.listen(wait=False)
+            timeout = time.time() + wait
+            while self.state != end_state:
+                if time.time() >= timeout:
+                    break
+                time.sleep(self.idle_wait_time)
+                self.listen(wait=False)
 
     def listen(self, wait=False, batch=None, **kwargs):
         if self.state == ConnectionState.END:
@@ -346,41 +363,29 @@ class Connection(object):
             for session in self.outgoing_endpoints.values():
                 session._evaluate_status()
             if self._get_local_timeout(now) or self._get_remote_timeout(now):
-                self.close(error=None, wait=wait)  # timeout
+                self.close(error=None, wait=False)
 
-    def begin_session(self, session=None, block=True, **kwargs):
+    def create_session(self, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()
+        kwargs['allow_pipelined_open'] = self.allow_pipelined_open
+        kwargs['idle_wait_time'] = self.idle_wait_time
         session = Session(self, assigned_channel, **kwargs)
         self.outgoing_endpoints[assigned_channel] = session
-        if block and not self.allow_pipelined_open:  # TODO timeout
-            session.begin()
-        else:
-            session.begin(block=False)
         return session
 
-    def end_session(self, session, wait=True, **kwargs):
-        if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
-            return
-        try:
-            if wait and not self.allow_pipelined_open:
-                self.outgoing_endpoints[session.channel].end()
-            else:
-                self.outgoing_endpoints[session.channel].end(block=False)
-        except KeyError:
-            raise ValueError("No running session that matches input value.")
-
-    def open(self, wait=True):
+    def open(self, wait=False):
         self._connect()
         self._outgoing_OPEN()
         if self.state == ConnectionState.HDR_EXCH:
             self._set_state(ConnectionState.OPEN_SENT)
         elif self.state == ConnectionState.HDR_SENT:
             self._set_state(ConnectionState.OPEN_PIPE)
-        if wait and not self.allow_pipelined_open:  # TODO: timeout
-            while self.state != ConnectionState.OPENED:
-                self.listen(wait=False)
+        if wait:
+            self._wait_for_response(wait, ConnectionState.OPENED)
+        elif not self.allow_pipelined_open:
+            raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
 
-    def close(self, error=None, wait=True):
+    def close(self, error=None, wait=False):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
             return
         self._outgoing_CLOSE(error=error)
@@ -392,7 +397,5 @@ class Connection(object):
             self._set_state(ConnectionState.DISCARDING)
         else:
             self._set_state(ConnectionState.CLOSE_SENT)
-        if wait:  # TODO: block for a timeout
-            while self.state != ConnectionState.END:
-                self.listen(wait=False)
+        self._wait_for_response(wait, ConnectionState.END)
         self._disconnect()

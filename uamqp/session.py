@@ -7,6 +7,7 @@
 import uuid
 import logging
 from enum import Enum
+import time
 
 from .constants import (
     INCOMING_WINDOW,
@@ -60,6 +61,9 @@ class Session(object):
         self.offered_capabilities = None
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
+        self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)
+        self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
+
         self.links = {}
         self._connection = connection
         self._output_handles = {}
@@ -95,8 +99,9 @@ class Session(object):
             link._evaluate_status()
 
     def _on_connection_state_change(self):
-        if self._connection.state == ConnectionState.CLOSE_RCVD or self._connection.state == ConnectionState.END:
-            self._set_state(SessionState.DISCARDING)
+        if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
+            if self.state not in [SessionState.DISCARDING, SessionState.UNMAPPED]:
+                self._set_state(SessionState.DISCARDING)
 
     def _get_next_output_handle(self):
         # type: () -> int
@@ -118,7 +123,7 @@ class Session(object):
             outgoing_window=self.outgoing_window,
             incoming_window=self.incoming_window,
             handle_max=self.handle_max,
-            offered_capabilities=self.offered_capabilitiesis if self.state == SessionState.BEGIN_RCVD else None,
+            offered_capabilities=self.offered_capabilities if self.state == SessionState.BEGIN_RCVD else None,
             desired_capabilities=self.desired_capabilities if self.state == SessionState.UNMAPPED else None,
             properties=self.properties,
         )
@@ -235,49 +240,49 @@ class Session(object):
         except KeyError:
             pass  # TODO: close session with unattached-handle
 
-    def begin(self, block=True):
-        self._outgoing_BEGIN()
-        self._set_state(SessionState.BEGIN_SENT)
-        if block:  # TODO: timeout
-            while self.state == SessionState.BEGIN_SENT:
+    def _wait_for_response(self, wait, end_state):
+        # type: (Union[bool, float], ConnectionState) -> None
+        if wait == True:
+            self._connection.listen(wait=False)
+            while self.state != end_state:
+                time.sleep(self.idle_wait_time)
+                self._connection.listen(wait=False)
+        elif wait:
+            self._connection.listen(wait=False)
+            timeout = time.time() + wait
+            while self.state != end_state:
+                if time.time() >= timeout:
+                    break
+                time.sleep(self.idle_wait_time)
                 self._connection.listen(wait=False)
 
-    def end(self, error=None, block=True):
+    def begin(self, wait=False):
+        self._outgoing_BEGIN()
+        self._set_state(SessionState.BEGIN_SENT)
+        if wait:
+            self._wait_for_response(wait, SessionState.BEGIN_SENT)
+        elif not self.allow_pipelined_open:
+            raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
+
+    def end(self, error=None, wait=False):
         # type: (Optional[AMQPError]) -> None
         if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
             self._outgoing_END(error=error)
         # TODO: destroy all links
         new_state = SessionState.DISCARDING if error else SessionState.END_SENT
         self._set_state(new_state)
-        if block:  # TODO: timeout
-            while self.state == new_state:
-                self._connection.listen(wait=False)
+        self._wait_for_response(wait, SessionState.UNMAPPED)
 
-    def attach_receiver_link(self, **kwargs):
+    def create_receiver_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
         link = ReceiverLink(self, handle=assigned_handle, **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
-        link.attach()
         return link
 
-    def attach_sender_link(self, **kwargs):
+    def create_sender_link(self, **kwargs):
         assigned_handle = self._get_next_output_handle()
         link = SenderLink(self, handle=assigned_handle, **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
-        link.attach()
         return link
-
-    def attach_request_response_link_pair(self):
-        raise NotImplementedError('Pending')
-
-    def detach_link(self, link, close=False, error=None):
-        try:
-            self.links[link.name].detach(close=close, error=error)
-            # if link._is_closed:  TODO
-            #     self.links.pop(link.name, None)
-            #     self._input_handles.pop(link.remote_handle, None)
-            #     self._output_handles.pop(link.handle, None)
-        except KeyError:
-            raise ValueError("No running link that matches input value.")

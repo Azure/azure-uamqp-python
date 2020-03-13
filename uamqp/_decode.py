@@ -295,11 +295,11 @@ def decode_described(buffer):
     # type: (Decoder, IO) -> None
     descriptor = decode_value(buffer)
     value = decode_value(buffer)
-    #try:
-    #    composite_type = COMPOSITES[descriptor]
-    #    return composite_type(*value)
-    #except KeyError:
-    return value
+    try:
+        composite_type = COMPOSITES[descriptor]
+        return composite_type(*value)
+    except KeyError:
+        return value
 
 
 def decode_message_section(buffer, message):
