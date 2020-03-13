@@ -12,14 +12,14 @@ from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from threading import Lock
 
 import certifi
 
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
-from ._decode import decode_frame, decode_empty_frame
+from ._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 from .performatives_tuple import HeaderFrame, TLSHeaderFrame
 
 
@@ -71,8 +71,6 @@ DEFAULT_SOCKET_SETTINGS = {
 
 
 def unpack_frame_header(data):
-    if len(data) != 8:
-        raise ValueError("Invalid frame header")
     if data[0:4] == b'AMQP':  # AMQP header negotiation
         size = None
     else:
@@ -82,6 +80,24 @@ def unpack_frame_header(data):
     frame_type = struct.unpack('>B', data[5:6])[0]
     channel = struct.unpack('>H', data[6:])[0]
     return (size, offset, frame_type, channel)
+
+
+def decode_proc_response(response):
+    header, channel, payload = response
+    if not payload:
+        decoded = decode_empty_frame(header)
+    else:
+        decoded = decode_pickle_frame(payload)
+    return channel, decoded
+
+
+def decode_response(response):
+    header, channel, payload = response
+    if not payload:
+        decoded = decode_empty_frame(header)
+    else:
+        decoded = decode_frame(payload)
+    return channel, decoded
 
 
 def get_errno(exc):
@@ -152,7 +168,7 @@ class _AbstractTransport(object):
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
             # has _not_ been sent
             self.connected = True
-            self.thread_pool = ThreadPoolExecutor(max_workers=10)
+            self.thread_pool = ProcessPoolExecutor(max_workers=5)
         except (OSError, IOError, SSLError):
             # if not fully connected, close socket, and reraise error
             if self.sock and not self.connected:
@@ -437,17 +453,19 @@ class _AbstractTransport(object):
             return None, None
 
     def receive_frame_batch(self, batch, **kwargs):
-        if self.thread_pool:
-            return self.thread_pool.map(self.receive_frame_with_lock, range(batch))
+        #if self.thread_pool:
+        #    return self.thread_pool.map(self.receive_frame_with_lock, range(batch))
         frames = []
         while len(frames) < batch:
             try:
                 header, channel, payload = self.read(**kwargs) 
-                decoded = decode_bytes(header, payload)
-                frames.append((channel, decoded))
+                frames.append((header.tobytes(), channel, payload.tobytes()))
             except socket.timeout:
                 break
-        return frames
+        if self.thread_pool:
+            return (construct_frame(*f) for f in self.thread_pool.map(decode_proc_response, frames, chunksize=10))
+        else:
+            return (decode_response(f) for f in frames)
 
     def send_frame(self, channel, frame):
         header, performative = encode_frame(frame)

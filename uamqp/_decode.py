@@ -295,11 +295,11 @@ def decode_described(buffer):
     # type: (Decoder, IO) -> None
     descriptor = decode_value(buffer)
     value = decode_value(buffer)
-    try:
-        composite_type = COMPOSITES[descriptor]
-        return composite_type(*value)
-    except KeyError:
-        return value
+    #try:
+    #    composite_type = COMPOSITES[descriptor]
+    #    return composite_type(*value)
+    #except KeyError:
+    return value
 
 
 def decode_message_section(buffer, message):
@@ -366,6 +366,23 @@ def decode_frame(data):
     if frame_type == TransferFrame:
         fields.append(buffer)
     return frame_type(*fields)
+
+
+def decode_pickle_frame(data):
+    # type: (memoryview, int) -> namedtuple
+    #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
+    buffer = BytesIO(data)
+    _ = buffer.read(1)  # First byte is always described type constructor
+    frame_constructor = decode_value(buffer)
+    fields = decode_value(buffer)
+    if frame_constructor == 0x00000014:
+        fields.append(buffer)
+    return (frame_constructor, fields)
+
+
+def construct_frame(channel, frame):
+    constructor, fields = frame
+    return channel, PERFORMATIVES[constructor](*fields)
 
 
 

@@ -785,7 +785,7 @@ class ReceiveClient(AMQPClient):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work(batch=None)
+            receiving = self.do_work()
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())
