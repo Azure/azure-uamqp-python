@@ -72,7 +72,7 @@ class Link(object):
         return self
 
     def __exit__(self, *args):
-        self.detach()
+        self.detach(close=True)
 
     @classmethod
     def from_incoming_frame(cls, session, handle, frame):

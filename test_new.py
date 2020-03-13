@@ -31,63 +31,60 @@ def message_send_complete(message, reason, state):
     print("MESSAGE SEND COMPLETE", reason, state)
 
 def message_received(message):
-    print("MESSAGE RECEIVED", str(message.body))
+    #print("MESSAGE RECEIVED", message['data'])
+    pass
 
 def main():
     creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])
-    c = Connection(
+    with Connection(
         "amqps://" + config['hostname'],
         transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
         max_frame_size=65536,
         channel_max=65535,
-        idle_timeout=10,
-        read_timeout=0.0)
+        idle_timeout=10) as c:
 
-    c.open()
-    session = c.begin_session(
-        incoming_window=500,
-        outgoing_window=500)
-    session2 = c.begin_session()
+        with c.create_session(
+            incoming_window=500,
+            outgoing_window=500) as session:
 
-    target = Target(address="amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub']))
-    link = session.attach_sender_link(
-        target=target,
-        send_settle_mode='UNSETTLED',
-        rcv_settle_mode='SECOND'
-    )
-    while link.state.value != 3: #'ATTACHED':
-        print(link.state.value)
-        c.listen()
-    for i in range(2):
-        message = BareMessage(data=b'HelloFromPython')
-        link.send_transfer(message, on_send_complete=message_send_complete, timeout=2)
-    c.listen(timeout=2)
-    c.listen(timeout=2)
-    c.listen(timeout=3)
-    session.detach_link(link, close=True)
-    c.listen()
-    source = Source(address="amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(
-        config['hostname'],
-        config['event_hub']))
-    print("ATTACHING RECEIVER")
-    link = session.attach_receiver_link(
-        source=source,
-        send_settle_mode='UNSETTLED',
-        rcv_settle_mode='SECOND',
-        max_message_size=1048576,
-        on_message_received=message_received,
-    )
-    while True:
-        print("LISTENING")
-        c.listen(wait=2)
-    print("DETACHING RECEIVER")
-    session.detach_link(link, close=True)
-    c.listen()
-    print("ENDING SESSION")
-    c.end_session(session)
-    c.end_session(session2)
-    print("CLOSING")
-    c.close()
+            target = Target(address="amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub']))
+            with session.create_sender_link(
+                target=target,
+                send_settle_mode='UNSETTLED',
+                rcv_settle_mode='SECOND'
+            ) as link:
+                while link.state.value != 3: #'ATTACHED':
+                    print(link.state.value)
+                    c.listen()
+                for i in range(2):
+                    message = BareMessage(data=b'HelloFromPython')
+                    link.send_transfer(message, on_send_complete=message_send_complete, timeout=2)
+                c.listen(wait=2)
+                c.listen(wait=2)
+                c.listen(wait=2)
+
+            c.listen()
+
+            source = Source(address="amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(
+                config['hostname'],
+                config['event_hub']))
+            print("ATTACHING RECEIVER")
+            with session.create_receiver_link(
+                source=source,
+                send_settle_mode='UNSETTLED',
+                rcv_settle_mode='SECOND',
+                max_message_size=1048576,
+                on_message_received=message_received,
+            ) as link:
+
+                for _ in range(10):
+                    print("LISTENING")
+                    c.listen()
+                print("DETACHING RECEIVER")
+            c.listen()
+            print("ENDING SESSION")
+        print("CLOSING")
+    print("DONE")
 
 if __name__ == '__main__':
     main()

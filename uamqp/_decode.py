@@ -328,7 +328,6 @@ def decode_value(buffer):
 
 def decode_empty_frame(header):
     # type: (bytes) -> Performative
-    _LOGGER.debug("Empty header bytes: %s", header)
     if header[0:4] == _HEADER_PREFIX:
         layer = header[4]
         if layer == 0:
