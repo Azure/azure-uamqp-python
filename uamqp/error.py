@@ -7,9 +7,8 @@
 from enum import Enum
 from collections import namedtuple
 
-# from .constants import PORT, FIELD
-# from .performatives import Performative
-# from .types import AMQPTypes, FieldDefinition
+from .constants import PORT, FIELD
+from .types import AMQPTypes, FieldDefinition
 
 
 class ErrorCondition(Enum):
@@ -124,130 +123,100 @@ class LinkErrorCondition(Enum):
 
 
 AMQPError = namedtuple('error', ['condition', 'description', 'info'])
+AMQPError._code = 0x0000001d
+AMQPError._definition = (
+    FIELD('condition', AMQPTypes.symbol, True, None, False),
+    FIELD('description', AMQPTypes.string, False, None, False),
+    FIELD('info', FieldDefinition.fields, False, None, False),
+)
 
 
-# class AMQPError(Performative):
-#     """Details of an error.
+class AMQPException(Exception):
 
-#     :param ~uamqp.ErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     """
-
-#     NAME = "ERROR"
-#     CODE = 0x0000001d
-#     DEFINITION = (
-#         FIELD('condition', AMQPTypes.symbol, True, None, False),
-#         FIELD('description', AMQPTypes.string, False, None, False),
-#         FIELD('info', FieldDefinition.fields, False, None, False),
-#     )
-
-#     def __new__(cls, condition=None, description=None, info=None):
-#         error_instance = super(AMQPError, cls).__new__(cls)
-#         # if b":link:" in condition:
-#         #     condition = LinkErrorCondition(condition)
-#         #     if condition == LinkErrorCondition.Redirect:
-#         #         return AMQPLinkRedirect.__init__(condition, description=description, info=info)
-#         #     else:
-#         #         return AMQPLinkError.__init__(condition, description=description, info=info)        
-#         # elif b":session:" in condition:
-#         #     condition = SessionErrorCondition(condition)
-#         #     return AMQPSessionError.__init__(condition, description=description, info=info)
-#         # elif b":connection:" in condition:
-#         #     condition = ConnectionErrorCondition(condition)
-#         #     if condition == ConnectionErrorCondition.Redirect:
-#         #         return AMQPConnectionRedirect.__init__(condition, description=description, info=info)
-#         #     else:
-#         #         return AMQPConnectionError.__init__(condition, description=description, info=info)
-#         # else:
-#         try:
-#             condition = ErrorCondition(condition)
-#         except ValueError:
-#             pass
-#         error_instance.__init__(condition=condition, description=description, info=info)
-#         return error_instance
-
-#     def __repr__(self):
-#         return "{}({})".format(self.__class__.__name__, self.condition)
+    def __init__(self, condition, description, info):
+        self.condition = condition
+        self.description = description
+        self.info = info
+        super(AMQPException, self).__init__()  # TODO: Pass a message
 
 
-# class AMQPDecodeError(AMQPError):
-#     """An error occurred while decoding an incoming frame.
+class AMQPDecodeError(AMQPException):
+    """An error occurred while decoding an incoming frame.
 
-#     :param ~uamqp.ErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     """
+    :param ~uamqp.ErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
-# class AMQPConnectionError(AMQPError):
-#     """Details of a Connection-level error.
+class AMQPConnectionError(AMQPException):
+    """Details of a Connection-level error.
 
-#     :param ~uamqp.ConnectionErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     """
-
-
-# class AMQPConnectionRedirect(AMQPConnectionError):
-#     """Details of a Connection-level redirect response.
-
-#     The container is no longer available on the current connection.
-#     The peer should attempt reconnection to the container using the details provided.
-
-#     :param ~uamqp.ConnectionErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     :param str hostname: The hostname of the container.
-#         This is the value that should be supplied in the hostname field of the open frame, and during the SASL and
-#         TLS negotiation (if used).
-#     :param str network_host: The DNS hostname or IP address of the machine hosting the container.
-#     :param int port: The port number on the machine hosting the container.
-#     """
-
-#     def __init__(self, condition, description=None, info=None):
-#         self.hostname = info.get(b'hostname', b'').decode('utf-8')
-#         self.network_host = info.get(b'network-host', b'').decode('utf-8')
-#         self.port = int(info.get(b'port', 0))  # TODO: Default port
-#         super(AMQPConnectionRedirect, self).__init__(condition, description=description, info=info)
+    :param ~uamqp.ConnectionErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
 
-# class AMQPSessionError(AMQPError):
-#     """Details of a Session-level error.
+class AMQPConnectionRedirect(AMQPConnectionError):
+    """Details of a Connection-level redirect response.
 
-#     :param ~uamqp.SessionErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     """
+    The container is no longer available on the current connection.
+    The peer should attempt reconnection to the container using the details provided.
+
+    :param ~uamqp.ConnectionErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    :param str hostname: The hostname of the container.
+        This is the value that should be supplied in the hostname field of the open frame, and during the SASL and
+        TLS negotiation (if used).
+    :param str network_host: The DNS hostname or IP address of the machine hosting the container.
+    :param int port: The port number on the machine hosting the container.
+    """
+
+    def __init__(self, condition, description=None, info=None):
+        self.hostname = info.get(b'hostname', b'').decode('utf-8')
+        self.network_host = info.get(b'network-host', b'').decode('utf-8')
+        self.port = int(info.get(b'port', 0))  # TODO: Default port
+        super(AMQPConnectionRedirect, self).__init__(condition, description=description, info=info)
 
 
-# class AMQPLinkError(AMQPError):
-#     """Details of a Link-level error.
+class AMQPSessionError(AMQPException):
+    """Details of a Session-level error.
 
-#     :param ~uamqp.LinkErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     """
+    :param ~uamqp.SessionErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
-# class AMQPLinkRedirect(AMQPLinkError):
-#     """Details of a Link-level redirect response.
 
-#     The address provided cannot be resolved to a terminus at the current container.
-#     The supplied information may allow the client to locate and attach to the terminus.
+class AMQPLinkError(AMQPException):
+    """Details of a Link-level error.
 
-#     :param ~uamqp.LinkErrorCondition condition: The error code.
-#     :param str description: A description of the error.
-#     :param info: A dictionary of additional data associated with the error.
-#     :param str hostname: The hostname of the container hosting the terminus.
-#         This is the value that should be supplied in the hostname field of the open frame, and during SASL
-#         and TLS negotiation (if used).
-#     :param str network_host: The DNS hostname or IP address of the machine hosting the container.
-#     :param int port: The port number on the machine hosting the container.
-#     :param str address: The address of the terminus at the container.
-#     """
+    :param ~uamqp.LinkErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    """
 
-#     def __init__(self, condition, description=None, info=None):
-#         self.hostname = info.get(b'hostname', b'').decode('utf-8')
-#         self.network_host = info.get(b'network-host', b'').decode('utf-8')
-#         self.port = int(info.get(b'port', PORT))
-#         self.address = info.get(b'address', b'').decode('utf-8')
-#         super(AMQPLinkRedirect, self).__init__(condition, description=description, info=info)
+class AMQPLinkRedirect(AMQPLinkError):
+    """Details of a Link-level redirect response.
+
+    The address provided cannot be resolved to a terminus at the current container.
+    The supplied information may allow the client to locate and attach to the terminus.
+
+    :param ~uamqp.LinkErrorCondition condition: The error code.
+    :param str description: A description of the error.
+    :param info: A dictionary of additional data associated with the error.
+    :param str hostname: The hostname of the container hosting the terminus.
+        This is the value that should be supplied in the hostname field of the open frame, and during SASL
+        and TLS negotiation (if used).
+    :param str network_host: The DNS hostname or IP address of the machine hosting the container.
+    :param int port: The port number on the machine hosting the container.
+    :param str address: The address of the terminus at the container.
+    """
+
+    def __init__(self, condition, description=None, info=None):
+        self.hostname = info.get(b'hostname', b'').decode('utf-8')
+        self.network_host = info.get(b'network-host', b'').decode('utf-8')
+        self.port = int(info.get(b'port', PORT))
+        self.address = info.get(b'address', b'').decode('utf-8')
+        super(AMQPLinkRedirect, self).__init__(condition, description=description, info=info)

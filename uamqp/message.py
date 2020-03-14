@@ -4,23 +4,32 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from enum import Enum
+from collections import namedtuple
 
 from .types import AMQPTypes, FieldDefinition
 from .constants import FIELD
-from .performatives import Performative
+from .performatives import _CAN_ADD_DOCSTRING
 
 
-class MessageBodyType(Enum):
-
-    DATA = 0
-    SEQUENCE = 1
-    VALUE = 2
-    EMPTY = 3
-
-
-class Header(Performative):
-    """Transport headers for a Message.
+Header = namedtuple(
+    'header',
+    [
+        'durable',
+        'priority',
+        'ttl',
+        'first_acquirer',
+        'delivery_count'
+    ])
+Header._code = 0x00000070
+Header._definition = (
+    FIELD("durable", AMQPTypes.boolean, False, None, False),
+    FIELD("priority", AMQPTypes.ubyte, False, None, False),
+    FIELD("ttl", AMQPTypes.uint, False, None, False),
+    FIELD("first_acquirer", AMQPTypes.boolean, False, None, False),
+    FIELD("delivery_count", AMQPTypes.uint, False, None, False))
+if _CAN_ADD_DOCSTRING:
+    Header.__doc__ = """
+    Transport headers for a Message.
 
     The header section carries standard delivery details about the transfer of a Message through the AMQP
     network. If the header section is omitted the receiver MUST assume the appropriate default values for
@@ -62,19 +71,43 @@ class Header(Performative):
         be taken as an indication that the delivery may be a duplicate. On ﬁrst delivery, the value is zero.
         It is incremented upon an outcome being settled at the sender, according to rules deﬁned for each outcome.
     """
-    NAME = "HEADER"
-    CODE = 0x00000070
-    DEFINITION = (
-        FIELD("durable", AMQPTypes.boolean, False, None, False),
-        FIELD("priority", AMQPTypes.ubyte, False, None, False),
-        FIELD("ttl", FieldDefinition.milliseconds, False, None, False),
-        FIELD("first_acquirer", AMQPTypes.boolean, False, None, False),
-        FIELD("delivery_count", AMQPTypes.uint, False, None, False)
-    )
 
 
-class Properties(Performative):
-    """Immutable properties of the Message.
+Properties = namedtuple(
+    'properties',
+    [
+        'message_id',
+        'user_id',
+        'to',
+        'subject',
+        'reply_to',
+        'correlation_id',
+        'content_type',
+        'content_encoding',
+        'absolute_expiry_time',
+        'creation_time',
+        'group_id',
+        'group_sequence',
+        'reply_to_group_id'
+    ])
+Properties._code = 0x00000073
+Properties._definition = (
+    FIELD("message_id", FieldDefinition.message_id, False, None, False),
+    FIELD("user_id", AMQPTypes.binary, False, None, False),
+    FIELD("to", AMQPTypes.string, False, None, False),
+    FIELD("subject", AMQPTypes.string, False, None, False),
+    FIELD("reply_to", AMQPTypes.string, False, None, False),
+    FIELD("correlation_id", FieldDefinition.message_id, False, None, False),
+    FIELD("content_type", AMQPTypes.symbol, False, None, False),
+    FIELD("content_encoding", AMQPTypes.symbol, False, None, False),
+    FIELD("absolute_expiry_time", AMQPTypes.timestamp, False, None, False),
+    FIELD("creation_time", AMQPTypes.timestamp, False, None, False),
+    FIELD("group_id", AMQPTypes.string, False, None, False),
+    FIELD("group_sequence", AMQPTypes.uint, False, None, False),
+    FIELD("reply_to_group_id", AMQPTypes.string, False, None, False))
+if _CAN_ADD_DOCSTRING:
+    Properties.__doc__ = """
+    Immutable properties of the Message.
 
     The properties section is used for a deﬁned set of standard properties of the message. The properties
     section is part of the bare message and thus must, if retransmitted by an intermediary, remain completely
@@ -127,97 +160,35 @@ class Properties(Performative):
     :param str reply_to_group_id: The group the reply message belongs to.
         This is a client-speciﬁc id that is used so that client can send replies to this message to a speciﬁc group.
     """
-    NAME = "PROPERTIES"
-    CODE = 0x00000073
-    DEFINITION = (
-        FIELD("message_id", FieldDefinition.message_id, False, None, False),
-        FIELD("user_id", AMQPTypes.binary, False, None, False),
-        FIELD("to", AMQPTypes.string, False, None, False),
-        FIELD("subject", AMQPTypes.string, False, None, False),
-        FIELD("reply_to", AMQPTypes.string, False, None, False),
-        FIELD("correlation_id", FieldDefinition.message_id, False, None, False),
-        FIELD("content_type", AMQPTypes.symbol, False, None, False),
-        FIELD("content_encoding", AMQPTypes.symbol, False, None, False),
-        FIELD("absolute_expiry_time", AMQPTypes.timestamp, False, None, False),
-        FIELD("creation_time", AMQPTypes.timestamp, False, None, False),
-        FIELD("group_id", AMQPTypes.string, False, None, False),
-        FIELD("group_sequence", FieldDefinition.sequence_no, False, None, False),
-        FIELD("reply_to_group_id", AMQPTypes.string, False, None, False),
-    )
 
-
-class BareMessage(object):
-    """The bare message consists of sections standard properties, application-properties,
-    and application-data (the body).
-
-    The bare message is immutable within the AMQP network. That is none of the sections can be changed by
-    any node acting as an AMQP intermediary. If a section of the bare message is omitted, one may not be
-    inserted by an intermediary. The exact encoding of sections of the bare message MUST NOT be modiﬁed.
-    This preserves message hashes, HMACs and signatures based on the binary encoding of the bare message.
-
-    The exact structure of a message, together with its encoding, is deﬁned by the message format. This document
-    deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
-    following sections:
-
-        - Zero or one properties.
-        - Zero or one application-properties.
-        - The body consists of either: one or more data sections, one or more amqp-sequence sections,
-          or a single amqp-value section.
-
-    :param ~uamqp.message.Properties: Immutable properties of the Message.
-        The properties section is used for a deﬁned set of standard properties of the message. The properties
-        section is part of the bare message and thus must, if retransmitted by an intermediary, remain completely
-        unaltered.
-    :param dict application_properties: The application-properties section is a part of the bare message used
-        for structured application data. Intermediaries may use the data within this structure for the purposes
-        of ﬁltering or routing. The keys of this map are restricted to be of type string (which excludes the
-        possibility of a null key) and the values are restricted to be of simple types only (that is excluding
-        map, list, and array types).
-    :param list(bytes) data_body: A data section contains opaque binary data.
-    :param list sequence_body: A sequence section contains an arbitrary number of structured data elements.
-    :param value_body: An amqp-value section contains a single AMQP value.
-    """
-    NAME = "MESSAGE"
-    FORMAT = 0
-    SECTIONS = {
-        0x00000073: FIELD("properties", Properties, False, None, False),
-        0x00000074: FIELD("application_properties", AMQPTypes.map, False, None, False),
-        0x00000075: FIELD("_data_body", AMQPTypes.binary, False, None, True),
-        0x00000076: FIELD("_sequence_body", AMQPTypes.list, False, None, False),
-        0x00000077: FIELD("_value_body", None, False, None, False),
-    }
-
-    def __init__(self, data=None, sequence=None, value=None, properties=None, application_properties=None, **kwargs):
-        data = kwargs.get('_data_body') or data
-        sequence = kwargs.get('_sequence_body') or sequence
-        value = kwargs.get('_value_body') or value
-        if data:
-            self.body_type = MessageBodyType.DATA
-            self._data_body = data
-        elif sequence:
-            self.body_type = MessageBodyType.SEQUENCE
-            self._sequence_body = sequence
-        elif value:
-            self.body_type = MessageBodyType.VALUE
-            self._value_body = value
-        else:
-            self.body_type = MessageBodyType.EMPTY
-        self.properties = properties
-        self.application_properties = application_properties
-
-    @property
-    def body(self):
-        if self.body_type == MessageBodyType.DATA:
-            return self._data_body
-        if self.body_type == MessageBodyType.SEQUENCE:
-            return self._sequence_body
-        if self.body_type == MessageBodyType.VALUE:
-            return self._value_body
-        return None
-
-
-class AnnotatedMessage(BareMessage):
-    """An annotated message consists of the bare message plus sections for annotation at the head and tail
+Message = namedtuple(
+    'message',
+    [
+        'header',
+        'delivery_annotations',
+        'message_annotations',
+        'properties',
+        'application_properties',
+        'data',
+        'sequence',
+        'value',
+        'footer',
+    ])
+Message.__new__.__defaults__ = (None,) * len(Message._fields)
+Message._code = 0
+Message._definition = (
+    (0x00000070, FIELD("header", Header, False, None, False)),
+    (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
+    (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
+    (0x00000073, FIELD("properties", Properties, False, None, False)),
+    (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
+    (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
+    (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, False)),
+    (0x00000077, FIELD("value", None, False, None, False)),
+    (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
+if _CAN_ADD_DOCSTRING:
+    Message.__doc__ = """
+    An annotated message consists of the bare message plus sections for annotation at the head and tail
     of the bare message.
 
     There are two classes of annotations: annotations that travel with the message indeﬁnitely, and
@@ -277,17 +248,6 @@ class AnnotatedMessage(BareMessage):
         signatures and encryption details). A registry of deﬁned footers and their meanings can be found
         here: http://www.amqp.org/specification/1.0/footer.
     """
-    SECTIONS = {
-        0x00000070: FIELD("header", Header, False, None, False),
-        0x00000071: FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False),
-        0x00000072: FIELD("message_annotations", FieldDefinition.annotations, False, None, False),
-        0x00000073: FIELD("properties", Properties, False, None, False),
-        0x00000074: FIELD("application_properties", AMQPTypes.map, False, None, False),
-        0x00000075: FIELD("_data_body", AMQPTypes.binary, False, None, True),
-        0x00000076: FIELD("_sequence_body", AMQPTypes.list, False, None, False),
-        0x00000077: FIELD("_value_body", None, False, None, False),
-        0x00000078: FIELD("footer", FieldDefinition.annotations, False, None, False),
-    }
 
     def __init__(
             self,
@@ -301,15 +261,18 @@ class AnnotatedMessage(BareMessage):
             application_properties=None,
             footer=None,
             **kwargs):
+        self.data = data
+        self.sequence = sequence
+        self.value = value
+        self.properties = properties
+        self.application_properties = application_properties
         self.header = header
         self.delivery_annotations = delivery_annotations
         self.message_annotations = message_annotations
         self.footer = footer
-        super(AnnotatedMessage, self).__init__(
-            data=data,
-            sequence=sequence,
-            value=value,
-            properties=properties,
-            application_properties=application_properties,
-            **kwargs
-        )
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)

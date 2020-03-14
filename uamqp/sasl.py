@@ -8,15 +8,18 @@ import struct
 from enum import Enum
 
 from ._transport import SSLTransport
-from .types import AMQPTypes, TYPE, VALUE, SASLCode
-from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD
-from .performatives import SASLInit
-from .performatives_tuple import (
+from .types import AMQPTypes, TYPE, VALUE
+from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD, SASLCode
+from .performatives import (
     SASLHeaderFrame,
     SASLOutcome,
     SASLResponse,
-    SASLChallenge
+    SASLChallenge,
+    SASLInit
 )
+
+
+_SASL_FRAME_TYPE = b'\x01'
 
 
 class SASLPlainCredential(object):
@@ -75,11 +78,11 @@ class SASLTransport(SSLTransport):
 
     def negotiate(self):
         with self.block():
-            self.send_frame(0, SASLHeaderFrame())
+            self.send_frame(0, SASLHeaderFrame(), frame_type=_SASL_FRAME_TYPE)
             _, returned_header = self.receive_frame()
             if not isinstance(returned_header, SASLHeaderFrame):
                 raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
-                    SASLHeaderFrame.CODE, returned_header.CODE))
+                    SASLHeaderFrame._code, returned_header._code))
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
             if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
@@ -88,12 +91,12 @@ class SASLTransport(SSLTransport):
                 mechanism=self.credential.mechanism,
                 initial_response=self.credential.start(),
                 hostname=self.host)
-            self.send_frame(0, sasl_init)
+            self.send_frame(0, sasl_init, frame_type=_SASL_FRAME_TYPE)
 
             _, next_frame = self.receive_frame(verify_frame_type=1)
             if not isinstance(next_frame, SASLOutcome):
-                raise NotImplementedError("Unsupport SASL challenge")
-            if next_frame.code == 0:#SASLCode.ok:
+                raise NotImplementedError("Unsupported SASL challenge")
+            if next_frame.code == SASLCode.Ok:
                 return
             else:
                 raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(

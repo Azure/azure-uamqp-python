@@ -14,60 +14,93 @@
 #   - the behavior of Messages which have been transferred on the Link, but have not yet reached a
 #     terminal state at the receiver, when the source is destroyed.
 
-from enum import Enum
+from collections import namedtuple
 
 from .types import AMQPTypes, FieldDefinition, ObjDefinition
 from .constants import FIELD
-from .performatives import Performative
+from .performatives import _CAN_ADD_DOCSTRING
 
 
-class TerminusDurability(Enum):
+class TerminusDurability(object):
+    """Durability policy for a terminus.
+
+    <type name="terminus-durability" class="restricted" source="uint">
+        <choice name="none" value="0"/>
+        <choice name="configuration" value="1"/>
+        <choice name="unsettled-state" value="2"/>
+    </type>
+
+    Determines which state of the terminus is held durably.
+    """
     #: No Terminus state is retained durably
-    none = 0
+    NoDurability = 0
     #: Only the existence and conﬁguration of the Terminus is retained durably.
-    configuration = 1
+    Configuration = 1
     #: In addition to the existence and conﬁguration of the Terminus, the unsettled state for durable
     #: messages is retained durably.
-    unsettled_state = 2
+    UnsettledState = 2
 
 
-class ExpiryPolicy(Enum):
+class ExpiryPolicy(object):
+    """Expiry policy for a terminus.
+
+    <type name="terminus-expiry-policy" class="restricted" source="symbol">
+        <choice name="link-detach" value="link-detach"/>
+        <choice name="session-end" value="session-end"/>
+        <choice name="connection-close" value="connection-close"/>
+        <choice name="never" value="never"/>
+    </type>
+
+    Determines when the expiry timer of a terminus starts counting down from the timeout
+    value. If the link is subsequently re-attached before the terminus is expired, then the
+    count down is aborted. If the conditions for the terminus-expiry-policy are subsequently
+    re-met, the expiry timer restarts from its originally conﬁgured timeout value.
+    """
     #: The expiry timer starts when Terminus is detached.
-    link_detach = b"link-detach"
+    LinkDetach = b"link-detach"
     #: The expiry timer starts when the most recently associated session is ended.
-    session_end = b"session-end"
+    SessionEnd = b"session-end"
     #: The expiry timer starts when most recently associated connection is closed.
-    connection_close = b"connection-close"
+    ConnectionClose = b"connection-close"
     #: The Terminus never expires.
-    never = b"never"
+    Never = b"never"
 
 
-class DistributionMode(Enum):
+class DistributionMode(object):
+    """Link distribution policy.
+
+    <type name="std-dist-mode" class="restricted" source="symbol" provides="distribution-mode">
+        <choice name="move" value="move"/>
+        <choice name="copy" value="copy"/>
+    </type>
+
+    Policies for distributing messages when multiple links are connected to the same node.
+    """
     #: Once successfully transferred over the link, the message will no longer be available
     #: to other links from the same node.
-    move = b'move'
+    Move = b'move'
     #: Once successfully transferred over the link, the message is still available for other
     #: links from the same node.
-    copy = b'copy'
+    Copy = b'copy'
 
 
-class LifeTimePolicy(Enum):
+class LifeTimePolicy(object):
     #: Lifetime of dynamic node scoped to lifetime of link which caused creation.
     #: A node dynamically created with this lifetime policy will be deleted at the point that the link
     #: which caused its creation ceases to exist.
-    delete_on_close = 0x0000002b
+    DeleteOnClose = 0x0000002b
     #: Lifetime of dynamic node scoped to existence of links to the node.
     #: A node dynamically created with this lifetime policy will be deleted at the point that there remain
     #: no links for which the node is either the source or target.
-    delete_on_no_links = 0x0000002c
+    DeleteOnNoLinks = 0x0000002c
     #: Lifetime of dynamic node scoped to existence of messages on the node.
     #: A node dynamically created with this lifetime policy will be deleted at the point that the link which
     #: caused its creation no longer exists and there remain no messages at the node.
-    delete_on_no_messages = 0x0000002d
+    DeleteOnNoMessages = 0x0000002d
     #: Lifetime of node scoped to existence of messages on or links to the node.
     #: A node dynamically created with this lifetime policy will be deleted at the point that the there are no
     #: links which have this node as their source or target, and there remain no messages at the node.
-    delete_on_no_links_or_messages = 0x0000002e
+    DeleteOnNoLinksOrMessages = 0x0000002e
 
 
 class SupportedOutcomes(object):
@@ -94,9 +127,38 @@ class ApacheFilters(object):
     selector_filter = b"apache.org:selector-filter:string"
 
 
-class Source(Performative):
-    """For containers which do not implement address resolution (and do not admit spontaneous link attachment
-    from their partners) but are instead only used as producers of messages, it is unnecessary to provide
+Source = namedtuple(
+    'source',
+    [
+        'address',
+        'durable',
+        'expiry_policy',
+        'timeout',
+        'dynamic',
+        'dynamic_node_properties',
+        'distribution_mode',
+        'filters',
+        'default_outcome',
+        'outcomes',
+        'capabilities'
+    ])
+Source._code = 0x00000028
+Source._definition = (
+    FIELD("address", AMQPTypes.string, False, None, False),
+    FIELD("durable", AMQPTypes.uint, False, "none", False),
+    FIELD("expiry_policy", AMQPTypes.symbol, False, ExpiryPolicy.SessionEnd, False),
+    FIELD("timeout", AMQPTypes.uint, False, 0, False),
+    FIELD("dynamic", AMQPTypes.boolean, False, False, False),
+    FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
+    FIELD("distribution_mode", AMQPTypes.symbol, False, None, False),
+    FIELD("filters", FieldDefinition.filter_set, False, None, False),
+    FIELD("default_outcome", ObjDefinition.delivery_state, False, None, False),
+    FIELD("outcomes", AMQPTypes.symbol, False, None, True),
+    FIELD("capabilities", AMQPTypes.symbol, False, None, True))
+if _CAN_ADD_DOCSTRING:
+    Source.__doc__ = """
+    For containers which do not implement address resolution (and do not admit spontaneous link
+    attachment from their partners) but are instead only used as producers of messages, it is unnecessary to provide
     spurious detail on the source. For this purpose it is possible to use a "minimal" source in which all the
     ﬁelds are left unset.
 
@@ -151,28 +213,31 @@ class Source(Performative):
     :param list(bytes) capabilities: The extension capabilities the sender supports/desires.
         See http://www.amqp.org/specification/1.0/source-capabilities.
     """
-    NAME = "SOURCE"
-    CODE = 0x00000028
-    DEFINITION = (
-        FIELD("address", AMQPTypes.string, False, None, False),
-        FIELD("durable", FieldDefinition.terminus_durability, False, "none", False),
-        FIELD("expiry_policy", FieldDefinition.expiry_policy, False, "session-end", False),
-        FIELD("timeout", FieldDefinition.seconds, False, 0, False),
-        FIELD("dynamic", AMQPTypes.boolean, False, False, False),
-        FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
-        FIELD("distribution_mode", FieldDefinition.distribution_mode, False, None, False),
-        FIELD("filters", FieldDefinition.filter_set, False, None, False),
-        FIELD("default_outcome", ObjDefinition.delivery_state, False, None, False),
-        FIELD("outcomes", AMQPTypes.symbol, False, None, True),
-        FIELD("capabilities", AMQPTypes.symbol, False, None, True),
-    )
-
-    def __repr__(self):
-        return "Source({})".format(self.address)
 
 
-class Target(Performative):
-    """For containers which do not implement address resolution (and do not admit spontaneous link attachment
+Target = namedtuple(
+    'target',
+    [
+        'address',
+        'durable',
+        'expiry_policy',
+        'timeout',
+        'dynamic',
+        'dynamic_node_properties',
+        'capabilities'
+    ])
+Target._code = 0x00000029
+Target._definition = (
+    FIELD("address", AMQPTypes.string, False, None, False),
+    FIELD("durable", AMQPTypes.uint, False, "none", False),
+    FIELD("expiry_policy", AMQPTypes.symbol, False, ExpiryPolicy.SessionEnd, False),
+    FIELD("timeout", AMQPTypes.uint, False, 0, False),
+    FIELD("dynamic", AMQPTypes.boolean, False, False, False),
+    FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
+    FIELD("capabilities", AMQPTypes.symbol, False, None, True))
+if _CAN_ADD_DOCSTRING:
+    Target.__doc__ = """
+    For containers which do not implement address resolution (and do not admit spontaneous link attachment
     from their partners) but are instead only used as consumers of messages, it is unnecessary to provide spurious
     detail on the source. For this purpose it is possible to use a 'minimal' target in which all the
     ﬁelds are left unset.
@@ -208,17 +273,3 @@ class Target(Performative):
     :param list(bytes) capabilities: The extension capabilities the sender supports/desires.
         See http://www.amqp.org/specification/1.0/source-capabilities.
     """
-    NAME = "TARGET"
-    CODE = 0x00000029
-    DEFINITION = (
-        FIELD("address", AMQPTypes.string, False, None, False),
-        FIELD("durable", FieldDefinition.terminus_durability, False, "none", False),
-        FIELD("expiry_policy", FieldDefinition.expiry_policy, False, "session-end", False),
-        FIELD("timeout", FieldDefinition.seconds, False, 0, False),
-        FIELD("dynamic", AMQPTypes.boolean, False, False, False),
-        FIELD("dynamic_node_properties", FieldDefinition.node_properties, False, None, False),
-        FIELD("capabilities", AMQPTypes.symbol, False, None, True),
-    )
-
-    def __repr__(self):
-        return "Target({})".format(self.address)

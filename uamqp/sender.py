@@ -12,11 +12,12 @@ from ._encode import encode_payload
 from .endpoints import Source
 from .link import Link
 from .constants import (
-    DEFAULT_LINK_CREDIT,
     SessionState,
     SessionTransferState,
     LinkDeliverySettleReason,
-    LinkState
+    LinkState,
+    Role,
+    SenderSettleMode
 )
 from .performatives import (
     AttachFrame,
@@ -52,11 +53,12 @@ class PendingDelivery(object):
 
 class SenderLink(Link):
 
-    def __init__(self, session, handle, target, **kwargs):
+    def __init__(self, session, handle, target_address, **kwargs):
         name = kwargs.pop('name', None) or str(uuid.uuid4())
-        role = 'SENDER'
-        source = kwargs.pop('source', None) or Source(address="sender-link-{}".format(name))
-        super(SenderLink, self).__init__(session, handle, name, role, source, target, **kwargs)
+        role = Role.Sender
+        if 'source_address' not in kwargs:
+            kwargs['source_address'] = "sender-link-{}".format(name)
+        super(SenderLink, self).__init__(session, handle, name, role, target_address=target_address, **kwargs)
         self._unsent_messages = []
 
     def _evaluate_status(self):
@@ -81,17 +83,22 @@ class SenderLink(Link):
         if self.current_link_credit > 0:
             self._send_unsent_messages()
 
-    def _outgoing_TRANSFER(self, delivery):
+    def _outgoing_transfer(self, delivery):
         delivery_count = self.delivery_count + 1
-        delivery.frame = TransferFrame(
-            handle=self.handle,
-            delivery_tag=bytes(delivery_count),
-            message_format=delivery.message.FORMAT,
-            settled=delivery.settled,
-            more=False,
-            _payload=encode_payload(b"", delivery.message)
-        )
-        self._session._outgoing_TRANSFER(delivery)
+        delivery.frame = {
+            'handle': self.handle,
+            'delivery_tag': bytes(delivery_count),
+            'message_format': delivery.message._code,
+            'settled': delivery.settled,
+            'more': False,
+            'rcv_settle_mode': None,
+            'state': None,
+            'resume': None,
+            'aborted': None,
+            'batchable': None,
+            'payload': encode_payload(b"", delivery.message)
+        }
+        self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.Okay:
             self.delivery_count = delivery_count
             self.current_link_credit -= 1
@@ -99,7 +106,7 @@ class SenderLink(Link):
             if delivery.settled:
                 delivery.on_settled(LinkDeliverySettleReason.Settled, None)
             else:
-                self._pending_deliveries[delivery.frame.delivery_id] = delivery
+                self._pending_deliveries[delivery.frame['delivery_id']] = delivery
         elif delivery.transfer_state == SessionTransferState.Error:
             raise ValueError("Message failed to send")
 
@@ -119,7 +126,7 @@ class SenderLink(Link):
         expired = []
         for delivery in self._pending_deliveries.values():
             if delivery.timeout and (now - delivery.start) >= delivery.timeout:
-                expired.append(delivery.frame.delivery_id)
+                expired.append(delivery.frame['delivery_id'])
                 delivery.on_settled(LinkDeliverySettleReason.Timeout, None)
         self._pending_deliveries = {i: d for i, d in self._pending_deliveries.items() if i not in expired}
 
@@ -127,7 +134,7 @@ class SenderLink(Link):
         unsent = []
         for delivery in self._unsent_messages:
             if not delivery.sent:
-                self._outgoing_TRANSFER(delivery)
+                self._outgoing_transfer(delivery)
                 if not delivery.sent:
                     unsent.append(delivery)
         self._unsent_messages = unsent
@@ -137,8 +144,8 @@ class SenderLink(Link):
             raise ValueError("Link already closed.")
         if self.state != LinkState.ATTACHED:
             raise ValueError("Link is not attached.")
-        settled = self.send_settle_mode == 'SETTLED'
-        if self.send_settle_mode == 'MIXED':
+        settled = self.send_settle_mode == SenderSettleMode.Settled
+        if self.send_settle_mode == SenderSettleMode.Mixed:
             settled = kwargs.pop('settled', True)
         delivery = PendingDelivery(
             on_delivery_settled=kwargs.get('on_send_complete'),
@@ -150,17 +157,17 @@ class SenderLink(Link):
         if self.current_link_credit == 0:
             self._unsent_messages.append(delivery)
         else:
-            self._outgoing_TRANSFER(delivery)
+            self._outgoing_transfer(delivery)
             if not delivery.sent:
                 self._unsent_messages.append(delivery)
         return delivery
     
     def cancel_transfer(self, delivery):
         try:
-            delivery = self._pending_deliveries.pop(delivery.frame.delivery_id)
+            delivery = self._pending_deliveries.pop(delivery.frame['delivery_id'])
             delivery.on_settled(LinkDeliverySettleReason.Cancelled, None)
             return
         except KeyError:
             pass
         # todo remove from unset messages
-        raise ValueError("No pending delivery with ID '{}' found.".format(delivery_id))
+        raise ValueError("No pending delivery with ID '{}' found.".format(delivery.frame['delivery_id']))

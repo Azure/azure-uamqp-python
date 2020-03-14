@@ -11,7 +11,8 @@ import time
 from uamqp import Connection
 from uamqp.sasl import SASLTransport, SASLAnonymousCredential, SASLPlainCredential
 from uamqp.endpoints import Source, Target
-from uamqp.message import BareMessage
+from uamqp.message import Message
+from uamqp.constants import SenderSettleMode, ReceiverSettleMode
 
 from legacy_test.live_settings import config
 
@@ -42,22 +43,22 @@ def main():
         max_frame_size=65536,
         channel_max=65535,
         idle_timeout=10) as c:
-
+        c.listen()
         with c.create_session(
             incoming_window=500,
             outgoing_window=500) as session:
-
-            target = Target(address="amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub']))
+            c.listen()
+            target = "amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub'])
             with session.create_sender_link(
-                target=target,
-                send_settle_mode='UNSETTLED',
-                rcv_settle_mode='SECOND'
+                target_address=target,
+                send_settle_mode=SenderSettleMode.Unsettled,
+                rcv_settle_mode=ReceiverSettleMode.Second
             ) as link:
                 while link.state.value != 3: #'ATTACHED':
                     print(link.state.value)
                     c.listen()
                 for i in range(2):
-                    message = BareMessage(data=b'HelloFromPython')
+                    message = Message(data=b'HelloFromPython')
                     link.send_transfer(message, on_send_complete=message_send_complete, timeout=2)
                 c.listen(wait=2)
                 c.listen(wait=2)
@@ -65,14 +66,12 @@ def main():
 
             c.listen()
 
-            source = Source(address="amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(
-                config['hostname'],
-                config['event_hub']))
+            source = "amqps://{}/{}/ConsumerGroups/$Default/Partitions/0".format(config['hostname'], config['event_hub'])
             print("ATTACHING RECEIVER")
             with session.create_receiver_link(
-                source=source,
-                send_settle_mode='UNSETTLED',
-                rcv_settle_mode='SECOND',
+                source_address=source,
+                send_settle_mode=SenderSettleMode.Unsettled,
+                rcv_settle_mode=ReceiverSettleMode.Second,
                 max_message_size=1048576,
                 on_message_received=message_received,
             ) as link:

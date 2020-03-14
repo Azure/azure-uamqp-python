@@ -11,10 +11,9 @@ from io import BytesIO
 import logging
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
-from .types import FieldDefinition, ObjDefinition, ConstructorBytes
-from .definitions import _FIELD_DEFINITIONS
+from .types import ConstructorBytes
 from .error import AMQPError
-from .performatives_tuple import (
+from .performatives import (
     HeaderFrame,
     TLSHeaderFrame,
     SASLHeaderFrame,
@@ -32,9 +31,9 @@ from .performatives_tuple import (
     SASLChallenge,
     SASLResponse,
     SASLOutcome)
-from .endpoints_tuple import Source, Target
-from .message_tuple import Header, Properties, AnnotatedMessage
-from .outcomes_tuple import (
+from .endpoints import Source, Target
+from .message import Header, Properties
+from .outcomes import (
     Received,
     Accepted,
     Rejected,

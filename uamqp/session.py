@@ -14,7 +14,8 @@ from .constants import (
     OUTGOING_WIDNOW,
     ConnectionState,
     SessionState,
-    SessionTransferState
+    SessionTransferState,
+    Role
 )
 from .endpoints import Source, Target
 from .sender import SenderLink
@@ -116,7 +117,7 @@ class Session(object):
         next_handle = next(i for i in range(1, self.handle_max) if i not in self._output_handles)
         return next_handle
     
-    def _outgoing_BEGIN(self):
+    def _outgoing_begin(self):
         begin_frame = BeginFrame(
             remote_channel=self.remote_channel if self.state == SessionState.BEGIN_RCVD else None,
             next_outgoing_id=self.next_outgoing_id,
@@ -139,10 +140,10 @@ class Session(object):
             self._set_state(SessionState.MAPPED)
         elif self.state == SessionState.UNMAPPED:
             self._set_state(SessionState.BEGIN_RCVD)
-            self._outgoing_BEGIN()
+            self._outgoing_begin()
             self._set_state(SessionState.MAPPED)
 
-    def _outgoing_END(self, error=None):
+    def _outgoing_end(self, error=None):
         end_frame = EndFrame(error=error)
         self._connection._process_outgoing_frame(self.channel, end_frame)
 
@@ -150,10 +151,10 @@ class Session(object):
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
             self._set_state(SessionState.END_RCVD)
             # TODO: Clean up all links
-            self._outgoing_END()
+            self._outgoing_end()
         self._set_state(SessionState.UNMAPPED)
 
-    def _outgoing_ATTACH(self, frame):
+    def _outgoing_attach(self, frame):
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_attach(self, frame):
@@ -162,7 +163,7 @@ class Session(object):
             self._input_handles[frame.handle]._incoming_attach(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
-            if frame.role == 'SENDER':
+            if frame.role == Role.Sender:
                 new_link = ReceiverLink.from_incoming_frame(self, outgoing_handle, frame)
             else:
                 new_link = SenderLink.from_incoming_frame(self, outgoing_handle, frame)
@@ -173,13 +174,15 @@ class Session(object):
         except ValueError:
             pass  # TODO: Reject link
     
-    def _outgoing_FLOW(self, frame=None):
-        flow_frame = frame or FlowFrame()
-        flow_frame.next_incoming_id = self.next_incoming_id
-        flow_frame.incoming_window = self.incoming_window
-        flow_frame.next_outgoing_id = self.next_outgoing_id
-        flow_frame.outgoing_window = self.outgoing_window
-        self._connection._process_outgoing_frame(self.channel, flow_frame)
+    def _outgoing_flow(self, frame=None):
+        link_flow = frame or {}
+        link_flow.update({
+            'next_incoming_id': self.next_incoming_id,
+            'incoming_window': self.incoming_window,
+            'next_outgoing_id': self.next_outgoing_id,
+            'outgoing_window': self.outgoing_window
+        })
+        self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
 
     def _incoming_flow(self, frame):
         self.next_incoming_id = frame.next_outgoing_id
@@ -193,14 +196,14 @@ class Session(object):
                 if self.remote_incoming_window > 0 and not link._is_closed:
                     link._incoming_flow(frame)
 
-    def _outgoing_TRANSFER(self, delivery):
+    def _outgoing_transfer(self, delivery):
         if self.state != SessionState.MAPPED:
             delivery.transfer_state = SessionTransferState.Error
         if self.remote_incoming_window <= 0:
             delivery.transfer_state = SessionTransferState.Busy
         else:
-            delivery.frame.delivery_id = self.next_outgoing_id
-            self._connection._process_outgoing_frame(self.channel, delivery.frame)
+            delivery.frame['delivery_id'] = self.next_outgoing_id
+            self._connection._process_outgoing_frame(self.channel, TransferFrame(**delivery.frame))
             self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
             self.outgoing_window -= 1
@@ -217,16 +220,16 @@ class Session(object):
             pass  #TODO: "unattached handle"
         if self.incoming_window == 0:
             self.incoming_window = self.target_incoming_window
-            self._outgoing_FLOW()
+            self._outgoing_flow()
 
-    def _outgoing_DISPOSITION(self, frame):
+    def _outgoing_disposition(self, frame):
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_disposition(self, frame):
         for link in self._input_handles.values():
             link._incoming_disposition(frame)
 
-    def _outgoing_DETACH(self, frame):
+    def _outgoing_detach(self, frame):
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_detach(self, frame):
@@ -257,7 +260,7 @@ class Session(object):
                 self._connection.listen(wait=False)
 
     def begin(self, wait=False):
-        self._outgoing_BEGIN()
+        self._outgoing_begin()
         self._set_state(SessionState.BEGIN_SENT)
         if wait:
             self._wait_for_response(wait, SessionState.BEGIN_SENT)
@@ -267,22 +270,22 @@ class Session(object):
     def end(self, error=None, wait=False):
         # type: (Optional[AMQPError]) -> None
         if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
-            self._outgoing_END(error=error)
+            self._outgoing_end(error=error)
         # TODO: destroy all links
         new_state = SessionState.DISCARDING if error else SessionState.END_SENT
         self._set_state(new_state)
         self._wait_for_response(wait, SessionState.UNMAPPED)
 
-    def create_receiver_link(self, **kwargs):
+    def create_receiver_link(self, source_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = ReceiverLink(self, handle=assigned_handle, **kwargs)
+        link = ReceiverLink(self, handle=assigned_handle, source_address=source_address, **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
         return link
 
-    def create_sender_link(self, **kwargs):
+    def create_sender_link(self, target_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = SenderLink(self, handle=assigned_handle, **kwargs)
+        link = SenderLink(self, handle=assigned_handle, target_address=target_address, **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link

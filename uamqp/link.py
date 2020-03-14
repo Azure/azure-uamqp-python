@@ -13,12 +13,16 @@ from urllib.parse import urlparse
 from enum import Enum
 from io import BytesIO
 
+from .endpoints import Source, Target
 from .constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,
     SessionTransferState,
     LinkDeliverySettleReason,
-    LinkState
+    LinkState,
+    Role,
+    SenderSettleMode,
+    ReceiverSettleMode
 )
 from .performatives import (
     AttachFrame,
@@ -36,18 +40,36 @@ class Link(object):
 
     """
 
-    def __init__(self, session, handle, name, role, source, target, **kwargs):
+    def __init__(self, session, handle, name, role, **kwargs):
         self.state = LinkState.DETACHED
         self.name = name or str(uuid.uuid4())
         self.handle = handle
         self.remote_handle = None
         self.role = role
-        self.source = source
-        self.target = target
+        self.source = Source(
+            address=kwargs['source_address'],
+            durable=kwargs.get('source_durable'),
+            expiry_policy=kwargs.get('source_expiry_policy'),
+            timeout=kwargs.get('source_timeout'),
+            dynamic=kwargs.get('source_dynamic'),
+            dynamic_node_properties=kwargs.get('source_dynamic_node_properties'),
+            distribution_mode=kwargs.get('source_distribution_mode'),
+            filters=kwargs.get('source_filters'),
+            default_outcome=kwargs.get('source_default_outcome'),
+            outcomes=kwargs.get('source_outcomes'),
+            capabilities=kwargs.get('source_capabilities'))
+        self.target = Target(
+            address=kwargs['target_address'],
+            durable=kwargs.get('target_durable'),
+            expiry_policy=kwargs.get('target_expiry_policy'),
+            timeout=kwargs.get('target_timeout'),
+            dynamic=kwargs.get('target_dynamic'),
+            dynamic_node_properties=kwargs.get('target_dynamic_node_properties'),
+            capabilities=kwargs.get('target_capabilities'))
         self.link_credit = kwargs.pop('link_credit', None) or DEFAULT_LINK_CREDIT
         self.current_link_credit = self.link_credit
-        self.send_settle_mode = kwargs.pop('send_settle_mode', 'MIXED')
-        self.rcv_settle_mode = kwargs.pop('rcv_settle_mode', 'FIRST')
+        self.send_settle_mode = kwargs.pop('send_settle_mode', SenderSettleMode.Mixed)
+        self.rcv_settle_mode = kwargs.pop('rcv_settle_mode', ReceiverSettleMode.First)
         self.unsettled = kwargs.pop('unsettled', None)
         self.incomplete_unsettled = kwargs.pop('incomplete_unsettled', None)
         self.initial_delivery_count = kwargs.pop('initial_delivery_count', 0)
@@ -91,7 +113,7 @@ class Link(object):
     def _evaluate_status(self):
         if self.current_link_credit <= 0:
             self.current_link_credit = self.link_credit
-            self._outgoing_FLOW()
+            self._outgoing_flow()
 
     def _remove_pending_deliveries(self):  # TODO: move to sender
         for delivery in self._pending_deliveries.values():
@@ -101,13 +123,13 @@ class Link(object):
     def _on_session_state_change(self):
         if self._session.state == SessionState.MAPPED:
             if not self._is_closed and self.state == LinkState.DETACHED:
-                self._outgoing_ATTACH()
+                self._outgoing_attach()
                 self._set_state(LinkState.ATTACH_SENT)
         elif self._session.state == SessionState.DISCARDING:
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)
 
-    def _outgoing_ATTACH(self):
+    def _outgoing_attach(self):
         self.delivery_count = self.initial_delivery_count
         attach_frame = AttachFrame(
             name=self.name,
@@ -117,15 +139,15 @@ class Link(object):
             rcv_settle_mode=self.rcv_settle_mode,
             source=self.source,
             target=self.target,
-            #unsettled=self.unsettled,
-            #incomplete_unsettled=self.incomplete_unsettled,
-            initial_delivery_count=self.initial_delivery_count if self.role == 'SENDER' else None,
+            unsettled=self.unsettled,
+            incomplete_unsettled=self.incomplete_unsettled,
+            initial_delivery_count=self.initial_delivery_count if self.role == Role.Sender else None,
             max_message_size=self.max_message_size,
             offered_capabilities=self.offered_capabilities if self.state == LinkState.ATTACH_RCVD else None,
             desired_capabilities=self.desired_capabilities if self.state == LinkState.DETACHED else None,
             properties=self.properties
         )
-        self._session._outgoing_ATTACH(attach_frame)
+        self._session._outgoing_attach(attach_frame)
 
     def _incoming_attach(self, frame):
         if self._is_closed:
@@ -147,35 +169,35 @@ class Link(object):
         elif self.state == LinkState.ATTACH_SENT:
             self._set_state(LinkState.ATTACHED)
     
-    def _outgoing_FLOW(self):
-        flow_frame = FlowFrame(
-            handle=self.handle,
-            delivery_count=self.delivery_count,
-            link_credit=self.current_link_credit,
-            # available=
-            # drain=
-            # echo=
-            # properties=
-        )
-        self._session._outgoing_FLOW(flow_frame)
+    def _outgoing_flow(self):
+        flow_frame = {
+            'handle': self.handle,
+            'delivery_count': self.delivery_count,
+            'link_credit': self.current_link_credit,
+            'available': None,
+            'drain': None,
+            'echo': None,
+            'properties': None
+        }
+        self._session._outgoing_flow(flow_frame)
 
     def _incoming_flow(self, frame):
         pass
 
-    def _outgoing_DETACH(self, close=False, error=None):
+    def _outgoing_detach(self, close=False, error=None):
         detach_frame = DetachFrame(handle=self.handle, closed=close, error=error)
-        self._session._outgoing_DETACH(detach_frame)
+        self._session._outgoing_detach(detach_frame)
         if close:
             self._is_closed = True
 
     def _incoming_detach(self, frame):
         if self.state == LinkState.ATTACHED:
-            self._outgoing_DETACH(close=frame.closed)
+            self._outgoing_detach(close=frame.closed)
         elif frame.closed and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
             # Received a closing detach after we sent a non-closing detach.
             # In this case, we MUST signal that we closed by reattaching and then sending a closing detach.
-            self._outgoing_ATTACH()
-            self._outgoing_DETACH(close=True)
+            self._outgoing_attach()
+            self._outgoing_detach(close=True)
         self._remove_pending_deliveries()
         # TODO: on_detach_hook
         if frame.error:
@@ -186,7 +208,7 @@ class Link(object):
     def attach(self):
         if self._is_closed:
             raise ValueError("Link already closed.")
-        self._outgoing_ATTACH()
+        self._outgoing_attach()
         self._set_state(LinkState.ATTACH_SENT)
         self._received_payload = b''
 
@@ -195,8 +217,8 @@ class Link(object):
             raise ValueError("Link already closed.")
         self._remove_pending_deliveries()  # TODO: Keep?
         if self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
-            self._outgoing_DETACH(close=close, error=error)
+            self._outgoing_detach(close=close, error=error)
             self._set_state(LinkState.DETACHED)
         elif self.state == LinkState.ATTACHED:
-            self._outgoing_DETACH(close=close, error=error)
+            self._outgoing_detach(close=close, error=error)
             self._set_state(LinkState.ATTACH_SENT)

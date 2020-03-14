@@ -9,7 +9,7 @@ import logging
 from io import BytesIO
 
 from ._decode import decode_payload
-from .constants import DEFAULT_LINK_CREDIT
+from .constants import DEFAULT_LINK_CREDIT, Role
 from .endpoints import Target
 from .link import Link
 from .constants import (
@@ -33,11 +33,12 @@ _LOGGER = logging.getLogger(__name__)
 
 class ReceiverLink(Link):
 
-    def __init__(self, session, handle, source, **kwargs):
+    def __init__(self, session, handle, source_address, **kwargs):
         name = kwargs.pop('name', None) or str(uuid.uuid4())
-        role = 'RECEIVER'
-        target = kwargs.pop('target', None) or Target(address="receiver-link-{}".format(name))
-        super(ReceiverLink, self).__init__(session, handle, name, role, source, target, **kwargs)
+        role = Role.Receiver
+        if 'target_address' not in kwargs:
+            kwargs['target_address'] = "receiver-link-{}".format(name)
+        super(ReceiverLink, self).__init__(session, handle, name, role, source_address=source_address, **kwargs)
         self.on_message_received = kwargs.get('on_message_received')
         self.on_transfer_received = kwargs.get('on_transfer_received')
         if not self.on_message_received and not self.on_transfer_received:
@@ -61,7 +62,7 @@ class ReceiverLink(Link):
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
         self.delivery_count = frame.initial_delivery_count
         self.current_link_credit = self.link_credit
-        self._outgoing_FLOW()
+        self._outgoing_flow()
 
     def _incoming_transfer(self, frame):
         self.current_link_credit -= 1
@@ -75,9 +76,9 @@ class ReceiverLink(Link):
             message = decode_payload(frame.payload)
             delivery_state = self._process_incoming_message(frame, message)
             if not frame.settled and delivery_state:
-                self._outgoing_DISPOSITION(frame.delivery_id, delivery_state)
+                self._outgoing_disposition(frame.delivery_id, delivery_state)
 
-    def _outgoing_DISPOSITION(self, delivery_id, delivery_state):
+    def _outgoing_disposition(self, delivery_id, delivery_state):
         disposition_frame = DispositionFrame(
             role=self.role,
             first=delivery_id,
@@ -86,9 +87,9 @@ class ReceiverLink(Link):
             state=delivery_state,
             # batchable=
         )
-        self._session._outgoing_DISPOSITION(disposition_frame)
+        self._session._outgoing_disposition(disposition_frame)
 
     def send_disposition(self, delivery_id, delivery_state=None):
         if self._is_closed:
             raise ValueError("Link already closed.")
-        self._outgoing_DISPOSITION(delivery_id, delivery_state)
+        self._outgoing_disposition(delivery_id, delivery_state)

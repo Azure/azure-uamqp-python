@@ -13,13 +13,16 @@ from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 import six
 
 from .types import TYPE, VALUE, AMQPTypes, FieldDefinition, ObjDefinition, ConstructorBytes
-from .definitions import _FIELD_DEFINITIONS
-from .performatives import Performative, TransferFrame
-from .performatives_tuple import HeaderFrame
-from .message import Header, Properties, BareMessage
+from .message import Header, Properties, Message
+from . import performatives
+from . import outcomes
+from . import endpoints
+from . import error
 
 
 _MESSAGE_PERFORMATIVES = [Header, Properties]
+_FRAME_OFFSET = b"\x02"
+_FRAME_TYPE = b'\x00'
 
 
 def _construct(byte, construct):
@@ -429,6 +432,169 @@ def encode_described(output, value, _=None, **kwargs):
     return output
 
 
+def encode_fields(value):
+    # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """A mapping from field name to value.
+
+    The fields type is a map where the keys are restricted to be of type symbol (this excludes the possibility
+    of a null key).  There is no further restriction implied by the fields type on the allowed values for the
+    entries or the set of allowed keys.
+
+    <type name="fields" class="restricted" source="map"/>
+    """
+    if not value:
+        return {TYPE: AMQPTypes.null, VALUE: None}
+    fields = {TYPE: AMQPTypes.map, VALUE:[]}
+    for key, data in value.items():
+        if isinstance(key, six.text_type):
+            key = key.encode('utf-8')
+        fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, data))
+    return fields
+
+
+def encode_annotations(value):
+    # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """The annotations type is a map where the keys are restricted to be of type symbol or of type ulong.
+
+    All ulong keys, and all symbolic keys except those beginning with ”x-” are reserved.
+    On receiving an annotations map containing keys or values which it does not recognize, and for which the
+    key does not begin with the string 'x-opt-' an AMQP container MUST detach the link with the not-implemented
+    amqp-error.
+
+    <type name="annotations" class="restricted" source="map"/>
+    """
+    if not value:
+        return {TYPE: AMQPTypes.null, VALUE: None}
+    fields = {TYPE: AMQPTypes.map, VALUE:[]}
+    for key, data in value.items():
+        if isinstance(key, int):
+            fields[VALUE].append(({TYPE: AMQPTypes.ulong, VALUE: key}, data))
+        else:
+            if isinstance(key, six.text_type):
+                key = key.encode('utf-8')
+            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, data))
+    return fields
+
+
+def encode_application_properties(value):
+    # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """The application-properties section is a part of the bare message used for structured application data.
+
+    <type name="application-properties" class="restricted" source="map" provides="section">
+        <descriptor name="amqp:application-properties:map" code="0x00000000:0x00000074"/>
+    </type>
+
+    Intermediaries may use the data within this structure for the purposes of ﬁltering or routing.
+    The keys of this map are restricted to be of type string (which excludes the possibility of a null key)
+    and the values are restricted to be of simple types only, that is (excluding map, list, and array types).
+    """
+    if not value:
+        return {TYPE: AMQPTypes.null, VALUE: None}
+    fields = {TYPE: AMQPTypes.map, VALUE:[]}
+    for key, data in value.items():
+        fields[VALUE].append(({TYPE: AMQPTypes.string, VALUE: key}, data))
+    return fields
+
+
+def encode_message_id(value):
+    # type: (Any) -> Dict[str, Union[int, uuid.UUID, bytes, str]]
+    """
+    <type name="message-id-ulong" class="restricted" source="ulong" provides="message-id"/>
+    <type name="message-id-uuid" class="restricted" source="uuid" provides="message-id"/>
+    <type name="message-id-binary" class="restricted" source="binary" provides="message-id"/>
+    <type name="message-id-string" class="restricted" source="string" provides="message-id"/>
+    """
+    if isinstance(value, int):
+        return {TYPE: AMQPTypes.ulong, VALUE: value}
+    elif isinstance(value, uuid.UUID):
+        return {TYPE: AMQPTypes.uuid, VALUE: value}
+    elif isinstance(value, six.binary_type):
+        return {TYPE: AMQPTypes.binary, VALUE: value}
+    elif isinstance(value, six.text_type):
+        return {TYPE: AMQPTypes.string, VALUE: value}
+    raise TypeError("Unsupported Message ID type.")
+
+
+def encode_node_properties(value):
+    # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """Properties of a node.
+
+    <type name="node-properties" class="restricted" source="fields"/>
+    
+    A symbol-keyed map containing properties of a node used when requesting creation or reporting
+    the creation of a dynamic node. The following common properties are deﬁned::
+    
+        - `lifetime-policy`: The lifetime of a dynamically generated node. Deﬁnitionally, the lifetime will
+          never be less than the lifetime of the link which caused its creation, however it is possible to extend
+          the lifetime of dynamically created node using a lifetime policy. The value of this entry MUST be of a type
+          which provides the lifetime-policy archetype. The following standard lifetime-policies are deﬁned below:
+          delete-on-close, delete-on-no-links, delete-on-no-messages or delete-on-no-links-or-messages.
+        
+        - `supported-dist-modes`: The distribution modes that the node supports. The value of this entry MUST be one or
+          more symbols which are valid distribution-modes. That is, the value MUST be of the same type as would be valid
+          in a ﬁeld deﬁned with the following attributes:
+          type="symbol" multiple="true" requires="distribution-mode"
+    """
+    if not value:
+        return {TYPE: AMQPTypes.null, VALUE: None}
+    # TODO
+    fields = {TYPE: AMQPTypes.map, VALUE:[]}
+    # fields[{TYPE: AMQPTypes.symbol, VALUE: b'lifetime-policy'}] = {
+    #     TYPE: AMQPTypes.described,
+    #     VALUE: (
+    #         {TYPE: AMQPTypes.ulong, VALUE: value['lifetime_policy']},
+    #         {TYPE: AMQPTypes.list, VALUE: []}
+    #     )
+    # }
+    # fields[{TYPE: AMQPTypes.symbol, VALUE: b'supported-dist-modes'}] = {}
+    return fields
+
+
+def encode_filter_set(value):
+    # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """A set of predicates to ﬁlter the Messages admitted onto the Link.
+
+    <type name="filter-set" class="restricted" source="map"/>
+
+    A set of named ﬁlters. Every key in the map MUST be of type symbol, every value MUST be either null or of a
+    described type which provides the archetype ﬁlter. A ﬁlter acts as a function on a message which returns a
+    boolean result indicating whether the message can pass through that ﬁlter or not. A message will pass
+    through a ﬁlter-set if and only if it passes through each of the named ﬁlters. If the value for a given key is
+    null, this acts as if there were no such key present (i.e., all messages pass through the null ﬁlter).
+
+    Filter types are a deﬁned extension point. The ﬁlter types that a given source supports will be indicated
+    by the capabilities of the source.
+    """
+    if not value:
+        return {TYPE: AMQPTypes.null, VALUE: None}
+    fields = {TYPE: AMQPTypes.map, VALUE:[]}
+    for name, data in value.items():
+        if data is None:
+            described_filter = {TYPE: AMQPTypes.null, VALUE: None}
+        else:
+            if isinstance(name, six.text_type):
+                name = name.encode('utf-8')
+            descriptor, filter_value = data
+            described_filter = {
+                TYPE: AMQPTypes.described,
+                VALUE: (
+                    {TYPE: AMQPTypes.symbol, VALUE: descriptor},
+                    filter_value
+                )
+            }
+        fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: name}, described_filter))
+    return fields
+
+
+_FIELD_DEFINITIONS = {
+    FieldDefinition.fields: encode_fields,
+    FieldDefinition.annotations: encode_annotations,
+    FieldDefinition.message_id: encode_message_id,
+    FieldDefinition.app_properties: encode_application_properties,
+    FieldDefinition.node_properties: encode_node_properties,
+    FieldDefinition.filter_set: encode_filter_set,
+}
+
 _ENCODE_MAP = {
     AMQPTypes.null: encode_null,
     AMQPTypes.boolean: encode_boolean,
@@ -489,17 +655,17 @@ def encode_value(output, value, **kwargs):
 def describe_performative(performative):
     # type: (Performative) -> Tuple(bytes, bytes)
     body = []
-    for field in performative.DEFINITION:
-        value = performative.__dict__.get(field.name)
-        if value is None and field.mandatory:
-            raise ValueError("Performative missing mandatory field {}".format(field.name))
+    for index, value in enumerate(performative):
+        field = performative._definition[index]
         if value is None:
             body.append({TYPE: AMQPTypes.null, VALUE: None})
+        elif field is None:
+            continue
         elif isinstance(field.type, FieldDefinition):
             if field.multiple:
-                body.append({TYPE: AMQPTypes.array, VALUE: [_FIELD_DEFINITIONS[field.type].encode(v) for v in value]})
+                body.append({TYPE: AMQPTypes.array, VALUE: [_FIELD_DEFINITIONS[field.type](v) for v in value]})
             else:
-                body.append(_FIELD_DEFINITIONS[field.type].encode(value))
+                body.append(_FIELD_DEFINITIONS[field.type](value))
         elif isinstance(field.type, ObjDefinition):
             body.append(describe_performative(value))
         else:
@@ -511,7 +677,7 @@ def describe_performative(performative):
     return {
         TYPE: AMQPTypes.described,
         VALUE: (
-            {TYPE: AMQPTypes.ulong, VALUE: performative.CODE},
+            {TYPE: AMQPTypes.ulong, VALUE: performative._code},
             {TYPE: AMQPTypes.list, VALUE: body}
         )
     }
@@ -519,47 +685,47 @@ def describe_performative(performative):
 
 def encode_payload(output, payload):
     # type: (Message) -> Tuple(bytes, bytes)
-    for section_code, section_def in payload.SECTIONS.items():
-        section_value = payload.__dict__.get(section_def.name)
-        if section_value is None:
+    for index, value in enumerate(payload):
+        if value is None:
             continue
-        if section_def.type in _MESSAGE_PERFORMATIVES:
-            output = encode_value(output, describe_performative(section_value))
-        elif isinstance(section_def.type, FieldDefinition):
+        section_code, definition = Message._definition[index]
+        if definition.type in _MESSAGE_PERFORMATIVES:
+            output = encode_value(output, describe_performative(value))
+        elif isinstance(definition.type, FieldDefinition):
             output = encode_value(output, {
                 TYPE: AMQPTypes.described,
                 VALUE: (
                     {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                    _FIELD_DEFINITIONS[section_def.type].encode(section_value)
+                    _FIELD_DEFINITIONS[definition.type].encode(value)
                 )
             })
-        elif section_def.type is not None:
+        elif definition.type is not None:
             output = encode_value(output, {
                 TYPE: AMQPTypes.described,
                 VALUE: (
                     {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                    {TYPE: section_def.type, VALUE: section_value}
+                    {TYPE: definition.type, VALUE: value}
                 )
             })
         else:
-            output = encode_value(output, section_value)
+            output = encode_value(output, value)
     return output
 
 
-def encode_frame(frame):
+def encode_frame(frame, frame_type=_FRAME_TYPE):
     # type: (Performative) -> Tuple(bytes, bytes)
     if frame is None:
         size = 8
-        header = size.to_bytes(4, 'big') + Performative.FRAME_OFFSET + Performative.FRAME_TYPE
+        header = size.to_bytes(4, 'big') + _FRAME_OFFSET + frame_type
         return header, None
-    if isinstance(frame, HeaderFrame):
+    if isinstance(frame, performatives.HeaderFrame):
         return frame.header, None
 
     frame_description = describe_performative(frame)
     frame_data = encode_value(b"", frame_description)
-    if isinstance(frame, TransferFrame):
-        frame_data += frame._payload
+    if isinstance(frame, performatives.TransferFrame):
+        frame_data += frame.payload
 
     size = len(frame_data) + 8
-    header = size.to_bytes(4, 'big') + frame.FRAME_OFFSET + frame.FRAME_TYPE
+    header = size.to_bytes(4, 'big') + _FRAME_OFFSET + frame_type
     return header, frame_data

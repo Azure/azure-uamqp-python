@@ -20,7 +20,7 @@ import certifi
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
 from ._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
-from .performatives_tuple import HeaderFrame, TLSHeaderFrame
+from .performatives import HeaderFrame, TLSHeaderFrame
 
 
 try:
@@ -467,8 +467,8 @@ class _AbstractTransport(object):
         else:
             return (decode_response(f) for f in frames)
 
-    def send_frame(self, channel, frame):
-        header, performative = encode_frame(frame)
+    def send_frame(self, channel, frame, **kwargs):
+        header, performative = encode_frame(frame, **kwargs)
         if performative is None:
             data = header
         else:
@@ -624,7 +624,7 @@ class SSLTransport(_AbstractTransport):
             channel, returned_header = self.receive_frame(verify_frame_type=None)
             if not isinstance(returned_header, TLSHeaderFrame):
                 raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
-                    TLSHeaderFrame.CODE, returned_header.CODE))
+                    TLSHeaderFrame._code, returned_header._code))
 
 
 class TCPTransport(_AbstractTransport):

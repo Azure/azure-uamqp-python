@@ -36,27 +36,10 @@ class AMQPTypes(object):  # pylint: disable=no-init
 
 
 class FieldDefinition(Enum):
-    role = "role"
-    sender_settle_mode = "sender-settle-mode"
-    receiver_settle_mode = "receiver-settle-mode"
-    handle = "handle"
-    seconds = "seconds"
-    milliseconds = "milliseconds"
-    delivery_tag = "delivery-tag"
-    delivery_number = "delivery-number"
-    transfer_number = "transfer-number"
-    sequence_no = "sequence-no"
-    message_format = "message-format"
-    ietf_language_tag = "ietf-language-tag"
     fields = "fields"
-    error = "error"
-    sasl_code = "sasl-code"
     annotations = "annotations"
     message_id = "message-id"
     app_properties = "application-properties"
-    terminus_durability = "terminus-durability"
-    expiry_policy = "terminus-expiry-policy"
-    distribution_mode = "distribution-mode"
     node_properties = "node-properties"
     filter_set = "filter-set"
 
@@ -105,16 +88,3 @@ class ConstructorBytes(object):  # pylint: disable=no-init
     array_small = b'\xE0'
     array_large = b'\xF0'
     descriptor = b'\x00'
-
-
-class SASLCode(Enum):
-    #: Connection authentication succeeded.
-    ok = 0
-    #: Connection authentication failed due to an unspecified problem with the supplied credentials.
-    auth = 1
-    #: Connection authentication failed due to a system error.
-    sys = 2
-    #: Connection authentication failed due to a system error that is unlikely to be corrected without intervention.
-    sys_perm = 3
-    #: Connection authentication failed due to a transient system error.
-    sys_temp = 4

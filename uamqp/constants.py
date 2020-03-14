@@ -137,3 +137,78 @@ class LinkState(Enum):
     ATTACH_RCVD = 2
     ATTACHED = 3
     ERROR = 4
+
+
+class Role(object):
+    """Link endpoint role.
+
+    Valid Values:
+        - False: Sender
+        - True: Receiver
+
+    <type name="role" class="restricted" source="boolean">
+        <choice name="sender" value="false"/>
+        <choice name="receiver" value="true"/>
+    </type>
+    """
+    Sender = False
+    Receiver = True
+
+
+class SenderSettleMode(object):
+    """Settlement policy for a Sender.
+
+    Valid Values:
+        - 0: The Sender will send all deliveries initially unsettled to the Receiver.
+        - 1: The Sender will send all deliveries settled to the Receiver.
+        - 2: The Sender may send a mixture of settled and unsettled deliveries to the Receiver.
+
+    <type name="sender-settle-mode" class="restricted" source="ubyte">
+        <choice name="unsettled" value="0"/>
+        <choice name="settled" value="1"/>
+        <choice name="mixed" value="2"/>
+    </type>
+    """
+    Unsettled = 0
+    Settled = 1
+    Mixed = 2
+
+
+class ReceiverSettleMode(object):
+    """Settlement policy for a Receiver.
+
+    Valid Values:
+        - 0: The Receiver will spontaneously settle all incoming transfers.
+        - 1: The Receiver will only settle after sending the disposition to the Sender and
+          receiving a disposition indicating settlement of the delivery from the sender.
+
+    <type name="receiver-settle-mode" class="restricted" source="ubyte">
+        <choice name="first" value="0"/>
+        <choice name="second" value="1"/>
+    </type>
+    """
+    First = 0
+    Second = 1
+
+
+class SASLCode(object):
+    """Codes to indicate the outcome of the sasl dialog.
+
+    <type name="sasl-code" class="restricted" source="ubyte">
+        <choice name="ok" value="0"/>
+        <choice name="auth" value="1"/>
+        <choice name="sys" value="2"/>
+        <choice name="sys-perm" value="3"/>
+        <choice name="sys-temp" value="4"/>
+    </type>
+    """
+    #: Connection authentication succeeded.
+    Ok = 0
+    #: Connection authentication failed due to an unspecified problem with the supplied credentials.
+    Auth = 1
+    #: Connection authentication failed due to a system error.
+    Sys = 2
+    #: Connection authentication failed due to a system error that is unlikely to be corrected without intervention.
+    SysPerm = 3
+    #: Connection authentication failed due to a transient system error.
+    SysTemp = 4

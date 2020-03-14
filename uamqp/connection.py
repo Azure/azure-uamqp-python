@@ -14,8 +14,8 @@ from enum import Enum
 
 from ._transport import Transport, SSLTransport
 from .session import Session
-from .performatives_tuple import HeaderFrame
 from .performatives import (
+    HeaderFrame,
     OpenFrame,
     CloseFrame,
 )
@@ -114,7 +114,7 @@ class Connection(object):
             self.transport.connect()
             self._set_state(ConnectionState.START)
         self.transport.negotiate()
-        self._outgoing_HEADER()
+        self._outgoing_header()
         self._set_state(ConnectionState.HDR_SENT)
         if not self.allow_pipelined_open:
             self._process_incoming_frame(*self._read_frame(wait=True))
@@ -195,10 +195,10 @@ class Connection(object):
         next_channel = next(i for i in range(1, self.channel_max) if i not in self.outgoing_endpoints)
         return next_channel
     
-    def _outgoing_EMPTY(self):
+    def _outgoing_empty(self):
         self._send_frame(0, None)
 
-    def _outgoing_HEADER(self):
+    def _outgoing_header(self):
         header_frame = HeaderFrame()
         self.last_frame_sent_time = time.time()
         self._send_frame(0, header_frame)
@@ -211,7 +211,7 @@ class Connection(object):
         elif self.state == ConnectionState.OPEN_PIPE:
             self._set_state(ConnectionState.OPEN_SENT)
 
-    def _outgoing_OPEN(self):
+    def _outgoing_open(self):
         open_frame = OpenFrame(
             container_id=self.container_id,
             hostname=self.hostname,
@@ -245,12 +245,12 @@ class Connection(object):
             self._set_state(ConnectionState.OPENED)
         elif self.state == ConnectionState.HDR_EXCH:
             self._set_state(ConnectionState.OPEN_RCVD)
-            self._outgoing_OPEN()
+            self._outgoing_open()
             self._set_state(ConnectionState.OPENED)
         else:
             pass # TODO what now...?
 
-    def _outgoing_CLOSE(self, error=None):
+    def _outgoing_close(self, error=None):
         close_frame = CloseFrame(error=error)
         self._send_frame(0, close_frame)
 
@@ -271,7 +271,7 @@ class Connection(object):
         if frame.error:
             _LOGGER.error("Connection error: {}".format(frame.error))
         self._set_state(ConnectionState.CLOSE_RCVD)
-        self._outgoing_CLOSE()
+        self._outgoing_close()
         self._disconnect()
         self._set_state(ConnectionState.END)
 
@@ -318,16 +318,16 @@ class Connection(object):
         self._send_frame(channel, frame)
 
     def _get_local_timeout(self, now):
-        if self.idle_timeout:
+        if self.idle_timeout and self.last_frame_received_time:
             time_since_last_received = now - self.last_frame_received_time
             return time_since_last_received > self.idle_timeout
         return False
 
     def _get_remote_timeout(self, now):
-        if self.remote_idle_timeout:
+        if self.remote_idle_timeout and self.last_frame_sent_time:
             time_since_last_sent = now - self.last_frame_sent_time
             if time_since_last_sent > self.remote_idle_timeout_send_frame:
-                self._outgoing_EMPTY()
+                self._outgoing_empty()
         return False
     
     def _wait_for_response(self, wait, end_state):
@@ -375,7 +375,7 @@ class Connection(object):
 
     def open(self, wait=False):
         self._connect()
-        self._outgoing_OPEN()
+        self._outgoing_open()
         if self.state == ConnectionState.HDR_EXCH:
             self._set_state(ConnectionState.OPEN_SENT)
         elif self.state == ConnectionState.HDR_SENT:
@@ -388,7 +388,7 @@ class Connection(object):
     def close(self, error=None, wait=False):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
             return
-        self._outgoing_CLOSE(error=error)
+        self._outgoing_close(error=error)
         if self.state == ConnectionState.OPEN_PIPE:
             self._set_state(ConnectionState.OC_PIPE)
         elif self.state == ConnectionState.OPEN_SENT:
