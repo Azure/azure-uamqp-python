@@ -8,18 +8,18 @@ import uuid
 import logging
 from io import BytesIO
 
-from ._decode import decode_payload
-from .constants import DEFAULT_LINK_CREDIT, Role
-from .endpoints import Target
-from .link import Link
-from .constants import (
+from ._link_async import Link
+from .._decode import decode_payload
+from ..constants import DEFAULT_LINK_CREDIT, Role
+from ..endpoints import Target
+from ..constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,
     SessionTransferState,
     LinkDeliverySettleReason,
     LinkState
 )
-from .performatives import (
+from ..performatives import (
     AttachFrame,
     DetachFrame,
     TransferFrame,
@@ -44,27 +44,27 @@ class ReceiverLink(Link):
         if not self.on_message_received and not self.on_transfer_received:
             raise ValueError("Must specify either a message or transfer handler.")
 
-    def _process_incoming_message(self, frame, message):
+    async def _process_incoming_message(self, frame, message):
         try:
             if self.on_message_received:
-                return self.on_message_received(message)
+                return await self.on_message_received(message)
             elif self.on_transfer_received:
-                return self.on_transfer_received(frame, message)
+                return await self.on_transfer_received(frame, message)
         except Exception as e:
             _LOGGER.error("Handler function failed with error: %r", e)
         return None
 
-    def _incoming_attach(self, frame):
-        super(ReceiverLink, self)._incoming_attach(frame)
+    async def _incoming_attach(self, frame):
+        await super(ReceiverLink, self)._incoming_attach(frame)
         if frame.initial_delivery_count is None:
             _LOGGER.info("Cannot get initial-delivery-count. Detaching link")
-            self._remove_pending_deliveries()
-            self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
+            await self._remove_pending_deliveries()
+            await self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
         self.delivery_count = frame.initial_delivery_count
         self.current_link_credit = self.link_credit
-        self._outgoing_flow()
+        await self._outgoing_flow()
 
-    def _incoming_transfer(self, frame):
+    async def _incoming_transfer(self, frame):
         self.current_link_credit -= 1
         self.delivery_count += 1
         self.received_delivery_id = frame.delivery_id
@@ -74,11 +74,11 @@ class ReceiverLink(Link):
             raise NotImplementedError()  # TODO
         if not frame.more:
             message = decode_payload(frame.payload)
-            delivery_state = self._process_incoming_message(frame, message)
+            delivery_state = await self._process_incoming_message(frame, message)
             if not frame.settled and delivery_state:
-                self._outgoing_disposition(frame.delivery_id, delivery_state)
+                await self._outgoing_disposition(frame.delivery_id, delivery_state)
 
-    def _outgoing_disposition(self, delivery_id, delivery_state):
+    async def _outgoing_disposition(self, delivery_id, delivery_state):
         disposition_frame = DispositionFrame(
             role=self.role,
             first=delivery_id,
@@ -87,9 +87,9 @@ class ReceiverLink(Link):
             state=delivery_state,
             # batchable=
         )
-        self._session._outgoing_disposition(disposition_frame)
+        await self._session._outgoing_disposition(disposition_frame)
 
-    def send_disposition(self, delivery_id, delivery_state=None):
+    async def send_disposition(self, delivery_id, delivery_state=None):
         if self._is_closed:
             raise ValueError("Link already closed.")
-        self._outgoing_disposition(delivery_id, delivery_state)
+        await self._outgoing_disposition(delivery_id, delivery_state)

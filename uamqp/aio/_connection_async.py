@@ -4,6 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import asyncio
 import threading
 import struct
 import uuid
@@ -12,14 +13,14 @@ import time
 from urllib.parse import urlparse
 from enum import Enum
 
-from ._transport import Transport, SSLTransport
-from .session import Session
-from .performatives import (
+from ._transport_async import Transport, SSLTransport
+from ._session_async import Session
+from ..performatives import (
     HeaderFrame,
     OpenFrame,
     CloseFrame,
 )
-from .constants import (
+from ..constants import (
     PORT, 
     SECURE_PORT,
     ConnectionState
@@ -91,14 +92,14 @@ class Connection(object):
         self.outgoing_endpoints = {}
         self.incoming_endpoints = {}
 
-    def __enter__(self):
-        self.open()
+    async def __aenter__(self):
+        await self.open()
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    async def __aexit__(self, *args):
+        await self.close()
 
-    def _set_state(self, new_state):
+    async def _set_state(self, new_state):
         # type: (ConnectionState) -> None
         """Update the connection state."""
         if new_state is None:
@@ -106,61 +107,60 @@ class Connection(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Connection '%s' state changed: %r -> %r", self.container_id, previous_state, new_state)
-        for session in self.outgoing_endpoints.values():
-            session._on_connection_state_change()
+        await asyncio.gather(s._on_connection_state_change() for s in self.outgoing_endpoints.values()])
 
-    def _connect(self):
+    async def _connect(self):
         if not self.state:
-            self.transport.connect()
-            self._set_state(ConnectionState.START)
-        self.transport.negotiate()
-        self._outgoing_header()
-        self._set_state(ConnectionState.HDR_SENT)
+            await self.transport.connect()
+            await self._set_state(ConnectionState.START)
+        await self.transport.negotiate()
+        await self._outgoing_header()
+        await self._set_state(ConnectionState.HDR_SENT)
         if not self.allow_pipelined_open:
-            self._process_incoming_frame(*self._read_frame(wait=True))
+            await self._process_incoming_frame(*(await self._read_frame(wait=True)))
             if self.state != ConnectionState.HDR_EXCH:
-                self._disconnect()
+                await self._disconnect()
                 raise ValueError("Did not receive reciprocal protocol header. Disconnecting.")
         else:
-            self._set_state(ConnectionState.HDR_SENT)
+            await self._set_state(ConnectionState.HDR_SENT)
 
-    def _disconnect(self, *args):
+    async def _disconnect(self, *args):
         if self.state == ConnectionState.END:
             return
-        self._set_state(ConnectionState.END)
-        self.transport.close()
+        await self._set_state(ConnectionState.END)
+        await self.transport.close()
 
     def _can_read(self):
         # type: () -> bool
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    def _read_frame_batch(self, batch_size, wait=True, **kwargs):
+    async def _read_frame_batch(self, batch_size, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                received = self.transport.receive_frame_batch(batch_size, **kwargs)
+                received = await self.transport.receive_frame_batch(batch_size, **kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
+                    received = await self.transport.receive_frame_batch(batch_size, **kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
+                    received = await self.transport.receive_frame_batch(batch_size, **kwargs)
      
             if received:
                 self.last_frame_received_time = time.time()
             return received
         _LOGGER.warning("Cannot read frame in current state: %r", self.state)
 
-    def _read_frame(self, wait=True, **kwargs):
+    async def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                received = self.transport.receive_frame(**kwargs)
+                received = await self.transport.receive_frame(**kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame(**kwargs)
+                    received = await self.transport.receive_frame(**kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame(**kwargs)
+                    received = await self.transport.receive_frame(**kwargs)
      
             if received[1]:
                 self.last_frame_received_time = time.time()
@@ -172,13 +172,14 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to write outgoing frames."""
         return self.state not in _CLOSING_STATES
 
-    def _send_frame(self, channel, frame, timeout=None, **kwargs):
+    async def _send_frame(self, channel, frame, timeout=None, **kwargs):
         if self._can_write():
             self.last_frame_sent_time = time.time()
             if timeout:
                 with self.transport.block_with_timeout(timeout):
-                    self.transport.send_frame(channel, frame, **kwargs)
-            self.transport.send_frame(channel, frame, **kwargs)
+                    await self.transport.send_frame(channel, frame, **kwargs)
+            else:
+                await self.transport.send_frame(channel, frame, **kwargs)
         else:
             _LOGGER.warning("Cannot write frame in current state: %r", self.state)
 
@@ -195,23 +196,23 @@ class Connection(object):
         next_channel = next(i for i in range(1, self.channel_max) if i not in self.outgoing_endpoints)
         return next_channel
     
-    def _outgoing_empty(self):
-        self._send_frame(0, None)
+    async def _outgoing_empty(self):
+        await self._send_frame(0, None)
 
-    def _outgoing_header(self):
+    async def _outgoing_header(self):
         header_frame = HeaderFrame()
         self.last_frame_sent_time = time.time()
-        self._send_frame(0, header_frame)
+        await self._send_frame(0, header_frame)
 
-    def _incoming_HeaderFrame(self, channel, frame):
+    async def _incoming_HeaderFrame(self, channel, frame):
         if self.state == ConnectionState.START:
-            self._set_state(ConnectionState.HDR_RCVD)
+            await self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
-            self._set_state(ConnectionState.HDR_EXCH)
+            await self._set_state(ConnectionState.HDR_EXCH)
         elif self.state == ConnectionState.OPEN_PIPE:
-            self._set_state(ConnectionState.OPEN_SENT)
+            await self._set_state(ConnectionState.OPEN_SENT)
 
-    def _outgoing_open(self):
+    async def _outgoing_open(self):
         open_frame = OpenFrame(
             container_id=self.container_id,
             hostname=self.hostname,
@@ -224,16 +225,16 @@ class Connection(object):
             desired_capabilities=self.desired_capabilities if self.state == ConnectionState.HDR_EXCH else None,
             properties=self.properties,
         )
-        self._send_frame(0, open_frame)
+        await self._send_frame(0, open_frame)
 
-    def _incoming_open(self, channel, frame):
+    async def _incoming_open(self, channel, frame):
         if channel != 0:
             _LOGGER.error("OPEN frame received on a channel that is not 0.")
-            self.close(error=None)  # TODO: not allowed
-            self._set_state(ConnectionState.END)
+            await self.close(error=None)  # TODO: not allowed
+            await self._set_state(ConnectionState.END)
         if self.state == ConnectionState.OPENED:
             _LOGGER.error("OPEN frame received in the OPENED state.")
-            self.close()
+            await self.close()
         if frame.idle_timeout:
             self.remote_idle_timeout = frame.idle_timeout/1000  # Convert to seconds
             self.remote_idle_timeout_send_frame = self.idle_timeout_empty_frame_send_ratio * self.remote_idle_timeout
@@ -242,19 +243,19 @@ class Connection(object):
             pass  # TODO: error
         self.remote_max_frame_size = frame.max_frame_size
         if self.state == ConnectionState.OPEN_SENT:
-            self._set_state(ConnectionState.OPENED)
+            await self._set_state(ConnectionState.OPENED)
         elif self.state == ConnectionState.HDR_EXCH:
-            self._set_state(ConnectionState.OPEN_RCVD)
-            self._outgoing_open()
-            self._set_state(ConnectionState.OPENED)
+            await self._set_state(ConnectionState.OPEN_RCVD)
+            await self._outgoing_open()
+            await self._set_state(ConnectionState.OPENED)
         else:
             pass # TODO what now...?
 
-    def _outgoing_close(self, error=None):
+    async def _outgoing_close(self, error=None):
         close_frame = CloseFrame(error=error)
-        self._send_frame(0, close_frame)
+        await self._send_frame(0, close_frame)
 
-    def _incoming_close(self, channel, frame):
+    async def _incoming_close(self, channel, frame):
         disconnect_states = [
             ConnectionState.HDR_RCVD,
             ConnectionState.HDR_EXCH,
@@ -263,45 +264,45 @@ class Connection(object):
             ConnectionState.DISCARDING
         ]
         if self.state in disconnect_states:
-            self._disconnect()
-            self._set_state(ConnectionState.END)
+            await self._disconnect()
+            await self._set_state(ConnectionState.END)
             return
         if channel > self.channel_max:
             _LOGGER.error("Invalid channel")
         if frame.error:
             _LOGGER.error("Connection error: {}".format(frame.error))
-        self._set_state(ConnectionState.CLOSE_RCVD)
-        self._outgoing_close()
-        self._disconnect()
-        self._set_state(ConnectionState.END)
+        await self._set_state(ConnectionState.CLOSE_RCVD)
+        await self._outgoing_close()
+        await self._disconnect()
+        await self._set_state(ConnectionState.END)
 
-    def _incoming_begin(self, channel, frame):
+    async def _incoming_begin(self, channel, frame):
         try:
             existing_session = self.outgoing_endpoints[frame.remote_channel]
             self.incoming_endpoints[channel] = existing_session
-            self.incoming_endpoints[channel]._incoming_begin(frame)
+            await self.incoming_endpoints[channel]._incoming_begin(frame)
         except KeyError:
             new_session = Session.from_incoming_frame(self, channel, frame)
             self.incoming_endpoints[channel] = new_session
-            new_session._incoming_begin(frame)
+            await new_session._incoming_begin(frame)
 
-    def _incoming_end(self, channel, frame):
+    async def _incoming_end(self, channel, frame):
         try:
-            self.incoming_endpoints[channel]._incoming_end(frame)
+            await self.incoming_endpoints[channel]._incoming_end(frame)
         except KeyError:
             pass  # TODO: channel error
         #self.incoming_endpoints.pop(channel)  # TODO
         #self.outgoing_endpoints.pop(channel)  # TODO
 
-    def _process_incoming_frame(self, channel, frame):
+    async def _process_incoming_frame(self, channel, frame):
         try:
             process = '_incoming_' + frame.__class__.__name__
-            getattr(self, process)(channel, frame)
+            await getattr(self, process)(channel, frame)
             return
         except AttributeError:
             pass
         try:
-            getattr(self.incoming_endpoints[channel], process)(frame)
+            await getattr(self.incoming_endpoints[channel], process)(frame)
             return
         except NameError:
             return  # Empty Frame or socket timeout
@@ -310,12 +311,12 @@ class Connection(object):
         except AttributeError:
             _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
 
-    def _process_outgoing_frame(self, channel, frame):
+    async def _process_outgoing_frame(self, channel, frame):
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
             raise ValueError("Connection not configured to allow pipeline send.")
         if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
-        self._send_frame(channel, frame)
+        await self._send_frame(channel, frame)
 
     def _get_local_timeout(self, now):
         if self.idle_timeout and self.last_frame_received_time:
@@ -323,47 +324,46 @@ class Connection(object):
             return time_since_last_received > self.idle_timeout
         return False
 
-    def _get_remote_timeout(self, now):
+    async def _get_remote_timeout(self, now):
         if self.remote_idle_timeout and self.last_frame_sent_time:
             time_since_last_sent = now - self.last_frame_sent_time
             if time_since_last_sent > self.remote_idle_timeout_send_frame:
-                self._outgoing_empty()
+                await self._outgoing_empty()
         return False
     
-    def _wait_for_response(self, wait, end_state):
+    async def _wait_for_response(self, wait, end_state):
         # type: (Union[bool, float], ConnectionState) -> None
         if wait == True:
-            self.listen(wait=False)
+            await self.listen(wait=False)
             while self.state != end_state:
-                time.sleep(self.idle_wait_time)
-                self.listen(wait=False)
+                await asyncio.sleep(self.idle_wait_time)
+                await self.listen(wait=False)
         elif wait:
-            self.listen(wait=False)
+            await self.listen(wait=False)
             timeout = time.time() + wait
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                time.sleep(self.idle_wait_time)
-                self.listen(wait=False)
+                await asyncio.sleep(self.idle_wait_time)
+                await self.listen(wait=False)
 
-    def listen(self, wait=False, batch=None, **kwargs):
+    async def listen(self, wait=False, batch=None, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
         if batch:
-            new_frames = self._read_frame_batch(batch, wait=wait, **kwargs)
+            new_frames = await self._read_frame_batch(batch, wait=wait, **kwargs)
         else:
-            new_frame = self._read_frame(wait=wait, batch=batch, **kwargs)
+            new_frame = await self._read_frame(wait=wait, batch=batch, **kwargs)
             new_frames = [new_frame]
             if not new_frame:
                 raise ValueError("Connection closed.")
-        for new_frame in new_frames:
-            self._process_incoming_frame(*new_frame)
+        await asyncio.gather([self._process_incoming_frame(*f) for f in new_frames])
         if self.state not in _CLOSING_STATES:
             now = time.time()
             for session in self.outgoing_endpoints.values():
-                session._evaluate_status()
-            if self._get_local_timeout(now) or self._get_remote_timeout(now):
-                self.close(error=None, wait=False)
+                await session._evaluate_status()
+            if self._get_local_timeout(now) or (await self._get_remote_timeout(now)):
+                await self.close(error=None, wait=False)
 
     def create_session(self, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()
@@ -373,29 +373,29 @@ class Connection(object):
         self.outgoing_endpoints[assigned_channel] = session
         return session
 
-    def open(self, wait=False):
-        self._connect()
-        self._outgoing_open()
+    async def open(self, wait=False):
+        await self._connect()
+        await self._outgoing_open()
         if self.state == ConnectionState.HDR_EXCH:
-            self._set_state(ConnectionState.OPEN_SENT)
+            await self._set_state(ConnectionState.OPEN_SENT)
         elif self.state == ConnectionState.HDR_SENT:
-            self._set_state(ConnectionState.OPEN_PIPE)
+            await self._set_state(ConnectionState.OPEN_PIPE)
         if wait:
-            self._wait_for_response(wait, ConnectionState.OPENED)
+            await self._wait_for_response(wait, ConnectionState.OPENED)
         elif not self.allow_pipelined_open:
             raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
 
-    def close(self, error=None, wait=False):
+    async def close(self, error=None, wait=False):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
             return
-        self._outgoing_close(error=error)
+        await self._outgoing_close(error=error)
         if self.state == ConnectionState.OPEN_PIPE:
-            self._set_state(ConnectionState.OC_PIPE)
+            await self._set_state(ConnectionState.OC_PIPE)
         elif self.state == ConnectionState.OPEN_SENT:
-            self._set_state(ConnectionState.CLOSE_PIPE)
+            await self._set_state(ConnectionState.CLOSE_PIPE)
         elif error:
-            self._set_state(ConnectionState.DISCARDING)
+            await self._set_state(ConnectionState.DISCARDING)
         else:
-            self._set_state(ConnectionState.CLOSE_SENT)
-        self._wait_for_response(wait, ConnectionState.END)
-        self._disconnect()
+            await self._set_state(ConnectionState.CLOSE_SENT)
+        await self._wait_for_response(wait, ConnectionState.END)
+        await self._disconnect()

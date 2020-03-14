@@ -4,12 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import asyncio
 import uuid
 import logging
 from enum import Enum
 import time
 
-from .constants import (
+from ..constants import (
     INCOMING_WINDOW,
     OUTGOING_WIDNOW,
     ConnectionState,
@@ -17,10 +18,10 @@ from .constants import (
     SessionTransferState,
     Role
 )
-from .endpoints import Source, Target
-from .sender import SenderLink
-from .receiver import ReceiverLink
-from .performatives import (
+from ..endpoints import Source, Target
+from .sender_async import SenderLink
+from .receiver_async import ReceiverLink
+from ..performatives import (
     BeginFrame,
     EndFrame,
     FlowFrame,
@@ -70,12 +71,12 @@ class Session(object):
         self._output_handles = {}
         self._input_handles = {}
 
-    def __enter__(self):
-        self.begin()
+    async def __aenter__(self):
+        await self.begin()
         return self
 
-    def __exit__(self, *args):
-        self.end()
+    async def __aexit__(self, *args):
+        await self.end()
 
     @classmethod
     def from_incoming_frame(cls, connection, channel, frame):
@@ -84,7 +85,7 @@ class Session(object):
         new_session._incoming_begin(frame)
         return new_session
 
-    def _set_state(self, new_state):
+    async def _set_state(self, new_state):
         # type: (SessionState) -> None
         """Update the session state."""
         if new_state is None:
@@ -92,17 +93,15 @@ class Session(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Session '%s' state changed: %r -> %r", self.name, previous_state, new_state)
-        for link in self.links.values():
-            link._on_session_state_change()
+        await asyncio.gather([l._on_session_state_change() for l in self.links.values()])
 
-    def _evaluate_status(self):
-        for link in self.links.values():
-            link._evaluate_status()
+    async def _evaluate_status(self):
+        await asyncio.gather([l._evaluate_status() for l in self.links.values()])
 
-    def _on_connection_state_change(self):
+    async def _on_connection_state_change(self):
         if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
             if self.state not in [SessionState.DISCARDING, SessionState.UNMAPPED]:
-                self._set_state(SessionState.DISCARDING)
+                await self._set_state(SessionState.DISCARDING)
 
     def _get_next_output_handle(self):
         # type: () -> int
@@ -117,7 +116,7 @@ class Session(object):
         next_handle = next(i for i in range(1, self.handle_max) if i not in self._output_handles)
         return next_handle
     
-    def _outgoing_begin(self):
+    async def _outgoing_begin(self):
         begin_frame = BeginFrame(
             remote_channel=self.remote_channel if self.state == SessionState.BEGIN_RCVD else None,
             next_outgoing_id=self.next_outgoing_id,
@@ -128,53 +127,53 @@ class Session(object):
             desired_capabilities=self.desired_capabilities if self.state == SessionState.UNMAPPED else None,
             properties=self.properties,
         )
-        self._connection._process_outgoing_frame(self.channel, begin_frame)
+        await self._connection._process_outgoing_frame(self.channel, begin_frame)
 
-    def _incoming_begin(self, frame):
+    async def _incoming_begin(self, frame):
         self.handle_max = frame.handle_max
         self.next_incoming_id = frame.next_outgoing_id
         self.remote_incoming_window = frame.incoming_window
         self.remote_outgoing_window = frame.outgoing_window
         if self.state == SessionState.BEGIN_SENT:
             self.remote_channel = frame.remote_channel
-            self._set_state(SessionState.MAPPED)
+            await self._set_state(SessionState.MAPPED)
         elif self.state == SessionState.UNMAPPED:
-            self._set_state(SessionState.BEGIN_RCVD)
-            self._outgoing_begin()
-            self._set_state(SessionState.MAPPED)
+            await self._set_state(SessionState.BEGIN_RCVD)
+            await self._outgoing_begin()
+            await self._set_state(SessionState.MAPPED)
 
-    def _outgoing_end(self, error=None):
+    async def _outgoing_end(self, error=None):
         end_frame = EndFrame(error=error)
-        self._connection._process_outgoing_frame(self.channel, end_frame)
+        await self._connection._process_outgoing_frame(self.channel, end_frame)
 
-    def _incoming_end(self, frame):
+    async def _incoming_end(self, frame):
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
-            self._set_state(SessionState.END_RCVD)
+            await self._set_state(SessionState.END_RCVD)
             # TODO: Clean up all links
-            self._outgoing_end()
-        self._set_state(SessionState.UNMAPPED)
+            await self._outgoing_end()
+        await self._set_state(SessionState.UNMAPPED)
 
-    def _outgoing_attach(self, frame):
-        self._connection._process_outgoing_frame(self.channel, frame)
+    async def _outgoing_attach(self, frame):
+        await self._connection._process_outgoing_frame(self.channel, frame)
 
-    def _incoming_attach(self, frame):
+    async def _incoming_attach(self, frame):
         try:
             self._input_handles[frame.handle] = self.links[frame.name]
-            self._input_handles[frame.handle]._incoming_attach(frame)
+            await self._input_handles[frame.handle]._incoming_attach(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
             if frame.role == Role.Sender:
                 new_link = ReceiverLink.from_incoming_frame(self, outgoing_handle, frame)
             else:
                 new_link = SenderLink.from_incoming_frame(self, outgoing_handle, frame)
-            new_link._incoming_attach(frame)
+            await new_link._incoming_attach(frame)
             self.links[frame.name] = new_link
             self._output_handles[outgoing_handle] = new_link
             self._input_handles[frame.handle] = new_link
         except ValueError:
             pass  # TODO: Reject link
     
-    def _outgoing_flow(self, frame=None):
+    async def _outgoing_flow(self, frame=None):
         link_flow = frame or {}
         link_flow.update({
             'next_incoming_id': self.next_incoming_id,
@@ -182,60 +181,59 @@ class Session(object):
             'next_outgoing_id': self.next_outgoing_id,
             'outgoing_window': self.outgoing_window
         })
-        self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
+        await self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
 
-    def _incoming_flow(self, frame):
+    async def _incoming_flow(self, frame):
         self.next_incoming_id = frame.next_outgoing_id
         remote_incoming_id = frame.next_incoming_id or self.next_outgoing_id  # TODO "initial-outgoing-id"
         self.remote_incoming_window = remote_incoming_id + frame.incoming_window - self.next_outgoing_id
         self.remote_outgoing_window = frame.outgoing_window
         if frame.handle:
-            self._input_handles[frame.handle]._incoming_flow(frame)
+            await self._input_handles[frame.handle]._incoming_flow(frame)
         else:
             for link in self._output_handles.values():
                 if self.remote_incoming_window > 0 and not link._is_closed:
-                    link._incoming_flow(frame)
+                    await link._incoming_flow(frame)
 
-    def _outgoing_transfer(self, delivery):
+    async def _outgoing_transfer(self, delivery):
         if self.state != SessionState.MAPPED:
             delivery.transfer_state = SessionTransferState.Error
         if self.remote_incoming_window <= 0:
             delivery.transfer_state = SessionTransferState.Busy
         else:
             delivery.frame['delivery_id'] = self.next_outgoing_id
-            self._connection._process_outgoing_frame(self.channel, TransferFrame(**delivery.frame))
+            await self._connection._process_outgoing_frame(self.channel, TransferFrame(**delivery.frame))
             self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
             self.outgoing_window -= 1
             delivery.transfer_state = SessionTransferState.Okay
             # TODO validate max frame size and break into multipl deliveries
 
-    def _incoming_transfer(self, frame):
+    async def _incoming_transfer(self, frame):
         self.next_incoming_id += 1
         self.remote_outgoing_window -= 1
         self.incoming_window -= 1
         try:
-            self._input_handles[frame.handle]._incoming_transfer(frame)
+            await self._input_handles[frame.handle]._incoming_transfer(frame)
         except KeyError:
             pass  #TODO: "unattached handle"
         if self.incoming_window == 0:
             self.incoming_window = self.target_incoming_window
-            self._outgoing_flow()
+            await self._outgoing_flow()
 
-    def _outgoing_disposition(self, frame):
-        self._connection._process_outgoing_frame(self.channel, frame)
+    async def _outgoing_disposition(self, frame):
+        await self._connection._process_outgoing_frame(self.channel, frame)
 
-    def _incoming_disposition(self, frame):
-        for link in self._input_handles.values():
-            link._incoming_disposition(frame)
+    async def _incoming_disposition(self, frame):
+        await asyncio.gather([l._incoming_disposition(frame) for l in self._input_handles.values()])
 
-    def _outgoing_detach(self, frame):
-        self._connection._process_outgoing_frame(self.channel, frame)
+    async def _outgoing_detach(self, frame):
+        await self._connection._process_outgoing_frame(self.channel, frame)
 
-    def _incoming_detach(self, frame):
+    async def _incoming_detach(self, frame):
         try:
             link = self._input_handles[frame.handle]
-            link._incoming_detach(frame)
+            await link._incoming_detach(frame)
             # if link._is_closed:  TODO
             #     self.links.pop(link.name, None)
             #     self._input_handles.pop(link.remote_handle, None)
@@ -243,38 +241,38 @@ class Session(object):
         except KeyError:
             pass  # TODO: close session with unattached-handle
 
-    def _wait_for_response(self, wait, end_state):
+    async def _wait_for_response(self, wait, end_state):
         # type: (Union[bool, float], ConnectionState) -> None
         if wait == True:
-            self._connection.listen(wait=False)
+            await self._connection.listen(wait=False)
             while self.state != end_state:
-                time.sleep(self.idle_wait_time)
-                self._connection.listen(wait=False)
+                await asyncio.sleep(self.idle_wait_time)
+                await self._connection.listen(wait=False)
         elif wait:
-            self._connection.listen(wait=False)
+            await self._connection.listen(wait=False)
             timeout = time.time() + wait
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                time.sleep(self.idle_wait_time)
-                self._connection.listen(wait=False)
+                await asyncio.sleep(self.idle_wait_time)
+                await self._connection.listen(wait=False)
 
-    def begin(self, wait=False):
-        self._outgoing_begin()
-        self._set_state(SessionState.BEGIN_SENT)
+    async def begin(self, wait=False):
+        await self._outgoing_begin()
+        await self._set_state(SessionState.BEGIN_SENT)
         if wait:
-            self._wait_for_response(wait, SessionState.BEGIN_SENT)
+            await self._wait_for_response(wait, SessionState.BEGIN_SENT)
         elif not self.allow_pipelined_open:
             raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
 
-    def end(self, error=None, wait=False):
+    async def end(self, error=None, wait=False):
         # type: (Optional[AMQPError]) -> None
         if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
-            self._outgoing_end(error=error)
+            await self._outgoing_end(error=error)
         # TODO: destroy all links
         new_state = SessionState.DISCARDING if error else SessionState.END_SENT
-        self._set_state(new_state)
-        self._wait_for_response(wait, SessionState.UNMAPPED)
+        await self._set_state(new_state)
+        await self._wait_for_response(wait, SessionState.UNMAPPED)
 
     def create_receiver_link(self, source_address, **kwargs):
         assigned_handle = self._get_next_output_handle()

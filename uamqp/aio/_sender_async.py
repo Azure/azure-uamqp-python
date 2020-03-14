@@ -8,10 +8,10 @@ import uuid
 import logging
 import time
 
-from ._encode import encode_payload
-from .endpoints import Source
-from .link import Link
-from .constants import (
+from ._link_async import Link
+from .._encode import encode_payload
+from ..endpoints import Source
+from ..constants import (
     SessionState,
     SessionTransferState,
     LinkDeliverySettleReason,
@@ -19,7 +19,7 @@ from .constants import (
     Role,
     SenderSettleMode
 )
-from .performatives import (
+from ..performatives import (
     AttachFrame,
     DetachFrame,
     TransferFrame,
@@ -43,10 +43,10 @@ class PendingDelivery(object):
         self.timeout = kwargs.get('timeout')
         self.settled = kwargs.get('settled', False)
     
-    def on_settled(self, reason, state):
+    async def on_settled(self, reason, state):
         if self.on_delivery_settled and not self.settled:
             try:
-                self.on_delivery_settled(self.message, reason, state)
+                await self.on_delivery_settled(self.message, reason, state)
             except Exception as e:
                 _LOGGER.warning("Message 'on_send_complete' callback failed: %r", e)
 
@@ -61,29 +61,29 @@ class SenderLink(Link):
         super(SenderLink, self).__init__(session, handle, name, role, target_address=target_address, **kwargs)
         self._unsent_messages = []
 
-    def _evaluate_status(self):
+    async def _evaluate_status(self):
         super(SenderLink, self)._evaluate_status()
-        self._update_pending_delivery_status()
+        await self._update_pending_delivery_status()
 
-    def _incoming_attach(self, frame):
+    async def _incoming_attach(self, frame):
         super(SenderLink, self)._incoming_attach(frame)
         self.current_link_credit = 0
-        self._evaluate_status()
+        await self._evaluate_status()
 
-    def _incoming_flow(self, frame):
+    async def _incoming_flow(self, frame):
         rcv_link_credit = frame.link_credit
         rcv_delivery_count = frame.delivery_count
         if frame.handle:
             if rcv_link_credit is None or rcv_delivery_count is None:
                 _LOGGER.info("Unable to get link-credit or delivery-count from incoming ATTACH. Detaching link.")
-                self._remove_pending_deliveries()
-                self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
+                await self._remove_pending_deliveries()
+                await self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
             else:
                 self.current_link_credit = rcv_delivery_count + rcv_link_credit - self.delivery_count
         if self.current_link_credit > 0:
-            self._send_unsent_messages()
+            await self._send_unsent_messages()
 
-    def _outgoing_transfer(self, delivery):
+    async def _outgoing_transfer(self, delivery):
         delivery_count = self.delivery_count + 1
         delivery.frame = {
             'handle': self.handle,
@@ -98,19 +98,19 @@ class SenderLink(Link):
             'batchable': None,
             'payload': encode_payload(b"", delivery.message)
         }
-        self._session._outgoing_transfer(delivery)
+        await self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.Okay:
             self.delivery_count = delivery_count
             self.current_link_credit -= 1
             delivery.sent = True
             if delivery.settled:
-                delivery.on_settled(LinkDeliverySettleReason.Settled, None)
+                await delivery.on_settled(LinkDeliverySettleReason.Settled, None)
             else:
                 self._pending_deliveries[delivery.frame['delivery_id']] = delivery
         elif delivery.transfer_state == SessionTransferState.Error:
             raise ValueError("Message failed to send")
 
-    def _incoming_disposition(self, frame):
+    async def _incoming_disposition(self, frame):
         if not frame.settled:
             return
         range_end = (frame.last or frame.first) + 1
@@ -118,28 +118,27 @@ class SenderLink(Link):
         for settled_id in settled_ids:
             delivery = self._pending_deliveries.pop(settled_id, None)
             if delivery:
-                delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame.state)
+                await delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame.state)
 
-
-    def _update_pending_delivery_status(self):
+    async def _update_pending_delivery_status(self):
         now = time.time()
         expired = []
         for delivery in self._pending_deliveries.values():
             if delivery.timeout and (now - delivery.start) >= delivery.timeout:
                 expired.append(delivery.frame['delivery_id'])
-                delivery.on_settled(LinkDeliverySettleReason.Timeout, None)
+                await delivery.on_settled(LinkDeliverySettleReason.Timeout, None)
         self._pending_deliveries = {i: d for i, d in self._pending_deliveries.items() if i not in expired}
 
-    def _send_unsent_messages(self):
+    async def _send_unsent_messages(self):
         unsent = []
         for delivery in self._unsent_messages:
             if not delivery.sent:
-                self._outgoing_transfer(delivery)
+                await self._outgoing_transfer(delivery)
                 if not delivery.sent:
                     unsent.append(delivery)
         self._unsent_messages = unsent
 
-    def send_transfer(self, message, **kwargs):
+    async def send_transfer(self, message, **kwargs):
         if self._is_closed:
             raise ValueError("Link already closed.")
         if self.state != LinkState.ATTACHED:
@@ -157,15 +156,15 @@ class SenderLink(Link):
         if self.current_link_credit == 0:
             self._unsent_messages.append(delivery)
         else:
-            self._outgoing_transfer(delivery)
+            await self._outgoing_transfer(delivery)
             if not delivery.sent:
                 self._unsent_messages.append(delivery)
         return delivery
     
-    def cancel_transfer(self, delivery):
+    async def cancel_transfer(self, delivery):
         try:
             delivery = self._pending_deliveries.pop(delivery.frame['delivery_id'])
-            delivery.on_settled(LinkDeliverySettleReason.Cancelled, None)
+            await delivery.on_settled(LinkDeliverySettleReason.Cancelled, None)
             return
         except KeyError:
             pass

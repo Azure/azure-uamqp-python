@@ -7,10 +7,10 @@
 import struct
 from enum import Enum
 
-from ._transport import SSLTransport
-from .types import AMQPTypes, TYPE, VALUE
-from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD, SASLCode
-from .performatives import (
+from ._transport_async import SSLTransport
+from ..types import AMQPTypes, TYPE, VALUE
+from ..constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD, SASLCode
+from ..performatives import (
     SASLHeaderFrame,
     SASLOutcome,
     SASLResponse,
@@ -76,24 +76,24 @@ class SASLTransport(SSLTransport):
         self.credential = credential
         super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
-    def negotiate(self):
+    async def negotiate(self):
         with self.block():
-            self.send_frame(0, SASLHeaderFrame(), frame_type=_SASL_FRAME_TYPE)
-            _, returned_header = self.receive_frame()
+            await self.send_frame(0, SASLHeaderFrame(), frame_type=_SASL_FRAME_TYPE)
+            _, returned_header = await self.receive_frame()
             if not isinstance(returned_header, SASLHeaderFrame):
                 raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
                     SASLHeaderFrame._code, returned_header._code))
 
-            _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
+            _, supported_mechansisms = await self.receive_frame(verify_frame_type=1)
             if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
                 raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
             sasl_init = SASLInit(
                 mechanism=self.credential.mechanism,
                 initial_response=self.credential.start(),
                 hostname=self.host)
-            self.send_frame(0, sasl_init, frame_type=_SASL_FRAME_TYPE)
+            await self.send_frame(0, sasl_init, frame_type=_SASL_FRAME_TYPE)
 
-            _, next_frame = self.receive_frame(verify_frame_type=1)
+            _, next_frame = await self.receive_frame(verify_frame_type=1)
             if not isinstance(next_frame, SASLOutcome):
                 raise NotImplementedError("Unsupported SASL challenge")
             if next_frame.code == SASLCode.Ok:
