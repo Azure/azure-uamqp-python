@@ -601,7 +601,7 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
             (void)detach_get_closed(detach, &closed);
 
             /* Received a detach while attached */
-            if (link_instance->link_state == LINK_STATE_ATTACHED)
+            if (link_instance->link_state == LINK_STATE_ATTACHED || link_instance->link_state == LINK_STATE_DETACHED)
             {
                 /* Respond with ack */
                 if (send_detach(link_instance, closed, NULL) != 0)
