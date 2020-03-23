@@ -343,6 +343,10 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 LogError("Cannot get initial delivery count");
                 remove_all_pending_deliveries(link_instance, true);
                 set_link_state(link_instance, LINK_STATE_DETACHED);
+                if (send_detach(link_instance, true, NULL) != 0)
+                {
+                    LogError("Failed sending detach frame");
+                }
             }
             else
             {
@@ -601,7 +605,7 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
             (void)detach_get_closed(detach, &closed);
 
             /* Received a detach while attached */
-            if (link_instance->link_state == LINK_STATE_ATTACHED || link_instance->link_state == LINK_STATE_DETACHED)
+            if (link_instance->link_state == LINK_STATE_ATTACHED)
             {
                 /* Respond with ack */
                 if (send_detach(link_instance, closed, NULL) != 0)
