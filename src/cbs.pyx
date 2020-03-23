@@ -162,7 +162,7 @@ cdef class CBSTokenAuth(object):
         self.on_cbs_error()
 
     cpdef on_cbs_error(self):
-        _logger.info("CBS error occured on connection %r.", self.connection_id)
+        _logger.info("CBS error occurred on connection %r.", self.connection_id)
 
     cpdef _cbs_put_token_compelete(self, c_cbs.CBS_OPERATION_RESULT_TAG result, unsigned int status_code, const char* status_description):
         if result == CBS_OPERATION_RESULT_OK:
