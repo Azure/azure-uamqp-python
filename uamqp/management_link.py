@@ -40,7 +40,7 @@ class ManagementLink(object):
     """
 
     """
-    def __init__(self, session, endpoint):
+    def __init__(self, session, endpoint, **kwargs):
         self.next_message_id = 0
         self.state = ManagementLinkState.IDLE
         self._pending_operations = []
@@ -49,6 +49,7 @@ class ManagementLink(object):
             endpoint, on_link_state_change=self._on_sender_state_change)
         self._response_link = session.create_receiver_link(
             endpoint, on_link_state_change=self._on_receiver_state_change)
+        self._on_mgmt_error = kwargs.get('on_mgmt_error')
 
     def __enter__(self):
         self.open()
@@ -58,14 +59,17 @@ class ManagementLink(object):
         self.close()
     
     def _set_state(self, new_state):
+        previous_state = self.state
+        self.state = new_state
+        if new_state == ManagementLinkState.ERROR and self._on_mgmt_error:
+            self._on_mgmt_error()
 
-    
     def _on_sender_state_change(self, previous_state, new_state):
         if new_state == previous_state:
             return
-        if self.state == ManagementLinkState.OPENING:
-            if new_state == LinkState.OPENING:
-        elif self.state == ManagementLinkState.OPEN:
+        #if self.state == ManagementLinkState.OPENING:
+        #    if new_state == LinkState.OPENING:
+        #elif self.state == ManagementLinkState.OPEN:
         elif self.state == ManagementLinkState.CLOSING:
             if new_state not in [LinkState.DETACHED, LinkState.DETACH_RECEIVED]:
                 self._set_state(ManagementLinkState.ERROR)

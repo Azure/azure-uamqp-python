@@ -136,6 +136,17 @@ class LinkState(Enum):
     ATTACH_SENT = 1
     ATTACH_RCVD = 2
     ATTACHED = 3
+    DETACH_SENT = 4
+    DETACH_RCVD = 5
+    ERROR = 6
+
+
+class ManagementLinkState(Enum):
+
+    IDLE = 0
+    OPENING = 1
+    CLOSING = 2
+    OPEN = 3
     ERROR = 4
 
 
