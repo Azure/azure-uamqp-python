@@ -88,6 +88,7 @@ class Link(object):
         self._receive_links = {}
         self._pending_deliveries = {}
         self._received_payload = b""
+        self._on_link_state_change = kwargs.get('on_link_state_change')
 
     def __enter__(self):
         self.attach()
@@ -109,6 +110,12 @@ class Link(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Link '%s' state changed: %r -> %r", self.name, previous_state, new_state)
+        try:
+            self._on_link_state_change(previous_state, new_state)
+        except TypeError:
+            pass
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Link state change callback failed: '{}'".format(e))
 
     def _evaluate_status(self):
         if self.current_link_credit <= 0:
@@ -168,7 +175,7 @@ class Link(object):
             self._set_state(LinkState.ATTACH_RCVD)
         elif self.state == LinkState.ATTACH_SENT:
             self._set_state(LinkState.ATTACHED)
-    
+
     def _outgoing_flow(self):
         flow_frame = {
             'handle': self.handle,

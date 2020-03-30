@@ -20,6 +20,7 @@ from .constants import (
 from .endpoints import Source, Target
 from .sender import SenderLink
 from .receiver import ReceiverLink
+from .management_link import ManagementLink
 from .performatives import (
     BeginFrame,
     EndFrame,
@@ -289,3 +290,7 @@ class Session(object):
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link
+    
+    def create_request_response_link_pair(self, endpoint, **kwargs):
+        return ManagementLink(self, endpoint)
+
