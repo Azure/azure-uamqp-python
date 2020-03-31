@@ -149,6 +149,18 @@ def test_event_hubs_batch_send_sync(live_eventhub_config):
     send_client.close()
 
 
+def test_logging_on_macos(live_eventhub_config):
+    if sys.platform.startswith('darwin'):
+        logging.basicConfig(level=logging.INFO)
+        msg_content = b"Hello world"
+        uri = "sb://{}/{}".format(live_eventhub_config['hostname'],live_eventhub_config['event_hub'])
+        sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+            uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+        target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+        result = uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
+        assert result == [uamqp.constants.MessageState.SendComplete]
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']

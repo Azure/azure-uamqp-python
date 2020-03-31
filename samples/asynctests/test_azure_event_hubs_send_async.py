@@ -119,6 +119,22 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
         assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
+@pytest.mark.asyncio
+async def test_logging_on_macos_async(live_eventhub_config):
+    if sys.platform.startswith('darwin'):
+        logging.basicConfig(level=logging.INFO)
+        properties = {b"SendData": b"Property_String_Value_1"}
+        msg_content = b"hello world"
+
+        message = uamqp.Message(msg_content, application_properties=properties)
+        plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+        target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+        send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
+        send_client.queue_message(message)
+        results = await send_client.send_all_messages_async()
+        assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
