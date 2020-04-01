@@ -35,7 +35,7 @@ async def test_event_hubs_client_send_async(live_eventhub_config):
     message = uamqp.Message(msg_content, application_properties=properties)
     plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
     send_client.queue_message(message)
     results = await send_client.send_all_messages_async()
     assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
@@ -51,7 +51,7 @@ async def test_event_hubs_single_send_async(live_eventhub_config):
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=True)
    
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
@@ -69,7 +69,7 @@ async def test_event_hubs_async_sender_sync(live_eventhub_config):
     sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=True)
    
     for _ in range(10):
         message = uamqp.Message(msg_content, application_properties=annotations, annotations=annotations)
@@ -85,7 +85,7 @@ async def test_event_hubs_client_send_multiple_async(live_eventhub_config):
     assert not plain_auth.consumed
 
     target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=False)
+    send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
     messages = []
     for i in range(10):
         messages.append(uamqp.Message(msg_content, application_properties=properties))
@@ -112,25 +112,9 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
         sas_auth = authentication.SASTokenAsync.from_shared_access_key(uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
 
         target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-        send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+        send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=True)
 
         send_client.queue_message(message_batch)
-        results = await send_client.send_all_messages_async()
-        assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
-
-
-@pytest.mark.asyncio
-async def test_logging_on_macos_async(live_eventhub_config):
-    if sys.platform.startswith('darwin'):
-        logging.basicConfig(level=logging.INFO)
-        properties = {b"SendData": b"Property_String_Value_1"}
-        msg_content = b"hello world"
-
-        message = uamqp.Message(msg_content, application_properties=properties)
-        plain_auth = authentication.SASLPlain(live_eventhub_config['hostname'], live_eventhub_config['key_name'], live_eventhub_config['access_key'])
-        target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-        send_client = uamqp.SendClientAsync(target, auth=plain_auth, debug=True)
-        send_client.queue_message(message)
         results = await send_client.send_all_messages_async()
         assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 

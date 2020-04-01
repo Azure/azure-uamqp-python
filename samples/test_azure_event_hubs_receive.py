@@ -46,7 +46,7 @@ def send_single_message(live_eventhub_config, partition, msg_content):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
-    uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
+    uamqp.send_message(target, msg_content, auth=sas_auth, debug=True)
 
 
 def test_event_hubs_simple_receive(live_eventhub_config):
@@ -109,7 +109,7 @@ def test_event_hubs_client_web_socket(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=5000, prefetch=50) as receive_client:
         receive_client.receive_message_batch(max_batch_size=10)
 
 
@@ -126,7 +126,7 @@ def test_event_hubs_client_proxy_settings(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=5000, prefetch=50) as receive_client:
         receive_client.receive_message_batch(max_batch_size=10)
 
 
@@ -140,7 +140,7 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
         live_eventhub_config['event_hub'],
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=50) as receive_client:
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=5000, prefetch=50) as receive_client:
         log.info("Created client, receiving...")
         with pytest.raises(ValueError):
             batch = receive_client.receive_message_batch(max_batch_size=100)
@@ -172,7 +172,7 @@ def test_event_hubs_client_receive_with_runtime_metric_sync(live_eventhub_config
     symbol_array = [types.AMQPSymbol(receiver_runtime_metric_symbol)]
     desired_capabilities = utils.data_factory(types.AMQPArray(symbol_array))
 
-    with uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=50, prefetch=50,
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, timeout=50, prefetch=50,
                              desired_capabilities=desired_capabilities) as receive_client:
         log.info("Created client, receiving...")
         with pytest.raises(ValueError):
@@ -209,7 +209,7 @@ def test_event_hubs_callback_receive_sync(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=False)
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=True)
     log.info("Created client, receiving...")
     
     receive_client.receive_messages(on_message_received)
@@ -226,7 +226,7 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
         live_eventhub_config['consumer_group'],
         live_eventhub_config['partition'])
 
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=False, prefetch=10)
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=True, prefetch=10)
     count = 0
     gen = receive_client.receive_messages_iter()
     for message in gen:
@@ -260,9 +260,9 @@ def test_event_hubs_shared_connection(live_eventhub_config):
     send_single_message(live_eventhub_config, "0", "Message")
     send_single_message(live_eventhub_config, "1", "Message")
 
-    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=False) as conn:
-        partition_0 = uamqp.ReceiveClient(source + "0", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
-        partition_1 = uamqp.ReceiveClient(source + "1", debug=False, auth=sas_auth, timeout=3000, prefetch=10)
+    with uamqp.Connection(live_eventhub_config['hostname'], sas_auth, debug=True) as conn:
+        partition_0 = uamqp.ReceiveClient(source + "0", debug=True, auth=sas_auth, timeout=3000, prefetch=10)
+        partition_1 = uamqp.ReceiveClient(source + "1", debug=True, auth=sas_auth, timeout=3000, prefetch=10)
         partition_0.open(connection=conn)
         partition_1.open(connection=conn)
 
