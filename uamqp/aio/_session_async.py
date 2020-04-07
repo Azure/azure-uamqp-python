@@ -4,12 +4,11 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import uuid
 import logging
-from enum import Enum
 import time
 
+from ._anyio import create_task_group, sleep
 from ..constants import (
     INCOMING_WINDOW,
     OUTGOING_WIDNOW,
@@ -19,8 +18,8 @@ from ..constants import (
     Role
 )
 from ..endpoints import Source, Target
-from .sender_async import SenderLink
-from .receiver_async import ReceiverLink
+from ._sender_async import SenderLink
+from ._receiver_async import ReceiverLink
 from ..performatives import (
     BeginFrame,
     EndFrame,
@@ -93,10 +92,14 @@ class Session(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Session '%s' state changed: %r -> %r", self.name, previous_state, new_state)
-        await asyncio.gather([l._on_session_state_change() for l in self.links.values()])
+        async with create_task_group() as tg:
+            for link in self.links.values():
+                await tg.spawn(link._on_session_state_change)
 
     async def _evaluate_status(self):
-        await asyncio.gather([l._evaluate_status() for l in self.links.values()])
+        async with create_task_group() as tg:
+            for link in self.links.values():
+                await tg.spawn(link._evaluate_status)
 
     async def _on_connection_state_change(self):
         if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
@@ -225,7 +228,9 @@ class Session(object):
         await self._connection._process_outgoing_frame(self.channel, frame)
 
     async def _incoming_disposition(self, frame):
-        await asyncio.gather([l._incoming_disposition(frame) for l in self._input_handles.values()])
+        async with create_task_group() as tg:
+            for link in self._input_handles.values():
+                await tg.spawn(link._incoming_disposition, frame)
 
     async def _outgoing_detach(self, frame):
         await self._connection._process_outgoing_frame(self.channel, frame)
@@ -246,7 +251,7 @@ class Session(object):
         if wait == True:
             await self._connection.listen(wait=False)
             while self.state != end_state:
-                await asyncio.sleep(self.idle_wait_time)
+                await sleep(self.idle_wait_time)
                 await self._connection.listen(wait=False)
         elif wait:
             await self._connection.listen(wait=False)
@@ -254,7 +259,7 @@ class Session(object):
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                await asyncio.sleep(self.idle_wait_time)
+                await sleep(self.idle_wait_time)
                 await self._connection.listen(wait=False)
 
     async def begin(self, wait=False):

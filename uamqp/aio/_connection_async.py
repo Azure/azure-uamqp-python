@@ -4,7 +4,6 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import threading
 import struct
 import uuid
@@ -13,7 +12,8 @@ import time
 from urllib.parse import urlparse
 from enum import Enum
 
-from ._transport_async import Transport, SSLTransport
+from ._anyio import create_task_group, sleep
+from ._transport_async import AsyncTransport
 from ._session_async import Session
 from ..performatives import (
     HeaderFrame,
@@ -62,7 +62,7 @@ class Connection(object):
             self.port = PORT
         self.state = None
 
-        self.transport = kwargs.pop('transport', None) or Transport(
+        self.transport = kwargs.pop('transport', None) or AsyncTransport(
             parsed_url.netloc,
             connect_timeout=kwargs.pop('connect_timeout', None),
             ssl={'server_hostname': self.hostname},
@@ -107,7 +107,9 @@ class Connection(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Connection '%s' state changed: %r -> %r", self.container_id, previous_state, new_state)
-        await asyncio.gather(s._on_connection_state_change() for s in self.outgoing_endpoints.values()])
+        async with create_task_group() as tg:
+            for session in self.outgoing_endpoints.values():
+                await tg.spawn(session._on_connection_state_change)
 
     async def _connect(self):
         if not self.state:
@@ -128,7 +130,7 @@ class Connection(object):
         if self.state == ConnectionState.END:
             return
         await self._set_state(ConnectionState.END)
-        await self.transport.close()
+        self.transport.close()
 
     def _can_read(self):
         # type: () -> bool
@@ -336,7 +338,7 @@ class Connection(object):
         if wait == True:
             await self.listen(wait=False)
             while self.state != end_state:
-                await asyncio.sleep(self.idle_wait_time)
+                await sleep(self.idle_wait_time)
                 await self.listen(wait=False)
         elif wait:
             await self.listen(wait=False)
@@ -344,7 +346,7 @@ class Connection(object):
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                await asyncio.sleep(self.idle_wait_time)
+                await sleep(self.idle_wait_time)
                 await self.listen(wait=False)
 
     async def listen(self, wait=False, batch=None, **kwargs):
@@ -357,7 +359,9 @@ class Connection(object):
             new_frames = [new_frame]
             if not new_frame:
                 raise ValueError("Connection closed.")
-        await asyncio.gather([self._process_incoming_frame(*f) for f in new_frames])
+        async with create_task_group() as tg:
+            for frame in new_frames:
+                await tg.spawn(self._process_incoming_frame, *frame)
         if self.state not in _CLOSING_STATES:
             now = time.time()
             for session in self.outgoing_endpoints.values():

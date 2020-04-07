@@ -4,7 +4,6 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import asyncio
 import threading
 import struct
 import uuid
@@ -14,6 +13,7 @@ from urllib.parse import urlparse
 from enum import Enum
 from io import BytesIO
 
+from ._anyio import create_task_group, sleep
 from ..endpoints import Source, Target
 from ..constants import (
     DEFAULT_LINK_CREDIT,
@@ -110,7 +110,7 @@ class Link(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Link '%s' state changed: %r -> %r", self.name, previous_state, new_state)
-        await asyncio.sleep(0)
+        await sleep(0)
 
     async def _evaluate_status(self):
         if self.current_link_credit <= 0:
@@ -118,9 +118,9 @@ class Link(object):
             await self._outgoing_flow()
 
     async def _remove_pending_deliveries(self):  # TODO: move to sender
-        await asyncio.gather(
-            [d.on_settled(LinkDeliverySettleReason.NotDelivered, None) for d in self._pending_deliveries.values()]
-        )
+        async with create_task_group() as tg:
+            for delivery in self._pending_deliveries.values():
+                await tg.spawn(delivery.on_settled, LinkDeliverySettleReason.NotDelivered, None)
         self._pending_deliveries = {}
     
     async def _on_session_state_change(self):

@@ -1,8 +1,8 @@
 """Transport implementation."""
 # pylint: skip-file
 # Copyright (C) 2009 Barry Pederson <bp@barryp.org>
-from __future__ import absolute_import, unicode_literals
 
+import asyncio
 import errno
 import re
 import socket
@@ -12,132 +12,31 @@ from ssl import SSLError
 from contextlib import contextmanager
 from io import BytesIO
 import logging
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from threading import Lock
 
 import certifi
 
-from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
-from ._encode import encode_frame
-from ._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
-from .performatives import HeaderFrame, TLSHeaderFrame
-
-
-try:
-    import fcntl
-except ImportError:  # pragma: no cover
-    fcntl = None   # noqa
-try:
-    from os import set_cloexec  # Python 3.4?
-except ImportError:  # pragma: no cover
-    # TODO: Drop this once we drop Python 2.7 support
-    def set_cloexec(fd, cloexec):  # noqa
-        """Set flag to close fd after exec."""
-        if fcntl is None:
-            return
-        try:
-            FD_CLOEXEC = fcntl.FD_CLOEXEC
-        except AttributeError:
-            raise NotImplementedError(
-                'close-on-exec flag not supported on this platform',
-            )
-        flags = fcntl.fcntl(fd, fcntl.F_GETFD)
-        if cloexec:
-            flags |= FD_CLOEXEC
-        else:
-            flags &= ~FD_CLOEXEC
-        return fcntl.fcntl(fd, fcntl.F_SETFD, flags)
+from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
+from .._encode import encode_frame
+from .._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
+from ..performatives import HeaderFrame, TLSHeaderFrame
+from .._transport import (
+    unpack_frame_header,
+    decode_response,
+    get_errno,
+    to_host_port,
+    DEFAULT_SOCKET_SETTINGS,
+    IPV6_LITERAL,
+    SIGNED_INT_MAX,
+    _UNAVAIL,
+    set_cloexec
+)
 
 
 _LOGGER = logging.getLogger(__name__)
-_UNAVAIL = {errno.EAGAIN, errno.EINTR, errno.ENOENT, errno.EWOULDBLOCK}
-
-AMQP_PORT = 5672
-
-EMPTY_BUFFER = bytes()
-
-SIGNED_INT_MAX = 0x7FFFFFFF
-
-# Match things like: [fe80::1]:5432, from RFC 2732
-IPV6_LITERAL = re.compile(r'\[([\.0-9a-f:]+)\](?::(\d+))?')
-
-DEFAULT_SOCKET_SETTINGS = {
-    'TCP_NODELAY': 1,
-    'TCP_USER_TIMEOUT': 1000,
-    'TCP_KEEPIDLE': 60,
-    'TCP_KEEPINTVL': 10,
-    'TCP_KEEPCNT': 9,
-}
 
 
-def unpack_frame_header(data):
-    if data[0:4] == b'AMQP':  # AMQP header negotiation
-        size = None
-    else:
-        size = struct.unpack('>I', data[0:4])[0]
-
-    offset = struct.unpack('>B', data[4:5])[0]
-    frame_type = struct.unpack('>B', data[5:6])[0]
-    channel = struct.unpack('>H', data[6:])[0]
-    return (size, offset, frame_type, channel)
-
-
-def decode_proc_response(response):
-    header, channel, payload = response
-    if not payload:
-        decoded = decode_empty_frame(header)
-    else:
-        decoded = decode_pickle_frame(payload)
-    return channel, decoded
-
-
-def decode_response(response):
-    header, channel, payload = response
-    if not payload:
-        decoded = decode_empty_frame(header)
-    else:
-        decoded = decode_frame(payload)
-    return channel, decoded
-
-
-def get_errno(exc):
-    """Get exception errno (if set).
-
-    Notes:
-        :exc:`socket.error` and :exc:`IOError` first got
-        the ``.errno`` attribute in Py2.7.
-    """
-    try:
-        return exc.errno
-    except AttributeError:
-        try:
-            # e.args = (errno, reason)
-            if isinstance(exc.args, tuple) and len(exc.args) == 2:
-                return exc.args[0]
-        except AttributeError:
-            pass
-    return 0
-
-
-def to_host_port(host, default=AMQP_PORT):
-    """Convert hostname:port string to host, port tuple."""
-    port = default
-    m = IPV6_LITERAL.match(host)
-    if m:
-        host = m.group(1)
-        if m.group(2):
-            port = int(m.group(2))
-    else:
-        if ':' in host:
-            host, port = host.rsplit(':', 1)
-            port = int(port)
-    return host, port
-
-
-class UnexpectedFrame(Exception):
-    pass
-
-class _AbstractTransport(object):
+class _AsyncAbstractTransport(object):
     """Common superclass for TCP and SSL transports."""
 
     def __init__(self, host, connect_timeout=None,
@@ -152,15 +51,15 @@ class _AbstractTransport(object):
         self.read_timeout = read_timeout
         self.write_timeout = write_timeout
         self.socket_settings = socket_settings
-        self.thread_pool = None
-        self.socket_lock = Lock()
+        self.socket_lock = asyncio.Lock()
+        self.loop = asyncio.get_running_loop()
 
-    def connect(self):
+    async def connect(self):
         try:
             # are we already connected?
             if self.connected:
                 return
-            self._connect(self.host, self.port, self.connect_timeout)
+            await self._connect(self.host, self.port, self.connect_timeout)
             self._init_socket(
                 self.socket_settings, self.read_timeout, self.write_timeout,
             )
@@ -168,7 +67,6 @@ class _AbstractTransport(object):
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
             # has _not_ been sent
             self.connected = True
-            self.thread_pool = ProcessPoolExecutor(max_workers=5)
         except (OSError, IOError, SSLError):
             # if not fully connected, close socket, and reraise error
             if self.sock and not self.connected:
@@ -228,34 +126,7 @@ class _AbstractTransport(object):
             if bocking_timeout != prev:
                 sock.settimeout(prev)
 
-    @contextmanager
-    def non_blocking(self):
-        non_bocking_timeout = 0.0
-        sock = self.sock
-        prev = sock.gettimeout()
-        if prev != non_bocking_timeout:
-            sock.settimeout(non_bocking_timeout)
-        try:
-            yield self.sock
-        except SSLError as exc:
-            if 'timed out' in str(exc):
-                # http://bugs.python.org/issue10272
-                raise socket.timeout()
-            elif 'The operation did not complete' in str(exc):
-                # Non-blocking SSL sockets can throw SSLError
-                raise socket.timeout()
-            raise
-        except socket.error as exc:
-            if get_errno(exc) == errno.EWOULDBLOCK:
-                raise socket.timeout()
-            raise
-        finally:
-            if non_bocking_timeout != prev:
-                sock.settimeout(prev)
-
-    def _connect(self, host, port, timeout):
-        e = None
-
+    async def _connect(self, host, port, timeout):
         # Below we are trying to avoid additional DNS requests for AAAA if A
         # succeeds. This helps a lot in case when a hostname has an IPv4 entry
         # in /etc/hosts but not IPv6. Without the (arguably somewhat twisted)
@@ -270,8 +141,8 @@ class _AbstractTransport(object):
         for n, family in enumerate(addr_types):
             # first, resolve the address for a single address family
             try:
-                entries = socket.getaddrinfo(
-                    host, port, family, socket.SOCK_STREAM, SOL_TCP)
+                entries = await self.loop.getaddrinfo(
+                    host, port, family=family, type=socket.SOCK_STREAM, proto=SOL_TCP)
                 entries_num = len(entries)
             except socket.gaierror:
                 # we may have depleted all our options
@@ -295,7 +166,7 @@ class _AbstractTransport(object):
                     except NotImplementedError:
                         pass
                     self.sock.settimeout(timeout)
-                    self.sock.connect(sa)
+                    await self.loop.sock_connect(self.sock, sa)
                 except socket.error as ex:
                     e = ex
                     if self.sock is not None:
@@ -354,7 +225,7 @@ class _AbstractTransport(object):
         for opt, val in tcp_opts.items():
             self.sock.setsockopt(SOL_TCP, opt, val)
 
-    def _read(self, n, initial=False):
+    async def _read(self, n, initial=False):
         """Read exactly n bytes from the peer."""
         raise NotImplementedError('Must be overriden in subclass')
 
@@ -366,12 +237,11 @@ class _AbstractTransport(object):
         """Do any preliminary work in shutting down the connection."""
         pass
 
-    def _write(self, s):
+    async def _write(self, s):
         """Completely write a string to the peer."""
         raise NotImplementedError('Must be overriden in subclass')
 
     def close(self):
-        self.thread_pool.shutdown()
         if self.sock is not None:
             self._shutdown_transport()
             # Call shutdown first to make sure that pending messages
@@ -382,11 +252,10 @@ class _AbstractTransport(object):
             self.sock = None
         self.connected = False
 
-    def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
-        read = self._read
+    async def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
         read_frame_buffer = BytesIO()
         try:
-            frame_header = read(8, initial=True)
+            frame_header = await self._read(8, initial=True)
             read_frame_buffer.write(frame_header)
             size, offset, frame_type, channel = unpack(frame_header)
             if not size:
@@ -397,10 +266,10 @@ class _AbstractTransport(object):
             payload_size = size - len(frame_header)
             payload = memoryview(bytearray(payload_size))
             if size > SIGNED_INT_MAX:
-                read_frame_buffer.write(read(SIGNED_INT_MAX, buffer=payload))
-                read_frame_buffer.write(read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
+                read_frame_buffer.write(await self._read(SIGNED_INT_MAX, buffer=payload))
+                read_frame_buffer.write(await self._read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
             else:
-                read_frame_buffer.write(read(payload_size, buffer=payload))
+                read_frame_buffer.write(await self._read(payload_size, buffer=payload))
         except socket.timeout:
             read_frame_buffer.write(self._read_buffer.getvalue())
             self._read_buffer = read_frame_buffer
@@ -417,9 +286,9 @@ class _AbstractTransport(object):
         offset -= 2
         return frame_header, channel, payload[offset:]
 
-    def write(self, s):
+    async def write(self, s):
         try:
-            self._write(s)
+            await self._write(s)
         except socket.timeout:
             raise
         except (OSError, IOError, socket.error) as exc:
@@ -427,9 +296,9 @@ class _AbstractTransport(object):
                 self.connected = False
             raise
 
-    def receive_frame(self, *args, **kwargs):
+    async def receive_frame(self, *args, **kwargs):
         try:
-            header, channel, payload = self.read(**kwargs) 
+            header, channel, payload = await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
@@ -440,10 +309,10 @@ class _AbstractTransport(object):
         except socket.timeout:
             return None, None
 
-    def receive_frame_with_lock(self, *args, **kwargs):
+    async def receive_frame_with_lock(self, *args, **kwargs):
         try:
-            with self.socket_lock:
-                header, channel, payload = self.read(**kwargs) 
+            async with self.socket_lock:
+                header, channel, payload = await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
@@ -467,7 +336,7 @@ class _AbstractTransport(object):
         else:
             return (decode_response(f) for f in frames)
 
-    def send_frame(self, channel, frame, **kwargs):
+    async def send_frame(self, channel, frame, **kwargs):
         header, performative = encode_frame(frame, **kwargs)
         if performative is None:
             data = header
@@ -475,19 +344,18 @@ class _AbstractTransport(object):
             encoded_channel = struct.pack('>H', channel)
             data = header + encoded_channel + performative
 
-        self.write(data)
+        await self.write(data)
         _LOGGER.info("OCH%d -> %r", channel, frame)
 
-    def negotiate(self, encode, decode):
+    async def negotiate(self, encode, decode):
         pass
 
 
-class SSLTransport(_AbstractTransport):
+class SSLTransport(_AsyncAbstractTransport):
     """Transport that works over SSL."""
 
     def __init__(self, host, connect_timeout=None, ssl=None, **kwargs):
         self.sslopts = ssl if isinstance(ssl, dict) else {}
-        self._read_buffer = BytesIO()
         super(SSLTransport, self).__init__(
             host, connect_timeout=connect_timeout, **kwargs)
 
@@ -495,7 +363,6 @@ class SSLTransport(_AbstractTransport):
         """Wrap the socket in an SSL object."""
         self.sock = self._wrap_socket(self.sock, **self.sslopts)
         a = self.sock.do_handshake()
-        self._quick_recv = self.sock.recv
 
     def _wrap_socket(self, sock, context=None, **sslopts):
         if context:
@@ -566,7 +433,7 @@ class SSLTransport(_AbstractTransport):
             except OSError:
                 pass
 
-    def _read(self, toread, initial=False, buffer=None,
+    async def _read(self, toread, initial=False, buffer=None,
               _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
         # According to SSL_read(3), it can at most return 16kb of data.
         # Thus, we use an internal read buffer like TCPTransport._read
@@ -579,7 +446,7 @@ class SSLTransport(_AbstractTransport):
         try:
             while toread:
                 try:
-                    nbytes = self.sock.recv_into(view[nbytes:])
+                    nbytes = await self.loop.sock_recv_into(self.sock, view[nbytes:])
                 except socket.error as exc:
                     # ssl.sock.read may cause a SSLerror without errno
                     # http://bugs.python.org/issue10272
@@ -602,49 +469,29 @@ class SSLTransport(_AbstractTransport):
             raise
         return view
 
-    def _write(self, s):
+    async def _write(self, s):
         """Write a string out to the SSL socket fully."""
-        write = self.sock.send
-        while s:
-            try:
-                n = write(s)
-            except ValueError:
-                # AG: sock._sslobj might become null in the meantime if the
-                # remote connection has hung up.
-                # In python 3.4, a ValueError is raised is self._sslobj is
-                # None.
-                n = 0
-            if not n:
-                raise IOError('Socket closed')
-            s = s[n:]
+        await self.loop.sock_sendall(self.sock, s)
 
-    def negotiate(self):
+    async def negotiate(self):
         with self.block():
-            self.send_frame(0, TLSHeaderFrame())
-            channel, returned_header = self.receive_frame(verify_frame_type=None)
+            await self.send_frame(0, TLSHeaderFrame())
+            channel, returned_header = await self.receive_frame(verify_frame_type=None)
             if not isinstance(returned_header, TLSHeaderFrame):
                 raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
                     TLSHeaderFrame._code, returned_header._code))
 
 
-class TCPTransport(_AbstractTransport):
+class AsyncTCPTransport(_AsyncAbstractTransport):
     """Transport that deals directly with TCP socket."""
 
-    def _setup_transport(self):
-        # Setup to _write() directly to the socket, and
-        # do our own buffered reads.
-        self._write = self.sock.sendall
-        self._read_buffer = EMPTY_BUFFER
-        self._quick_recv = self.sock.recv
-
-    def _read(self, n, initial=False, _errnos=(errno.EAGAIN, errno.EINTR)):
+    async def _read(self, n, initial=False, _errnos=(errno.EAGAIN, errno.EINTR)):
         """Read exactly n bytes from the socket."""
-        recv = self._quick_recv
         rbuf = self._read_buffer
         try:
             while len(rbuf) < n:
                 try:
-                    s = self.sock.read(n - len(rbuf))
+                    s = await self.loop.sock_recv(self.sock, n - len(rbuf))
                 except socket.error as exc:
                     if exc.errno in _errnos:
                         if initial and self.raise_on_initial_eintr:
@@ -660,13 +507,16 @@ class TCPTransport(_AbstractTransport):
 
         result, self._read_buffer = rbuf[:n], rbuf[n:]
         return result
+    
+    async def _write(self, s):
+        await self.loop.sock_sendall(self.sock, s)
 
 
-def Transport(host, connect_timeout=None, ssl=False, **kwargs):
+def AsyncTransport(host, connect_timeout=None, ssl=False, **kwargs):
     """Create transport.
 
     Given a few parameters from the Connection constructor,
-    select and create a subclass of _AbstractTransport.
+    select and create a subclass of _AsyncAbstractTransport.
     """
-    transport = SSLTransport if ssl else TCPTransport
+    transport = AsyncSSLTransport if ssl else AsyncTCPTransport
     return transport(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)

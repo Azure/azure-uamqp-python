@@ -4,29 +4,32 @@
 # license information.
 #--------------------------------------------------------------------------
 
-# pylint: disable=too-many-lines
+# TODO: check this
+# pylint: disable=super-init-not-called,too-many-lines
 
+import collections.abc
 import logging
-import threading
-import time
 import uuid
-import certifi
+import time
 import queue
+import certifi
 
-from .connection import Connection
-from .session import Session
-from .sender import SenderLink
-from .receiver import ReceiverLink
-from .sasl import SASLTransport
-from .endpoints import Source, Target
-from .constants import SenderSettleMode, ReceiverSettleMode
+from ._connection_async import Connection
+from ._receiver_async import ReceiverLink
+from ._sender_async import SenderLink
+from ._session_async import Session
+from ._sasl_async import SASLTransport
+from ..client import AMQPClient as AMQPClientSync
+from ..client import ReceiveClient as ReceiveClientSync
+from ..endpoints import Source, Target
+from ..constants import SenderSettleMode, ReceiverSettleMode
+
 
 _logger = logging.getLogger(__name__)
-_MAX_FRAME_SIZE_BYTES = 64 * 1024
 
 
-class AMQPClient(object):
-    """An AMQP client.
+class AMQPClientAsync(AMQPClientSync):
+    """An asynchronous AMQP client.
 
     :param remote_address: The AMQP endpoint to connect to. This could be a send target
      or a receive source.
@@ -35,12 +38,14 @@ class AMQPClient(object):
      uamqp.authentication.AMQPAuth. Currently this includes:
         - uamqp.authentication.SASLAnonymous
         - uamqp.authentication.SASLPlain
-        - uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASTokenAsync
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
+    :param loop: A user specified event loop.
+    :type loop: ~asycnio.AbstractEventLoop
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -91,42 +96,19 @@ class AMQPClient(object):
     """
 
     def __init__(self, hostname, auth=None, **kwargs):
+        super(AMQPClientAsync, self).__init__(hostname, auth=auth, **kwargs)
         self._transport = SASLTransport(hostname, auth, ssl={'ca_certs':certifi.where()})
-        self._hostname = hostname
-        self._auth = auth
-        self._name = str(uuid.uuid4())
-        self._shutdown = False
-        self._connection = None
-        self._session = None
-        self._link = None
-        self._socket_timeout = False
 
-        # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
-        self._channel_max = kwargs.pop('channel_max', None) or 65535
-        self._idle_timeout = kwargs.pop('idle_timeout', None)
-        self._properties = kwargs.pop('properties', None)
-
-        # Session settings
-        self._outgoing_window = kwargs.pop('outgoing_window', None) or _MAX_FRAME_SIZE_BYTES
-        self._incoming_window = kwargs.pop('incoming_window', None) or _MAX_FRAME_SIZE_BYTES
-        self._handle_max = kwargs.pop('handle_max', None)
-
-        # Link settings
-        self._send_settle_mode = kwargs.pop('send_settle_mode', None) or SenderSettleMode.Unsettled
-        self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or ReceiverSettleMode.Second
-        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
-
-    def __enter__(self):
-        """Run Client in a context manager."""
-        self.open()
+    async def __aenter__(self):
+        """Run Client in an async context manager."""
+        await self.open_async()
         return self
 
-    def __exit__(self, *args):
-        """Close and destroy Client on exiting a context manager."""
-        self.close()
+    async def __aexit__(self, *args):
+        """Close and destroy Client on exiting an async context manager."""
+        await self.close_async()
 
-    def _client_ready(self):  # pylint: disable=no-self-use
+    async def _client_ready_async(self):  # pylint: disable=no-self-use
         """Determine whether the client is ready to start sending and/or
         receiving messages. To be ready, the connection must be open and
         authentication complete.
@@ -135,12 +117,12 @@ class AMQPClient(object):
         """
         return True
 
-    def _client_run(self):
+    async def _client_run_async(self):
         """Perform a single Connection iteration."""
-        self._connection.listen(wait=self._socket_timeout)
+        await self._connection.listen(wait=self._socket_timeout)
 
-    def open(self):
-        """Open the client. The client can create a new Connection
+    async def open_async(self, connection=None):
+        """Asynchronously open the client. The client can create a new Connection
         or an existing Connection can be passed in. This existing Connection
         may have an existing CBS authentication Session, which will be
         used for this client as well. Otherwise a new Session will be
@@ -148,7 +130,7 @@ class AMQPClient(object):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp.connection.Connection
+        :type connetion: ~uamqp.async_ops.connection_async.ConnectionAsync
         """
         # pylint: disable=protected-access
         if self._session:
@@ -162,36 +144,30 @@ class AMQPClient(object):
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
             properties=self._properties)
-        self._connection.open()
+        await self._connection.open()
         self._session = self._connection.create_session(
             incoming_window=self._incoming_window,
             outgoing_window=self._outgoing_window
         )
-        self._session.begin()
+        await self._session.begin()
 
-    def close(self):
-        """Close the client. This includes closing the Session
+    async def close_async(self):
+        """Close the client asynchronously. This includes closing the Session
         and CBS authentication layer as well as the Connection.
         If the client was opened using an external Connection,
         this will be left intact.
-
-        No further messages can be sent or received and the client
-        cannot be re-opened.
-
-        All pending, unsent messages will remain uncleared to allow
-        them to be inspected and queued to a new client.
         """
         self._shutdown = True
         if not self._session:
             return  # already closed.
         if self._link:
-            self._link.detach(close=True)
+            await self._link.detach(close=True)
             self._link = None
-        self._session.end()
+        await self._session.end()
         self._session = None
-        self._connection.close()
+        await self._connection.close()
 
-    def auth_complete(self):
+    async def auth_complete_async(self):
         """Whether the authentication handshake is complete during
         connection initialization.
 
@@ -199,7 +175,7 @@ class AMQPClient(object):
         """
         return True
 
-    def client_ready(self):
+    async def client_ready_async(self):
         """
         Whether the handler has completed all start up processes such as
         establishing the connection, session, link and authentication, and
@@ -207,18 +183,18 @@ class AMQPClient(object):
 
         :rtype: bool
         """
-        if not self.auth_complete():
+        if not await self.auth_complete_async():
             return False
-        if not self._client_ready():
+        if not await self._client_ready_async():
             try:
-                self._connection.listen(wait=self._socket_timeout)
+                await self._connection.listen(wait=self._socket_timeout)
             except ValueError:
                 return True
             return False
         return True
 
-    def do_work(self, **kwargs):
-        """Run a single connection iteration.
+    async def do_work_async(self, **kwargs):
+        """Run a single connection iteration asynchronously.
         This will return `True` if the connection is still open
         and ready to be used for further work, or `False` if it needs
         to be shut down.
@@ -228,13 +204,13 @@ class AMQPClient(object):
         """
         if self._shutdown:
             return False
-        if not self.client_ready():
+        if not await self.client_ready_async():
             return True
-        return self._client_run(**kwargs)
+        return await self._client_run_async(**kwargs)
 
 
-class ReceiveClient(AMQPClient):
-    """An AMQP client for receiving messages.
+class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
+    """An AMQP client for receiving messages asynchronously.
 
     :param target: The source AMQP service endpoint. This can either be the URI as
      a string or a ~uamqp.address.Source object.
@@ -243,12 +219,14 @@ class ReceiveClient(AMQPClient):
      uamqp.authentication.AMQPAuth. Currently this includes:
         - uamqp.authentication.SASLAnonymous
         - uamqp.authentication.SASLPlain
-        - uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.SASTokenAsync
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
+    :param loop: A user specified event loop.
+    :type loop: ~asycnio.AbstractEventLoop
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -321,18 +299,7 @@ class ReceiveClient(AMQPClient):
     :type encoding: str
     """
 
-    def __init__(self, hostname, source, auth=None, **kwargs):
-        self.source = source
-        self._streaming_receive = False
-        self._received_messages = queue.Queue()
-
-        # Sender and Link settings
-        self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
-        self._link_properties = kwargs.pop('link_properties', None)
-        self._link_credit = kwargs.pop('link_credit', None)
-        super(ReceiveClient, self).__init__(hostname, auth=auth, **kwargs)
-
-    def _client_ready(self):
+    async def _client_ready_async(self):
         """Determine whether the client is ready to start receiving messages.
         To be ready, the connection must be open and authentication complete,
         The Session, Link and MessageReceiver must be open and in non-errored
@@ -352,13 +319,13 @@ class ReceiveClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 on_message_received=self._message_received,
                 properties=self._link_properties)
-            self._link.attach()
+            await self._link.attach()
             return False
         if self._link.state.value != 3:  # ATTACHED
             return False
         return True
 
-    def _client_run(self, **kwargs):
+    async def _client_run_async(self, **kwargs):
         """MessageReceiver Link is now open - start receiving messages.
         Will return True if operation successful and client can remain open for
         further work.
@@ -366,14 +333,14 @@ class ReceiveClient(AMQPClient):
         :rtype: bool
         """
         try:
-            self._connection.listen(wait=self._socket_timeout, **kwargs)
+            await self._connection.listen(wait=self._socket_timeout, **kwargs)
         except ValueError:
             _logger.info("Timeout reached, closing receiver.")
             self._shutdown = True
             return False
         return True
 
-    def _message_received(self, message):
+    async def _message_received(self, message):
         """Callback run on receipt of every message. If there is
         a user-defined callback, this will be called.
         Additionally if the client is retrieving messages for a batch
@@ -383,19 +350,17 @@ class ReceiveClient(AMQPClient):
         :type message: ~uamqp.message.Message
         """
         if self._message_received_callback:
-            self._message_received_callback(message)
+            await self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
         elif not message.settled:
             # Message was received with callback processing and wasn't settled.
             _logger.info("Message was not settled.")
 
-    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
-        """Receive a batch of messages. Messages returned in the batch have already been
-        accepted - if you wish to add logic to accept or reject messages based on custom
-        criteria, pass in a callback. This method will return as soon as some messages are
-        available rather than waiting to achieve a specific batch size, and therefore the
-        number of messages returned per call will vary up to the maximum allowed.
+    async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
+        """Receive a batch of messages asynchronously. This method will return as soon as some
+        messages are available rather than waiting to achieve a specific batch size, and
+        therefore the number of messages returned per call will vary up to the maximum allowed.
 
         If the receive client is configured with `auto_complete=True` then the messages received
         in the batch returned by this function will already be settled. Alternatively, if
@@ -409,7 +374,7 @@ class ReceiveClient(AMQPClient):
         :param on_message_received: A callback to process messages as they arrive from the
          service. It takes a single argument, a ~uamqp.message.Message object.
         :type on_message_received: callable[~uamqp.message.Message]
-        :param timeout: I timeout in milliseconds for which to wait to receive any messages.
+        :param timeout: Timeout in milliseconds for which to wait to receive any messages.
          If no messages are received in this time, an empty list will be returned. If set to
          0, the client will continue to wait until at least one message is received. The
          default is 0.
@@ -431,7 +396,7 @@ class ReceiveClient(AMQPClient):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work()
+            receiving = await self.do_work_async()
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())

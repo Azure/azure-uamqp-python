@@ -71,22 +71,25 @@ class ManagementLink(object):
         #    if new_state == LinkState.OPENING:
         #elif self.state == ManagementLinkState.OPEN:
         elif self.state == ManagementLinkState.CLOSING:
-            if new_state not in [LinkState.DETACHED, LinkState.DETACH_RECEIVED]:
+            if new_state not in [LinkState.DETACHED, LinkState.DETACH_RCVD]:
                 self._set_state(ManagementLinkState.ERROR)
         elif self.state == ManagementLinkState.ERROR:
             # All state transitions shall be ignored.
             return
     
+    def _on_receiver_state_change(self, previous_state, new_state):
+        pass
+    
     def open(self):
         if self.state != ManagementLinkState.IDLE:
             raise ValueError("Management links are already open or opening.")
         self.state = ManagementLinkState.OPENING
-        self.response_link.attach()
-        self.request_link.attach()
+        self._response_link.attach()
+        self._request_link.attach()
     
     def close(self):
         if self.state != ManagementLinkState.IDLE:
-            self.response_link.detach(close=True)
-            self.request_link.detach(close=True)
+            self._response_link.detach(close=True)
+            self._request_link.detach(close=True)
             self._pending_operations = []
         self.state == ManagementLinkState.IDLE

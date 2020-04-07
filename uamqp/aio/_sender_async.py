@@ -62,11 +62,11 @@ class SenderLink(Link):
         self._unsent_messages = []
 
     async def _evaluate_status(self):
-        super(SenderLink, self)._evaluate_status()
+        await super(SenderLink, self)._evaluate_status()
         await self._update_pending_delivery_status()
 
     async def _incoming_attach(self, frame):
-        super(SenderLink, self)._incoming_attach(frame)
+        await super(SenderLink, self)._incoming_attach(frame)
         self.current_link_credit = 0
         await self._evaluate_status()
 

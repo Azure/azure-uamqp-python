@@ -9,10 +9,11 @@ except Exception:
     from urllib.parse import quote_plus
 
 import uamqp
+from uamqp import aio
 from uamqp.sasl import SASLPlainCredential
 from legacy_test.live_settings import config as live_eventhub_config
 
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 global_msg_cnt_dict = {}
 
@@ -40,16 +41,7 @@ def client_receive_sync(args, partition, clients_arr):
         batch = receive_client.receive_message_batch(max_batch_size=MESSAGES_PER_BATCH, timeout=args.wait_timeout)  # timeout is milliseconds
         if len(batch) > 0:
             messagesReceived += len(batch)
-        if args.verbose:
-            print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(
-                    partition, len(batch), messagesReceived))
-
     elapsed = time.time() - start
-
-    if args.verbose:
-        print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(
-                partition, len(batch), messagesReceived))
-
     messagesPerSecond = messagesReceived / elapsed
     megabytesPerSecond = (messagesPerSecond * BYTES_PER_MESSAGE) / (1024 * 1024)
 
@@ -68,14 +60,8 @@ async def client_receive_async(args, client, partition):
         batch = await client.receive_message_batch_async(max_batch_size=MESSAGES_PER_BATCH, timeout=args.wait_timeout)  # timeout is milliseconds
         if len(batch) > 0:
             messagesReceived += len(batch)
-        if args.verbose:
-            print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(
-                    partition, len(batch), messagesReceived))
-    elapsed = time.time() - start
 
-    if args.verbose:
-        print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(
-                partition, len(batch), messagesReceived))
+    elapsed = time.time() - start
 
     messagesPerSecond = messagesReceived / elapsed
     megabytesPerSecond = (messagesPerSecond * BYTES_PER_MESSAGE) / (1024 * 1024)
@@ -96,7 +82,7 @@ def create_and_open_receive_client(args, partition, clients_arr=None):
         '$default',
         str(partition))
     global_msg_cnt_dict[partition] = 0
-    receive_client = uamqp.ReceiveClient(live_eventhub_config['hostname'], source, auth=creds, idle_timeout=5, prefetch=args.link_credit)
+    receive_client = uamqp.ReceiveClient(live_eventhub_config['hostname'], source, auth=creds, idle_timeout=5, link_credit=args.link_credit)
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
@@ -164,15 +150,6 @@ def sync_receive_with_just_one_thread(args):
                 batch = receive_clients[i].receive_message_batch(max_batch_size=MESSAGES_PER_BATCH, timeout=args.wait_timeout)
                 if len(batch) > 0:
                     global_msg_cnt_dict[i] += len(batch)
-                #else:
-                #    print("Nothing received, shutting down.")
-                #    stop_flag = True
-                #if args.verbose:
-                #    print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(i, len(batch), global_msg_cnt_dict[i]))
-
-            #if args.verbose:
-            #    print("Current iteration, Partition: {},  current received batch size: {}, current partition total received count: {}".format(
-            #            i, len(batch), i))
     elapsed = time.time() - start
 
     total_message = 0
@@ -189,17 +166,14 @@ def sync_receive_with_just_one_thread(args):
 
 async def async_create_and_open_receive_client(args, partition):
     print('Creating and opening receiver:{}'.format(partition))
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
-        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
-
+    creds = SASLPlainCredential(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],
         live_eventhub_config['event_hub'],
         '$default',
-        partition)
-
-    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, debug=True, timeout=5000, prefetch=args.link_credit)
+        str(partition))
+    global_msg_cnt_dict[partition] = 0
+    receive_client = uamqp.aio.ReceiveClient(live_eventhub_config['hostname'], source, auth=creds, idle_timeout=5, link_credit=args.link_credit)
     await receive_client.open_async()
     while not await receive_client.client_ready_async():
         await asyncio.sleep(0.05)
