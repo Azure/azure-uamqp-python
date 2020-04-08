@@ -65,7 +65,7 @@ class Connection(object):
         self.transport = kwargs.pop('transport', None) or AsyncTransport(
             parsed_url.netloc,
             connect_timeout=kwargs.pop('connect_timeout', None),
-            ssl={'server_hostname': self.hostname},
+            ssl={'context':{}},
             read_timeout=kwargs.pop('read_timeout', None),
             socket_settings=kwargs.pop('socket_settings', None),
             write_timeout=kwargs.pop('write_timeout', None)
@@ -137,33 +137,17 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    async def _read_frame_batch(self, batch_size, wait=True, **kwargs):
+    async def _read_frame_batch(self, batch_size, **kwargs):
         if self._can_read():
-            if wait == False:
-                received = await self.transport.receive_frame_batch(batch_size, **kwargs)
-            elif wait == True:
-                with self.transport.block():
-                    received = await self.transport.receive_frame_batch(batch_size, **kwargs)
-            else:
-                with self.transport.block_with_timeout(timeout=wait):
-                    received = await self.transport.receive_frame_batch(batch_size, **kwargs)
-     
+            received = await self.transport.receive_frame_batch(batch_size, **kwargs)
             if received:
                 self.last_frame_received_time = time.time()
             return received
         _LOGGER.warning("Cannot read frame in current state: %r", self.state)
 
-    async def _read_frame(self, wait=True, **kwargs):
+    async def _read_frame(self, **kwargs):
         if self._can_read():
-            if wait == False:
-                received = await self.transport.receive_frame(**kwargs)
-            elif wait == True:
-                with self.transport.block():
-                    received = await self.transport.receive_frame(**kwargs)
-            else:
-                with self.transport.block_with_timeout(timeout=wait):
-                    received = await self.transport.receive_frame(**kwargs)
-     
+            received = await self.transport.receive_frame(**kwargs)
             if received[1]:
                 self.last_frame_received_time = time.time()
             return received
@@ -177,11 +161,7 @@ class Connection(object):
     async def _send_frame(self, channel, frame, timeout=None, **kwargs):
         if self._can_write():
             self.last_frame_sent_time = time.time()
-            if timeout:
-                with self.transport.block_with_timeout(timeout):
-                    await self.transport.send_frame(channel, frame, **kwargs)
-            else:
-                await self.transport.send_frame(channel, frame, **kwargs)
+            await self.transport.send_frame(channel, frame, **kwargs)
         else:
             _LOGGER.warning("Cannot write frame in current state: %r", self.state)
 

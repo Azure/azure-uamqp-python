@@ -39,7 +39,8 @@ async def main():
     creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])
     async with Connection(
             "amqps://" + config['hostname'],
-            transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
+            #transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
+            transport=SASLTransport(config['hostname'], creds, ssl={'context':{}}),
             max_frame_size=65536,
             channel_max=65535,
             idle_timeout=10) as c:

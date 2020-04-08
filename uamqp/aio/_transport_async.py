@@ -36,23 +36,60 @@ from .._transport import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class _AsyncAbstractTransport(object):
+class AsyncTransport(object):
     """Common superclass for TCP and SSL transports."""
 
     def __init__(self, host, connect_timeout=None,
-                 read_timeout=None, write_timeout=None,
+                 read_timeout=None, write_timeout=None, ssl=False,
                  socket_settings=None, raise_on_initial_eintr=True, **kwargs):
         self.connected = False
         self.sock = None
+        self.reader = None
+        self.writer = None
         self.raise_on_initial_eintr = raise_on_initial_eintr
         self._read_buffer = BytesIO()
         self.host, self.port = to_host_port(host)
+
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.write_timeout = write_timeout
         self.socket_settings = socket_settings
-        self.socket_lock = asyncio.Lock()
         self.loop = asyncio.get_running_loop()
+        self.socket_lock = asyncio.Lock()
+        self.sslopts = self._build_ssl_opts(ssl)
+
+    def _build_ssl_opts(self, sslopts):
+        if sslopts in [True, False, None, {}]:
+            return sslopts
+        try:
+            if 'context' in sslopts:
+                return self._build_ssl_context(sslopts, **sslopts.pop('context'))
+            ssl_version = sslopts.get('ssl_version')
+            if ssl_version is None:
+                ssl_version = ssl.PROTOCOL_TLS
+
+            # Set SNI headers if supported
+            if (hasattr(ssl, 'HAS_SNI') and ssl.HAS_SNI) and (hasattr(ssl, 'SSLContext')):
+                context = ssl.SSLContext(ssl_version)
+                cert_reqs = sslopts.get('cert_reqs', ssl.CERT_REQUIRED)
+                certfile = sslopts.get('certfile')
+                keyfile = sslopts.get('keyfile')
+                context.verify_mode = cert_reqs
+                if cert_reqs != ssl.CERT_NONE:
+                    context.check_hostname = True
+                if (certfile is not None) and (keyfile is not None):
+                    context.load_cert_chain(certfile, keyfile)
+                return context
+            return True
+        except TypeError:
+            raise TypeError('SSL configuration must be a dictionary, or the value True.')
+
+    def _build_ssl_context(self, sslopts, check_hostname=None, **ctx_options):
+        ctx = ssl.create_default_context(**ctx_options)
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(cafile=certifi.where())
+        ctx.check_hostname = check_hostname
+        return ctx
 
     async def connect(self):
         try:
@@ -62,6 +99,12 @@ class _AsyncAbstractTransport(object):
             await self._connect(self.host, self.port, self.connect_timeout)
             self._init_socket(
                 self.socket_settings, self.read_timeout, self.write_timeout,
+            )
+            self.reader, self.writer = await asyncio.open_connection(
+                sock=self.sock,
+                ssl=self.sslopts,
+                server_hostname=self.host if self.sslopts else None,
+                loop=self.loop
             )
             # we've sent the banner; signal connect
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
@@ -73,58 +116,6 @@ class _AsyncAbstractTransport(object):
                 self.sock.close()
                 self.sock = None
             raise
-
-    @contextmanager
-    def block_with_timeout(self, timeout):
-        if timeout is None:
-            yield self.sock
-        else:
-            sock = self.sock
-            prev = sock.gettimeout()
-            if prev != timeout:
-                sock.settimeout(timeout)
-            try:
-                yield self.sock
-            except SSLError as exc:
-                if 'timed out' in str(exc):
-                    # http://bugs.python.org/issue10272
-                    raise socket.timeout()
-                elif 'The operation did not complete' in str(exc):
-                    # Non-blocking SSL sockets can throw SSLError
-                    raise socket.timeout()
-                raise
-            except socket.error as exc:
-                if get_errno(exc) == errno.EWOULDBLOCK:
-                    raise socket.timeout()
-                raise
-            finally:
-                if timeout != prev:
-                    sock.settimeout(prev)
-
-    @contextmanager
-    def block(self):
-        bocking_timeout = None
-        sock = self.sock
-        prev = sock.gettimeout()
-        if prev != bocking_timeout:
-            sock.settimeout(bocking_timeout)
-        try:
-            yield self.sock
-        except SSLError as exc:
-            if 'timed out' in str(exc):
-                # http://bugs.python.org/issue10272
-                raise socket.timeout()
-            elif 'The operation did not complete' in str(exc):
-                # Non-blocking SSL sockets can throw SSLError
-                raise socket.timeout()
-            raise
-        except socket.error as exc:
-            if get_errno(exc) == errno.EWOULDBLOCK:
-                raise socket.timeout()
-            raise
-        finally:
-            if bocking_timeout != prev:
-                sock.settimeout(prev)
 
     async def _connect(self, host, port, timeout):
         # Below we are trying to avoid additional DNS requests for AAAA if A
@@ -185,16 +176,15 @@ class _AsyncAbstractTransport(object):
         self._set_socket_options(socket_settings)
 
         # set socket timeouts
-        # for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
-        #                           (socket.SO_RCVTIMEO, read_timeout)):
-        #     if interval is not None:
-        #         sec = int(interval)
-        #         usec = int((interval - sec) * 1000000)
-        #         self.sock.setsockopt(
-        #             socket.SOL_SOCKET, timeout,
-        #             pack('ll', sec, usec),
-        #         )
-        self._setup_transport()
+        for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
+                                  (socket.SO_RCVTIMEO, read_timeout)):
+            if interval is not None:
+                sec = int(interval)
+                usec = int((interval - sec) * 1000000)
+                self.sock.setsockopt(
+                    socket.SOL_SOCKET, timeout,
+                    pack('ll', sec, usec),
+                )
         self.sock.settimeout(0.1)  # set socket back to non-blocking mode
 
     def _get_tcp_socket_defaults(self, sock):
@@ -225,31 +215,56 @@ class _AsyncAbstractTransport(object):
         for opt, val in tcp_opts.items():
             self.sock.setsockopt(SOL_TCP, opt, val)
 
-    async def _read(self, n, initial=False):
-        """Read exactly n bytes from the peer."""
-        raise NotImplementedError('Must be overriden in subclass')
+    async def _read(self, toread, initial=False, buffer=None,
+              _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
+        # According to SSL_read(3), it can at most return 16kb of data.
+        # Thus, we use an internal read buffer like TCPTransport._read
+        # to get the exact number of bytes wanted.
+        length = 0
+        view = buffer or memoryview(bytearray(toread))
+        nbytes = self._read_buffer.readinto(view)
+        toread -= nbytes
+        length += nbytes
+        try:
+            while toread:
+                try:
+                    view[nbytes:nbytes + toread] = await self.reader.readexactly(toread)
+                    nbytes = toread
+                except asyncio.IncompleteReadError as exc:
+                    pbytes = len(exc.partial)
+                    view[nbytes:nbytes + pbytes] = exc.partial
+                    nbytes = pbytes
+                except socket.error as exc:
+                    # ssl.sock.read may cause a SSLerror without errno
+                    # http://bugs.python.org/issue10272
+                    if isinstance(exc, SSLError) and 'timed out' in str(exc):
+                        raise socket.timeout()
+                    # ssl.sock.read may cause ENOENT if the
+                    # operation couldn't be performed (Issue celery#1414).
+                    if exc.errno in _errnos:
+                        if initial and self.raise_on_initial_eintr:
+                            raise socket.timeout()
+                        continue
+                    raise
+                if not nbytes:
+                    raise IOError('Server unexpectedly closed connection')
 
-    def _setup_transport(self):
-        """Do any additional initialization of the class."""
-        pass
-
-    def _shutdown_transport(self):
-        """Do any preliminary work in shutting down the connection."""
-        pass
+                length += nbytes
+                toread -= nbytes
+        except:  # noqa
+            self._read_buffer = BytesIO(view[:length])
+            raise
+        return view
 
     async def _write(self, s):
-        """Completely write a string to the peer."""
-        raise NotImplementedError('Must be overriden in subclass')
+        """Write a string out to the SSL socket fully."""
+        self.writer.write(s)
 
     def close(self):
-        if self.sock is not None:
-            self._shutdown_transport()
-            # Call shutdown first to make sure that pending messages
-            # reach the AMQP broker if the program exits after
-            # calling this method.
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-            self.sock = None
+        if self.writer is not None:
+            self.writer.close()
+            self.writer, self.reader = None, None
+        self.sock = None
         self.connected = False
 
     async def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
@@ -270,7 +285,7 @@ class _AsyncAbstractTransport(object):
                 read_frame_buffer.write(await self._read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
             else:
                 read_frame_buffer.write(await self._read(payload_size, buffer=payload))
-        except socket.timeout:
+        except (socket.timeout, asyncio.IncompleteReadError):
             read_frame_buffer.write(self._read_buffer.getvalue())
             self._read_buffer = read_frame_buffer
             self._read_buffer.seek(0)
@@ -306,7 +321,7 @@ class _AsyncAbstractTransport(object):
             # TODO: Catch decode error and return amqp:decode-error
             _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
-        except socket.timeout:
+        except (socket.timeout, asyncio.IncompleteReadError):
             return None, None
 
     async def receive_frame_with_lock(self, *args, **kwargs):
@@ -329,7 +344,7 @@ class _AsyncAbstractTransport(object):
             try:
                 header, channel, payload = self.read(**kwargs) 
                 frames.append((header.tobytes(), channel, payload.tobytes()))
-            except socket.timeout:
+            except (socket.timeout, asyncio.IncompleteReadError):
                 break
         if self.thread_pool:
             return (construct_frame(*f) for f in self.thread_pool.map(decode_proc_response, frames, chunksize=10))
@@ -347,176 +362,11 @@ class _AsyncAbstractTransport(object):
         await self.write(data)
         _LOGGER.info("OCH%d -> %r", channel, frame)
 
-    async def negotiate(self, encode, decode):
-        pass
-
-
-class SSLTransport(_AsyncAbstractTransport):
-    """Transport that works over SSL."""
-
-    def __init__(self, host, connect_timeout=None, ssl=None, **kwargs):
-        self.sslopts = ssl if isinstance(ssl, dict) else {}
-        super(SSLTransport, self).__init__(
-            host, connect_timeout=connect_timeout, **kwargs)
-
-    def _setup_transport(self):
-        """Wrap the socket in an SSL object."""
-        self.sock = self._wrap_socket(self.sock, **self.sslopts)
-        a = self.sock.do_handshake()
-
-    def _wrap_socket(self, sock, context=None, **sslopts):
-        if context:
-            return self._wrap_context(sock, sslopts, **context)
-        return self._wrap_socket_sni(sock, **sslopts)
-
-    def _wrap_context(self, sock, sslopts, check_hostname=None, **ctx_options):
-        ctx = ssl.create_default_context(**ctx_options)
-        ctx.verify_mode = ssl.CERT_REQUIRED
-        ctx.load_verify_locations(cafile=certifi.where())
-        ctx.check_hostname = check_hostname
-        return ctx.wrap_socket(sock, **sslopts)
-
-    def _wrap_socket_sni(self, sock, keyfile=None, certfile=None,
-                         server_side=False, cert_reqs=ssl.CERT_REQUIRED,
-                         ca_certs=None, do_handshake_on_connect=False,
-                         suppress_ragged_eofs=True, server_hostname=None,
-                         ciphers=None, ssl_version=None):
-        """Socket wrap with SNI headers.
-
-        Default `ssl.wrap_socket` method augmented with support for
-        setting the server_hostname field required for SNI hostname header
-        """
-        # Setup the right SSL version; default to optimal versions across
-        # ssl implementations
-        if ssl_version is None:
-            # older versions of python 2.7 and python 2.6 do not have the
-            # ssl.PROTOCOL_TLS defined the equivalent is ssl.PROTOCOL_SSLv23
-            # we default to PROTOCOL_TLS and fallback to PROTOCOL_SSLv23
-            # TODO: Drop this once we drop Python 2.7 support
-            if hasattr(ssl, 'PROTOCOL_TLS'):
-                ssl_version = ssl.PROTOCOL_TLS
-            else:
-                ssl_version = ssl.PROTOCOL_SSLv23
-
-        opts = {
-            'sock': sock,
-            'keyfile': keyfile,
-            'certfile': certfile,
-            'server_side': server_side,
-            'cert_reqs': cert_reqs,
-            'ca_certs': ca_certs,
-            'do_handshake_on_connect': do_handshake_on_connect,
-            'suppress_ragged_eofs': suppress_ragged_eofs,
-            'ciphers': ciphers,
-            #'ssl_version': ssl_version
-        }
-
-        sock = ssl.wrap_socket(**opts)
-        # Set SNI headers if supported
-        if (server_hostname is not None) and (
-                hasattr(ssl, 'HAS_SNI') and ssl.HAS_SNI) and (
-                hasattr(ssl, 'SSLContext')):
-            context = ssl.SSLContext(opts['ssl_version'])
-            context.verify_mode = cert_reqs
-            if cert_reqs != ssl.CERT_NONE:
-                context.check_hostname = True
-            if (certfile is not None) and (keyfile is not None):
-                context.load_cert_chain(certfile, keyfile)
-            sock = context.wrap_socket(sock, server_hostname=server_hostname)
-        return sock
-
-    def _shutdown_transport(self):
-        """Unwrap a SSL socket, so we can call shutdown()."""
-        if self.sock is not None:
-            try:
-                self.sock = self.sock.unwrap()
-            except OSError:
-                pass
-
-    async def _read(self, toread, initial=False, buffer=None,
-              _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
-        # According to SSL_read(3), it can at most return 16kb of data.
-        # Thus, we use an internal read buffer like TCPTransport._read
-        # to get the exact number of bytes wanted.
-        length = 0
-        view = buffer or memoryview(bytearray(toread))
-        nbytes = self._read_buffer.readinto(view)
-        toread -= nbytes
-        length += nbytes
-        try:
-            while toread:
-                try:
-                    nbytes = await self.loop.sock_recv_into(self.sock, view[nbytes:])
-                except socket.error as exc:
-                    # ssl.sock.read may cause a SSLerror without errno
-                    # http://bugs.python.org/issue10272
-                    if isinstance(exc, SSLError) and 'timed out' in str(exc):
-                        raise socket.timeout()
-                    # ssl.sock.read may cause ENOENT if the
-                    # operation couldn't be performed (Issue celery#1414).
-                    if exc.errno in _errnos:
-                        if initial and self.raise_on_initial_eintr:
-                            raise socket.timeout()
-                        continue
-                    raise
-                if not nbytes:
-                    raise IOError('Server unexpectedly closed connection')
-
-                length += nbytes
-                toread -= nbytes
-        except:  # noqa
-            self._read_buffer = BytesIO(view[:length])
-            raise
-        return view
-
-    async def _write(self, s):
-        """Write a string out to the SSL socket fully."""
-        await self.loop.sock_sendall(self.sock, s)
-
     async def negotiate(self):
-        with self.block():
-            await self.send_frame(0, TLSHeaderFrame())
-            channel, returned_header = await self.receive_frame(verify_frame_type=None)
-            if not isinstance(returned_header, TLSHeaderFrame):
-                raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
-                    TLSHeaderFrame._code, returned_header._code))
-
-
-class AsyncTCPTransport(_AsyncAbstractTransport):
-    """Transport that deals directly with TCP socket."""
-
-    async def _read(self, n, initial=False, _errnos=(errno.EAGAIN, errno.EINTR)):
-        """Read exactly n bytes from the socket."""
-        rbuf = self._read_buffer
-        try:
-            while len(rbuf) < n:
-                try:
-                    s = await self.loop.sock_recv(self.sock, n - len(rbuf))
-                except socket.error as exc:
-                    if exc.errno in _errnos:
-                        if initial and self.raise_on_initial_eintr:
-                            raise socket.timeout()
-                        continue
-                    raise
-                if not s:
-                    raise IOError('Server unexpectedly closed connection')
-                rbuf += s
-        except:  # noqa
-            self._read_buffer = rbuf
-            raise
-
-        result, self._read_buffer = rbuf[:n], rbuf[n:]
-        return result
-    
-    async def _write(self, s):
-        await self.loop.sock_sendall(self.sock, s)
-
-
-def AsyncTransport(host, connect_timeout=None, ssl=False, **kwargs):
-    """Create transport.
-
-    Given a few parameters from the Connection constructor,
-    select and create a subclass of _AsyncAbstractTransport.
-    """
-    transport = AsyncSSLTransport if ssl else AsyncTCPTransport
-    return transport(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
+        if not self.sslopts:
+            return
+        await self.send_frame(0, TLSHeaderFrame())
+        channel, returned_header = await self.receive_frame(verify_frame_type=None)
+        if not isinstance(returned_header, TLSHeaderFrame):
+            raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
+                TLSHeaderFrame._code, returned_header._code))

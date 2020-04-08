@@ -97,7 +97,7 @@ class AMQPClientAsync(AMQPClientSync):
 
     def __init__(self, hostname, auth=None, **kwargs):
         super(AMQPClientAsync, self).__init__(hostname, auth=auth, **kwargs)
-        self._transport = SASLTransport(hostname, auth, ssl={'ca_certs':certifi.where()})
+        self._transport = SASLTransport(hostname, auth, ssl={'context':{}})
 
     async def __aenter__(self):
         """Run Client in an async context manager."""
