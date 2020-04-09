@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from enum import Enum
 
 from ._transport import Transport, SSLTransport
+from .sasl import SASLTransport
 from .session import Session
 from .performatives import (
     HeaderFrame,
@@ -22,6 +23,8 @@ from .performatives import (
 from .constants import (
     PORT, 
     SECURE_PORT,
+    MAX_CHANNELS,
+    MAX_FRAME_SIZE_BYTES,
     ConnectionState
 )
 
@@ -61,18 +64,22 @@ class Connection(object):
             self.port = PORT
         self.state = None
 
-        self.transport = kwargs.pop('transport', None) or Transport(
-            parsed_url.netloc,
-            connect_timeout=kwargs.pop('connect_timeout', None),
-            ssl={'server_hostname': self.hostname},
-            read_timeout=kwargs.pop('read_timeout', None),
-            socket_settings=kwargs.pop('socket_settings', None),
-            write_timeout=kwargs.pop('write_timeout', None)
-        )
+        transport = kwargs.get('transport')
+        if transport:
+            self.transport = transport
+        elif 'sasl_credential' in kwargs:
+            self.transport = SASLTransport(
+                host=parsed_url.netloc,
+                credential=kwargs['sasl_credential'],
+                **kwargs
+            )
+        else:
+            self.transport = Transport(parsed_url.netloc, **kwargs)
+
         self.container_id = kwargs.pop('container_id', None) or str(uuid.uuid4())
-        self.max_frame_size = kwargs.pop('max_frame_size', None)
+        self.max_frame_size = kwargs.pop('max_frame_size', MAX_FRAME_SIZE_BYTES)
         self.remote_max_frame_size = None
-        self.channel_max = kwargs.pop('channel_max', None)
+        self.channel_max = kwargs.pop('channel_max', MAX_CHANNELS)
         self.idle_timeout = kwargs.pop('idle_timeout', None)
         self.outgoing_locales = kwargs.pop('outgoing_locales', None)
         self.incoming_locales = kwargs.pop('incoming_locales', None)

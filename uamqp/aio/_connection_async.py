@@ -14,6 +14,7 @@ from enum import Enum
 
 from ._anyio import create_task_group, sleep
 from ._transport_async import AsyncTransport
+from ._sasl_async import SASLTransport
 from ._session_async import Session
 from ..performatives import (
     HeaderFrame,
@@ -23,6 +24,8 @@ from ..performatives import (
 from ..constants import (
     PORT, 
     SECURE_PORT,
+    MAX_FRAME_SIZE_BYTES,
+    MAX_CHANNELS,
     ConnectionState
 )
 
@@ -62,26 +65,29 @@ class Connection(object):
             self.port = PORT
         self.state = None
 
-        self.transport = kwargs.pop('transport', None) or AsyncTransport(
-            parsed_url.netloc,
-            connect_timeout=kwargs.pop('connect_timeout', None),
-            ssl={'context':{}},
-            read_timeout=kwargs.pop('read_timeout', None),
-            socket_settings=kwargs.pop('socket_settings', None),
-            write_timeout=kwargs.pop('write_timeout', None)
-        )
-        self.container_id = kwargs.pop('container_id', None) or str(uuid.uuid4())
-        self.max_frame_size = kwargs.pop('max_frame_size', None)
+        transport = kwargs.get('transport')
+        if transport:
+            self.transport = transport
+        elif 'sasl_credential' in kwargs:
+            self.transport = SASLTransport(
+                host=parsed_url.netloc,
+                credential=kwargs['sasl_credential'],
+                **kwargs
+            )
+        else:
+            self.transport = AsyncTransport(parsed_url.netloc, **kwargs)
+        self.container_id = kwargs.get('container_id') or str(uuid.uuid4())
+        self.max_frame_size = kwargs.get('max_frame_size', MAX_FRAME_SIZE_BYTES)
         self.remote_max_frame_size = None
-        self.channel_max = kwargs.pop('channel_max', None)
-        self.idle_timeout = kwargs.pop('idle_timeout', None)
-        self.outgoing_locales = kwargs.pop('outgoing_locales', None)
-        self.incoming_locales = kwargs.pop('incoming_locales', None)
+        self.channel_max = kwargs.get('channel_max', MAX_CHANNELS)
+        self.idle_timeout = kwargs.get('idle_timeout')
+        self.outgoing_locales = kwargs.get('outgoing_locales')
+        self.incoming_locales = kwargs.get('incoming_locales')
         self.offered_capabilities = None
-        self.desired_capabilities = kwargs.pop('desired_capabilities', None)
+        self.desired_capabilities = kwargs.get('desired_capabilities')
         self.properties = kwargs.pop('properties', None)
 
-        self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)
+        self.allow_pipelined_open = kwargs.get('allow_pipelined_open', True)
         self.remote_idle_timeout = None
         self.remote_idle_timeout_send_frame = None
         self.idle_timeout_empty_frame_send_ratio = kwargs.get('idle_timeout_empty_frame_send_ratio', 0.5)

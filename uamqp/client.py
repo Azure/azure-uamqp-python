@@ -91,7 +91,6 @@ class AMQPClient(object):
     """
 
     def __init__(self, hostname, auth=None, **kwargs):
-        self._transport = SASLTransport(hostname, auth, ssl={'ca_certs':certifi.where()})
         self._hostname = hostname
         self._auth = auth
         self._name = str(uuid.uuid4())
@@ -100,6 +99,7 @@ class AMQPClient(object):
         self._session = None
         self._link = None
         self._socket_timeout = False
+        self._external_connection = False
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -156,7 +156,8 @@ class AMQPClient(object):
         _logger.debug("Opening client connection.")
         self._connection = Connection(
             "amqps://" + self._hostname,
-            transport=self._transport,
+            sasl_credential=self._auth,
+            ssl={'ca_certs':certifi.where()},
             container_id=self._name,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
@@ -189,7 +190,8 @@ class AMQPClient(object):
             self._link = None
         self._session.end()
         self._session = None
-        self._connection.close()
+        if not self._external_connection:
+            self._connection.close()
 
     def auth_complete(self):
         """Whether the authentication handshake is complete during
@@ -325,6 +327,7 @@ class ReceiveClient(AMQPClient):
         self.source = source
         self._streaming_receive = False
         self._received_messages = queue.Queue()
+        self._message_received_callback = None
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES

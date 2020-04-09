@@ -268,37 +268,38 @@ class AsyncTransport(object):
         self.connected = False
 
     async def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
-        read_frame_buffer = BytesIO()
-        try:
-            frame_header = await self._read(8, initial=True)
-            read_frame_buffer.write(frame_header)
-            size, offset, frame_type, channel = unpack(frame_header)
-            if not size:
-                return frame_header, channel, None  # Empty frame or header
+        async with self.socket_lock:
+            read_frame_buffer = BytesIO()
+            try:
+                frame_header = await self._read(8, initial=True)
+                read_frame_buffer.write(frame_header)
+                size, offset, frame_type, channel = unpack(frame_header)
+                if not size:
+                    return frame_header, channel, None  # Empty frame or header
 
-            # >I is an unsigned int, but the argument to sock.recv is signed,
-            # so we know the size can be at most 2 * SIGNED_INT_MAX
-            payload_size = size - len(frame_header)
-            payload = memoryview(bytearray(payload_size))
-            if size > SIGNED_INT_MAX:
-                read_frame_buffer.write(await self._read(SIGNED_INT_MAX, buffer=payload))
-                read_frame_buffer.write(await self._read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
-            else:
-                read_frame_buffer.write(await self._read(payload_size, buffer=payload))
-        except (socket.timeout, asyncio.IncompleteReadError):
-            read_frame_buffer.write(self._read_buffer.getvalue())
-            self._read_buffer = read_frame_buffer
-            self._read_buffer.seek(0)
-            raise
-        except (OSError, IOError, SSLError, socket.error) as exc:
-            # Don't disconnect for ssl read time outs
-            # http://bugs.python.org/issue10272
-            if isinstance(exc, SSLError) and 'timed out' in str(exc):
-                raise socket.timeout()
-            if get_errno(exc) not in _UNAVAIL:
-                self.connected = False
-            raise
-        offset -= 2
+                # >I is an unsigned int, but the argument to sock.recv is signed,
+                # so we know the size can be at most 2 * SIGNED_INT_MAX
+                payload_size = size - len(frame_header)
+                payload = memoryview(bytearray(payload_size))
+                if size > SIGNED_INT_MAX:
+                    read_frame_buffer.write(await self._read(SIGNED_INT_MAX, buffer=payload))
+                    read_frame_buffer.write(await self._read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
+                else:
+                    read_frame_buffer.write(await self._read(payload_size, buffer=payload))
+            except (socket.timeout, asyncio.IncompleteReadError):
+                read_frame_buffer.write(self._read_buffer.getvalue())
+                self._read_buffer = read_frame_buffer
+                self._read_buffer.seek(0)
+                raise
+            except (OSError, IOError, SSLError, socket.error) as exc:
+                # Don't disconnect for ssl read time outs
+                # http://bugs.python.org/issue10272
+                if isinstance(exc, SSLError) and 'timed out' in str(exc):
+                    raise socket.timeout()
+                if get_errno(exc) not in _UNAVAIL:
+                    self.connected = False
+                raise
+            offset -= 2
         return frame_header, channel, payload[offset:]
 
     async def write(self, s):

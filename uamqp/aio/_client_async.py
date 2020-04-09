@@ -95,10 +95,6 @@ class AMQPClientAsync(AMQPClientSync):
     :type encoding: str
     """
 
-    def __init__(self, hostname, auth=None, **kwargs):
-        super(AMQPClientAsync, self).__init__(hostname, auth=auth, **kwargs)
-        self._transport = SASLTransport(hostname, auth, ssl={'context':{}})
-
     async def __aenter__(self):
         """Run Client in an async context manager."""
         await self.open_async()
@@ -136,15 +132,19 @@ class AMQPClientAsync(AMQPClientSync):
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
-        self._connection = Connection(
-            "amqps://" + self._hostname,
-            transport=self._transport,
-            container_id=self._name,
-            max_frame_size=self._max_frame_size,
-            channel_max=self._channel_max,
-            idle_timeout=self._idle_timeout,
-            properties=self._properties)
-        await self._connection.open()
+        if connection:
+            self._connection = connection
+            self._external_connection = True
+        else:
+            self._connection = Connection(
+                "amqps://" + self._hostname,
+                sasl_credential=self._auth,
+                container_id=self._name,
+                max_frame_size=self._max_frame_size,
+                channel_max=self._channel_max,
+                idle_timeout=self._idle_timeout,
+                properties=self._properties)
+            await self._connection.open()
         self._session = self._connection.create_session(
             incoming_window=self._incoming_window,
             outgoing_window=self._outgoing_window
@@ -165,7 +165,8 @@ class AMQPClientAsync(AMQPClientSync):
             self._link = None
         await self._session.end()
         self._session = None
-        await self._connection.close()
+        if not self._external_connection:
+            await self._connection.close()
 
     async def auth_complete_async(self):
         """Whether the authentication handshake is complete during

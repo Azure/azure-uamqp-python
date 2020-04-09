@@ -74,6 +74,7 @@ class SASLTransport(SSLTransport):
 
     def __init__(self, host, credential, connect_timeout=None, ssl=None, **kwargs):
         self.credential = credential
+        ssl = ssl or True
         super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
     def negotiate(self):
