@@ -926,6 +926,27 @@ cdef class DescribedValue(AMQPValue):
     @property
     def value(self):
         assert self.type
-        #descriptor = self.description
+        descriptor = self.description
         described = self.data
-        return copy.deepcopy(described.value)
+        return (descriptor.value, described.value)
+
+
+cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
+    cdef c_amqpvalue.AMQPVALUE_DECODER_HANDLE amqpvalue_decoder
+
+    frame = {}
+    amqpvalue_decoder = c_amqpvalue.amqpvalue_decoder_create(<c_amqpvalue.ON_VALUE_DECODED>decode_frame_data, <void*>frame);
+    if <void*>amqpvalue_decoder == NULL:
+        raise MemoryError("Cannot create AMQP value decoder")
+    else:
+        if c_amqpvalue.amqpvalue_decode_bytes(amqpvalue_decoder, payload_bytes, payload_size) != 0:
+            raise ValueError("Cannot decode bytes")
+
+        c_amqpvalue.amqpvalue_decoder_destroy(amqpvalue_decoder)
+    return frame
+
+
+cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
+    decoded_frame = <object>context
+    descriptor, frame = value_factory(decoded_value).value
+    decoded_value[descriptor] = frame
