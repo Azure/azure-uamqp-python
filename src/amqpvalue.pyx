@@ -933,10 +933,15 @@ cdef class DescribedValue(AMQPValue):
 class FrameDecoder(object):
 
     def __init__(self):
-        self._frame = {}
+        self._frame_type = None
+        self._frame_fields = None
     
     def decode(self, descriptor, value):
-        self._frame[descriptor] = value
+        self._frame_type = descriptor
+        self._frame_fields = value
+    
+    def output(self):
+        return (self._frame_type, self._frame_fields)
 
 
 cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
@@ -951,7 +956,7 @@ cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_by
             raise ValueError("Cannot decode bytes")
 
         c_amqpvalue.amqpvalue_decoder_destroy(amqpvalue_decoder)
-    return frame
+    return frame.output()
 
 
 cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
