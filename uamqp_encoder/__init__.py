@@ -4,7 +4,7 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from uamqp import c_uamqp  # pylint: disable=import-self
+from uamqp_encoder import c_uamqp  # pylint: disable=import-self
 
 
 __version__ = "0.1.0"
