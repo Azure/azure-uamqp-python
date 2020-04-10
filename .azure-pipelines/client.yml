@@ -40,7 +40,7 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish sdist artifact'
         inputs:
-          artifactName: uamqp-sdist
+          artifactName: uamqp-encoder-sdist
           pathToPublish: 'dist'
 
   - job: 'MacOS'
@@ -124,7 +124,7 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
         inputs:
-          artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
+          artifactName: uamqp-encoder-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
   - job: 'Windows'
@@ -212,7 +212,7 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
         inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+          artifactName: uamqp-encoder-win$(PythonArchitecture)-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
   - job: 'Linux'
@@ -274,7 +274,7 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
         inputs:
-          artifactName: uamqp-linux-$(PythonVersion)-whl
+          artifactName: uamqp-encoder-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
   - job: 'ManyLinux'
@@ -358,5 +358,5 @@ jobs:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifacts'
         inputs:
-          artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
+          artifactName: uamqp-encoder-$(Platform)-$(PythonVersion)-x64-whl
           pathToPublish: 'wheelhouse'

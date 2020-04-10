@@ -23,8 +23,8 @@ except ImportError:
     USE_CYTHON = False
 
 # If the C file doesn't exist and no Cython is available, die
-if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
-    raise ValueError("You need to install cython==0.27.3 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
+if not os.path.exists("uamqp_encoder/c_uamqp.c") and not USE_CYTHON:
+    print("C extension not build, and Cython not detected. Continuing with pure python install.")
 
 is_27 = sys.version_info < (3,)
 is_x64 = platform.architecture()[0] == '64bit'
@@ -34,7 +34,7 @@ rebuild_pyx = os.environ.get('UAMQP_REBUILD_PYX', False)
 built_unittests = os.environ.get('UAMQP_BUILD_UNITTESTS', False)
 
 # Version extraction inspired from 'requests'
-with open(os.path.join('uamqp', '__init__.py'), 'r') as fd:
+with open(os.path.join('uamqp_encoder', '__init__.py'), 'r') as fd:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
                         fd.read(), re.MULTILINE).group(1)
 
@@ -62,7 +62,7 @@ def create_cython_file():
         if f.endswith(".pyx"):
             print("Adding {}".format(f))
             content_includes += "include \"src/" + f + "\"\n"
-    c_uamqp_src = os.path.join("uamqp", "c_uamqp.pyx")
+    c_uamqp_src = os.path.join("uamqp_encoder", "c_uamqp.pyx")
     with open(c_uamqp_src, 'w') as lib_file:
         lib_file.write(content_includes)
     return c_uamqp_src
@@ -153,7 +153,7 @@ def get_msvc_env(vc_ver):
     return {str(k.upper()): str(v) for k, v in msvc_env.items()}
 
 
-# Compile uamqp
+# Compile uamqp_encoder
 # Inspired by https://stackoverflow.com/a/48015772/4074838
 
 class UAMQPExtension(Extension):
@@ -202,7 +202,7 @@ class build_ext(build_ext_orig):
         extdir = self.get_ext_fullpath(ext.name)
         create_folder_no_exception(extdir)
 
-        logger.info("will build uamqp in %s", self.cmake_build_dir)
+        logger.info("will build uamqp_encoder in %s", self.cmake_build_dir)
         os.chdir(cwd + "/" + self.cmake_build_dir)
 
         generator_flags = get_generator_flags()
@@ -249,7 +249,7 @@ else:
 
 # If the C file doesn't exist, build the "c_uamqp.c" file
 # That's not perfect, since we build it on a "--help", but should be if cloned from source only.
-c_uamqp_src = "uamqp/c_uamqp.c"
+c_uamqp_src = "uamqp_encoder/c_uamqp.c"
 if not os.path.exists(c_uamqp_src) or rebuild_pyx:
     c_uamqp_src = create_cython_file()
 
@@ -262,7 +262,7 @@ sources = [
 extensions = [
     UAMQPExtension("cmake_uamqp"),
     Extension(
-        "uamqp.c_uamqp",
+        "uamqp_encoder.c_uamqp",
         sources=sources,
         include_dirs=include_dirs,
         **kwargs
@@ -278,7 +278,7 @@ if USE_CYTHON:
     extensions = cythonize(extensions)
 
 setup(
-    name='uamqp',
+    name='uamqp-encoder',
     version=version,
     description='AMQP 1.0 Client Library for Python',
     long_description=readme + '\n\n' + history,

@@ -14,7 +14,7 @@ import functools
 root_path = os.path.realpath('.')
 sys.path.append(root_path)
 
-from uamqp import types
+from uamqp_encoder import types
 
 
 def test_symbol_type():

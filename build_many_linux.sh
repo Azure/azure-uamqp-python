@@ -40,8 +40,8 @@ export IOTHUB_SAS_KEY=""
 
 # Test the wheel
 $PYBIN/pip install "certifi>=2017.4.17" "six~=1.0" "enum34>=1.0.4" "pytest" "pylint";
-$PYBIN/pip install uamqp --no-index -f /data/wheelhouse;
-$PYBIN/python -c 'import uamqp;print("*****Importing uamqp from wheel successful*****")';
+$PYBIN/pip install uamqp-encoder --no-index -f /data/wheelhouse;
+$PYBIN/python -c 'import uamqp_encoder;print("*****Importing uamqp encoder from wheel successful*****")';
 pushd /data;
 $PYBIN/pytest -v;
 popd;

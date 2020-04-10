@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 
 import six
-from uamqp import c_uamqp
+from uamqp_encoder import c_uamqp
 
 logger = logging.getLogger(__name__)
 

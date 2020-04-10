@@ -12,7 +12,7 @@ import uuid
 root_path = os.path.realpath('.')
 sys.path.append(root_path)
 
-from uamqp import c_uamqp
+from uamqp_encoder import c_uamqp
 
 
 def test_null_value():
