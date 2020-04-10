@@ -957,4 +957,4 @@ cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_by
 cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
     decoded_frame = <object>context
     descriptor, frame = value_factory(decoded_value).value
-    decoded_value.decode(descriptor, frame)
+    decoded_frame.decode(descriptor, frame)
