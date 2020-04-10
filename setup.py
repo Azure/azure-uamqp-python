@@ -304,7 +304,6 @@ setup(
     packages=find_packages(exclude=["tests"]),
     ext_modules=extensions,
     install_requires=[
-        "certifi>=2017.4.17",
         "six~=1.0"
     ],
     extras_require={
