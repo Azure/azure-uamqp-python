@@ -16,10 +16,10 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from threading import Lock
 
 import certifi
+from uamqp_encoder import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
-from ._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 from .performatives import HeaderFrame, TLSHeaderFrame
 
 
@@ -83,7 +83,7 @@ def unpack_frame_header(data):
 
 
 def decode_proc_response(response):
-    header, channel, payload = response
+    header, channel, payload, size = response
     if not payload:
         decoded = decode_empty_frame(header)
     else:
@@ -92,11 +92,11 @@ def decode_proc_response(response):
 
 
 def decode_response(response):
-    header, channel, payload = response
+    header, channel, payload, size = response
     if not payload:
         decoded = decode_empty_frame(header)
     else:
-        decoded = decode_frame(payload)
+        decoded = decode_frame(size, payload)
     return channel, decoded
 
 
@@ -415,7 +415,7 @@ class _AbstractTransport(object):
                 self.connected = False
             raise
         offset -= 2
-        return frame_header, channel, payload[offset:]
+        return frame_header, channel, payload[offset:], payload_size - offset
 
     def write(self, s):
         try:
@@ -429,11 +429,11 @@ class _AbstractTransport(object):
 
     def receive_frame(self, *args, **kwargs):
         try:
-            header, channel, payload = self.read(**kwargs) 
+            header, channel, payload, size = self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(payload)
+                decoded = decode_frame(size, payload)
             # TODO: Catch decode error and return amqp:decode-error
             _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
@@ -443,11 +443,11 @@ class _AbstractTransport(object):
     def receive_frame_with_lock(self, *args, **kwargs):
         try:
             with self.socket_lock:
-                header, channel, payload = self.read(**kwargs) 
+                header, channel, payload, size = self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(payload)
+                decoded = decode_frame(size, payload)
             return channel, decoded
         except socket.timeout:
             return None, None
@@ -458,7 +458,7 @@ class _AbstractTransport(object):
         frames = []
         while len(frames) < batch:
             try:
-                header, channel, payload = self.read(**kwargs) 
+                header, channel, payload, size = self.read(**kwargs) 
                 frames.append((header.tobytes(), channel, payload.tobytes()))
             except socket.timeout:
                 break

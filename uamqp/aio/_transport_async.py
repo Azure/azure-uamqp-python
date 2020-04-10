@@ -15,10 +15,10 @@ import logging
 from threading import Lock
 
 import certifi
+from uamqp_encoder import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 
 from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from .._encode import encode_frame
-from .._decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 from ..performatives import HeaderFrame, TLSHeaderFrame
 from .._transport import (
     unpack_frame_header,
@@ -300,7 +300,7 @@ class AsyncTransport(object):
                     self.connected = False
                 raise
             offset -= 2
-        return frame_header, channel, payload[offset:]
+        return frame_header, channel, payload[offset:], payload_size - offset
 
     async def write(self, s):
         try:
@@ -314,11 +314,11 @@ class AsyncTransport(object):
 
     async def receive_frame(self, *args, **kwargs):
         try:
-            header, channel, payload = await self.read(**kwargs) 
+            header, channel, payload, size = await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(payload)
+                decoded = decode_frame(size, payload)
             # TODO: Catch decode error and return amqp:decode-error
             _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
@@ -328,11 +328,11 @@ class AsyncTransport(object):
     async def receive_frame_with_lock(self, *args, **kwargs):
         try:
             async with self.socket_lock:
-                header, channel, payload = await self.read(**kwargs) 
+                header, channel, payload, size = await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(payload)
+                decoded = decode_frame(size, payload)
             return channel, decoded
         except socket.timeout:
             return None, None
@@ -343,7 +343,7 @@ class AsyncTransport(object):
         frames = []
         while len(frames) < batch:
             try:
-                header, channel, payload = self.read(**kwargs) 
+                header, channel, payload, size = self.read(**kwargs) 
                 frames.append((header.tobytes(), channel, payload.tobytes()))
             except (socket.timeout, asyncio.IncompleteReadError):
                 break

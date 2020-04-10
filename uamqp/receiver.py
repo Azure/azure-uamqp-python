@@ -8,7 +8,7 @@ import uuid
 import logging
 from io import BytesIO
 
-from ._decode import decode_payload
+from uamqp_encoder import decode_payload
 from .constants import DEFAULT_LINK_CREDIT, Role
 from .endpoints import Target
 from .link import Link
