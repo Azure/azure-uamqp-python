@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-# pylint: disable=redefined-builtin
+# pylint: disable=redefined-builtin, import-error
 
 import struct
 import uuid
@@ -136,7 +136,7 @@ def decode_ulong_small(buffer):
 
 def decode_ulong_large(buffer):
     # type: (Decoder, IO) -> None
-    return struct.unpack('>Q',  buffer.read(8))[0]
+    return struct.unpack('>Q', buffer.read(8))[0]
 
 
 def decode_byte(buffer):
@@ -257,7 +257,7 @@ def decode_map_small(buffer):
     _ = buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
     values = decode_list_values(buffer, count)
-    return dict([(values[i], values[i+1]) for i in range(0, count, 2)])
+    return {values[i]: values[i+1] for i in range(0, count, 2)}
 
 
 def decode_map_large(buffer):
@@ -265,7 +265,7 @@ def decode_map_large(buffer):
     _ = buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
     values = decode_list_values(buffer, count)
-    return dict([(values[i], values[i+1]) for i in range(0, count, 2)])
+    return {values[i]: values[i+1] for i in range(0, count, 2)}
 
 
 def decode_array_values(buffer, count):
@@ -341,7 +341,7 @@ def decode_empty_frame(header):
         if layer == 3:
             return SASLHeaderFrame(header=header)
         raise ValueError("Received unexpected IO layer: {}".format(layer))
-    elif header[5] == 0:
+    if header[5] == 0:
         return "EMPTY"
     raise ValueError("Received unrecognized empty frame")
 
@@ -371,7 +371,7 @@ def decode_frame(size, data):
         frame_type, fields, payload = c_decode_frame(size, data.tobytes())
     else:
         frame_type, fields, payload = py_decode_frame(data)
-    
+
     frame_obj = PERFORMATIVES[frame_type]
     if frame_obj == TransferFrame:
         fields.append(payload)
