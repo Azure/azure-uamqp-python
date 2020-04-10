@@ -267,7 +267,7 @@ cpdef described_value(AMQPValue descriptor, AMQPValue value):
     return new_obj
 
 
-cdef class AMQPValue(StructBase):
+cdef class AMQPValue(object):
 
     _type = AMQPType.NullValue
     cdef c_amqpvalue.AMQP_VALUE _c_value
@@ -286,35 +286,23 @@ cdef class AMQPValue(StructBase):
     def __ne__(self, AMQPValue other):
         return not c_amqpvalue.amqpvalue_are_equal(self._c_value, other._c_value)
 
-    def __bytes__(self):
-        return self._as_string()
+    def _memory_error(self):
+        message = "Failed to allocate memory to create {}"
+        raise MemoryError(message.format(self.__class__.__name__))
 
-    def __str__(self):
-        as_bytes = self._as_string()
-        if six.PY3:
-            try:
-                return as_bytes.decode('UTF-8')
-            except UnicodeDecodeError:
-                pass
-        return str(as_bytes)
+    def _value_error(self, error_message=None, error_code=None):
+        message = "Operation failed."
+        if error_message:
+            message += "\nError: {}".format(error_message)
+        if error_code:
+            message += "\nErrorCode: {}".format(error_code)
+        raise ValueError(message)
 
-    def __unicode__(self):
-        as_bytes = self._as_string()
-        try:
-            return six.text_type(as_bytes.decode('UTF-8'))
-        except UnicodeDecodeError:
-            return six.text_type(as_bytes)
-
-    cpdef _as_string(self):
-        cdef c_amqpvalue.AMQP_VALUE value
-        cdef const char* as_string
-        value = c_amqpvalue.amqpvalue_clone(self._c_value)
-        if <void*>value == NULL:
-            self._value_error()
-        as_string = c_amqpvalue.amqpvalue_to_string(value)
-        py_string = copy.deepcopy(as_string)
-        c_amqpvalue.amqpvalue_destroy(self._c_value)
-        return py_string
+    def _null_error(self, error_message=None):
+        message = "NULL error occurred in {}.".format(self.__class__.__name__)
+        if error_message:
+            message += "\nError: {}".format(error_message)
+        raise ValueError(message)
 
     cdef _validate(self):
         if <void*>self._c_value is NULL:

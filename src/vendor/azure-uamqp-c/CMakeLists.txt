@@ -22,17 +22,6 @@ endif()
 #do not add or build any tests of the dependencies
 set(original_run_unittests ${run_unittests})
 set(run_unittests OFF)
-
-
-# Include the common build rules for C shared utility
-if(${use_installed_dependencies})
-    include(deps/azure-c-shared-utility/configs/azure_iot_build_rules.cmake)
-else()
-    include(${SHARED_UTIL_FOLDER}/configs/azure_iot_build_rules.cmake)
-endif()
-
-set_platform_files(${SHARED_UTIL_FOLDER})
-
 set(run_unittests ${original_run_unittests})
 
 if(${memory_trace})
@@ -42,11 +31,10 @@ endif()
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/inc)
 
-if(WIN32)
-    include_directories($ENV{OpenSSLDir}/include)
-endif()
 
 set(uamqp_h_files
+    ./inc/azure_uamqp_c/macro_utils.h
+    ./inc/azure_uamqp_c/refcount.h
     ./inc/azure_uamqp_c/amqp_types.h
     ./inc/azure_uamqp_c/amqpvalue.h
 )
@@ -59,7 +47,6 @@ add_library(uamqp
     ${uamqp_c_files}
     ${uamqp_h_files}
     )
-setTargetBuildProperties(uamqp)
 
 target_link_libraries(uamqp)
 
@@ -75,58 +62,24 @@ set(UAMQP_SRC_FOLDER ${CMAKE_CURRENT_LIST_DIR}/src CACHE INTERNAL "This is the l
 # Set CMAKE_INSTALL_LIBDIR if not defined
 include(GNUInstallDirs)
 
-if(${use_installed_dependencies})
-    # Install uamqp
-    set(package_location "cmake")
+set(install_staticlibs
+    uamqp
+)
+install(FILES ${uamqp_h_files}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_uamqp_c)
+install(TARGETS ${install_staticlibs}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-    if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
-        set(CMAKE_INSTALL_LIBDIR "lib")
+function(compileTargetAsC99 theTarget)
+  if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+      set_target_properties(${theTarget} PROPERTIES COMPILE_FLAGS "--std=c99")
     endif()
-
-    install(TARGETS uamqp EXPORT uamqpTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/../bin
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot
-    )
-    install(FILES ${uamqp_h_files} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot/azure_uamqp_c)
-
-    include(CMakePackageConfigHelpers)
-
-    write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
-        VERSION ${UAMQP_VERSION}
-        COMPATIBILITY SameMajorVersion
-    )
-
-    configure_file("configs/${PROJECT_NAME}Config.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake"
-        COPYONLY
-    )
-
-    install(EXPORT uamqpTargets
-        FILE
-            "${PROJECT_NAME}Targets.cmake"
-        DESTINATION
-            ${package_location}
-    )
-
-    install(
-        FILES
-            "configs/${PROJECT_NAME}Config.cmake"
-            "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION
-            ${package_location}
-    )
-else()
-    set(install_staticlibs
-        uamqp
-    )
-    install(FILES ${uamqp_h_files}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_uamqp_c)
-    install(TARGETS ${install_staticlibs}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
+  else()
+    set_target_properties(${theTarget} PROPERTIES C_STANDARD 99)
+    set_target_properties(${theTarget} PROPERTIES CXX_STANDARD 11)
+  endif()
+endfunction()
 
 compileTargetAsC99(uamqp)
