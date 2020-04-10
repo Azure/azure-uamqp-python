@@ -362,24 +362,19 @@ def py_decode_frame(data):
     _ = buffer.read(1)  # First byte is always described type constructor
     frame_type = decode_value(buffer)
     fields = decode_value(buffer)
-    return frame_type, fields
+    return frame_type, fields, buffer
 
 def decode_frame(size, data):
     # type: (int, memoryview) -> namedtuple
     #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
-    buffer = BytesIO(data)
-    _ = buffer.read(1)  # First byte is always described type constructor
-    
-    fields = decode_value(buffer)
-
     if c_decode_frame:
-        frame_type, fields = c_decode_frame(size, data.tobytes())
+        frame_type, fields, payload = c_decode_frame(size, data.tobytes())
     else:
-        frame_type, fields = py_decode_frame(data)
+        frame_type, fields, payload = py_decode_frame(data)
     
-    frame_obj = PERFORMATIVES[decode_value(buffer)]
-    #if frame_type == TransferFrame:
-    #    fields.append(buffer)
+    frame_obj = PERFORMATIVES[frame_type]
+    if frame_obj == TransferFrame:
+        fields.append(payload)
     return frame_obj(*fields)
 
 

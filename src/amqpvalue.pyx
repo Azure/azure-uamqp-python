@@ -935,13 +935,17 @@ class FrameDecoder(object):
     def __init__(self):
         self._frame_type = None
         self._frame_fields = None
+        self._payload = {}
     
     def decode(self, descriptor, value):
-        self._frame_type = descriptor
-        self._frame_fields = value
+        if self._frame_type:
+            self._payload[descriptor] = value
+        else:
+            self._frame_type = descriptor
+            self._frame_fields = value
     
     def output(self):
-        return (self._frame_type, self._frame_fields)
+        return (self._frame_type, self._frame_fields, self._payload)
 
 
 cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
