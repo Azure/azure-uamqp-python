@@ -7,11 +7,6 @@
 from libc cimport stdint
 
 
-cdef extern from "azure_uamqp_c/amqpvalue_to_string.h":
-
-    char* amqpvalue_to_string(AMQP_VALUE amqp_value)
-
-
 cdef extern from "azure_uamqp_c/amqp_types.h":
 
     cdef enum AMQP_TYPE_TAG:

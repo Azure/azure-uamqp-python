@@ -50,19 +50,9 @@ sys.path.insert(0, pxd_inc_dir)
 
 include_dirs = [
     pxd_inc_dir,
-    # azure-c-shared-utility inc
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/inc",
-    "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc",
     # azure-uamqp-c inc
     "./src/vendor/azure-uamqp-c/inc",
 ]
-if is_win:
-    include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/windows")
-    if is_27:
-        include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc/azure_c_shared_utility/windowsce")
-else:
-    include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/linux")
-
 
 # Build unique source pyx
 
@@ -191,11 +181,8 @@ class build_ext(build_ext_orig):
             else:
                 ext.library_dirs += [
                     cmake_build_dir,
-                    cmake_build_dir + "/deps/azure-c-shared-utility/",
                     cmake_build_dir + "/Debug/",
                     cmake_build_dir + "/Release/",
-                    cmake_build_dir + "/deps/azure-c-shared-utility/Debug/",
-                    cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
 
         if is_win and is_27:
@@ -231,10 +218,6 @@ class build_ext(build_ext_orig):
             "cmake",
             cwd + "/src/vendor/azure-uamqp-c/",
             generator_flags,
-            "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"),
-            "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
-            "-Duse_builtin_httpapi:bool=ON ", # Should we use libcurl in the system or light one?
-            "-Dskip_samples:bool=ON", # Don't compile uAMQP samples binaries
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
             "-DCMAKE_BUILD_TYPE=Release"
         ]
@@ -257,35 +240,14 @@ class build_ext(build_ext_orig):
 
 kwargs = {}
 if is_win:
-    kwargs['libraries'] = [
-        'uamqp',
-        'aziotsharedutil',
-        'AdvAPI32',
-        'Crypt32',
-        'ncrypt',
-        'Secur32',
-        'schannel',
-        'RpcRT4',
-        'WSock32',
-        'WS2_32']
+    kwargs['libraries'] = ['uamqp']
 elif is_mac:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
-    kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
-    if use_openssl and not supress_link_flags:
-        kwargs['libraries'].extend(['azssl', 'azcrypto'])
-    elif not use_openssl:
-        kwargs['extra_link_args'] = [
-            '-framework', 'CoreFoundation',
-            '-framework', 'CFNetwork',
-            '-framework', 'Security']
+    kwargs['libraries'] = ['uamqp']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
-    # SSL before crypto matters: https://bugreports.qt.io/browse/QTBUG-62692
-    kwargs['libraries'] = ['uamqp', 'aziotsharedutil']
-    if sys.version_info < (3, 5):
-        kwargs['libraries'].append('rt')
-    if not supress_link_flags:
-        kwargs['libraries'].extend(['ssl', 'crypto'])
+    kwargs['libraries'] = ['uamqp']
+
 
 
 # If the C file doesn't exist, build the "c_uamqp.c" file

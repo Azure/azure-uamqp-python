@@ -12,14 +12,13 @@ import copy
 
 import six
 
-# C improts
+# C imports
 from libc cimport stdint
 from libc.stdlib cimport malloc, realloc, free
 from libc.string cimport memcpy
 
 cimport cython
 cimport c_amqpvalue
-cimport c_amqp_definitions
 
 
 _logger = logging.getLogger(__name__)
