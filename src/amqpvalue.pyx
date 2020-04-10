@@ -930,11 +930,19 @@ cdef class DescribedValue(AMQPValue):
         described = self.data
         return (descriptor.value, described.value)
 
+class FrameDecoder(object):
+
+    def __init__(self):
+        self._frame = {}
+    
+    def decode(self, descriptor, value):
+        self._frame[descriptor] = value
+
 
 cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
     cdef c_amqpvalue.AMQPVALUE_DECODER_HANDLE amqpvalue_decoder
 
-    frame = {}
+    frame = FrameDecoder()
     amqpvalue_decoder = c_amqpvalue.amqpvalue_decoder_create(<c_amqpvalue.ON_VALUE_DECODED>decode_frame_data, <void*>frame);
     if <void*>amqpvalue_decoder == NULL:
         raise MemoryError("Cannot create AMQP value decoder")
@@ -949,4 +957,4 @@ cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_by
 cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
     decoded_frame = <object>context
     descriptor, frame = value_factory(decoded_value).value
-    decoded_value[descriptor] = frame
+    decoded_value.decode(descriptor, frame)
