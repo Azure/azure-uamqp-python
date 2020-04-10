@@ -19,114 +19,97 @@ def test_null_value():
     value = c_uamqp.null_value()
     assert value.value == None
     assert value.type == c_uamqp.AMQPType.NullValue
-    assert str(value) == "NULL"
 
 
 def test_boolean_value():
     false_value = c_uamqp.bool_value(False)
     assert false_value.value == False
-    assert str(false_value) == "false"
 
     true_value = c_uamqp.bool_value(True)
     assert true_value.value == True
     assert true_value.type == c_uamqp.AMQPType.BoolValue
-    assert str(true_value) == "true"
 
 
 def test_ubyte_value():
     value = c_uamqp.ubyte_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.UByteValue
-    assert str(value) == "255"
 
 
 def test_ushort_value():
     value = c_uamqp.ushort_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.UShortValue
-    assert str(value) == "255"
 
 
 def test_uint_value():
     value = c_uamqp.uint_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.UIntValue
-    assert str(value) == "255"
 
 
 def test_ulong_value():
     value = c_uamqp.ulong_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.ULongValue
-    assert str(value) == "255"
 
 
 def test_byte_value():
     value = c_uamqp.byte_value(5)
     assert value.value == 5
     assert value.type == c_uamqp.AMQPType.ByteValue
-    assert str(value) == "5"
 
 
 def test_short_value():
     value = c_uamqp.short_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.ShortValue
-    assert str(value) == "255"
 
 
 def test_int_value():
     value = c_uamqp.int_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.IntValue
-    assert str(value) == "255"
 
 
 def test_long_value():
     value = c_uamqp.long_value(5)
     assert value.value == 5
     assert value.type == c_uamqp.AMQPType.LongValue
-    assert str(value) == "5"
 
 
 def test_float_value():
     value = c_uamqp.float_value(5.0)
     assert value.value == 5.0
     assert value.type == c_uamqp.AMQPType.FloatValue
-    assert str(value) == "5.00"
 
 
 def test_double_value():
     value = c_uamqp.double_value(5.0)
     assert value.value == 5.0
     assert value.type == c_uamqp.AMQPType.DoubleValue
-    assert str(value) == "5.00"
 
 
 def test_char_value():
     value = c_uamqp.char_value(ord('x'))
     assert value.value == 'x'
     assert value.type == c_uamqp.AMQPType.CharValue
-    assert str(value) == "U00000078"
 
 
 def test_timestamp_value():
     value = c_uamqp.timestamp_value(255)
     assert value.value == 255
     assert value.type == c_uamqp.AMQPType.TimestampValue
-    assert str(value) == "255"
 
 
 def test_uuid_value():
     test_uuid = uuid.UUID('37f9db00-fbb7-11e7-85ee-ecb1d755839a')
     value = c_uamqp.uuid_value(test_uuid)
-    assert str(value) == '37f9db00-fbb7-11e7-85ee-ecb1d755839a'
     assert value.value == test_uuid
     assert value.type == c_uamqp.AMQPType.UUIDValue
 
     test_uuid = uuid.uuid4()
     value = c_uamqp.uuid_value(test_uuid)
-    assert str(value) == str(test_uuid)
     assert value.value == test_uuid
 
 
@@ -135,19 +118,16 @@ def test_binary_value():
     assert len(value) == 1
     assert value.value == bytearray([50])
     assert value.type == c_uamqp.AMQPType.BinaryValue
-    assert str(value) == "<32>"
     
     value = c_uamqp.binary_value(b'Test')
     assert len(value) == 4
     assert value.value == b'Test'
     assert value.type == c_uamqp.AMQPType.BinaryValue
-    assert str(value) == "<54 65 73 74>"
 
     value = c_uamqp.binary_value(bytearray(b'Test'))
     assert len(value) == 4
     assert value.value == b'Test'
     assert value.type == c_uamqp.AMQPType.BinaryValue
-    assert str(value) == "<54 65 73 74>"
 
     payload_hex = [
         '00', '53', '72', 'c1', '28', '02', 'a3', '1c', '78', '2d', '6f', '70', '74', '2d', '73', '63', '68', '65', '64',
@@ -158,7 +138,6 @@ def test_binary_value():
         '61', '6c', '6c', '6f', '77', '65', '65', '6e', '32']
     payload = bytearray.fromhex(''.join(payload_hex))
     value = c_uamqp.binary_value(payload)
-    assert str(value) == "<{}>".format(' '.join(payload_hex)).upper()
     assert len(value) == 104
     assert value.value == b"\x00Sr\xc1(\x02\xa3\x1cx-opt-scheduled-enqueue-time\x83\x00\x00\x01f\xcc\x90\xe5\xa0\x00Ss\xc0\'\x01\xa1$e3a98c25-4574-4dbf-a5bf-2e5cd7f19882\x00Su\xa0\nhalloween2"
 
@@ -167,14 +146,12 @@ def test_string_value():
     value = c_uamqp.string_value('Test'.encode('utf-8'))
     assert value.value == b'Test'
     assert value.type == c_uamqp.AMQPType.StringValue
-    assert str(value) == "Test"
 
 
 def test_symbol_value():
     value = c_uamqp.symbol_value(b'Test')
     assert value.value == b'Test'
     assert value.type == c_uamqp.AMQPType.SymbolValue
-    assert str(value) == "Test"
 
 
 def test_list_value():
@@ -197,7 +174,6 @@ def test_list_value():
     assert value[0].value == True
     assert value[1].value == 125
     assert value.value == [True, 125]
-    assert str(value) == "{true,125}"
 
 
 def test_dict_value():
@@ -223,7 +199,6 @@ def test_dict_value():
         value.get(2)
     
     assert value.value == {b"One": 1, b"Two": 2}
-    assert str(value) == "{[One:1],[Two:2]}"
 
 
 def test_array_value():
@@ -244,7 +219,6 @@ def test_array_value():
     with pytest.raises(IndexError):
         value[2]
     assert value.value == [122, 125]
-    assert str(value) == "{122,125}"
     #assert value.get_encoded_size() == 5
 
 

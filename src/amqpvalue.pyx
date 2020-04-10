@@ -357,27 +357,19 @@ cdef class BoolValue(AMQPValue):
 
     _type = AMQPType.BoolValue
 
-    cpdef _bool_value(self):
-        cdef bint _value
-        if c_amqpvalue.amqpvalue_get_boolean(self._c_value, &_value) == 0:
-            return _value
-        else:
-            self._value_error()
-
-    def create(self, bint value):
+    def create(self, int value):
         new_value = c_amqpvalue.amqpvalue_create_boolean(value)
         self.wrap(new_value)
 
     @property
     def value(self):
         assert self.type
-        str_value = str(self)
-        if str_value in ["false"]:
-            return False
-        elif str_value in ["true"]:
-            return True
+        cdef int _value
+        if c_amqpvalue.amqpvalue_get_boolean(self._c_value, &_value) == 0:
+            return bool(_value)
         else:
             self._value_error()
+
 
 
 cdef class UByteValue(AMQPValue):
@@ -607,8 +599,12 @@ cdef class UUIDValue(AMQPValue):
     @property
     def value(self):
         assert self.type
-        str_val = str(self)
-        return uuid.UUID(str_val)  # TODO: Get proper value
+        cdef c_amqpvalue.uuid _value
+        if c_amqpvalue.amqpvalue_get_uuid(self._c_value, &_value) == 0:
+            bytes_value = <char*>_value
+            return uuid.UUID(bytes=bytes_value[:16])
+        else:
+            self._value_error()
 
 
 cdef class BinaryValue(AMQPValue):

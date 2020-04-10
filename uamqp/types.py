@@ -7,7 +7,7 @@
 # pylint: disable=super-init-not-called,arguments-differ
 
 import six
-from uamqp import c_uamqp, compat, utils
+from uamqp import c_uamqp, _compat, utils
 
 
 class AMQPType(object):
@@ -92,7 +92,7 @@ class AMQPLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.long_value(compat.long(value))
+            return c_uamqp.long_value(_compat.long(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:
@@ -113,7 +113,7 @@ class AMQPuLong(AMQPType):
 
     def _c_wrapper(self, value):
         try:
-            return c_uamqp.ulong_value(compat.long(value))
+            return c_uamqp.ulong_value(_compat.long(value))
         except TypeError:
             raise ValueError("Value must be an integer")
         except OverflowError:

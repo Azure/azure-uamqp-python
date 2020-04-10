@@ -52,8 +52,8 @@ cdef extern from "azure_uamqp_c/amqpvalue.h":
 
     # type handling
     AMQP_VALUE amqpvalue_create_null()
-    AMQP_VALUE amqpvalue_create_boolean(bint bool_value)
-    int amqpvalue_get_boolean(AMQP_VALUE value, bint* bool_value)
+    AMQP_VALUE amqpvalue_create_boolean(int bool_value)
+    int amqpvalue_get_boolean(AMQP_VALUE value, int* bool_value)
     AMQP_VALUE amqpvalue_create_ubyte(unsigned char ubyte_value)
     int amqpvalue_get_ubyte(AMQP_VALUE value, unsigned char* ubyte_value)
     AMQP_VALUE amqpvalue_create_ushort(stdint.uint16_t ushort_value)

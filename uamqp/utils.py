@@ -4,72 +4,15 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import base64
 import calendar
-import time
 import uuid
 import logging
-from datetime import timedelta, datetime
+from datetime import datetime
 
 import six
 from uamqp import c_uamqp
 
 logger = logging.getLogger(__name__)
-
-
-def get_running_loop():
-    try:
-        import asyncio  # pylint: disable=import-error
-        return asyncio.get_running_loop()
-    except AttributeError:  # 3.5 / 3.6
-        loop = None
-        try:
-            loop = asyncio._get_running_loop()  # pylint: disable=protected-access
-        except AttributeError:
-            logger.warning('This version of Python is deprecated, please upgrade to >= v3.5.3')
-        if loop is None:
-            logger.warning('No running event loop')
-            loop = asyncio.get_event_loop()
-        return loop
-    except RuntimeError:
-        # For backwards compatibility, create new event loop
-        logger.warning('No running event loop')
-        return asyncio.get_event_loop()
-
-
-def parse_connection_string(connect_str):
-    """Parse a connection string such as those provided by the Azure portal.
-    Connection string should be formatted like: `Key=Value;Key=Value;Key=Value`.
-    The connection string will be parsed into a dictionary.
-
-    :param connect_str: The connection string.
-    :type connect_str: str
-    :rtype: dict[str, str]
-    """
-    connect_info = {}
-    fields = connect_str.split(';')
-    for field in fields:
-        key, value = field.split('=', 1)
-        connect_info[key] = value
-    return connect_info
-
-
-def create_sas_token(key_name, shared_access_key, scope, expiry=timedelta(hours=1)):
-    """Create a SAS token.
-
-    :param key_name: The username/key name/policy name for the token.
-    :type key_name: bytes
-    :param shared_access_key: The shared access key to generate the token from.
-    :type shared_access_key: bytes
-    :param scope: The token permissions scope.
-    :type scope: bytes
-    :param expiry: The lifetime of the generated token. Default is 1 hour.
-    :type expiry: ~datetime.timedelta
-    :rtype: bytes
-    """
-    shared_access_key = base64.b64encode(shared_access_key)
-    abs_expiry = int(time.time()) + expiry.seconds
-    return c_uamqp.create_sas_token(shared_access_key, scope, key_name, abs_expiry)
 
 
 def _convert_py_number(value):

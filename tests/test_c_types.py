@@ -24,28 +24,18 @@ def test_symbol_type():
     test_symbol = types.AMQPSymbol("testvalue")
     assert test_symbol.value == b"testvalue"
     assert test_symbol.c_data.value == b"testvalue"
-    assert str(test_symbol.c_data) == "testvalue"
-    assert bytes(test_symbol.c_data) == b"testvalue"
 
     test_symbol = types.AMQPSymbol(b"testvalue")
     assert test_symbol.c_data.value == b"testvalue"
-    assert str(test_symbol.c_data) == "testvalue"
-    assert bytes(test_symbol.c_data) == b"testvalue"
 
     test_symbol = types.AMQPSymbol(u"testvalue")
     assert test_symbol.c_data.value == b"testvalue"
-    assert str(test_symbol.c_data) == "testvalue"
-    assert bytes(test_symbol.c_data) == b"testvalue"
 
     test_symbol = types.AMQPSymbol(u"é,è,à,ù,â,ê,î,ô,û")
     assert test_symbol.c_data.value == binary_type("é,è,à,ù,â,ê,î,ô,û")
-    assert str(test_symbol.c_data) == "é,è,à,ù,â,ê,î,ô,û"
-    assert bytes(test_symbol.c_data) == binary_type("é,è,à,ù,â,ê,î,ô,û")
 
     test_symbol = types.AMQPSymbol("é,è,à,ù,â,ê,î,ô,û")
     assert test_symbol.c_data.value == binary_type("é,è,à,ù,â,ê,î,ô,û")
-    assert str(test_symbol.c_data) == "é,è,à,ù,â,ê,î,ô,û"
-    assert bytes(test_symbol.c_data) == binary_type("é,è,à,ù,â,ê,î,ô,û")
 
     try:
         test_str = (
@@ -85,26 +75,18 @@ def test_symbol_type():
 
     test_symbol = types.AMQPSymbol(test_str)
     assert test_symbol.c_data.value == test_str
-    assert str(test_symbol.c_data) == decoded if six.PY3 else test_str
-    assert bytes(test_symbol.c_data) == test_str
 
     test_symbol = types.AMQPSymbol(decoded)
     assert test_symbol.c_data.value == test_str
-    assert str(test_symbol.c_data) == decoded if six.PY3 else test_str
-    assert bytes(test_symbol.c_data) == test_str
 
     test_str = "黃帝者，少典之子，姓公孫，名曰軒轅。生而神靈，弱而能言，幼而徇齊，長而敦敏，成而聰明。"
     decoded = test_str.decode('utf-8') if six.PY2 else test_str
 
     test_symbol = types.AMQPSymbol(test_str)
     assert test_symbol.c_data.value == binary_type(test_str)
-    assert str(test_symbol.c_data) == decoded if six.PY3 else test_str
-    assert bytes(test_symbol.c_data) == binary_type(test_str)
 
     test_symbol = types.AMQPSymbol(decoded)
     assert test_symbol.c_data.value == binary_type(test_str)
-    assert str(test_symbol.c_data) == decoded if six.PY3 else test_str
-    assert bytes(test_symbol.c_data) == binary_type(test_str)
 
 
 if __name__ == '__main__':

@@ -211,20 +211,20 @@ AMQP_VALUE amqpvalue_create_null(void)
 }
 
 /* Codes_SRS_AMQPVALUE_01_004: [1.6.2 boolean Represents a true or false value.] */
-AMQP_VALUE amqpvalue_create_boolean(bool value)
+AMQP_VALUE amqpvalue_create_boolean(int value)
 {
     AMQP_VALUE result = REFCOUNT_TYPE_CREATE(AMQP_VALUE_DATA);
     if (result != NULL)
     {
         /* Codes_SRS_AMQPVALUE_01_006: [amqpvalue_create_boolean shall return a handle to an AMQP_VALUE that stores a boolean value.] */
         result->type = AMQP_TYPE_BOOL;
-        result->value.bool_value = value;
+        result->value.bool_value = (value == 0) ? false : true;
     }
 
     return result;
 }
 
-int amqpvalue_get_boolean(AMQP_VALUE value, bool* bool_value)
+int amqpvalue_get_boolean(AMQP_VALUE value, int* bool_value)
 {
     int result;
 
@@ -241,7 +241,7 @@ int amqpvalue_get_boolean(AMQP_VALUE value, bool* bool_value)
         else
         {
             /* Codes_SRS_AMQPVALUE_01_008: [amqpvalue_get_boolean shall fill in the bool_value argument the Boolean value stored by the AMQP value indicated by the value argument.] */
-            *bool_value = value_data->value.bool_value;
+            *bool_value = (value_data->value.bool_value == false) ? 0 : 1;
 
             /* Codes_SRS_AMQPVALUE_01_010: [On success amqpvalue_get_boolean shall return 0.] */
             result = 0;

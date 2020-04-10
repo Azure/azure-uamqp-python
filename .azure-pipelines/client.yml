@@ -68,7 +68,6 @@ jobs:
 
     variables:
       MacOSXDeploymentTarget: '10.9'
-      OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
       PythonVersion27: '2.7.17'
       PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.8'
@@ -76,16 +75,6 @@ jobs:
       PythonVersion38: '3.8.2'
 
     steps:
-      - task: DownloadPipelineArtifact@1
-        displayName: 'Download OpenSSL artifact'
-        inputs:
-          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
-          buildType: specific
-          buildVersionToDownload: latest
-          downloadPath: $(Agent.BuildDirectory)
-          pipeline: 119 # azure-uamqp-python - openssl
-          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
-
       - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
         displayName: 'Select Xcode 11.3.1'
 
@@ -109,15 +98,12 @@ jobs:
       - script: $(PythonBin) setup.py bdist_wheel
         displayName: 'Build uAMQP Wheel'
         env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
+          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
           CMAKE_OSX_ARCHITECTURES: 'x86_64'
           CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
+          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget)
           MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
-          OPENSSL_ROOT_DIR: $(OpenSSLDir)
           UAMQP_REBUILD_PYX: 'True'
-          UAMQP_USE_OPENSSL: 'True'
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -125,7 +111,6 @@ jobs:
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
@@ -214,7 +199,6 @@ jobs:
           $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2
@@ -277,7 +261,6 @@ jobs:
       - script: |
           python -m pip install --user --ignore-installed ./dist/*.whl
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
 
       - task: PublishTestResults@2

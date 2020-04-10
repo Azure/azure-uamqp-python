@@ -247,7 +247,7 @@ TEST_FUNCTION(amqpvalue_create_boolean_true_succeeds)
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
 
     // act
-    result = amqpvalue_create_boolean(true);
+    result = amqpvalue_create_boolean(1);
 
     // assert
     ASSERT_IS_NOT_NULL(result);
@@ -266,7 +266,7 @@ TEST_FUNCTION(amqpvalue_create_boolean_false_succeeds)
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
 
     // act
-    result = amqpvalue_create_boolean(false);
+    result = amqpvalue_create_boolean(0);
 
     // assert
     ASSERT_IS_NOT_NULL(result);
@@ -285,7 +285,7 @@ TEST_FUNCTION(when_allocating_memory_fails_then_amqpvalue_create_boolean_fails)
         .SetReturn(NULL);
 
     // act
-    result = amqpvalue_create_boolean(true);
+    result = amqpvalue_create_boolean(1);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
@@ -300,15 +300,15 @@ TEST_FUNCTION(amqpvalue_get_boolean_true_succeeds)
 {
     // arrange
     int result;
-    bool bool_value;
-    AMQP_VALUE value = amqpvalue_create_boolean(true);
+    int bool_value;
+    AMQP_VALUE value = amqpvalue_create_boolean(1);
     umock_c_reset_all_calls();
 
     // act
     result = amqpvalue_get_boolean(value, &bool_value);
 
     // assert
-    ASSERT_ARE_EQUAL(bool, true, bool_value);
+    ASSERT_ARE_EQUAL(int, 1, bool_value);
     ASSERT_ARE_EQUAL(int, 0, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
@@ -322,15 +322,15 @@ TEST_FUNCTION(amqpvalue_get_boolean_false_succeeds)
 {
     // arrange
     int result;
-    bool bool_value;
-    AMQP_VALUE value = amqpvalue_create_boolean(false);
+    int bool_value;
+    AMQP_VALUE value = amqpvalue_create_boolean(0);
     umock_c_reset_all_calls();
 
     // act
     result = amqpvalue_get_boolean(value, &bool_value);
 
     // assert
-    ASSERT_ARE_EQUAL(bool, false, bool_value);
+    ASSERT_ARE_EQUAL(int, 0, bool_value);
     ASSERT_ARE_EQUAL(int, 0, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
@@ -342,7 +342,7 @@ TEST_FUNCTION(amqpvalue_get_boolean_false_succeeds)
 TEST_FUNCTION(amqpvalue_get_boolean_with_a_NULL_amqpvalue_handle_fails)
 {
     // arrange
-    bool bool_value;
+    int bool_value;
 
     // act
     int result = amqpvalue_get_boolean(NULL, &bool_value);
@@ -357,7 +357,7 @@ TEST_FUNCTION(amqpvalue_get_boolean_with_a_NULL_bool_value_fails)
 {
     // arrange
     int result;
-    AMQP_VALUE value = amqpvalue_create_boolean(false);
+    AMQP_VALUE value = amqpvalue_create_boolean(0);
     umock_c_reset_all_calls();
 
     // act
@@ -376,7 +376,7 @@ TEST_FUNCTION(amqpvalue_get_boolean_with_an_amqpvalue_that_is_not_boolean_fails)
 {
     // arrange
     int result;
-    bool bool_value;
+    int bool_value;
     AMQP_VALUE value = amqpvalue_create_null();
     umock_c_reset_all_calls();
 
@@ -5162,8 +5162,8 @@ TEST_FUNCTION(for_2_equal_boolean_values_amqpvalue_are_equal_returns_true)
 {
     // arrange
     bool result;
-    AMQP_VALUE value1 = amqpvalue_create_boolean(false);
-    AMQP_VALUE value2 = amqpvalue_create_boolean(false);
+    AMQP_VALUE value1 = amqpvalue_create_boolean(0);
+    AMQP_VALUE value2 = amqpvalue_create_boolean(0);
     umock_c_reset_all_calls();
 
     // act
@@ -5183,8 +5183,8 @@ TEST_FUNCTION(for_2_different_boolean_values_amqpvalue_are_equal_returns_false)
 {
     // arrange
     bool result;
-    AMQP_VALUE value1 = amqpvalue_create_boolean(false);
-    AMQP_VALUE value2 = amqpvalue_create_boolean(true);
+    AMQP_VALUE value1 = amqpvalue_create_boolean(0);
+    AMQP_VALUE value2 = amqpvalue_create_boolean(1);
     umock_c_reset_all_calls();
 
     // act
@@ -6928,7 +6928,7 @@ TEST_FUNCTION(amqpvalue_clone_clones_a_boolean_succesfully_false_value)
 {
     // arrange
     AMQP_VALUE result;
-    AMQP_VALUE source = amqpvalue_create_boolean(false);
+    AMQP_VALUE source = amqpvalue_create_boolean(0);
     umock_c_reset_all_calls();
 
     // act
@@ -6950,7 +6950,7 @@ TEST_FUNCTION(amqpvalue_clone_clones_a_boolean_succesfully_true_value)
 {
     // arrange
     AMQP_VALUE result;
-    AMQP_VALUE source = amqpvalue_create_boolean(true);
+    AMQP_VALUE source = amqpvalue_create_boolean(1);
     umock_c_reset_all_calls();
 
     // act
@@ -8064,28 +8064,28 @@ TEST_FUNCTION(amqpvalue_encode_with_NULL_encoder_output_fails)
 /* Tests_SRS_AMQPVALUE_01_272: [<encoding name="true" code="0x41" category="fixed" width="0" label="the boolean value true"/>] */
 TEST_FUNCTION(amqpvalue_encode_boolean_true_succeeds)
 {
-    AMQP_VALUE source = amqpvalue_create_boolean(true);
+    AMQP_VALUE source = amqpvalue_create_boolean(1);
     test_amqpvalue_encode(source, "[0x41]");
 }
 
 /* Tests_SRS_AMQPVALUE_01_273: [<encoding name="false" code="0x42" category="fixed" width="0" label="the boolean value false"/>] */
 TEST_FUNCTION(amqpvalue_encode_boolean_false_succeeds)
 {
-    AMQP_VALUE source = amqpvalue_create_boolean(false);
+    AMQP_VALUE source = amqpvalue_create_boolean(0);
     test_amqpvalue_encode(source, "[0x42]");
 }
 
 /* Tests_SRS_AMQPVALUE_01_274: [When the encoder output function fails, amqpvalue_encode shall fail and return a non-zero value.] */
 TEST_FUNCTION(when_encoder_output_fails_amqpvalue_encode_boolean_false_fails)
 {
-    AMQP_VALUE source = amqpvalue_create_boolean(false);
+    AMQP_VALUE source = amqpvalue_create_boolean(0);
     test_amqpvalue_encode_failure(source);
 }
 
 /* Tests_SRS_AMQPVALUE_01_274: [When the encoder output function fails, amqpvalue_encode shall fail and return a non-zero value.] */
 TEST_FUNCTION(when_encoder_output_fails_amqpvalue_encode_boolean_true_fails)
 {
-    AMQP_VALUE source = amqpvalue_create_boolean(true);
+    AMQP_VALUE source = amqpvalue_create_boolean(1);
     test_amqpvalue_encode_failure(source);
 }
 
@@ -9568,7 +9568,7 @@ TEST_FUNCTION(amqpvalue_get_encoded_size_with_null_value_succeeds)
 TEST_FUNCTION(amqpvalue_get_encoded_size_with_true_bool_value_succeeds)
 {
     // arrange
-    AMQP_VALUE source = amqpvalue_create_boolean(true);
+    AMQP_VALUE source = amqpvalue_create_boolean(0);
     test_amqpvalue_get_encoded_size(source, 1);
 }
 
@@ -9577,7 +9577,7 @@ TEST_FUNCTION(amqpvalue_get_encoded_size_with_true_bool_value_succeeds)
 TEST_FUNCTION(amqpvalue_get_encoded_size_with_false_bool_value_succeeds)
 {
     // arrange
-    AMQP_VALUE source = amqpvalue_create_boolean(false);
+    AMQP_VALUE source = amqpvalue_create_boolean(1);
     test_amqpvalue_get_encoded_size(source, 1);
 }
 
@@ -11913,7 +11913,7 @@ TEST_FUNCTION(amqpvalue_decode_boolean_false_succeeds)
     // arrange
     int result;
     unsigned char bytes[] = { 0x56, 0x00 };
-    bool actual_value = true;
+    int actual_value = 1;
     AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(value_decoded_callback, test_context);
     umock_c_reset_all_calls();
 
@@ -11945,7 +11945,7 @@ TEST_FUNCTION(amqpvalue_decode_boolean_true_succeeds)
     int result;
     AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(value_decoded_callback, test_context);
     unsigned char bytes[] = { 0x56, 0x01 };
-    bool actual_value = false;
+    int actual_value = 0;
     umock_c_reset_all_calls();
 
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
@@ -11976,7 +11976,7 @@ TEST_FUNCTION(amqpvalue_decode_boolean_true_byte_by_byte_succeeds)
     AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(value_decoded_callback, test_context);
     unsigned char bytes[] = { 0x56, 0x01 };
     int i;
-    bool actual_value = false;
+    int actual_value = 0;
     umock_c_reset_all_calls();
 
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
@@ -12062,7 +12062,7 @@ TEST_FUNCTION(amqpvalue_decode_0x41_true_boolean_succeeds)
     int result;
     AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(value_decoded_callback, test_context);
     unsigned char bytes[] = { 0x41 };
-    bool actual_value = false;
+    int actual_value = 0;
     umock_c_reset_all_calls();
 
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
@@ -12092,7 +12092,7 @@ TEST_FUNCTION(amqpvalue_decode_0x42_false_boolean_succeeds)
     int result;
     AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(value_decoded_callback, test_context);
     unsigned char bytes[] = { 0x42 };
-    bool actual_value = true;
+    int actual_value = 1;
     umock_c_reset_all_calls();
 
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));

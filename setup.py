@@ -31,9 +31,7 @@ is_x64 = platform.architecture()[0] == '64bit'
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
 rebuild_pyx = os.environ.get('UAMQP_REBUILD_PYX', False)
-use_openssl = not (is_win or is_mac)
-#  use_openssl = os.environ.get('UAMQP_USE_OPENSSL', not (is_win or is_mac))
-supress_link_flags = os.environ.get("UAMQP_SUPPRESS_LINK_FLAGS", False)
+built_unittests = os.environ.get('UAMQP_BUILD_UNITTESTS', False)
 
 # Version extraction inspired from 'requests'
 with open(os.path.join('uamqp', '__init__.py'), 'r') as fd:
@@ -53,6 +51,8 @@ include_dirs = [
     # azure-uamqp-c inc
     "./src/vendor/azure-uamqp-c/inc",
 ]
+if is_win and is_27:
+    include_dirs.append("./src/vendor/azure-uamqp-c/windowsce")
 
 # Build unique source pyx
 
@@ -221,6 +221,8 @@ class build_ext(build_ext_orig):
             "-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE", # ask for -fPIC
             "-DCMAKE_BUILD_TYPE=Release"
         ]
+        if built_unittests:
+            configure_command.append("-Drun_unittests:bool=ON")
 
         joined_cmd = " ".join(configure_command)
         logger.info("calling %s", joined_cmd)
@@ -241,14 +243,9 @@ class build_ext(build_ext_orig):
 kwargs = {}
 if is_win:
     kwargs['libraries'] = ['uamqp']
-elif is_mac:
-    kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
-    kwargs['libraries'] = ['uamqp']
 else:
     kwargs['extra_compile_args'] = ['-g', '-O0', "-std=gnu99", "-fPIC"]
     kwargs['libraries'] = ['uamqp']
-
-
 
 # If the C file doesn't exist, build the "c_uamqp.c" file
 # That's not perfect, since we build it on a "--help", but should be if cloned from source only.

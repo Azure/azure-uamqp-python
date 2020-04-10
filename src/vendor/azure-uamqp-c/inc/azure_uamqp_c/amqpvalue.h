@@ -28,8 +28,8 @@ extern "C" {
 
     /* type handling */
     AMQP_VALUE amqpvalue_create_null(void);
-    AMQP_VALUE amqpvalue_create_boolean(bool bool_value);
-    int amqpvalue_get_boolean(AMQP_VALUE value, bool* bool_value);
+    AMQP_VALUE amqpvalue_create_boolean(int bool_value);
+    int amqpvalue_get_boolean(AMQP_VALUE value, int* bool_value);
     AMQP_VALUE amqpvalue_create_ubyte(unsigned char ubyte_value);
     int amqpvalue_get_ubyte(AMQP_VALUE value, unsigned char* ubyte_value);
     AMQP_VALUE amqpvalue_create_ushort(uint16_t ushort_value);

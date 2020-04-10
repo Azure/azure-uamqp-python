@@ -8,18 +8,11 @@
 
 import sys
 
-from uamqp import errors
-
 PY2 = (2, 7) <= sys.version_info < (3, 0)
 PY3 = (3, 4) <= sys.version_info < (4, 0)
 
 
 if PY3:
-    import queue
-    from urllib.parse import urlparse, unquote_plus, quote_plus
-
-    TimeoutException = TimeoutError
-
     builtin_str = str
     str = str
     bytes = bytes
@@ -30,12 +23,6 @@ if PY3:
     long = int
 
 elif PY2:
-    import Queue as queue
-    from urlparse import urlparse
-    from urllib import unquote_plus, quote_plus
-
-    TimeoutException = errors.ClientTimeout
-
     builtin_str = str
     bytes = str
     str = unicode
