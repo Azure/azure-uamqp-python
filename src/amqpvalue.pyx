@@ -28,6 +28,17 @@ _COMPOSITES = {
     0x00000026: 'released',
     0x00000027: 'modified',
 }
+_MESSAGE_SECTIONS = {
+    0x00000070: "header",
+    0x00000071: "delivery_annotations",
+    0x00000072: "message_annotations",
+    0x00000073: "properties",
+    0x00000074: "application_properties",
+    0x00000075: "data",
+    0x00000076: "sequence",
+    0x00000077: "value",
+    0x00000078: "footer"
+}
 
 
 cdef int encode_bytes_callback(void* context, const unsigned char* encoded_bytes, size_t length):
@@ -950,7 +961,14 @@ class FrameDecoder(object):
     
     def decode(self, descriptor, value):
         if self._frame_type:
-            self._payload[descriptor] = value
+            section_type = _MESSAGE_SECTIONS[descriptor]
+            if section_type == 'data':
+                try:
+                    self._payload[section_type].append(value)
+                except KeyError:
+                    self._payload[section_type] = [value]
+            else:
+                self._payload[section_type] = value
         else:
             self._frame_type = descriptor
             self._frame_fields = value

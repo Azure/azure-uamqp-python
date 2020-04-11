@@ -35,11 +35,9 @@ from uamqp.performatives import (
     SASLChallenge,
     SASLResponse,
     SASLOutcome)
-from uamqp.message import Header, Properties
 
 
 _LOGGER = logging.getLogger(__name__)
-_MESSAGE_PERFORMATIVES = [Header, Properties]
 _HEADER_PREFIX = memoryview(b'AMQP')
 
 
@@ -362,19 +360,22 @@ def py_decode_frame(data):
     _ = buffer.read(1)  # First byte is always described type constructor
     frame_type = decode_value(buffer)
     fields = decode_value(buffer)
-    return frame_type, fields, buffer
+
+    frame_obj = PERFORMATIVES[frame_type]
+    if frame_obj == TransferFrame:
+        fields.append(decode_payload(buffer))
+    return frame_obj, fields
+
 
 def decode_frame(size, data):
     # type: (int, memoryview) -> namedtuple
     #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
     if c_decode_frame:
-        frame_type, fields, payload = c_decode_frame(size, data.tobytes())
+        frame_type, fields = c_decode_frame(size, data.tobytes())
+        frame_obj = PERFORMATIVES[frame_type]
     else:
-        frame_type, fields, payload = py_decode_frame(data)
+        frame_obj, fields = py_decode_frame(data)
 
-    frame_obj = PERFORMATIVES[frame_type]
-    if frame_obj == TransferFrame:
-        fields.append(payload)
     return frame_obj(*fields)
 
 
