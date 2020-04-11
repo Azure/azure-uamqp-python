@@ -223,74 +223,48 @@ def decode_symbol_large(buffer):
     return buffer.read(length) or None
 
 
-def decode_list_values(buffer, count):
-    decoded_values = []
-    for _ in range(count):
-        constructor = buffer.read(1)
-        try:
-            value = _CONSTUCTOR_MAP[constructor]
-            decoded_values.append(value)
-        except KeyError:
-            type_decoder = _DECODE_MAP[constructor]
-            decoded_values.append(type_decoder(buffer))
-    return decoded_values
-
-
 def decode_list_small(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
-    return decode_list_values(buffer, count)
+    return [decode_value(buffer) for _ in range(count)]
 
 
 def decode_list_large(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
-    return decode_list_values(buffer, count)
+    return [decode_value(buffer) for _ in range(count)]
 
 
 def decode_map_small(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
-    values = decode_list_values(buffer, count)
-    return {values[i]: values[i+1] for i in range(0, count, 2)}
+    return {decode_value(buffer): decode_value(buffer) for _ in range(0, count, 2)}
 
 
 def decode_map_large(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
-    values = decode_list_values(buffer, count)
-    return {values[i]: values[i+1] for i in range(0, count, 2)}
-
-
-def decode_array_values(buffer, count):
-    decoded_values = []
-    constructor = buffer.read(1)
-    try:
-        value = _CONSTUCTOR_MAP[constructor]
-        return [value] * count
-    except KeyError:
-        type_decoder = _DECODE_MAP[constructor]
-        for _ in range(count):
-            decoded_values.append(type_decoder(buffer))
-    return decoded_values
+    return {decode_value(buffer): decode_value(buffer) for _ in range(0, count, 2)}
 
 
 def decode_array_small(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
-    return decode_array_values(buffer, count)
+    subconstructor = buffer.read(1)
+    return [decode_array_value(buffer, subconstructor) for _ in range(count)]
 
 
 def decode_array_large(buffer):
     # type: (Decoder, IO) -> None
     _ = buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
-    return decode_array_values(buffer, count)
+    subconstructor = buffer.read(1)
+    return [decode_array_value(buffer, subconstructor) for _ in range(count)]
 
 
 def decode_described(buffer):
@@ -304,28 +278,21 @@ def decode_described(buffer):
         return value
 
 
-def decode_message_section(buffer, message):
-    # type: (Decoder, IO) -> None
-    descriptor = decode_value(buffer)
-    section_type = MESSAGE_SECTIONS[descriptor]
-    value = decode_value(buffer)
-    if section_type == 'data':
-        try:
-            message[section_type].append(value)
-        except KeyError:
-            message[section_type] = [value]
-    else:
-        message[section_type] = value
+def decode_array_value(buffer, constructor):
+    # type: (IO, Optional[int], bool) -> Dict[str, Any]
+    try:
+        return _CONSTUCTOR_MAP[constructor]
+    except KeyError:
+        return _DECODE_MAP[constructor](buffer)
 
 
 def decode_value(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     constructor = buffer.read(1)
     try:
-        value = _CONSTUCTOR_MAP[constructor]
+        return _CONSTUCTOR_MAP[constructor]
     except KeyError:
-        value = _DECODE_MAP[constructor](buffer)
-    return value
+        return _DECODE_MAP[constructor](buffer)
 
 
 def decode_empty_frame(header):
@@ -350,7 +317,16 @@ def decode_payload(buffer):
     while True:
         constructor = buffer.read(1)
         if constructor:
-            decode_message_section(buffer, message)
+            descriptor = decode_value(buffer)
+            section_type = MESSAGE_SECTIONS[descriptor]
+            value = decode_value(buffer)
+            if section_type == 'data':
+                try:
+                    message[section_type].append(value)
+                except KeyError:
+                    message[section_type] = [value]
+            else:
+                message[section_type] = value
         else:
             break  # Finished stream
     return message
