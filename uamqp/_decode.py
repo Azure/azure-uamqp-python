@@ -54,18 +54,6 @@ COMPOSITES = {
 }
 
 
-MESSAGE_SECTIONS = {
-    0x00000070: "header",
-    0x00000071: "delivery_annotations",
-    0x00000072: "message_annotations",
-    0x00000073: "properties",
-    0x00000074: "application_properties",
-    0x00000075: "data",
-    0x00000076: "sequence",
-    0x00000077: "value",
-    0x00000078: "footer"
-}
-
 
 def decode_boolean(buffer):
     # type: (Decoder, IO) -> None
@@ -221,7 +209,12 @@ def decode_array_small(buffer):
     _ = buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
     subconstructor = buffer.read(1)
-    return [decode_array_value(buffer, subconstructor) for _ in range(count)]
+    try:
+        empty_value = _CONSTUCTOR_MAP[subconstructor]
+        return [empty_value] * count
+    except KeyError:
+        fixed_value = _DECODE_MAP[subconstructor]
+        return [fixed_value(buffer) for _ in range(count)]
 
 
 def decode_array_large(buffer):
@@ -229,26 +222,24 @@ def decode_array_large(buffer):
     _ = buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
     subconstructor = buffer.read(1)
-    return [decode_array_value(buffer, subconstructor) for _ in range(count)]
+    try:
+        empty_value = _CONSTUCTOR_MAP[subconstructor]
+        return [empty_value] * count
+    except KeyError:
+        fixed_value = _DECODE_MAP[subconstructor]
+        return [fixed_value(buffer) for _ in range(count)]
 
 
 def decode_described(buffer):
     # type: (Decoder, IO) -> None
-    descriptor = decode_value(buffer)
+    buffer.read(1)  # descriptor constructor will always be ulong
+    descriptor = struct.unpack('>B', buffer.read(1))[0]
     value = decode_value(buffer)
     try:
         composite_type = COMPOSITES[descriptor]
         return {composite_type: value}
     except KeyError:
         return value
-
-
-def decode_array_value(buffer, constructor):
-    # type: (IO, Optional[int], bool) -> Dict[str, Any]
-    try:
-        return _CONSTUCTOR_MAP[constructor]
-    except KeyError:
-        return _DECODE_MAP[constructor](buffer)
 
 
 def decode_value(buffer):
@@ -282,25 +273,38 @@ def decode_payload(buffer):
     while True:
         constructor = buffer.read(1)
         if constructor:
-            descriptor = decode_value(buffer)
-            section_type = MESSAGE_SECTIONS[descriptor]
+            buffer.read(1)  # descriptor constructor will always be ulong
+            descriptor = struct.unpack('>B', buffer.read(1))[0]
             value = decode_value(buffer)
-            if section_type == 'data':
+            if descriptor == 0x00000070:
+                message["header"] = value
+            elif descriptor == 0x00000071:
+                message["delivery_annotations"] = value
+            elif descriptor == 0x00000072:
+                message["message_annotations"] = value
+            elif descriptor == 0x00000073:
+                message["properties"] = value
+            elif descriptor == 0x00000074:
+                message["application_properties"] = value
+            elif descriptor == 0x00000075:
                 try:
-                    message[section_type].append(value)
+                    message["data"].append(value)
                 except KeyError:
-                    message[section_type] = [value]
-            else:
-                message[section_type] = value
+                    message["data"] = [value]
+            elif descriptor == 0x00000076:
+                message["sequence"] = value
+            elif descriptor == 0x00000077:
+                message["value"] = value
+            elif descriptor == 0x00000078:
+                message["footer"] = value
         else:
             break  # Finished stream
     return message
 
 
 def decode_frame(data):
-    buffer = BytesIO(data)
-    _ = buffer.read(1)  # First byte is always described type constructor
-    frame_type = decode_value(buffer)
+    buffer = BytesIO(data[2:])  # First byte is always described type constructor
+    frame_type = struct.unpack('>B', buffer.read(1))[0]
     fields = decode_value(buffer)
     if frame_type == 0x00000014:
         fields.append(decode_payload(buffer))
