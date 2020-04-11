@@ -71,7 +71,7 @@ DEFAULT_SOCKET_SETTINGS = {
 
 
 def unpack_frame_header(data):
-    if data[0:4] == b'AMQP':  # AMQP header negotiation
+    if data[0] == b'A':  # AMQP header negotiation
         size = None
     else:
         size = struct.unpack('>I', data[0:4])[0]

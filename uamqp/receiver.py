@@ -12,6 +12,7 @@ from uamqp_encoder.decode import decode_payload
 from .constants import DEFAULT_LINK_CREDIT, Role
 from .endpoints import Target
 from .link import Link
+from .message import Message, Properties, Header
 from .constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,
@@ -73,8 +74,7 @@ class ReceiverLink(Link):
         if self._received_payload or frame.more:
             raise NotImplementedError()  # TODO
         if not frame.more:
-            message = decode_payload(frame.payload)
-            delivery_state = self._process_incoming_message(frame, message)
+            delivery_state = self._process_incoming_message(frame, frame.payload)
             if not frame.settled and delivery_state:
                 self._outgoing_disposition(frame.delivery_id, delivery_state)
 

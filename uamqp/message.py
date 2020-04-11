@@ -21,6 +21,7 @@ Header = namedtuple(
         'delivery_count'
     ])
 Header._code = 0x00000070
+Header.__new__.__defaults__ = (None,) * len(Header._fields)
 Header._definition = (
     FIELD("durable", AMQPTypes.boolean, False, None, False),
     FIELD("priority", AMQPTypes.ubyte, False, None, False),
@@ -91,6 +92,7 @@ Properties = namedtuple(
         'reply_to_group_id'
     ])
 Properties._code = 0x00000073
+Properties.__new__.__defaults__ = (None,) * len(Properties._fields)
 Properties._definition = (
     FIELD("message_id", FieldDefinition.message_id, False, None, False),
     FIELD("user_id", AMQPTypes.binary, False, None, False),
