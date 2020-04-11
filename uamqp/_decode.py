@@ -15,21 +15,7 @@ from .types import ConstructorBytes
 from .performatives import (
     HeaderFrame,
     TLSHeaderFrame,
-    SASLHeaderFrame,
-    OpenFrame,
-    BeginFrame,
-    AttachFrame,
-    FlowFrame,
-    TransferFrame,
-    DispositionFrame,
-    DetachFrame,
-    EndFrame,
-    CloseFrame,
-    SASLMechanism,
-    SASLInit,
-    SASLChallenge,
-    SASLResponse,
-    SASLOutcome)
+    SASLHeaderFrame)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -178,35 +164,35 @@ def decode_symbol_large(buffer):
 
 def decode_list_small(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(1)  # Discard size
+    buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
     return [decode_value(buffer) for _ in range(count)]
 
 
 def decode_list_large(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(4)  # Discard size
+    buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
     return [decode_value(buffer) for _ in range(count)]
 
 
 def decode_map_small(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(1)  # Discard size
+    buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
     return {decode_value(buffer): decode_value(buffer) for _ in range(0, count, 2)}
 
 
 def decode_map_large(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(4)  # Discard size
+    buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
     return {decode_value(buffer): decode_value(buffer) for _ in range(0, count, 2)}
 
 
 def decode_array_small(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(1)  # Discard size
+    buffer.read(1)  # Discard size
     count = struct.unpack('>B', buffer.read(1))[0]
     subconstructor = buffer.read(1)
     try:
@@ -219,7 +205,7 @@ def decode_array_small(buffer):
 
 def decode_array_large(buffer):
     # type: (Decoder, IO) -> None
-    _ = buffer.read(4)  # Discard size
+    buffer.read(4)  # Discard size
     count = struct.unpack('>L', buffer.read(4))[0]
     subconstructor = buffer.read(1)
     try:
@@ -245,10 +231,12 @@ def decode_described(buffer):
 def decode_value(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     constructor = buffer.read(1)
+    if constructor == ConstructorBytes.null:
+        return None
     try:
-        return _CONSTUCTOR_MAP[constructor]
-    except KeyError:
         return _DECODE_MAP[constructor](buffer)
+    except KeyError:
+        return _CONSTUCTOR_MAP[constructor]
 
 
 def decode_empty_frame(header):
@@ -271,9 +259,7 @@ def decode_payload(buffer):
     # type: (IO, Optional[int], bool) -> Dict[str, Any]
     message = {}
     while True:
-        constructor = buffer.read(1)
-        if constructor:
-            buffer.read(1)  # descriptor constructor will always be ulong
+        if buffer.read(2):
             descriptor = struct.unpack('>B', buffer.read(1))[0]
             value = decode_value(buffer)
             if descriptor == 0x00000070:
@@ -305,7 +291,9 @@ def decode_payload(buffer):
 def decode_frame(data):
     buffer = BytesIO(data[2:])  # First byte is always described type constructor
     frame_type = struct.unpack('>B', buffer.read(1))[0]
-    fields = decode_value(buffer)
+    buffer.read(2)  # Discard list constructor and size
+    fields_count = struct.unpack('>B', buffer.read(1))[0]
+    fields = [decode_value(buffer) for _ in range(fields_count)]
     if frame_type == 0x00000014:
         fields.append(decode_payload(buffer))
     return frame_type, fields
