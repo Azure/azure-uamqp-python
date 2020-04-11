@@ -1027,7 +1027,7 @@ cdef class cFrameDecoder(object):
             payload['value'] = self.value.value
         if <void*>self.footer != NULL:
             payload['footer'] = self.footer.value
-        return None
+        return payload
 
 
 cpdef cFrameDecoder decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
