@@ -8,7 +8,7 @@ import uuid
 import logging
 from io import BytesIO
 
-from uamqp_encoder import decode_payload
+from uamqp_encoder.decode import decode_payload
 
 from ._link_async import Link
 from ..constants import DEFAULT_LINK_CREDIT, Role

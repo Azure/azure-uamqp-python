@@ -15,7 +15,7 @@ import logging
 from threading import Lock
 
 import certifi
-from uamqp_encoder import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
+from uamqp_encoder.decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 
 from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from .._encode import encode_frame
@@ -275,7 +275,7 @@ class AsyncTransport(object):
                 read_frame_buffer.write(frame_header)
                 size, offset, frame_type, channel = unpack(frame_header)
                 if not size:
-                    return frame_header, channel, None  # Empty frame or header
+                    return frame_header, channel, None, None  # Empty frame or header
 
                 # >I is an unsigned int, but the argument to sock.recv is signed,
                 # so we know the size can be at most 2 * SIGNED_INT_MAX
