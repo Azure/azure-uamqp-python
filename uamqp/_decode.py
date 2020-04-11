@@ -11,14 +11,8 @@ from io import BytesIO
 import logging
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
-try:
-    from uamqp_encoder.c_uamqp import decode_frame as c_decode_frame
-except ImportError:
-    c_decode_frame = None
-c_decode_frame = None
-
-from uamqp.types import ConstructorBytes
-from uamqp.performatives import (
+from .types import ConstructorBytes
+from .performatives import (
     HeaderFrame,
     TLSHeaderFrame,
     SASLHeaderFrame,
@@ -50,36 +44,6 @@ _CONSTUCTOR_MAP = {
     ConstructorBytes.list_0: [],
     ConstructorBytes.ulong_0: 0,
 }
-
-
-PERFORMATIVES = {
-    0x00000010: OpenFrame,
-    0x00000011: BeginFrame,
-    0x00000012: AttachFrame,
-    0x00000013: FlowFrame,
-    0x00000014: TransferFrame,
-    0x00000015: DispositionFrame,
-    0x00000016: DetachFrame,
-    0x00000017: EndFrame,
-    0x00000018: CloseFrame,
-    0x00000040: SASLMechanism,
-    0x00000041: SASLInit,
-    0x00000042: SASLChallenge,
-    0x00000043: SASLResponse,
-    0x00000044: SASLOutcome
-}
-
-
-# COMPOSITES = {
-#     0x00000023: Received,
-#     0x00000024: Accepted,
-#     0x00000025: Rejected,
-#     0x00000026: Released,
-#     0x00000027: Modified,
-#     0x00000028: Source,
-#     0x00000029: Target,
-#     0x0000001d: AMQPError,
-# }
 
 COMPOSITES = {
     0x00000023: 'received',
@@ -332,49 +296,15 @@ def decode_payload(buffer):
             break  # Finished stream
     return message
 
-def py_decode_frame(data):
+
+def decode_frame(data):
     buffer = BytesIO(data)
     _ = buffer.read(1)  # First byte is always described type constructor
     frame_type = decode_value(buffer)
     fields = decode_value(buffer)
-
-    #frame_obj = PERFORMATIVES[frame_type]
     if frame_type == 0x00000014:
         fields.append(decode_payload(buffer))
     return frame_type, fields
-
-
-def decode_frame(size, data):
-    # type: (int, memoryview) -> namedtuple
-    #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
-    if c_decode_frame:
-        c_decoder = c_decode_frame(size, data.tobytes())
-        frame_type, fields = c_decoder.decoded_frame
-        frame_obj = PERFORMATIVES[frame_type]
-        if frame_obj == TransferFrame:
-            fields.append(c_decoder.decoded_payload)
-    else:
-        return py_decode_frame(data)
-
-    return frame_obj(*fields)
-
-
-def decode_pickle_frame(data):
-    # type: (memoryview, int) -> namedtuple
-    #_LOGGER.debug("Incoming bytes: %r", data.tobytes())
-    buffer = BytesIO(data)
-    _ = buffer.read(1)  # First byte is always described type constructor
-    frame_constructor = decode_value(buffer)
-    fields = decode_value(buffer)
-    if frame_constructor == 0x00000014:
-        fields.append(buffer)
-    return (frame_constructor, fields)
-
-
-def construct_frame(channel, frame):
-    constructor, fields = frame
-    return channel, PERFORMATIVES[constructor](*fields)
-
 
 
 _DECODE_MAP = {

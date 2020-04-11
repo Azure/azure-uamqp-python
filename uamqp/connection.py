@@ -142,36 +142,16 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    def _read_frame_batch(self, batch_size, wait=True, **kwargs):
-        if self._can_read():
-            if wait == False:
-                received = self.transport.receive_frame_batch(batch_size, **kwargs)
-            elif wait == True:
-                with self.transport.block():
-                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
-            else:
-                with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame_batch(batch_size, **kwargs)
-     
-            if received:
-                self.last_frame_received_time = time.time()
-            return received
-        _LOGGER.warning("Cannot read frame in current state: %r", self.state)
-
     def _read_frame(self, wait=True, **kwargs):
         if self._can_read():
             if wait == False:
-                received = self.transport.receive_frame(**kwargs)
+                return self.transport.receive_frame(**kwargs)
             elif wait == True:
                 with self.transport.block():
-                    received = self.transport.receive_frame(**kwargs)
+                    return self.transport.receive_frame(**kwargs)
             else:
                 with self.transport.block_with_timeout(timeout=wait):
-                    received = self.transport.receive_frame(**kwargs)
-     
-            if received[1]:
-                self.last_frame_received_time = time.time()
-            return received
+                    return self.transport.receive_frame(**kwargs)
         _LOGGER.warning("Cannot read frame in current state: %r", self.state)
 
     def _can_write(self):
@@ -306,6 +286,7 @@ class Connection(object):
         except TypeError:
             return False  # Empty Frame or socket timeout
         try:
+            self.last_frame_received_time = time.time()
             if performative == 0x00000014:
                 self.incoming_endpoints[channel]._incoming_transfer(fields)
                 return False

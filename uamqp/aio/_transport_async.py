@@ -15,14 +15,13 @@ import logging
 from threading import Lock
 
 import certifi
-from uamqp_encoder.decode import decode_frame, decode_empty_frame, decode_pickle_frame, construct_frame
 
 from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from .._encode import encode_frame
+from .._decode import decode_frame, decode_empty_frame
 from ..performatives import HeaderFrame, TLSHeaderFrame
 from .._transport import (
     unpack_frame_header,
-    decode_response,
     get_errno,
     to_host_port,
     DEFAULT_SOCKET_SETTINGS,
@@ -275,7 +274,7 @@ class AsyncTransport(object):
                 read_frame_buffer.write(frame_header)
                 size, offset, frame_type, channel = unpack(frame_header)
                 if not size:
-                    return frame_header, channel, None, None  # Empty frame or header
+                    return frame_header, channel, None  # Empty frame or header
 
                 # >I is an unsigned int, but the argument to sock.recv is signed,
                 # so we know the size can be at most 2 * SIGNED_INT_MAX
@@ -300,7 +299,7 @@ class AsyncTransport(object):
                     self.connected = False
                 raise
             offset -= 2
-        return frame_header, channel, payload[offset:], payload_size - offset
+        return frame_header, channel, payload[offset:]
 
     async def write(self, s):
         try:
@@ -314,11 +313,11 @@ class AsyncTransport(object):
 
     async def receive_frame(self, *args, **kwargs):
         try:
-            header, channel, payload, size = await self.read(**kwargs) 
+            header, channel, payload = await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(size, payload)
+                decoded = decode_frame(payload)
             # TODO: Catch decode error and return amqp:decode-error
             _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
@@ -328,29 +327,14 @@ class AsyncTransport(object):
     async def receive_frame_with_lock(self, *args, **kwargs):
         try:
             async with self.socket_lock:
-                header, channel, payload, size = await self.read(**kwargs) 
+                header, channel, payload, await self.read(**kwargs) 
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
-                decoded = decode_frame(size, payload)
+                decoded = decode_frame(payload)
             return channel, decoded
         except socket.timeout:
             return None, None
-
-    def receive_frame_batch(self, batch, **kwargs):
-        #if self.thread_pool:
-        #    return self.thread_pool.map(self.receive_frame_with_lock, range(batch))
-        frames = []
-        while len(frames) < batch:
-            try:
-                header, channel, payload, size = self.read(**kwargs) 
-                frames.append((header.tobytes(), channel, payload.tobytes()))
-            except (socket.timeout, asyncio.IncompleteReadError):
-                break
-        if self.thread_pool:
-            return (construct_frame(*f) for f in self.thread_pool.map(decode_proc_response, frames, chunksize=10))
-        else:
-            return (decode_response(f) for f in frames)
 
     async def send_frame(self, channel, frame, **kwargs):
         header, performative = encode_frame(frame, **kwargs)
