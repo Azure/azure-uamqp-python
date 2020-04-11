@@ -974,7 +974,9 @@ class FrameDecoder(object):
             self._frame_fields = value
     
     def output(self):
-        return (self._frame_type, self._frame_fields, self._payload)
+        if self._payload:
+            self._frame_fields.append(self._payload)
+        return (self._frame_type, self._frame_fields)
 
 
 cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
