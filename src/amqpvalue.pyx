@@ -952,38 +952,62 @@ cdef class DescribedValue(AMQPValue):
             return described.value
 
 
-class FrameDecoder(object):
+cdef class cFrameDecoder(object):
 
-    def __init__(self):
-        self._frame_type = None
-        self._frame_fields = None
-        self._payload = {}
-    
-    def decode(self, descriptor, value):
-        if self._frame_type:
-            section_type = _MESSAGE_SECTIONS[descriptor]
-            if section_type == 'data':
-                try:
-                    self._payload[section_type].append(value)
-                except KeyError:
-                    self._payload[section_type] = [value]
-            else:
-                self._payload[section_type] = value
-        else:
-            self._frame_type = descriptor
-            self._frame_fields = value
-    
-    def output(self):
-        if self._payload:
-            self._frame_fields.append(self._payload)
-        return (self._frame_type, self._frame_fields)
+    cdef stdint.uint64_t descriptor
+    cdef c_amqpvalue.AMQP_VALUE frame
+    cdef c_amqpvalue.AMQP_VALUE header
+    cdef c_amqpvalue.AMQP_VALUE delivery_annotations
+    cdef c_amqpvalue.AMQP_VALUE message_annotations
+    cdef c_amqpvalue.AMQP_VALUE properties
+    cdef c_amqpvalue.AMQP_VALUE application_properties
+    cdef c_amqpvalue.AMQP_VALUE data
+    cdef c_amqpvalue.AMQP_VALUE sequence
+    cdef c_amqpvalue.AMQP_VALUE value
+    cdef c_amqpvalue.AMQP_VALUE footer
 
 
-cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
+    def __cinit__(self):
+        self.frame = <c_amqpvalue.AMQP_VALUE>NULL
+        self.header = <c_amqpvalue.AMQP_VALUE>NULL
+        self.delivery_annotations = <c_amqpvalue.AMQP_VALUE>NULL
+        self.message_annotations = <c_amqpvalue.AMQP_VALUE>NULL
+        self.properties = <c_amqpvalue.AMQP_VALUE>NULL
+        self.application_properties = <c_amqpvalue.AMQP_VALUE>NULL
+        self.data = <c_amqpvalue.AMQP_VALUE>NULL
+        self.sequence = <c_amqpvalue.AMQP_VALUE>NULL
+        self.value = <c_amqpvalue.AMQP_VALUE>NULL
+        self.footer = <c_amqpvalue.AMQP_VALUE>NULL
+
+    def __dealloc__(self):
+        _logger.debug("Deallocating cFrameDecoder")
+        if <void*>self.frame != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.frame)
+        if <void*>self.header != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.header)
+        if <void*>self.delivery_annotations != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.delivery_annotations)
+        if <void*>self.message_annotations != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.message_annotations)
+        if <void*>self.properties != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.properties)
+        if <void*>self.application_properties != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.application_properties)
+        if <void*>self.data != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.data)
+        if <void*>self.sequence != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.sequence)
+        if <void*>self.value != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.value)
+        if <void*>self.footer != NULL:
+            c_amqpvalue.amqpvalue_destroy(self.footer)
+
+
+cpdef cFrameDecoder decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
     cdef c_amqpvalue.AMQPVALUE_DECODER_HANDLE amqpvalue_decoder
 
-    frame = FrameDecoder()
-    amqpvalue_decoder = c_amqpvalue.amqpvalue_decoder_create(<c_amqpvalue.ON_VALUE_DECODED>decode_frame_data, <void*>frame);
+    frame_decoder = cFrameDecoder()
+    amqpvalue_decoder = c_amqpvalue.amqpvalue_decoder_create(<c_amqpvalue.ON_VALUE_DECODED>decode_frame_data, <void*>frame_decoder);
     if <void*>amqpvalue_decoder == NULL:
         raise MemoryError("Cannot create AMQP value decoder")
     else:
@@ -991,10 +1015,45 @@ cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_by
             raise ValueError("Cannot decode bytes")
 
         c_amqpvalue.amqpvalue_decoder_destroy(amqpvalue_decoder)
-    return frame.output()
+    return frame_decoder
 
 
 cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
-    decoded_frame = <object>context
-    described_frame = value_factory(decoded_value)
-    decoded_frame.decode(described_frame.description, described_frame.value)
+    frame_decoder = <cFrameDecoder>context
+    cdef stdint.uint64_t ulong_descriptor
+    cdef c_amqpvalue.AMQP_VALUE descriptor
+    cdef c_amqpvalue.AMQP_VALUE described
+
+    descriptor = c_amqpvalue.amqpvalue_get_inplace_descriptor(decoded_value)
+    described = c_amqpvalue.amqpvalue_get_inplace_described_value(decoded_value)
+    if <void*>described == NULL:
+        _logger.debug("Could extract described value.")
+        return
+
+    if c_amqpvalue.amqpvalue_get_ulong(descriptor, &ulong_descriptor) != 0:
+        _logger.debug("Could extract descriptor value.")
+        return
+    
+    if ulong_descriptor == 112:
+        frame_decoder.header = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 113:
+        frame_decoder.delivery_annotations = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 114:
+        frame_decoder.message_annotations = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 115:
+        frame_decoder.properties = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 116:
+        frame_decoder.application_properties = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 117:
+        frame_decoder.data = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 118:
+        frame_decoder.sequence = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 119:
+        frame_decoder.value = c_amqpvalue.amqpvalue_clone(described)
+    elif ulong_descriptor == 120:
+        frame_decoder.footer = c_amqpvalue.amqpvalue_clone(described)
+    else:
+        frame_decoder.descriptor = ulong_descriptor
+        frame_decoder.frame = c_amqpvalue.amqpvalue_clone(described)
+
+    
