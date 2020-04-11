@@ -93,7 +93,6 @@ class AMQPType(Enum):
 
 cdef value_factory(c_amqpvalue.AMQP_VALUE value):
     type_val = get_amqp_value_type(value)
-    _logger.debug("Wrapping value type: %r", type_val)
     if type_val == AMQPType.NullValue:
         new_obj = AMQPValue()
     elif type_val == AMQPType.BoolValue:
@@ -337,7 +336,6 @@ cdef class AMQPValue(object):
             self._c_value = <c_amqpvalue.AMQP_VALUE>NULL
 
     cdef wrap(self, c_amqpvalue.AMQP_VALUE value):
-        self.destroy()
         self._c_value = value
         self._validate()
 
@@ -981,52 +979,52 @@ cdef class cFrameDecoder(object):
 
     def __dealloc__(self):
         _logger.debug("Deallocating cFrameDecoder")
-        if <void*>self.frame != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.frame)
-        if <void*>self.header != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.header)
-        if <void*>self.delivery_annotations != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.delivery_annotations)
-        if <void*>self.message_annotations != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.message_annotations)
-        if <void*>self.properties != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.properties)
-        if <void*>self.application_properties != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.application_properties)
-        if <void*>self.data != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.data)
-        if <void*>self.sequence != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.sequence)
-        if <void*>self.value != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.value)
-        if <void*>self.footer != NULL:
-            c_amqpvalue.amqpvalue_destroy(self.footer)
+#        if <void*>self.frame != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.frame)
+#        if <void*>self.header != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.header)
+#        if <void*>self.delivery_annotations != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.delivery_annotations)
+#        if <void*>self.message_annotations != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.message_annotations)
+#        if <void*>self.properties != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.properties)
+#        if <void*>self.application_properties != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.application_properties)
+#        if <void*>self.data != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.data)
+#        if <void*>self.sequence != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.sequence)
+#        if <void*>self.value != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.value)
+#        if <void*>self.footer != NULL:
+#            c_amqpvalue.amqpvalue_destroy(self.footer)
     
     @property
     def decoded_frame(self):
-        return self.descriptor, self.frame.value
+        return self.descriptor, value_factory(self.frame).value
     
     @property
     def decoded_payload(self):
         payload = {}
         if <void*>self.header != NULL:
-            payload['header'] = self.header.value
+            payload['header'] = value_factory(self.header).value
         if <void*>self.delivery_annotations != NULL:
-            payload['delivery_annotations'] = self.delivery_annotations.value
+            payload['delivery_annotations'] = value_factory(self.delivery_annotations).value
         if <void*>self.message_annotations != NULL:
-            payload['message_annotations'] = self.message_annotations.value
+            payload['message_annotations'] = value_factory(self.message_annotations).value
         if <void*>self.properties != NULL:
-            payload['properties'] = self.properties.value
+            payload['properties'] = value_factory(self.properties).value
         if <void*>self.application_properties != NULL:
-            payload['application_properties'] = self.application_properties.value
+            payload['application_properties'] = value_factory(self.application_properties).value
         if <void*>self.data != NULL:
-            payload['data'] = self.data.value
+            payload['data'] = value_factory(self.data).value
         if <void*>self.sequence != NULL:
-            payload['sequence'] = self.sequence.value
+            payload['sequence'] = value_factory(self.sequence).value
         if <void*>self.value != NULL:
-            payload['value'] = self.value.value
+            payload['value'] = value_factory(self.value).value
         if <void*>self.footer != NULL:
-            payload['footer'] = self.footer.value
+            payload['footer'] = value_factory(self.footer).value
         return payload
 
 
