@@ -168,7 +168,7 @@ class _AbstractTransport(object):
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
             # has _not_ been sent
             self.connected = True
-            self.thread_pool = ProcessPoolExecutor(max_workers=5)
+            self.thread_pool = None #ProcessPoolExecutor(max_workers=5)
         except (OSError, IOError, SSLError):
             # if not fully connected, close socket, and reraise error
             if self.sock and not self.connected:
@@ -371,7 +371,8 @@ class _AbstractTransport(object):
         raise NotImplementedError('Must be overriden in subclass')
 
     def close(self):
-        self.thread_pool.shutdown()
+        if self.thread_pool:
+            self.thread_pool.shutdown()
         if self.sock is not None:
             self._shutdown_transport()
             # Call shutdown first to make sure that pending messages
