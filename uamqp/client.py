@@ -135,7 +135,7 @@ class AMQPClient(object):
         """
         return True
 
-    def _client_run(self):
+    def _client_run(self, **kwargs):
         """Perform a single Connection iteration."""
         self._connection.listen(wait=self._socket_timeout)
 
@@ -434,7 +434,7 @@ class ReceiveClient(AMQPClient):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work()
+            receiving = self.do_work(batch=max_batch_size)
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())

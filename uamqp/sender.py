@@ -61,19 +61,16 @@ class SenderLink(Link):
         super(SenderLink, self).__init__(session, handle, name, role, target_address=target_address, **kwargs)
         self._unsent_messages = []
 
-    def _evaluate_status(self):
-        super(SenderLink, self)._evaluate_status()
-        self._update_pending_delivery_status()
-
     def _incoming_attach(self, frame):
         super(SenderLink, self)._incoming_attach(frame)
-        self.current_link_credit = 0
-        self._evaluate_status()
+        self.current_link_credit = self.link_credit
+        self._outgoing_flow()
+        self._update_pending_delivery_status()
 
     def _incoming_flow(self, frame):
-        rcv_link_credit = frame.link_credit
-        rcv_delivery_count = frame.delivery_count
-        if frame.handle:
+        rcv_link_credit = frame[6]  # link_credit
+        rcv_delivery_count = frame[5]  # delivery_count
+        if frame[4]:  # handle
             if rcv_link_credit is None or rcv_delivery_count is None:
                 _LOGGER.info("Unable to get link-credit or delivery-count from incoming ATTACH. Detaching link.")
                 self._remove_pending_deliveries()
@@ -109,19 +106,21 @@ class SenderLink(Link):
                 self._pending_deliveries[delivery.frame['delivery_id']] = delivery
         elif delivery.transfer_state == SessionTransferState.Error:
             raise ValueError("Message failed to send")
+        if self.current_link_credit <= 0:
+            self.current_link_credit = self.link_credit
+            self._outgoing_flow()
 
     def _incoming_disposition(self, frame):
-        if not frame.settled:
+        if not frame[3]:  # settled
             return
-        range_end = (frame.last or frame.first) + 1
-        settled_ids = [i for i in range(frame.first, range_end)]
+        range_end = (frame[2] or frame[1]) + 1  # first or last
+        settled_ids = [i for i in range(frame[1], range_end)]
         for settled_id in settled_ids:
             delivery = self._pending_deliveries.pop(settled_id, None)
             if delivery:
-                delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame.state)
+                delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame[4])  # state
 
-
-    def _update_pending_delivery_status(self):
+    def _update_pending_delivery_status(self):  # TODO
         now = time.time()
         expired = []
         for delivery in self._pending_deliveries.values():

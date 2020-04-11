@@ -117,11 +117,6 @@ class Link(object):
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Link state change callback failed: '{}'".format(e))
 
-    def _evaluate_status(self):
-        if self.current_link_credit <= 0:
-            self.current_link_credit = self.link_credit
-            self._outgoing_flow()
-
     def _remove_pending_deliveries(self):  # TODO: move to sender
         for delivery in self._pending_deliveries.values():
             delivery.on_settled(LinkDeliverySettleReason.NotDelivered, None)
@@ -159,18 +154,18 @@ class Link(object):
     def _incoming_attach(self, frame):
         if self._is_closed:
             raise ValueError("Invalid link")
-        elif not frame.source or not frame.target:  # TODO: not sure if we should check here
+        elif not frame[5] or not frame[6]:  # TODO: not sure if we should source + target check here
             _LOGGER.info("Cannot get source or target. Detaching link")
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
             raise ValueError("Invalid link")
-        self.remote_handle = frame.handle
-        self.remote_max_message_size = frame.max_message_size
-        self.offered_capabilities = frame.offered_capabilities
+        self.remote_handle = frame[1]  # handle
+        self.remote_max_message_size = frame[10]  # max_message_size
+        self.offered_capabilities = frame[11]  # offered_capabilities
         if self.properties:
-            self.properties.update(frame.properties)
+            self.properties.update(frame[13])  # properties
         else:
-            self.properties = frame.properties
+            self.properties = frame[13]
         if self.state == LinkState.DETACHED:
             self._set_state(LinkState.ATTACH_RCVD)
         elif self.state == LinkState.ATTACH_SENT:
@@ -199,15 +194,15 @@ class Link(object):
 
     def _incoming_detach(self, frame):
         if self.state == LinkState.ATTACHED:
-            self._outgoing_detach(close=frame.closed)
-        elif frame.closed and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
+            self._outgoing_detach(close=frame[1])  # closed
+        elif frame[1] and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
             # Received a closing detach after we sent a non-closing detach.
             # In this case, we MUST signal that we closed by reattaching and then sending a closing detach.
             self._outgoing_attach()
             self._outgoing_detach(close=True)
         self._remove_pending_deliveries()
         # TODO: on_detach_hook
-        if frame.error:
+        if frame[2]:  # error
             self._set_state(LinkState.ERROR)
         else:
             self._set_state(LinkState.DETACHED)

@@ -86,7 +86,7 @@ class SASLTransport(SSLTransport):
                     SASLHeaderFrame._code, returned_header._code))
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
-            if self.credential.mechanism not in supported_mechansisms.sasl_server_mechanisms:
+            if self.credential.mechanism not in supported_mechansisms[1][0]:  # sasl_server_mechanisms
                 raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
             sasl_init = SASLInit(
                 mechanism=self.credential.mechanism,
@@ -95,10 +95,10 @@ class SASLTransport(SSLTransport):
             self.send_frame(0, sasl_init, frame_type=_SASL_FRAME_TYPE)
 
             _, next_frame = self.receive_frame(verify_frame_type=1)
-            if not isinstance(next_frame, SASLOutcome):
+            frame_type, fields = next_frame
+            if frame_type != 0x00000044:  # SASLOutcome
                 raise NotImplementedError("Unsupported SASL challenge")
-            if next_frame.code == SASLCode.Ok:
+            if fields[0] == SASLCode.Ok:  # code
                 return
             else:
-                raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(
-                    next_frame.code, next_frame.additional_data))
+                raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields))

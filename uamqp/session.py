@@ -96,10 +96,6 @@ class Session(object):
         for link in self.links.values():
             link._on_session_state_change()
 
-    def _evaluate_status(self):
-        for link in self.links.values():
-            link._evaluate_status()
-
     def _on_connection_state_change(self):
         if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
             if self.state not in [SessionState.DISCARDING, SessionState.UNMAPPED]:
@@ -132,12 +128,12 @@ class Session(object):
         self._connection._process_outgoing_frame(self.channel, begin_frame)
 
     def _incoming_begin(self, frame):
-        self.handle_max = frame.handle_max
-        self.next_incoming_id = frame.next_outgoing_id
-        self.remote_incoming_window = frame.incoming_window
-        self.remote_outgoing_window = frame.outgoing_window
+        self.handle_max = frame[4]  # handle_max
+        self.next_incoming_id = frame[1]  # next_outgoing_id
+        self.remote_incoming_window = frame[2]  # incoming_window
+        self.remote_outgoing_window = frame[3]  # outgoing_window
         if self.state == SessionState.BEGIN_SENT:
-            self.remote_channel = frame.remote_channel
+            self.remote_channel = frame[0]  # remote_channel
             self._set_state(SessionState.MAPPED)
         elif self.state == SessionState.UNMAPPED:
             self._set_state(SessionState.BEGIN_RCVD)
@@ -160,18 +156,18 @@ class Session(object):
 
     def _incoming_attach(self, frame):
         try:
-            self._input_handles[frame.handle] = self.links[frame.name]
-            self._input_handles[frame.handle]._incoming_attach(frame)
+            self._input_handles[frame[1]] = self.links[frame[0]]  # name and handle
+            self._input_handles[frame[1]]._incoming_attach(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
-            if frame.role == Role.Sender:
+            if frame[2] == Role.Sender:  # role
                 new_link = ReceiverLink.from_incoming_frame(self, outgoing_handle, frame)
             else:
                 new_link = SenderLink.from_incoming_frame(self, outgoing_handle, frame)
             new_link._incoming_attach(frame)
-            self.links[frame.name] = new_link
+            self.links[frame[0]] = new_link
             self._output_handles[outgoing_handle] = new_link
-            self._input_handles[frame.handle] = new_link
+            self._input_handles[frame[1]] = new_link
         except ValueError:
             pass  # TODO: Reject link
     
@@ -186,12 +182,12 @@ class Session(object):
         self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
 
     def _incoming_flow(self, frame):
-        self.next_incoming_id = frame.next_outgoing_id
-        remote_incoming_id = frame.next_incoming_id or self.next_outgoing_id  # TODO "initial-outgoing-id"
-        self.remote_incoming_window = remote_incoming_id + frame.incoming_window - self.next_outgoing_id
-        self.remote_outgoing_window = frame.outgoing_window
-        if frame.handle:
-            self._input_handles[frame.handle]._incoming_flow(frame)
+        self.next_incoming_id = frame[2]  # next_outgoing_id
+        remote_incoming_id = frame[0] or self.next_outgoing_id  #  next_incoming_id  TODO "initial-outgoing-id"
+        self.remote_incoming_window = remote_incoming_id + frame[1] - self.next_outgoing_id  # incoming_window
+        self.remote_outgoing_window = frame[3]  # outgoing_window
+        if frame[4]:  # handle
+            self._input_handles[frame[4]]._incoming_flow(frame)
         else:
             for link in self._output_handles.values():
                 if self.remote_incoming_window > 0 and not link._is_closed:
@@ -216,7 +212,7 @@ class Session(object):
         self.remote_outgoing_window -= 1
         self.incoming_window -= 1
         try:
-            self._input_handles[frame.handle]._incoming_transfer(frame)
+            self._input_handles[frame[0]]._incoming_transfer(frame)  # handle
         except KeyError:
             pass  #TODO: "unattached handle"
         if self.incoming_window == 0:
@@ -235,7 +231,7 @@ class Session(object):
 
     def _incoming_detach(self, frame):
         try:
-            link = self._input_handles[frame.handle]
+            link = self._input_handles[frame[0]]  # handle
             link._incoming_detach(frame)
             # if link._is_closed:  TODO
             #     self.links.pop(link.name, None)

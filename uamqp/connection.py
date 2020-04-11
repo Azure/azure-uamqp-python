@@ -241,13 +241,13 @@ class Connection(object):
         if self.state == ConnectionState.OPENED:
             _LOGGER.error("OPEN frame received in the OPENED state.")
             self.close()
-        if frame.idle_timeout:
-            self.remote_idle_timeout = frame.idle_timeout/1000  # Convert to seconds
+        if frame[4]:  # idle_timeout
+            self.remote_idle_timeout = frame[4]/1000  # Convert to seconds
             self.remote_idle_timeout_send_frame = self.idle_timeout_empty_frame_send_ratio * self.remote_idle_timeout
 
-        if frame.max_frame_size < 512:
+        if frame[2] < 512:  # max_frame_size
             pass  # TODO: error
-        self.remote_max_frame_size = frame.max_frame_size
+        self.remote_max_frame_size = frame[2]
         if self.state == ConnectionState.OPEN_SENT:
             self._set_state(ConnectionState.OPENED)
         elif self.state == ConnectionState.HDR_EXCH:
@@ -275,8 +275,8 @@ class Connection(object):
             return
         if channel > self.channel_max:
             _LOGGER.error("Invalid channel")
-        if frame.error:
-            _LOGGER.error("Connection error: {}".format(frame.error))
+        if frame[0]:  # error
+            _LOGGER.error("Connection error: {}".format(frame[0]))
         self._set_state(ConnectionState.CLOSE_RCVD)
         self._outgoing_close()
         self._disconnect()
@@ -284,7 +284,7 @@ class Connection(object):
 
     def _incoming_begin(self, channel, frame):
         try:
-            existing_session = self.outgoing_endpoints[frame.remote_channel]
+            existing_session = self.outgoing_endpoints[frame[0]]  # remote_channel
             self.incoming_endpoints[channel] = existing_session
             self.incoming_endpoints[channel]._incoming_begin(frame)
         except KeyError:
@@ -302,20 +302,42 @@ class Connection(object):
 
     def _process_incoming_frame(self, channel, frame):
         try:
-            process = '_incoming_' + frame.__class__.__name__
-            getattr(self, process)(channel, frame)
-            return
-        except AttributeError:
-            pass
+            performative, fields = frame
+        except TypeError:
+            return False  # Empty Frame or socket timeout
         try:
-            getattr(self.incoming_endpoints[channel], process)(frame)
-            return
-        except NameError:
-            return  # Empty Frame or socket timeout
+            if performative == 0x00000014:
+                self.incoming_endpoints[channel]._incoming_transfer(fields)
+                return False
+            if performative == 0x00000015:
+                self.incoming_endpoints[channel]._incoming_disposition(fields)
+                return False
+            if performative == 0x00000013:
+                self.incoming_endpoints[channel]._incoming_flow(fields)
+                return False
+            if performative == 0x00000012:
+                self.incoming_endpoints[channel]._incoming_attach(fields)
+                return False
+            if performative == 0x00000016:
+                self.incoming_endpoints[channel]._incoming_detach(fields)
+                return True
+            if performative == 0x00000011:
+                self._incoming_begin(channel, fields)
+                return True
+            if performative == 0x00000017:
+                self._incoming_end(channel, fields)
+                return True
+            if performative == 0x00000010:
+                self._incoming_open(channel, fields)
+                return True
+            if performative == 0x00000018:
+                self._incoming_close(channel, fields)
+                return True
+            else:
+                _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+                return True
         except KeyError:
-            pass  #TODO: channel error
-        except AttributeError:
-            _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+            return True  #TODO: channel error
 
     def _process_outgoing_frame(self, channel, frame):
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
@@ -353,22 +375,17 @@ class Connection(object):
                 time.sleep(self.idle_wait_time)
                 self.listen(wait=False)
 
-    def listen(self, wait=False, batch=None, **kwargs):
+    def listen(self, wait=False, batch=1, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
-        if batch:
-            new_frames = self._read_frame_batch(batch, wait=wait, **kwargs)
-        else:
-            new_frame = self._read_frame(wait=wait, batch=batch, **kwargs)
-            new_frames = [new_frame]
+        for _ in range(batch):
+            new_frame = self._read_frame(wait=wait, **kwargs)
             if not new_frame:
                 raise ValueError("Connection closed.")
-        for new_frame in new_frames:
-            self._process_incoming_frame(*new_frame)
+            if self._process_incoming_frame(*new_frame):
+                break
         if self.state not in _CLOSING_STATES:
             now = time.time()
-            for session in self.outgoing_endpoints.values():
-                session._evaluate_status()
             if self._get_local_timeout(now) or self._get_remote_timeout(now):
                 self.close(error=None, wait=False)
 
