@@ -909,7 +909,7 @@ cdef class DescribedValue(AMQPValue):
         cloned = c_amqpvalue.amqpvalue_clone(value)
         if <void*>cloned == NULL:
             self._value_error()
-        return value_factory(cloned)
+        return value_factory(cloned).value
 
     @property
     def data(self):
@@ -926,9 +926,8 @@ cdef class DescribedValue(AMQPValue):
     @property
     def value(self):
         assert self.type
-        descriptor = self.description
         described = self.data
-        return (descriptor.value, described.value)
+        return described.value
 
 class FrameDecoder(object):
 
@@ -965,5 +964,5 @@ cpdef decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_by
 
 cdef void decode_frame_data(void* context, c_amqpvalue.AMQP_VALUE decoded_value):
     decoded_frame = <object>context
-    descriptor, frame = value_factory(decoded_value).value
-    decoded_frame.decode(descriptor, frame)
+    described_frame = value_factory(decoded_value)
+    decoded_frame.decode(described_frame.description, described_frame.value)
