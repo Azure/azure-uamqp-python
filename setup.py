@@ -52,7 +52,10 @@ include_dirs = [
     "./src/vendor/azure-uamqp-c/inc",
 ]
 if is_win and is_27:
+    print("INCLUDING WINDOWSCE DIR")
     include_dirs.append("./src/vendor/azure-uamqp-c/windowsce")
+else:
+    print("NOT INCLUDING EXTRAS", is_win, is_27)
 
 # Build unique source pyx
 
