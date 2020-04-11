@@ -1001,6 +1001,33 @@ cdef class cFrameDecoder(object):
             c_amqpvalue.amqpvalue_destroy(self.value)
         if <void*>self.footer != NULL:
             c_amqpvalue.amqpvalue_destroy(self.footer)
+    
+    @property
+    def decoded_frame(self):
+        return self.descriptor, self.frame.value
+    
+    @property
+    def decoded_payload(self):
+        payload = {}
+        if <void*>self.header != NULL:
+            payload['header'] = self.header.value
+        if <void*>self.delivery_annotations != NULL:
+            payload['delivery_annotations'] = self.delivery_annotations.value
+        if <void*>self.message_annotations != NULL:
+            payload['message_annotations'] = self.message_annotations.value
+        if <void*>self.properties != NULL:
+            payload['properties'] = self.properties.value
+        if <void*>self.application_properties != NULL:
+            payload['application_properties'] = self.application_properties.value
+        if <void*>self.data != NULL:
+            payload['data'] = self.data.value
+        if <void*>self.sequence != NULL:
+            payload['sequence'] = self.sequence.value
+        if <void*>self.value != NULL:
+            payload['value'] = self.value.value
+        if <void*>self.footer != NULL:
+            payload['footer'] = self.footer.value
+        return None
 
 
 cpdef cFrameDecoder decode_frame(stdint.uint32_t payload_size, const unsigned char* payload_bytes):
