@@ -45,17 +45,9 @@ cwd = os.path.abspath('.')
 
 pxd_inc_dir = os.path.join(cwd, "src", "vendor", "inc")
 sys.path.insert(0, pxd_inc_dir)
-
-include_dirs = [
-    pxd_inc_dir,
-    # azure-uamqp-c inc
-    "./src/vendor/azure-uamqp-c/inc",
-]
+include_dirs = [pxd_inc_dir, "./src/vendor/azure-uamqp-c/inc"]
 if is_win and is_27:
-    print("INCLUDING WINDOWSCE DIR")
-    include_dirs.append("./src/vendor/azure-uamqp-c/windowsce")
-else:
-    print("NOT INCLUDING EXTRAS", is_win, is_27)
+    include_dirs.insert(1, "./src/vendor/azure-uamqp-c/windowsce")
 
 # Build unique source pyx
 
