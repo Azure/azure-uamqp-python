@@ -12,7 +12,7 @@ import logging
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
 try:
-    from uamqp_encoder.c_uamqp import c_decode_frame
+    from uamqp_encoder.c_uamqp import decode_frame as c_decode_frame
 except ImportError:
     c_decode_frame = None
 
@@ -79,15 +79,24 @@ PERFORMATIVES = {
     0x00000044: SASLOutcome
 }
 
+
+# COMPOSITES = {
+#     0x00000023: Received,
+#     0x00000024: Accepted,
+#     0x00000025: Rejected,
+#     0x00000026: Released,
+#     0x00000027: Modified,
+#     0x00000028: Source,
+#     0x00000029: Target,
+#     0x0000001d: AMQPError,
+# }
+
 COMPOSITES = {
-    0x00000023: Received,
-    0x00000024: Accepted,
-    0x00000025: Rejected,
-    0x00000026: Released,
-    0x00000027: Modified,
-    0x00000028: Source,
-    0x00000029: Target,
-    0x0000001d: AMQPError,
+    0x00000023: 'received',
+    0x00000024: 'accepted',
+    0x00000025: 'rejected',
+    0x00000026: 'released',
+    0x00000027: 'modified',
 }
 
 
@@ -301,7 +310,7 @@ def decode_described(buffer):
     value = decode_value(buffer)
     try:
         composite_type = COMPOSITES[descriptor]
-        return composite_type(*value)
+        return {composite_type: value}
     except KeyError:
         return value
 

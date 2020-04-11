@@ -8,7 +8,6 @@
 from enum import Enum
 import logging
 import uuid
-import copy
 
 import six
 
@@ -22,6 +21,13 @@ cimport c_amqpvalue
 
 
 _logger = logging.getLogger(__name__)
+_COMPOSITES = {
+    0x00000023: 'received',
+    0x00000024: 'accepted',
+    0x00000025: 'rejected',
+    0x00000026: 'released',
+    0x00000027: 'modified',
+}
 
 
 cdef int encode_bytes_callback(void* context, const unsigned char* encoded_bytes, size_t length):
@@ -652,7 +658,7 @@ cdef class StringValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_string(self._c_value, &_value) == 0:
-            return copy.deepcopy(_value)
+            return _value.decode('utf-8')
         else:
             self._value_error()
 
@@ -670,7 +676,7 @@ cdef class SymbolValue(AMQPValue):
         assert self.type
         cdef const char* _value
         if c_amqpvalue.amqpvalue_get_symbol(self._c_value, &_value) == 0:
-            return copy.deepcopy(_value)
+            return _value
         else:
             self._value_error()
 
@@ -725,7 +731,7 @@ cdef class ListValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(copy.deepcopy(self[i].value))
+            value.append(self[i].value)
         return value
 
 
@@ -778,7 +784,7 @@ cdef class DictValue(AMQPValue):
         value = {}
         for i in range(self.size):
             key, item = self.get(i)
-            value[copy.deepcopy(key.value)] = copy.deepcopy(item.value)
+            value[key.value] = item.value
         return value
 
 
@@ -823,7 +829,7 @@ cdef class ArrayValue(AMQPValue):
         assert self.type
         value = []
         for i in range(self.size):
-            value.append(copy.deepcopy(self[i].value))
+            value.append(self[i].value)
         return value
 
 
@@ -926,8 +932,14 @@ cdef class DescribedValue(AMQPValue):
     @property
     def value(self):
         assert self.type
+        descriptor = self.description
         described = self.data
-        return described.value
+        try:
+            composite_type = _COMPOSITES[descriptor]
+            return {composite_type: described.value}
+        except KeyError:
+            return described.value
+
 
 class FrameDecoder(object):
 
