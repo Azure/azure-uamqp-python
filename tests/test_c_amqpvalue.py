@@ -144,7 +144,7 @@ def test_binary_value():
 
 def test_string_value():
     value = c_uamqp.string_value('Test'.encode('utf-8'))
-    assert value.value == b'Test'
+    assert value.value == 'Test'
     assert value.type == c_uamqp.AMQPType.StringValue
 
 
@@ -198,7 +198,7 @@ def test_dict_value():
     with pytest.raises(IndexError):
         value.get(2)
     
-    assert value.value == {b"One": 1, b"Two": 2}
+    assert value.value == {"One": 1, "Two": 2}
 
 
 def test_array_value():
