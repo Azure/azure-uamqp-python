@@ -17,7 +17,6 @@ except ImportError:
     c_decode_frame = None
 
 from uamqp.types import ConstructorBytes
-from uamqp.error import AMQPError
 from uamqp.performatives import (
     HeaderFrame,
     TLSHeaderFrame,
@@ -36,15 +35,7 @@ from uamqp.performatives import (
     SASLChallenge,
     SASLResponse,
     SASLOutcome)
-from uamqp.endpoints import Source, Target
 from uamqp.message import Header, Properties
-from uamqp.outcomes import (
-    Received,
-    Accepted,
-    Rejected,
-    Released,
-    Modified,
-)
 
 
 _LOGGER = logging.getLogger(__name__)
