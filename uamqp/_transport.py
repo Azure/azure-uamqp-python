@@ -71,13 +71,13 @@ DEFAULT_SOCKET_SETTINGS = {
 
 
 def unpack_frame_header(data):
-    if data[0:4] == b'AMQP':  # AMQP header negotiation
+    size = data[0:4]
+    if size == b'AMQP':  # AMQP header negotiation
         size = None
     else:
-        size = struct.unpack('>I', data[0:4])[0]
-
-    offset = struct.unpack('>B', data[4:5])[0]
-    frame_type = struct.unpack('>B', data[5:6])[0]
+        size = struct.unpack('>I', size)[0]
+    offset = data[4]
+    frame_type = data[5]
     channel = struct.unpack('>H', data[6:])[0]
     return (size, offset, frame_type, channel)
 
