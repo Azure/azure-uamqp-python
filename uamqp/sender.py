@@ -70,7 +70,7 @@ class SenderLink(Link):
     def _incoming_flow(self, frame):
         rcv_link_credit = frame[6]  # link_credit
         rcv_delivery_count = frame[5]  # delivery_count
-        if frame[4]:  # handle
+        if frame[4] is not None:  # handle
             if rcv_link_credit is None or rcv_delivery_count is None:
                 _LOGGER.info("Unable to get link-credit or delivery-count from incoming ATTACH. Detaching link.")
                 self._remove_pending_deliveries()

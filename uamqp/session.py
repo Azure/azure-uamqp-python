@@ -156,7 +156,7 @@ class Session(object):
 
     def _incoming_attach(self, frame):
         try:
-            self._input_handles[frame[1]] = self.links[frame[0]]  # name and handle
+            self._input_handles[frame[1]] = self.links[frame[0].decode('utf-8')]  # name and handle
             self._input_handles[frame[1]]._incoming_attach(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
