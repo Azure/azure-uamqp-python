@@ -7,9 +7,8 @@
 
 import struct
 import uuid
-from io import BytesIO
 import logging
-from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
+from typing import List, Union, Tuple, Dict, Callable  # pylint: disable=unused-import
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,143 +35,129 @@ c_double = struct.Struct('>d')
 
 
 def _decode_null(buffer):
+    # type: (memoryview) -> Tuple[memoryview, None]
     return buffer, None
 
+
 def _decode_true(buffer):
+    # type: (memoryview) -> Tuple[memoryview, bool]
     return buffer, True
 
+
 def _decode_false(buffer):
+    # type: (memoryview) -> Tuple[memoryview, bool]
     return buffer, False
 
+
 def _decode_zero(buffer):
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer, 0
 
+
 def _decode_empty(buffer):
+    # type: (memoryview) -> Tuple[memoryview, List[None]]
     return buffer, []
 
+
 def _decode_boolean(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, bool]
     return buffer[1:], buffer[:1] == b'\x01'
 
 
 def _decode_ubyte(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], buffer[0]
 
 
 def _decode_ushort(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[2:], c_unsigned_short.unpack(buffer[:2])[0]
 
 
 def _decode_uint_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], buffer[0]
 
 
 def _decode_uint_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[4:], c_unsigned_int.unpack(buffer[:4])[0]
 
 
 def _decode_ulong_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], buffer[0]
 
 
 def _decode_ulong_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[8:], c_unsigned_long_long.unpack(buffer[:8])[0]
 
 
 def _decode_byte(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], c_signed_char.unpack(buffer[:1])[0]
 
 
 def _decode_short(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[2:], c_signed_short.unpack(buffer[:2])[0]
 
 
 def _decode_int_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], c_signed_char.unpack(buffer[:1])[0]
 
 
 def _decode_int_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[4:], c_signed_int.unpack(buffer[:4])[0]
 
 
 def _decode_long_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[1:], c_signed_char.unpack(buffer[:1])[0]
 
 
 def _decode_long_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[8:], c_signed_long_long.unpack(buffer[:8])[0]
 
 
 def _decode_float(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, float]
     return buffer[4:], c_float.unpack(buffer[:4])[0]
 
 
 def _decode_double(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, float]
     return buffer[8:], c_double.unpack(buffer[:8])[0]
 
 
 def _decode_timestamp(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, int]
     return buffer[8:], c_signed_long_long.unpack(buffer[:8])[0]
 
 
 def _decode_uuid(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, uuid.UUID]
     return buffer[16:], uuid.UUID(bytes=buffer[:16])
 
 
 def _decode_binary_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, bytes]
     length = buffer[0]
     return buffer[1 + length:], buffer[1:1 + length].tobytes() or None
 
 
 def _decode_binary_large(buffer):
-    # type: (Decoder, IO) -> None
-    length = c_unsigned_long.unpack(buffer[:4])[0]
-    return buffer[4 + length:], buffer[4:4 + length].tobytes() or None
-
-
-def _decode_string_small(buffer):  # TODO: Optional decode strings
-    # type: (Decoder, IO) -> None
-    length = buffer[0]
-    return buffer[1 + length:], buffer[1:1 + length].tobytes() or None
-
-
-def _decode_string_large(buffer):
-    # type: (Decoder, IO) -> None
-    length = c_unsigned_long.unpack(buffer[:4])[0]
-    return buffer[4 + length:], buffer[4:4 + length].tobytes() or None
-
-
-def _decode_symbol_small(buffer):
-    # type: (Decoder, IO) -> None
-    length = buffer[0]
-    return buffer[1 + length:], buffer[1:1 + length].tobytes() or None
-
-
-def _decode_symbol_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, bytes]
     length = c_unsigned_long.unpack(buffer[:4])[0]
     return buffer[4 + length:], buffer[4:4 + length].tobytes() or None
 
 
 def _decode_list_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = buffer[1]
     buffer = buffer[2:]
     values = []
@@ -183,7 +168,7 @@ def _decode_list_small(buffer):
 
 
 def _decode_list_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = c_unsigned_long.unpack(buffer[4:8])[0]
     buffer = buffer[8:]
     values = []
@@ -194,7 +179,7 @@ def _decode_list_large(buffer):
 
 
 def _decode_map_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
     count = buffer[1]
     buffer = buffer[2:]
     values = {}
@@ -206,7 +191,7 @@ def _decode_map_small(buffer):
 
 
 def _decode_map_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
     count = c_unsigned_long.unpack(buffer[4:8])[0]
     buffer = buffer[8:]
     values = {}
@@ -218,7 +203,7 @@ def _decode_map_large(buffer):
 
 
 def _decode_array_small(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = buffer[1]
     subconstructor = buffer[2]
     buffer = buffer[3:]
@@ -230,7 +215,7 @@ def _decode_array_small(buffer):
 
 
 def _decode_array_large(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = c_unsigned_long.unpack(buffer[4:8])[0]
     subconstructor = buffer[8]
     buffer = buffer[9:]
@@ -241,7 +226,7 @@ def _decode_array_large(buffer):
     return buffer, values
 
 def _decode_described(buffer):
-    # type: (Decoder, IO) -> None
+    # type: (memoryview) -> Tuple[memoryview, Any]
     buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[2]](buffer[3:])
     try:
         composite_type = _COMPOSITES[buffer[1]]
@@ -292,6 +277,7 @@ def decode_payload(buffer):
 
 
 def decode_frame(data):
+    # type: (memoryview) -> Tuple[int, List[Any]]
     # Ignore the first two bytes, they will always be the constructors for
     # described type then ulong.
     frame_type = data[2]
@@ -333,11 +319,11 @@ _DECODE_BY_CONSTRUCTOR[130] = _decode_double
 _DECODE_BY_CONSTRUCTOR[131] = _decode_timestamp
 _DECODE_BY_CONSTRUCTOR[152] = _decode_uuid
 _DECODE_BY_CONSTRUCTOR[160] = _decode_binary_small
-_DECODE_BY_CONSTRUCTOR[161] = _decode_string_small
-_DECODE_BY_CONSTRUCTOR[163] = _decode_symbol_small
+_DECODE_BY_CONSTRUCTOR[161] = _decode_binary_small
+_DECODE_BY_CONSTRUCTOR[163] = _decode_binary_small
 _DECODE_BY_CONSTRUCTOR[176] = _decode_binary_large
-_DECODE_BY_CONSTRUCTOR[177] = _decode_string_large
-_DECODE_BY_CONSTRUCTOR[179] = _decode_symbol_large
+_DECODE_BY_CONSTRUCTOR[177] = _decode_binary_large
+_DECODE_BY_CONSTRUCTOR[179] = _decode_binary_large
 _DECODE_BY_CONSTRUCTOR[192] = _decode_list_small
 _DECODE_BY_CONSTRUCTOR[193] = _decode_map_small
 _DECODE_BY_CONSTRUCTOR[208] = _decode_list_large
