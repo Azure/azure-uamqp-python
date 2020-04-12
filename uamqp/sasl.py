@@ -9,9 +9,8 @@ from enum import Enum
 
 from ._transport import SSLTransport
 from .types import AMQPTypes, TYPE, VALUE
-from .constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD, SASLCode
+from .constants import FIELD, SASLCode, SASL_HEADER_FRAME
 from .performatives import (
-    SASLHeaderFrame,
     SASLOutcome,
     SASLResponse,
     SASLChallenge,
@@ -79,11 +78,11 @@ class SASLTransport(SSLTransport):
 
     def negotiate(self):
         with self.block():
-            self.send_frame(0, SASLHeaderFrame(), frame_type=_SASL_FRAME_TYPE)
+            self.write(SASL_HEADER_FRAME)
             _, returned_header = self.receive_frame()
-            if not isinstance(returned_header, SASLHeaderFrame):
-                raise ValueError("Mismatching AMQP header protocol. Excpected code: {}, received code: {}".format(
-                    SASLHeaderFrame._code, returned_header._code))
+            if returned_header[1] != SASL_HEADER_FRAME:
+                raise ValueError("Mismatching AMQP header protocol. Excpected: {}, received: {}".format(
+                    SASL_HEADER_FRAME, returned_header[1]))
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
             if self.credential.mechanism not in supported_mechansisms[1][0]:  # sasl_server_mechanisms

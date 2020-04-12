@@ -19,7 +19,7 @@ import certifi
 from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from .._encode import encode_frame
 from .._decode import decode_frame, decode_empty_frame
-from ..performatives import HeaderFrame, TLSHeaderFrame
+from .._constants import TLS_HEADER_FRAME
 from .._transport import (
     unpack_frame_header,
     get_errno,
@@ -350,8 +350,8 @@ class AsyncTransport(object):
     async def negotiate(self):
         if not self.sslopts:
             return
-        await self.send_frame(0, TLSHeaderFrame())
-        channel, returned_header = await self.receive_frame(verify_frame_type=None)
-        if not isinstance(returned_header, TLSHeaderFrame):
-            raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
-                TLSHeaderFrame._code, returned_header._code))
+        await self.wriate(TLS_HEADER_FRAME)
+        channel, returned_header[1] = await self.receive_frame(verify_frame_type=None)
+        if returned_header == TLS_HEADER_FRAME:
+            raise ValueError("Mismatching TLS header protocol. Excpected: {}, received: {}".format(
+                TLS_HEADER_FRAME, returned_header[1]))

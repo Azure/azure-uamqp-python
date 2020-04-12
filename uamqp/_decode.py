@@ -11,12 +11,6 @@ from io import BytesIO
 import logging
 from typing import Iterable, Union, Tuple, Dict  # pylint: disable=unused-import
 
-from .types import ConstructorBytes
-from .performatives import (
-    HeaderFrame,
-    TLSHeaderFrame,
-    SASLHeaderFrame)
-
 
 _LOGGER = logging.getLogger(__name__)
 _HEADER_PREFIX = memoryview(b'AMQP')
@@ -27,25 +21,6 @@ _COMPOSITES = {
     38: 'released',
     39: 'modified',
 }
-
-# Array for the number of fields in each performative type. We use this because
-# lookup will be faster than reading the count.
-_FRAME_FIELD_ARRAY = [None] * 70
-_FRAME_FIELD_ARRAY[16] = 10
-_FRAME_FIELD_ARRAY[17] = 8
-_FRAME_FIELD_ARRAY[18] = 14
-_FRAME_FIELD_ARRAY[19] = 11
-_FRAME_FIELD_ARRAY[20] = 11
-_FRAME_FIELD_ARRAY[21] = 6
-_FRAME_FIELD_ARRAY[22] = 3
-_FRAME_FIELD_ARRAY[23] = 1
-_FRAME_FIELD_ARRAY[24] = 1
-_FRAME_FIELD_ARRAY[64] = 1
-_FRAME_FIELD_ARRAY[65] = 3
-_FRAME_FIELD_ARRAY[66] = 1
-_FRAME_FIELD_ARRAY[67] = 1
-_FRAME_FIELD_ARRAY[68] = 2
-
 
 c_unsigned_char = struct.Struct('>B')
 c_signed_char = struct.Struct('>b')
@@ -202,7 +177,7 @@ def _decode_list_small(buffer):
     buffer = buffer[2:]
     values = []
     for _ in range(count):
-        buffer, value = _DECODE_ARRAY[buffer[0]](buffer[1:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values.append(value)
     return buffer, values
 
@@ -213,7 +188,7 @@ def _decode_list_large(buffer):
     buffer = buffer[8:]
     values = []
     for _ in range(count):
-        buffer, value = _DECODE_ARRAY[buffer[0]](buffer[1:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values.append(value)
     return buffer, values
 
@@ -224,8 +199,8 @@ def _decode_map_small(buffer):
     buffer = buffer[2:]
     values = {}
     for  _ in range(0, count, 2):
-        buffer, key = _DECODE_ARRAY[buffer[0]](buffer[1:])
-        buffer, value = _DECODE_ARRAY[buffer[0]](buffer[1:])
+        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values[key] = value
     return buffer, values
 
@@ -236,8 +211,8 @@ def _decode_map_large(buffer):
     buffer = buffer[8:]
     values = {}
     for  _ in range(0, count, 2):
-        buffer, key = _DECODE_ARRAY[buffer[0]](buffer[1:])
-        buffer, value = _DECODE_ARRAY[buffer[0]](buffer[1:])
+        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values[key] = value
     return buffer, values
 
@@ -249,7 +224,7 @@ def _decode_array_small(buffer):
     buffer = buffer[3:]
     values = []
     for  _ in range(count):
-        buffer, value = _DECODE_ARRAY[subconstructor](buffer)
+        buffer, value = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
         values.append(value)
     return buffer, values
 
@@ -261,13 +236,13 @@ def _decode_array_large(buffer):
     buffer = buffer[9:]
     values = []
     for  _ in range(count):
-        buffer, value = _DECODE_ARRAY[subconstructor](buffer)
+        buffer, value = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
         values.append(value)
     return buffer, values
 
 def _decode_described(buffer):
     # type: (Decoder, IO) -> None
-    buffer, value = _DECODE_ARRAY[buffer[2]](buffer[3:])
+    buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[2]](buffer[3:])
     try:
         composite_type = _COMPOSITES[buffer[1]]
         return buffer, {composite_type: value}
@@ -276,27 +251,22 @@ def _decode_described(buffer):
 
 
 def decode_empty_frame(header):
-    # type: (bytes) -> Performative
+    # type: (memory) -> bytes
     if header[0:4] == _HEADER_PREFIX:
-        layer = header[4]
-        if layer == 0:
-            return HeaderFrame(header=header)
-        if layer == 2:
-            return TLSHeaderFrame(header=header)
-        if layer == 3:
-            return SASLHeaderFrame(header=header)
-        raise ValueError("Received unexpected IO layer: {}".format(layer))
+        return 0, header.tobytes()
     if header[5] == 0:
-        return "EMPTY"
+        return 1, b"EMPTY"
     raise ValueError("Received unrecognized empty frame")
 
 
 def decode_payload(buffer):
-    # type: (IO, Optional[int], bool) -> Dict[str, Any]
+    # type: (memoryview) -> Dict[str, Any]
     message = {}
     while buffer:
+        # Ignore the first two bytes, they will always be the constructors for
+        # described type then ulong.
         descriptor = buffer[2]
-        buffer, value = _DECODE_ARRAY[buffer[3]](buffer[4:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[3]](buffer[4:])
         if descriptor == 112:
             message["header"] = value
         elif descriptor == 113:
@@ -325,51 +295,52 @@ def decode_frame(data):
     # Ignore the first two bytes, they will always be the constructors for
     # described type then ulong.
     frame_type = data[2]
-    # Ignore the next 3 bytes, they will always be list constructor, size, and count.
+    # Ignore the next 2 bytes, they will always be list constructor, size.
+    count = data[5]
     buffer = data[6:]
     fields = []
-    for _ in range(_FRAME_FIELD_ARRAY[frame_type]):
-        buffer, field = _DECODE_ARRAY[buffer[0]](buffer[1:])
+    for _ in range(count):
+        buffer, field = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         fields.append(field)
     if frame_type == 20:
-        fields.append(_decode_payload(buffer))
+        fields.append(decode_payload(buffer))
     return frame_type, fields
 
 
-_DECODE_ARRAY = [None] * 256
-_DECODE_ARRAY[64] = _decode_null
-_DECODE_ARRAY[86] = _decode_boolean
-_DECODE_ARRAY[65] = _decode_true
-_DECODE_ARRAY[66] = _decode_false
-_DECODE_ARRAY[80] = _decode_ubyte
-_DECODE_ARRAY[81] = _decode_byte
-_DECODE_ARRAY[96] = _decode_ushort
-_DECODE_ARRAY[97] = _decode_short
-_DECODE_ARRAY[67] = _decode_zero
-_DECODE_ARRAY[82] = _decode_uint_small
-_DECODE_ARRAY[84] = _decode_int_small
-_DECODE_ARRAY[112] = _decode_uint_large
-_DECODE_ARRAY[113] = _decode_int_large
-_DECODE_ARRAY[68] = _decode_zero
-_DECODE_ARRAY[83] = _decode_ulong_small
-_DECODE_ARRAY[85] = _decode_long_small
-_DECODE_ARRAY[128] = _decode_ulong_large
-_DECODE_ARRAY[129] = _decode_long_large
-_DECODE_ARRAY[114] = _decode_float
-_DECODE_ARRAY[130] = _decode_double
-_DECODE_ARRAY[131] = _decode_timestamp
-_DECODE_ARRAY[152] = _decode_uuid
-_DECODE_ARRAY[160] = _decode_binary_small
-_DECODE_ARRAY[176] = _decode_binary_large
-_DECODE_ARRAY[161] = _decode_string_small
-_DECODE_ARRAY[177] = _decode_string_large
-_DECODE_ARRAY[163] = _decode_symbol_small
-_DECODE_ARRAY[179] = _decode_symbol_large
-_DECODE_ARRAY[69] = _decode_empty
-_DECODE_ARRAY[192] = _decode_list_small
-_DECODE_ARRAY[208] = _decode_list_large
-_DECODE_ARRAY[193] = _decode_map_small
-_DECODE_ARRAY[209] = _decode_map_large
-_DECODE_ARRAY[224] = _decode_array_small
-_DECODE_ARRAY[240] = _decode_array_large
-_DECODE_ARRAY[0] = _decode_described
+_DECODE_BY_CONSTRUCTOR = [None] * 256  # type: List[Callable[memoryview]]
+_DECODE_BY_CONSTRUCTOR[0] = _decode_described
+_DECODE_BY_CONSTRUCTOR[64] = _decode_null
+_DECODE_BY_CONSTRUCTOR[65] = _decode_true
+_DECODE_BY_CONSTRUCTOR[66] = _decode_false
+_DECODE_BY_CONSTRUCTOR[67] = _decode_zero
+_DECODE_BY_CONSTRUCTOR[68] = _decode_zero
+_DECODE_BY_CONSTRUCTOR[69] = _decode_empty
+_DECODE_BY_CONSTRUCTOR[80] = _decode_ubyte
+_DECODE_BY_CONSTRUCTOR[81] = _decode_byte
+_DECODE_BY_CONSTRUCTOR[82] = _decode_uint_small
+_DECODE_BY_CONSTRUCTOR[83] = _decode_ulong_small
+_DECODE_BY_CONSTRUCTOR[84] = _decode_int_small
+_DECODE_BY_CONSTRUCTOR[85] = _decode_long_small
+_DECODE_BY_CONSTRUCTOR[86] = _decode_boolean
+_DECODE_BY_CONSTRUCTOR[96] = _decode_ushort
+_DECODE_BY_CONSTRUCTOR[97] = _decode_short
+_DECODE_BY_CONSTRUCTOR[112] = _decode_uint_large
+_DECODE_BY_CONSTRUCTOR[113] = _decode_int_large
+_DECODE_BY_CONSTRUCTOR[114] = _decode_float
+_DECODE_BY_CONSTRUCTOR[128] = _decode_ulong_large
+_DECODE_BY_CONSTRUCTOR[129] = _decode_long_large
+_DECODE_BY_CONSTRUCTOR[130] = _decode_double
+_DECODE_BY_CONSTRUCTOR[131] = _decode_timestamp
+_DECODE_BY_CONSTRUCTOR[152] = _decode_uuid
+_DECODE_BY_CONSTRUCTOR[160] = _decode_binary_small
+_DECODE_BY_CONSTRUCTOR[161] = _decode_string_small
+_DECODE_BY_CONSTRUCTOR[163] = _decode_symbol_small
+_DECODE_BY_CONSTRUCTOR[176] = _decode_binary_large
+_DECODE_BY_CONSTRUCTOR[177] = _decode_string_large
+_DECODE_BY_CONSTRUCTOR[179] = _decode_symbol_large
+_DECODE_BY_CONSTRUCTOR[192] = _decode_list_small
+_DECODE_BY_CONSTRUCTOR[193] = _decode_map_small
+_DECODE_BY_CONSTRUCTOR[208] = _decode_list_large
+_DECODE_BY_CONSTRUCTOR[209] = _decode_map_large
+_DECODE_BY_CONSTRUCTOR[224] = _decode_array_small
+_DECODE_BY_CONSTRUCTOR[240] = _decode_array_large

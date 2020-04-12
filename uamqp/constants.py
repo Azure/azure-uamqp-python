@@ -5,6 +5,9 @@
 #--------------------------------------------------------------------------
 from collections import namedtuple
 from enum import Enum
+import struct
+
+_AS_BYTES = struct.Struct('>B')
 
 #: The IANA assigned port number for AMQP.The standard AMQP port number that has been assigned by IANA
 #: for TCP, UDP, and SCTP.There are currently no UDP or SCTP mappings defined for AMQP.
@@ -20,15 +23,19 @@ SECURE_PORT = 5671
 
 MAJOR = 1  #: Major protocol version.
 MINOR = 0  #: Minor protocol version.
-REVISION = 0  #: Protocol revision.
+REV = 0  #: Protocol revision.
+HEADER_FRAME = b"AMQP\x00" + _AS_BYTES.pack(MAJOR) + _AS_BYTES.pack(MINOR) + _AS_BYTES.pack(REV)
+
 
 TLS_MAJOR = 1  #: Major protocol version.
 TLS_MINOR = 0  #: Minor protocol version.
-TLS_REVISION = 0  #: Protocol revision.
+TLS_REV = 0  #: Protocol revision.
+TLS_HEADER_FRAME = b"AMQP\x02" + _AS_BYTES.pack(TLS_MAJOR) + _AS_BYTES.pack(TLS_MINOR) + _AS_BYTES.pack(TLS_REV)
 
 SASL_MAJOR = 1  #: Major protocol version.
 SASL_MINOR = 0  #: Minor protocol version.
-SASL_REVISION = 0  #: Protocol revision.
+SASL_REV = 0  #: Protocol revision.
+SASL_HEADER_FRAME = b"AMQP\x03" + _AS_BYTES.pack(SASL_MAJOR) + _AS_BYTES.pack(SASL_MINOR) + _AS_BYTES.pack(SASL_REV)
 
 #: The lower bound for the agreed maximum frame size (in bytes). During the initial Connection negotiation, the
 #: two peers must agree upon a maximum frame size. This constant defines the minimum value to which the maximum

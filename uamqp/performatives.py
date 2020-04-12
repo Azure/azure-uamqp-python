@@ -9,59 +9,9 @@ import struct
 import sys
 
 from .types import AMQPTypes, FieldDefinition, ObjDefinition
-from .constants import (
-    MAJOR,
-    TLS_MAJOR,
-    SASL_MAJOR,
-    MINOR,
-    TLS_MINOR,
-    SASL_MINOR,
-    REVISION,
-    TLS_REVISION,
-    SASL_REVISION,
-    FIELD)
+from .constants import FIELD
 
 _CAN_ADD_DOCSTRING = sys.version_info.major >= 3
-
-
-def _as_bytes(value):
-    return struct.pack('>B', value)
-
-
-class HeaderFrame(object):
-    """AMQP Header protocol negotiation."""
-
-    _code = b"AMQP\x00"
-
-    def __init__(self, header=None):
-        self.version = "{}.{}.{}".format(MAJOR, MINOR, REVISION)
-        self.header = self._code + _as_bytes(MAJOR) + _as_bytes(MINOR) + _as_bytes(REVISION)
-        if header and header != self.header:
-            raise ValueError("Mismatching AMQP protocol version.")
-
-
-class SASLHeaderFrame(HeaderFrame):
-    """SASL Header protocol negotiation."""
-
-    _code = b"AMQP\x03"
-
-    def __init__(self, header=None):
-        self.version = "{}.{}.{}".format(SASL_MAJOR, SASL_MINOR, SASL_REVISION)
-        self.header = self._code + _as_bytes(SASL_MAJOR) + _as_bytes(SASL_MINOR) + _as_bytes(SASL_REVISION)
-        if header and header != self.header:
-            raise ValueError("Mismatching AMQP SASL protocol version.")
-
-
-class TLSHeaderFrame(HeaderFrame):
-    """SASL Header protocol negotiation."""
-
-    _code = b"AMQP\x02"
-
-    def __init__(self, header=None):
-        self.version = "{}.{}.{}".format(TLS_MAJOR, TLS_MINOR, TLS_REVISION)
-        self.header = self._code + _as_bytes(TLS_MAJOR) + _as_bytes(TLS_MINOR) + _as_bytes(TLS_REVISION)
-        if header and header != self.header:
-            raise ValueError("Mismatching AMQP TLS protocol version.")
 
 
 OpenFrame = namedtuple(

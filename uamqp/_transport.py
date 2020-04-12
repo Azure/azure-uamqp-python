@@ -19,7 +19,7 @@ import certifi
 from ._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from ._encode import encode_frame
 from ._decode import decode_frame, decode_empty_frame
-from .performatives import HeaderFrame, TLSHeaderFrame
+from .constants import TLS_HEADER_FRAME
 
 
 try:
@@ -573,11 +573,11 @@ class SSLTransport(_AbstractTransport):
 
     def negotiate(self):
         with self.block():
-            self.send_frame(0, TLSHeaderFrame())
+            self.write(TLS_HEADER_FRAME)
             channel, returned_header = self.receive_frame(verify_frame_type=None)
-            if not isinstance(returned_header, TLSHeaderFrame):
-                raise ValueError("Mismatching TLS header protocol. Excpected code: {}, received code: {}".format(
-                    TLSHeaderFrame._code, returned_header._code))
+            if returned_header[1] == TLS_HEADER_FRAME:
+                raise ValueError("Mismatching TLS header protocol. Excpected: {}, received: {}".format(
+                    TLS_HEADER_FRAME, returned_header[1]))
 
 
 class TCPTransport(_AbstractTransport):

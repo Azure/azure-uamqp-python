@@ -16,7 +16,6 @@ from ._transport import Transport, SSLTransport
 from .sasl import SASLTransport
 from .session import Session
 from .performatives import (
-    HeaderFrame,
     OpenFrame,
     CloseFrame,
 )
@@ -25,6 +24,7 @@ from .constants import (
     SECURE_PORT,
     MAX_CHANNELS,
     MAX_FRAME_SIZE_BYTES,
+    HEADER_FRAME,
     ConnectionState
 )
 
@@ -186,11 +186,10 @@ class Connection(object):
         self._send_frame(0, None)
 
     def _outgoing_header(self):
-        header_frame = HeaderFrame()
         self.last_frame_sent_time = time.time()
-        self._send_frame(0, header_frame)
+        self.transport.write(HEADER_FRAME)
 
-    def _incoming_HeaderFrame(self, channel, frame):
+    def _incoming_header(self, channel, frame):
         if self.state == ConnectionState.START:
             self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
@@ -284,7 +283,7 @@ class Connection(object):
         try:
             performative, fields = frame
         except TypeError:
-            return False  # Empty Frame or socket timeout
+            return True  # Empty Frame or socket timeout
         try:
             self.last_frame_received_time = time.time()
             if performative == 20:
@@ -314,6 +313,11 @@ class Connection(object):
             if performative == 24:
                 self._incoming_close(channel, fields)
                 return True
+            if performative == 0:
+                self._incoming_header(channel, fields)
+                return True
+            if performative == 1:
+                return False  # TODO: incoming EMPTY
             else:
                 _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
                 return True

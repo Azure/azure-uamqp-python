@@ -16,16 +16,13 @@ from ._anyio import create_task_group, sleep
 from ._transport_async import AsyncTransport
 from ._sasl_async import SASLTransport
 from ._session_async import Session
-from ..performatives import (
-    HeaderFrame,
-    OpenFrame,
-    CloseFrame,
-)
+from ..performatives import OpenFrame, CloseFrame
 from ..constants import (
     PORT, 
     SECURE_PORT,
     MAX_FRAME_SIZE_BYTES,
     MAX_CHANNELS,
+    HEADER_FRAME,
     ConnectionState
 )
 
@@ -188,11 +185,10 @@ class Connection(object):
         await self._send_frame(0, None)
 
     async def _outgoing_header(self):
-        header_frame = HeaderFrame()
         self.last_frame_sent_time = time.time()
-        await self._send_frame(0, header_frame)
+        await self.transport.write(HEADER_FRAME)
 
-    async def _incoming_HeaderFrame(self, channel, frame):
+    async def _incoming_header(self, channel, frame):
         if self.state == ConnectionState.START:
             await self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:

@@ -718,8 +718,6 @@ def encode_frame(frame, frame_type=_FRAME_TYPE):
         size = 8
         header = size.to_bytes(4, 'big') + _FRAME_OFFSET + frame_type
         return header, None
-    if isinstance(frame, performatives.HeaderFrame):
-        return frame.header, None
 
     frame_description = describe_performative(frame)
     frame_data = encode_value(b"", frame_description)
