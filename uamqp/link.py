@@ -82,6 +82,7 @@ class Link(object):
         self.offered_capabilities = None
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
+        self.network_trace = kwargs.get('network_trace', False)
         self._session = session
         self._is_closed = False
         self._send_links = {}

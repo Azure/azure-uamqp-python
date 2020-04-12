@@ -95,6 +95,14 @@ class SenderLink(Link):
             'batchable': None,
             'payload': encode_payload(b"", delivery.message)
         }
+        if self.network_trace:
+            _LOGGER.info(
+                "-> Connection[%s] Session[%s] Sender[%s] %r",
+                self._session._connection.container_id,
+                self._session.name,
+                self.name,
+                TransferFrame(delivery_id='<pending>', **delivery.frame)
+            )
         self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.Okay:
             self.delivery_count = delivery_count
@@ -111,6 +119,14 @@ class SenderLink(Link):
             self._outgoing_flow()
 
     def _incoming_disposition(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "<- Connection[%s] Session[%s] Sender[%s] %r",
+                self._session._connection.container_id,
+                self._session.name,
+                self.name,
+                DispositionFrame(*frame)
+            )
         if not frame[3]:  # settled
             return
         range_end = (frame[2] or frame[1]) + 1  # first or last

@@ -66,6 +66,14 @@ class ReceiverLink(Link):
         self._outgoing_flow()
 
     def _incoming_transfer(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "<- Connection[%s] Session[%s] Receiver[%s] %r",
+                self._session._connection.container_id,
+                self._session.name,
+                self.name,
+                TransferFrame(*frame)
+            )
         self.current_link_credit -= 1
         self.delivery_count += 1
         self.received_delivery_id = frame[1]  # delivery_id
@@ -88,8 +96,16 @@ class ReceiverLink(Link):
             last=delivery_id,
             settled=True,
             state=delivery_state,
-            # batchable=
+            batchable=None
         )
+        if self.network_trace:
+            _LOGGER.info(
+                "-> Connection[%s] Session[%s] Receiver[%s] %r",
+                self._session._connection.container_id,
+                self._session.name,
+                self.name,
+                DispositionFrame(*frame)
+            )
         self._session._outgoing_disposition(disposition_frame)
 
     def send_disposition(self, delivery_id, delivery_state=None):

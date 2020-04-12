@@ -47,7 +47,6 @@ except ImportError:  # pragma: no cover
             flags &= ~FD_CLOEXEC
         return fcntl.fcntl(fd, fcntl.F_SETFD, flags)
 
-_LOGGING = True
 _LOGGER = logging.getLogger(__name__)
 _UNAVAIL = {errno.EAGAIN, errno.EINTR, errno.ENOENT, errno.EWOULDBLOCK}
 
@@ -413,8 +412,6 @@ class _AbstractTransport(object):
             else:
                 decoded = decode_frame(payload)
             # TODO: Catch decode error and return amqp:decode-error
-            if _LOGGING:
-                _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
         except socket.timeout:
             return None, None
@@ -428,8 +425,6 @@ class _AbstractTransport(object):
             data = header + encoded_channel + performative
 
         self.write(data)
-        if _LOGGING:
-            _LOGGER.info("OCH%d -> %r", channel, frame)
 
     def negotiate(self, encode, decode):
         pass

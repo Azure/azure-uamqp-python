@@ -67,6 +67,7 @@ class Session(object):
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
 
         self.links = {}
+        self.network_trace = kwargs.get('network_trace', False)
         self._connection = connection
         self._output_handles = {}
         self._input_handles = {}
@@ -152,9 +153,23 @@ class Session(object):
         self._set_state(SessionState.UNMAPPED)
 
     def _outgoing_attach(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "-> Connection[%s] Session[%s] %r",
+                self._connection.container_id,
+                self.name,
+                AttachFrame(*frame)
+            )
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_attach(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "<- Connection[%s] Session[%s] %r",
+                self._connection.container_id,
+                self.name,
+                AttachFrame(*frame)
+            )
         try:
             self._input_handles[frame[1]] = self.links[frame[0].decode('utf-8')]  # name and handle
             self._input_handles[frame[1]]._incoming_attach(frame)
@@ -179,9 +194,23 @@ class Session(object):
             'next_outgoing_id': self.next_outgoing_id,
             'outgoing_window': self.outgoing_window
         })
+        if self.network_trace:
+            _LOGGER.info(
+                "-> Connection[%s] Session[%s] %r",
+                self._connection.container_id,
+                self.name,
+                FlowFrame(*frame)
+            )
         self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
 
     def _incoming_flow(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "<- Connection[%s] Session[%s] %r",
+                self._connection.container_id,
+                self.name,
+                FlowFrame(*frame)
+            )
         self.next_incoming_id = frame[2]  # next_outgoing_id
         remote_incoming_id = frame[0] or self.next_outgoing_id  #  next_incoming_id  TODO "initial-outgoing-id"
         self.remote_incoming_window = remote_incoming_id + frame[1] - self.next_outgoing_id  # incoming_window
@@ -227,9 +256,23 @@ class Session(object):
             link._incoming_disposition(frame)
 
     def _outgoing_detach(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "-> Connection[%s] Session[%s]%r",
+                self._connection.container_id,
+                self.name,
+                DetachFrame(*frame)
+            )
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_detach(self, frame):
+        if self.network_trace:
+            _LOGGER.info(
+                "<- Connection[%s] Session[%s] %r",
+                self._connection.container_id,
+                self.name,
+                DetachFrame(*frame)
+            )
         try:
             link = self._input_handles[frame[0]]  # handle
             link._incoming_detach(frame)
@@ -275,18 +318,32 @@ class Session(object):
 
     def create_receiver_link(self, source_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = ReceiverLink(self, handle=assigned_handle, source_address=source_address, **kwargs)
+        link = ReceiverLink(
+            self,
+            handle=assigned_handle,
+            source_address=source_address,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
         return link
 
     def create_sender_link(self, target_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = SenderLink(self, handle=assigned_handle, target_address=target_address, **kwargs)
+        link = SenderLink(
+            self,
+            handle=assigned_handle,
+            target_address=target_address,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link
     
     def create_request_response_link_pair(self, endpoint, **kwargs):
-        return ManagementLink(self, endpoint)
+        return ManagementLink(
+            self,
+            endpoint,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            **kwargs)
 
