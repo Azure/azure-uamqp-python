@@ -287,31 +287,31 @@ class Connection(object):
             return False  # Empty Frame or socket timeout
         try:
             self.last_frame_received_time = time.time()
-            if performative == 0x00000014:
+            if performative == 20:
                 self.incoming_endpoints[channel]._incoming_transfer(fields)
                 return False
-            if performative == 0x00000015:
+            if performative == 21:
                 self.incoming_endpoints[channel]._incoming_disposition(fields)
                 return False
-            if performative == 0x00000013:
+            if performative == 19:
                 self.incoming_endpoints[channel]._incoming_flow(fields)
                 return False
-            if performative == 0x00000012:
+            if performative == 18:
                 self.incoming_endpoints[channel]._incoming_attach(fields)
                 return False
-            if performative == 0x00000016:
+            if performative == 22:
                 self.incoming_endpoints[channel]._incoming_detach(fields)
                 return True
-            if performative == 0x00000011:
+            if performative == 17:
                 self._incoming_begin(channel, fields)
                 return True
-            if performative == 0x00000017:
+            if performative == 23:
                 self._incoming_end(channel, fields)
                 return True
-            if performative == 0x00000010:
+            if performative == 16:
                 self._incoming_open(channel, fields)
                 return True
-            if performative == 0x00000018:
+            if performative == 24:
                 self._incoming_close(channel, fields)
                 return True
             else:
