@@ -146,14 +146,14 @@ def _decode_uuid(buffer):
 
 def _decode_binary_small(buffer):
     # type: (memoryview) -> Tuple[memoryview, bytes]
-    length = buffer[0]
-    return buffer[1 + length:], buffer[1:1 + length].tobytes() or None
+    length_index = buffer[0] + 1
+    return buffer[length_index:], buffer[1:length_index].tobytes()
 
 
 def _decode_binary_large(buffer):
     # type: (memoryview) -> Tuple[memoryview, bytes]
-    length = c_unsigned_long.unpack(buffer[:4])[0]
-    return buffer[4 + length:], buffer[4:4 + length].tobytes() or None
+    length_index = c_unsigned_long.unpack(buffer[:4])[0] + 4
+    return buffer[length_index:], buffer[4:length_index].tobytes()
 
 
 def _decode_list_small(buffer):

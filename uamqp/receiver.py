@@ -104,7 +104,7 @@ class ReceiverLink(Link):
                 self._session._connection.container_id,
                 self._session.name,
                 self.name,
-                DispositionFrame(*frame)
+                DispositionFrame(*disposition_frame)
             )
         self._session._outgoing_disposition(disposition_frame)
 

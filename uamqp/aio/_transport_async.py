@@ -21,7 +21,7 @@ from .._encode import encode_frame
 from .._decode import decode_frame, decode_empty_frame
 from ..constants import TLS_HEADER_FRAME
 from .._transport import (
-    unpack_frame_header,
+    AMQP_FRAME,
     get_errno,
     to_host_port,
     DEFAULT_SOCKET_SETTINGS,
@@ -266,15 +266,20 @@ class AsyncTransport(object):
         self.sock = None
         self.connected = False
 
-    async def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
+    async def read(self, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
         async with self.socket_lock:
             read_frame_buffer = BytesIO()
             try:
-                frame_header = await self._read(8, initial=True)
-                read_frame_buffer.write(frame_header)
-                size, offset, frame_type, channel = unpack(frame_header)
-                if not size:
-                    return frame_header, channel, None  # Empty frame or header
+                frame_header = memoryview(bytearray(8))
+                read_frame_buffer.write(await read(8, buffer=frame_header, initial=True))
+
+                channel = struct.unpack('>H', frame_header[6:])[0]
+                size = frame_header[0:4]
+                if size == AMQP_FRAME:  # Empty frame or AMQP header negotiation
+                    return frame_header, channel, None
+                size = struct.unpack('>I', size)[0]
+                offset = frame_header[4]
+                frame_type = frame_header[5]
 
                 # >I is an unsigned int, but the argument to sock.recv is signed,
                 # so we know the size can be at most 2 * SIGNED_INT_MAX

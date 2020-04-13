@@ -51,9 +51,8 @@ _LOGGER = logging.getLogger(__name__)
 _UNAVAIL = {errno.EAGAIN, errno.EINTR, errno.ENOENT, errno.EWOULDBLOCK}
 
 AMQP_PORT = 5672
-
+AMQP_FRAME = memoryview(b'AMQP')
 EMPTY_BUFFER = bytes()
-
 SIGNED_INT_MAX = 0x7FFFFFFF
 
 # Match things like: [fe80::1]:5432, from RFC 2732
@@ -66,18 +65,6 @@ DEFAULT_SOCKET_SETTINGS = {
     'TCP_KEEPINTVL': 10,
     'TCP_KEEPCNT': 9,
 }
-
-
-def unpack_frame_header(data):
-    size = data[0:4]
-    if size == b'AMQP':  # AMQP header negotiation
-        size = None
-    else:
-        size = struct.unpack('>I', size)[0]
-    offset = data[4]
-    frame_type = data[5]
-    channel = struct.unpack('>H', data[6:])[0]
-    return (size, offset, frame_type, channel)
 
 
 def get_errno(exc):
@@ -359,15 +346,20 @@ class _AbstractTransport(object):
             self.sock = None
         self.connected = False
 
-    def read(self, unpack=unpack_frame_header, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
+    def read(self, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
         read = self._read
         read_frame_buffer = BytesIO()
         try:
-            frame_header = read(8, initial=True)
-            read_frame_buffer.write(frame_header)
-            size, offset, frame_type, channel = unpack(frame_header)
-            if not size:
-                return frame_header, channel, None  # Empty frame or header
+            frame_header = memoryview(bytearray(8))
+            read_frame_buffer.write(read(8, buffer=frame_header, initial=True))
+
+            channel = struct.unpack('>H', frame_header[6:])[0]
+            size = frame_header[0:4]
+            if size == AMQP_FRAME:  # Empty frame or AMQP header negotiation TODO
+                return frame_header, channel, None
+            size = struct.unpack('>I', size)[0]
+            offset = frame_header[4]
+            frame_type = frame_header[5]
 
             # >I is an unsigned int, but the argument to sock.recv is signed,
             # so we know the size can be at most 2 * SIGNED_INT_MAX
