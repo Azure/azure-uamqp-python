@@ -271,7 +271,7 @@ class AsyncTransport(object):
             read_frame_buffer = BytesIO()
             try:
                 frame_header = memoryview(bytearray(8))
-                read_frame_buffer.write(await read(8, buffer=frame_header, initial=True))
+                read_frame_buffer.write(await self._read(8, buffer=frame_header, initial=True))
 
                 channel = struct.unpack('>H', frame_header[6:])[0]
                 size = frame_header[0:4]

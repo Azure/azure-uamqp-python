@@ -96,13 +96,7 @@ class SenderLink(Link):
             'payload': encode_payload(b"", delivery.message)
         }
         if self.network_trace:
-            _LOGGER.info(
-                "-> Connection[%s] Session[%s] Sender[%s] %r",
-                self._session._connection.container_id,
-                self._session.name,
-                self.name,
-                TransferFrame(delivery_id='<pending>', **delivery.frame)
-            )
+            _LOGGER.info("-> %r", TransferFrame(delivery_id='<pending>', **delivery.frame), extra=self.network_trace_params)
         self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.Okay:
             self.delivery_count = delivery_count
@@ -120,13 +114,7 @@ class SenderLink(Link):
 
     def _incoming_disposition(self, frame):
         if self.network_trace:
-            _LOGGER.info(
-                "<- Connection[%s] Session[%s] Sender[%s] %r",
-                self._session._connection.container_id,
-                self._session.name,
-                self.name,
-                DispositionFrame(*frame)
-            )
+            _LOGGER.info("<- %r", DispositionFrame(*frame), extra=self.network_trace_params)
         if not frame[3]:  # settled
             return
         range_end = (frame[2] or frame[1]) + 1  # first or last
@@ -176,7 +164,7 @@ class SenderLink(Link):
             if not delivery.sent:
                 self._unsent_messages.append(delivery)
         return delivery
-    
+
     def cancel_transfer(self, delivery):
         try:
             delivery = self._pending_deliveries.pop(delivery.frame['delivery_id'])

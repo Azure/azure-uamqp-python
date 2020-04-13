@@ -97,6 +97,11 @@ class Connection(object):
         self.last_frame_sent_time = None
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
         self.network_trace = kwargs.get('network_trace', False)
+        self.network_trace_params = {
+            'connection': self.container_id,
+            'session': None,
+            'link': None
+        }
 
         self.outgoing_endpoints = {}
         self.incoming_endpoints = {}
@@ -186,15 +191,19 @@ class Connection(object):
         return next_channel
     
     def _outgoing_empty(self):
+        if self.network_trace:
+            _LOGGER.info("<- empty()", extra=self.network_trace_params)
         self._send_frame(0, None)
 
     def _outgoing_header(self):
         self.last_frame_sent_time = time.time()
+        if self.network_trace:
+            _LOGGER.info("-> header(%r)", HEADER_FRAME, extra=self.network_trace_params)
         self.transport.write(HEADER_FRAME)
 
     def _incoming_header(self, channel, frame):
         if self.network_trace:
-                _LOGGER.info("<- Connection[%s] header(%r)", self.container_id, frame)
+            _LOGGER.info("<- header(%r)", frame, extra=self.network_trace_params)
         if self.state == ConnectionState.START:
             self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
@@ -215,9 +224,13 @@ class Connection(object):
             desired_capabilities=self.desired_capabilities if self.state == ConnectionState.HDR_EXCH else None,
             properties=self.properties,
         )
+        if self.network_trace:
+            _LOGGER.info("<- %r", open_frame, extra=self.network_trace_params)
         self._send_frame(0, open_frame)
 
     def _incoming_open(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", OpenFrame(*frame), extra=self.network_trace_params)
         if channel != 0:
             _LOGGER.error("OPEN frame received on a channel that is not 0.")
             self.close(error=None)  # TODO: not allowed
@@ -243,9 +256,13 @@ class Connection(object):
 
     def _outgoing_close(self, error=None):
         close_frame = CloseFrame(error=error)
+        if self.network_trace:
+            _LOGGER.info("-> %r", close_frame, extra=self.network_trace_params)
         self._send_frame(0, close_frame)
 
     def _incoming_close(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", CloseFrame(*frame), extra=self.network_trace_params)
         disconnect_states = [
             ConnectionState.HDR_RCVD,
             ConnectionState.HDR_EXCH,
@@ -307,28 +324,18 @@ class Connection(object):
                 self.incoming_endpoints[channel]._incoming_detach(fields)
                 return True
             if performative == 17:
-                if self.network_trace:
-                    _LOGGER.info("<- Connection[%s] %r", self.container_id, BeginFrame(*fields))
                 self._incoming_begin(channel, fields)
                 return True
             if performative == 23:
-                if self.network_trace:
-                    _LOGGER.info("<- Connection[%s] %r", self.container_id, EndFrame(*fields))
                 self._incoming_end(channel, fields)
                 return True
             if performative == 16:
-                if self.network_trace:
-                    _LOGGER.info("<- Connection[%s] %r", self.container_id, OpenFrame(*fields))
                 self._incoming_open(channel, fields)
                 return True
             if performative == 24:
-                if self.network_trace:
-                    _LOGGER.info("<- Connection[%s] %r", self.container_id, CloseFrame(*fields))
                 self._incoming_close(channel, fields)
                 return True
             if performative == 0:
-                if self.network_trace:
-                    _LOGGER.info("<- Connection[%s] header(%r)", self.container_id, fields)
                 self._incoming_header(channel, fields)
                 return True
             if performative == 1:
@@ -344,8 +351,6 @@ class Connection(object):
             raise ValueError("Connection not configured to allow pipeline send.")
         if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
-        if self.network_trace:
-            _LOGGER.info("-> Connection[%s] %r", self.container_id, frame)
         self._send_frame(channel, frame)
 
     def _get_local_timeout(self, now):
@@ -399,6 +404,7 @@ class Connection(object):
             self,
             assigned_channel,
             network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
             **kwargs)
         self.outgoing_endpoints[assigned_channel] = session
         return session

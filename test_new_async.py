@@ -32,8 +32,7 @@ async def message_send_complete(message, reason, state):
     print("MESSAGE SEND COMPLETE", reason, state)
 
 async def message_received(message):
-    #print("MESSAGE RECEIVED", message['data'])
-    pass
+    print("MESSAGE RECEIVED", message['data'])
 
 async def main():
     creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])
@@ -41,6 +40,7 @@ async def main():
             "amqps://" + config['hostname'],
             #transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
             transport=SASLTransport(config['hostname'], creds, ssl={'context':{}}),
+            network_trace=True,
             max_frame_size=65536,
             channel_max=65535,
             idle_timeout=10) as c:

@@ -277,7 +277,7 @@ def decode_frame(data):
     for i in range(count):
         buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
     if frame_type == 20:
-        fields.append(decode_payload(buffer))
+        fields.append(buffer)
     return frame_type, fields
 
 

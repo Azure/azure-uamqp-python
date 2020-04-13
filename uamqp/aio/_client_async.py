@@ -334,7 +334,7 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
         :rtype: bool
         """
         try:
-            await self._connection.listen(wait=self._socket_timeout, **kwargs)
+            await self._connection.listen(**kwargs)
         except ValueError:
             _logger.info("Timeout reached, closing receiver.")
             self._shutdown = True
@@ -397,7 +397,7 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = await self.do_work_async()
+            receiving = await self.do_work_async(batch=max_batch_size)
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())

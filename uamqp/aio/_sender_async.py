@@ -61,19 +61,16 @@ class SenderLink(Link):
         super(SenderLink, self).__init__(session, handle, name, role, target_address=target_address, **kwargs)
         self._unsent_messages = []
 
-    async def _evaluate_status(self):
-        await super(SenderLink, self)._evaluate_status()
-        await self._update_pending_delivery_status()
-
     async def _incoming_attach(self, frame):
         await super(SenderLink, self)._incoming_attach(frame)
         self.current_link_credit = 0
-        await self._evaluate_status()
+        await self._outgoing_flow()
+        await self._update_pending_delivery_status()
 
     async def _incoming_flow(self, frame):
-        rcv_link_credit = frame.link_credit
-        rcv_delivery_count = frame.delivery_count
-        if frame.handle:
+        rcv_link_credit = frame[6]
+        rcv_delivery_count = frame[5]
+        if frame[4] is not None:
             if rcv_link_credit is None or rcv_delivery_count is None:
                 _LOGGER.info("Unable to get link-credit or delivery-count from incoming ATTACH. Detaching link.")
                 await self._remove_pending_deliveries()
@@ -98,6 +95,8 @@ class SenderLink(Link):
             'batchable': None,
             'payload': encode_payload(b"", delivery.message)
         }
+        if self.network_trace:
+            _LOGGER.info("-> %r", TransferFrame(delivery_id='<pending>', **delivery.frame), extra=self.network_trace_params)
         await self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.Okay:
             self.delivery_count = delivery_count
@@ -109,16 +108,21 @@ class SenderLink(Link):
                 self._pending_deliveries[delivery.frame['delivery_id']] = delivery
         elif delivery.transfer_state == SessionTransferState.Error:
             raise ValueError("Message failed to send")
+        if self.current_link_credit <= 0:
+            self.current_link_credit = self.link_credit
+            await self._outgoing_flow()
 
     async def _incoming_disposition(self, frame):
-        if not frame.settled:
+        if self.network_trace:
+            _LOGGER.info("<- %r", DispositionFrame(*frame), extra=self.network_trace_params)
+        if not frame[3]:
             return
-        range_end = (frame.last or frame.first) + 1
-        settled_ids = [i for i in range(frame.first, range_end)]
+        range_end = (frame[2] or frame[1]) + 1
+        settled_ids = [i for i in range(frame[1], range_end)]
         for settled_id in settled_ids:
             delivery = self._pending_deliveries.pop(settled_id, None)
             if delivery:
-                await delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame.state)
+                await delivery.on_settled(LinkDeliverySettleReason.DispositionReceived, frame[4])
 
     async def _update_pending_delivery_status(self):
         now = time.time()
@@ -160,7 +164,7 @@ class SenderLink(Link):
             if not delivery.sent:
                 self._unsent_messages.append(delivery)
         return delivery
-    
+
     async def cancel_transfer(self, delivery):
         try:
             delivery = self._pending_deliveries.pop(delivery.frame['delivery_id'])

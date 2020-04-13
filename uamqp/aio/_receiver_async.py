@@ -56,27 +56,32 @@ class ReceiverLink(Link):
 
     async def _incoming_attach(self, frame):
         await super(ReceiverLink, self)._incoming_attach(frame)
-        if frame.initial_delivery_count is None:
+        if frame[9] is None:
             _LOGGER.info("Cannot get initial-delivery-count. Detaching link")
             await self._remove_pending_deliveries()
             await self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
-        self.delivery_count = frame.initial_delivery_count
+        self.delivery_count = frame[9]
         self.current_link_credit = self.link_credit
         await self._outgoing_flow()
 
     async def _incoming_transfer(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", TransferFrame(*frame), extra=self.network_trace_params)
         self.current_link_credit -= 1
         self.delivery_count += 1
-        self.received_delivery_id = frame.delivery_id
+        self.received_delivery_id = frame[1]
         if not self.received_delivery_id and not self._received_payload:
             pass  # TODO: delivery error
-        if self._received_payload or frame.more:
+        if self._received_payload or frame[5]:
             raise NotImplementedError()  # TODO
-        if not frame.more:
-            message = decode_payload(frame.payload)
+        if not frame[5]:
+            message = decode_payload(frame[11])
             delivery_state = await self._process_incoming_message(frame, message)
-            if not frame.settled and delivery_state:
-                await self._outgoing_disposition(frame.delivery_id, delivery_state)
+            if not frame[4] and delivery_state:
+                await self._outgoing_disposition(frame[1], delivery_state)
+        if self.current_link_credit <= 0:
+            self.current_link_credit = self.link_credit
+            await self._outgoing_flow()
 
     async def _outgoing_disposition(self, delivery_id, delivery_state):
         disposition_frame = DispositionFrame(
@@ -85,8 +90,10 @@ class ReceiverLink(Link):
             last=delivery_id,
             settled=True,
             state=delivery_state,
-            # batchable=
+            batchable=None
         )
+        if self.network_trace:
+            _LOGGER.info("-> %r", DispositionFrame(*disposition_frame), extra=self.network_trace_params)
         await self._session._outgoing_disposition(disposition_frame)
 
     async def send_disposition(self, delivery_id, delivery_state=None):

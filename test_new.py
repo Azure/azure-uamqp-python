@@ -32,8 +32,7 @@ def message_send_complete(message, reason, state):
     print("MESSAGE SEND COMPLETE", reason, state)
 
 def message_received(message):
-    #print("MESSAGE RECEIVED", message['data'])
-    pass
+    print("MESSAGE RECEIVED", message['data'])
 
 def main():
     creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])

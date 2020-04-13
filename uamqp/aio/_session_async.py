@@ -64,6 +64,9 @@ class Session(object):
 
         self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
+        self.network_trace = kwargs['network_trace']
+        self.network_trace_params = kwargs['network_trace_params']
+        self.network_trace_params['session'] = self.name
 
         self.links = {}
         self._connection = connection
@@ -81,7 +84,6 @@ class Session(object):
     def from_incoming_frame(cls, connection, channel, frame):
         # check session_create_from_endpoint in C lib
         new_session = cls(connection, channel)
-        new_session._incoming_begin(frame)
         return new_session
 
     async def _set_state(self, new_state):
@@ -91,15 +93,10 @@ class Session(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Session '%s' state changed: %r -> %r", self.name, previous_state, new_state)
+        _LOGGER.info("Session state changed: %r -> %r", previous_state, new_state, extra=self.network_trace_params)
         async with create_task_group() as tg:
             for link in self.links.values():
                 await tg.spawn(link._on_session_state_change)
-
-    async def _evaluate_status(self):
-        async with create_task_group() as tg:
-            for link in self.links.values():
-                await tg.spawn(link._evaluate_status)
 
     async def _on_connection_state_change(self):
         if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
@@ -130,15 +127,19 @@ class Session(object):
             desired_capabilities=self.desired_capabilities if self.state == SessionState.UNMAPPED else None,
             properties=self.properties,
         )
+        if self.network_trace:
+            _LOGGER.info("-> %r", begin_frame, extra=self.network_trace_params)
         await self._connection._process_outgoing_frame(self.channel, begin_frame)
 
     async def _incoming_begin(self, frame):
-        self.handle_max = frame.handle_max
-        self.next_incoming_id = frame.next_outgoing_id
-        self.remote_incoming_window = frame.incoming_window
-        self.remote_outgoing_window = frame.outgoing_window
+        if self.network_trace:
+            _LOGGER.info("<- %r", BeginFrame(*frame), extra=self.network_trace_params)
+        self.handle_max = frame[4]
+        self.next_incoming_id = frame[1]
+        self.remote_incoming_window = frame[2]
+        self.remote_outgoing_window = frame[3]
         if self.state == SessionState.BEGIN_SENT:
-            self.remote_channel = frame.remote_channel
+            self.remote_channel = frame[0]
             await self._set_state(SessionState.MAPPED)
         elif self.state == SessionState.UNMAPPED:
             await self._set_state(SessionState.BEGIN_RCVD)
@@ -147,9 +148,13 @@ class Session(object):
 
     async def _outgoing_end(self, error=None):
         end_frame = EndFrame(error=error)
+        if self.network_trace:
+            _LOGGER.info("-> %r", end_frame, extra=self.network_trace_params)
         await self._connection._process_outgoing_frame(self.channel, end_frame)
 
     async def _incoming_end(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", EndFrame(*frame), extra=self.network_trace_params)
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
             await self._set_state(SessionState.END_RCVD)
             # TODO: Clean up all links
@@ -161,18 +166,18 @@ class Session(object):
 
     async def _incoming_attach(self, frame):
         try:
-            self._input_handles[frame.handle] = self.links[frame.name]
-            await self._input_handles[frame.handle]._incoming_attach(frame)
+            self._input_handles[frame[1]] = self.links[frame[0].decode('utf-8')]
+            await self._input_handles[frame[1]]._incoming_attach(frame)
         except KeyError:
             outgoing_handle = self._get_next_output_handle()  # TODO: catch max-handles error
-            if frame.role == Role.Sender:
+            if frame[2] == Role.Sender:
                 new_link = ReceiverLink.from_incoming_frame(self, outgoing_handle, frame)
             else:
                 new_link = SenderLink.from_incoming_frame(self, outgoing_handle, frame)
             await new_link._incoming_attach(frame)
-            self.links[frame.name] = new_link
+            self.links[frame[0]] = new_link
             self._output_handles[outgoing_handle] = new_link
-            self._input_handles[frame.handle] = new_link
+            self._input_handles[frame[1]] = new_link
         except ValueError:
             pass  # TODO: Reject link
     
@@ -184,19 +189,25 @@ class Session(object):
             'next_outgoing_id': self.next_outgoing_id,
             'outgoing_window': self.outgoing_window
         })
-        await self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
+        flow_frame = FlowFrame(**link_flow)
+        if self.network_trace:
+            _LOGGER.info("-> %r", flow_frame, extra=self.network_trace_params)
+        await self._connection._process_outgoing_frame(self.channel, flow_frame)
 
     async def _incoming_flow(self, frame):
-        self.next_incoming_id = frame.next_outgoing_id
-        remote_incoming_id = frame.next_incoming_id or self.next_outgoing_id  # TODO "initial-outgoing-id"
-        self.remote_incoming_window = remote_incoming_id + frame.incoming_window - self.next_outgoing_id
-        self.remote_outgoing_window = frame.outgoing_window
-        if frame.handle:
-            await self._input_handles[frame.handle]._incoming_flow(frame)
+        if self.network_trace:
+            _LOGGER.info("<- %r", FlowFrame(*frame), extra=self.network_trace_params)
+        self.next_incoming_id = frame[2]
+        remote_incoming_id = frame[0] or self.next_outgoing_id  # TODO "initial-outgoing-id"
+        self.remote_incoming_window = remote_incoming_id + frame[1] - self.next_outgoing_id
+        self.remote_outgoing_window = frame[3]
+        if frame[4] is not None:
+            await self._input_handles[frame[4]]._incoming_flow(frame)
         else:
-            for link in self._output_handles.values():
-                if self.remote_incoming_window > 0 and not link._is_closed:
-                    await link._incoming_flow(frame)
+            async with create_task_group() as tg:
+                for link in self._output_handles.values():
+                    if self.remote_incoming_window > 0 and not link._is_closed:
+                        await tg.spawn(link._incoming_flow, frame)
 
     async def _outgoing_transfer(self, delivery):
         if self.state != SessionState.MAPPED:
@@ -217,7 +228,7 @@ class Session(object):
         self.remote_outgoing_window -= 1
         self.incoming_window -= 1
         try:
-            await self._input_handles[frame.handle]._incoming_transfer(frame)
+            await self._input_handles[frame[0]]._incoming_transfer(frame)
         except KeyError:
             pass  #TODO: "unattached handle"
         if self.incoming_window == 0:
@@ -237,7 +248,7 @@ class Session(object):
 
     async def _incoming_detach(self, frame):
         try:
-            link = self._input_handles[frame.handle]
+            link = self._input_handles[frame[0]]
             await link._incoming_detach(frame)
             # if link._is_closed:  TODO
             #     self.links.pop(link.name, None)
@@ -281,14 +292,26 @@ class Session(object):
 
     def create_receiver_link(self, source_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = ReceiverLink(self, handle=assigned_handle, source_address=source_address, **kwargs)
+        link = ReceiverLink(
+            self,
+            handle=assigned_handle,
+            source_address=source_address,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
+            **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
         return link
 
     def create_sender_link(self, target_address, **kwargs):
         assigned_handle = self._get_next_output_handle()
-        link = SenderLink(self, handle=assigned_handle, target_address=target_address, **kwargs)
+        link = SenderLink(
+            self,
+            handle=assigned_handle,
+            target_address=target_address,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
+            **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link

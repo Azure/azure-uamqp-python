@@ -65,9 +65,11 @@ class Session(object):
 
         self.allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
+        self.network_trace = kwargs['network_trace']
+        self.network_trace_params = kwargs['network_trace_params']
+        self.network_trace_params['session'] = self.name
 
         self.links = {}
-        self.network_trace = kwargs.get('network_trace', False)
         self._connection = connection
         self._output_handles = {}
         self._input_handles = {}
@@ -83,7 +85,6 @@ class Session(object):
     def from_incoming_frame(cls, connection, channel, frame):
         # check session_create_from_endpoint in C lib
         new_session = cls(connection, channel)
-        new_session._incoming_begin(frame)
         return new_session
 
     def _set_state(self, new_state):
@@ -93,7 +94,7 @@ class Session(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Session '%s' state changed: %r -> %r", self.name, previous_state, new_state)
+        _LOGGER.info("Session state changed: %r -> %r", previous_state, new_state, extra=self.network_trace_params)
         for link in self.links.values():
             link._on_session_state_change()
 
@@ -126,9 +127,13 @@ class Session(object):
             desired_capabilities=self.desired_capabilities if self.state == SessionState.UNMAPPED else None,
             properties=self.properties,
         )
+        if self.network_trace:
+            _LOGGER.info("-> %r", begin_frame, extra=self.network_trace_params)
         self._connection._process_outgoing_frame(self.channel, begin_frame)
 
     def _incoming_begin(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", BeginFrame(*frame), extra=self.network_trace_params)
         self.handle_max = frame[4]  # handle_max
         self.next_incoming_id = frame[1]  # next_outgoing_id
         self.remote_incoming_window = frame[2]  # incoming_window
@@ -143,9 +148,13 @@ class Session(object):
 
     def _outgoing_end(self, error=None):
         end_frame = EndFrame(error=error)
+        if self.network_trace:
+            _LOGGER.info("-> %r", end_frame, extra=self.network_trace_params)
         self._connection._process_outgoing_frame(self.channel, end_frame)
 
     def _incoming_end(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", EndFrame(*frame), extra=self.network_trace_params)
         if self.state not in [SessionState.END_RCVD, SessionState.END_SENT, SessionState.DISCARDING]:
             self._set_state(SessionState.END_RCVD)
             # TODO: Clean up all links
@@ -153,23 +162,9 @@ class Session(object):
         self._set_state(SessionState.UNMAPPED)
 
     def _outgoing_attach(self, frame):
-        if self.network_trace:
-            _LOGGER.info(
-                "-> Connection[%s] Session[%s] %r",
-                self._connection.container_id,
-                self.name,
-                AttachFrame(*frame)
-            )
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_attach(self, frame):
-        if self.network_trace:
-            _LOGGER.info(
-                "<- Connection[%s] Session[%s] %r",
-                self._connection.container_id,
-                self.name,
-                AttachFrame(*frame)
-            )
         try:
             self._input_handles[frame[1]] = self.links[frame[0].decode('utf-8')]  # name and handle
             self._input_handles[frame[1]]._incoming_attach(frame)
@@ -194,28 +189,19 @@ class Session(object):
             'next_outgoing_id': self.next_outgoing_id,
             'outgoing_window': self.outgoing_window
         })
+        flow_frame = FlowFrame(**link_flow)
         if self.network_trace:
-            _LOGGER.info(
-                "-> Connection[%s] Session[%s] %r",
-                self._connection.container_id,
-                self.name,
-                FlowFrame(*frame)
-            )
-        self._connection._process_outgoing_frame(self.channel, FlowFrame(**link_flow))
+            _LOGGER.info("-> %r", flow_frame, extra=self.network_trace_params)
+        self._connection._process_outgoing_frame(self.channel, flow_frame)
 
     def _incoming_flow(self, frame):
         if self.network_trace:
-            _LOGGER.info(
-                "<- Connection[%s] Session[%s] %r",
-                self._connection.container_id,
-                self.name,
-                FlowFrame(*frame)
-            )
+            _LOGGER.info("<- %r", FlowFrame(*frame), extra=self.network_trace_params)
         self.next_incoming_id = frame[2]  # next_outgoing_id
         remote_incoming_id = frame[0] or self.next_outgoing_id  #  next_incoming_id  TODO "initial-outgoing-id"
         self.remote_incoming_window = remote_incoming_id + frame[1] - self.next_outgoing_id  # incoming_window
         self.remote_outgoing_window = frame[3]  # outgoing_window
-        if frame[4]:  # handle
+        if frame[4] is not None:  # handle
             self._input_handles[frame[4]]._incoming_flow(frame)
         else:
             for link in self._output_handles.values():
@@ -256,23 +242,9 @@ class Session(object):
             link._incoming_disposition(frame)
 
     def _outgoing_detach(self, frame):
-        if self.network_trace:
-            _LOGGER.info(
-                "-> Connection[%s] Session[%s]%r",
-                self._connection.container_id,
-                self.name,
-                DetachFrame(*frame)
-            )
         self._connection._process_outgoing_frame(self.channel, frame)
 
     def _incoming_detach(self, frame):
-        if self.network_trace:
-            _LOGGER.info(
-                "<- Connection[%s] Session[%s] %r",
-                self._connection.container_id,
-                self.name,
-                DetachFrame(*frame)
-            )
         try:
             link = self._input_handles[frame[0]]  # handle
             link._incoming_detach(frame)
@@ -323,6 +295,7 @@ class Session(object):
             handle=assigned_handle,
             source_address=source_address,
             network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
             **kwargs)
         self.links[link.name] = link
         self._output_handles[assigned_handle] = link
@@ -335,6 +308,7 @@ class Session(object):
             handle=assigned_handle,
             target_address=target_address,
             network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
             **kwargs)
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link

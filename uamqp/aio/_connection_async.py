@@ -91,6 +91,12 @@ class Connection(object):
         self.last_frame_received_time = None
         self.last_frame_sent_time = None
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
+        self.network_trace = kwargs.get('network_trace', False)
+        self.network_trace_params = {
+            'connection': self.container_id,
+            'session': None,
+            'link': None
+        }
 
         self.outgoing_endpoints = {}
         self.incoming_endpoints = {}
@@ -140,20 +146,9 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to read for incoming frames."""
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
-    async def _read_frame_batch(self, batch_size, **kwargs):
-        if self._can_read():
-            received = await self.transport.receive_frame_batch(batch_size, **kwargs)
-            if received:
-                self.last_frame_received_time = time.time()
-            return received
-        _LOGGER.warning("Cannot read frame in current state: %r", self.state)
-
     async def _read_frame(self, **kwargs):
         if self._can_read():
-            received = await self.transport.receive_frame(**kwargs)
-            if received[1]:
-                self.last_frame_received_time = time.time()
-            return received
+            return await self.transport.receive_frame(**kwargs)
         _LOGGER.warning("Cannot read frame in current state: %r", self.state)
 
     def _can_write(self):
@@ -182,13 +177,19 @@ class Connection(object):
         return next_channel
     
     async def _outgoing_empty(self):
+        if self.network_trace:
+            _LOGGER.info("<- empty()", extra=self.network_trace_params)
         await self._send_frame(0, None)
 
     async def _outgoing_header(self):
         self.last_frame_sent_time = time.time()
+        if self.network_trace:
+            _LOGGER.info("-> header(%r)", HEADER_FRAME, extra=self.network_trace_params)
         await self.transport.write(HEADER_FRAME)
 
     async def _incoming_header(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("<- header(%r)", frame, extra=self.network_trace_params)
         if self.state == ConnectionState.START:
             await self._set_state(ConnectionState.HDR_RCVD)
         elif self.state == ConnectionState.HDR_SENT:
@@ -209,9 +210,13 @@ class Connection(object):
             desired_capabilities=self.desired_capabilities if self.state == ConnectionState.HDR_EXCH else None,
             properties=self.properties,
         )
+        if self.network_trace:
+            _LOGGER.info("<- %r", open_frame, extra=self.network_trace_params)
         await self._send_frame(0, open_frame)
 
     async def _incoming_open(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", OpenFrame(*frame), extra=self.network_trace_params)
         if channel != 0:
             _LOGGER.error("OPEN frame received on a channel that is not 0.")
             await self.close(error=None)  # TODO: not allowed
@@ -219,13 +224,13 @@ class Connection(object):
         if self.state == ConnectionState.OPENED:
             _LOGGER.error("OPEN frame received in the OPENED state.")
             await self.close()
-        if frame.idle_timeout:
-            self.remote_idle_timeout = frame.idle_timeout/1000  # Convert to seconds
+        if frame[4]:
+            self.remote_idle_timeout = frame[4]/1000  # Convert to seconds
             self.remote_idle_timeout_send_frame = self.idle_timeout_empty_frame_send_ratio * self.remote_idle_timeout
 
-        if frame.max_frame_size < 512:
+        if frame[2] < 512:
             pass  # TODO: error
-        self.remote_max_frame_size = frame.max_frame_size
+        self.remote_max_frame_size = frame[2]
         if self.state == ConnectionState.OPEN_SENT:
             await self._set_state(ConnectionState.OPENED)
         elif self.state == ConnectionState.HDR_EXCH:
@@ -237,9 +242,13 @@ class Connection(object):
 
     async def _outgoing_close(self, error=None):
         close_frame = CloseFrame(error=error)
+        if self.network_trace:
+            _LOGGER.info("-> %r", close_frame, extra=self.network_trace_params)
         await self._send_frame(0, close_frame)
 
     async def _incoming_close(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", CloseFrame(*frame), extra=self.network_trace_params)
         disconnect_states = [
             ConnectionState.HDR_RCVD,
             ConnectionState.HDR_EXCH,
@@ -253,8 +262,8 @@ class Connection(object):
             return
         if channel > self.channel_max:
             _LOGGER.error("Invalid channel")
-        if frame.error:
-            _LOGGER.error("Connection error: {}".format(frame.error))
+        if frame[0]:
+            _LOGGER.error("Connection error: {}".format(frame[0]))
         await self._set_state(ConnectionState.CLOSE_RCVD)
         await self._outgoing_close()
         await self._disconnect()
@@ -262,7 +271,7 @@ class Connection(object):
 
     async def _incoming_begin(self, channel, frame):
         try:
-            existing_session = self.outgoing_endpoints[frame.remote_channel]
+            existing_session = self.outgoing_endpoints[frame[0]]
             self.incoming_endpoints[channel] = existing_session
             await self.incoming_endpoints[channel]._incoming_begin(frame)
         except KeyError:
@@ -280,20 +289,48 @@ class Connection(object):
 
     async def _process_incoming_frame(self, channel, frame):
         try:
-            process = '_incoming_' + frame.__class__.__name__
-            await getattr(self, process)(channel, frame)
-            return
-        except AttributeError:
-            pass
+            performative, fields = frame
+        except TypeError:
+            return True  # Empty Frame or socket timeout
         try:
-            await getattr(self.incoming_endpoints[channel], process)(frame)
-            return
-        except NameError:
-            return  # Empty Frame or socket timeout
+            self.last_frame_received_time = time.time()
+            if performative == 20:
+                await self.incoming_endpoints[channel]._incoming_transfer(fields)
+                return False
+            if performative == 21:
+                await self.incoming_endpoints[channel]._incoming_disposition(fields)
+                return False
+            if performative == 19:
+                await self.incoming_endpoints[channel]._incoming_flow(fields)
+                return False
+            if performative == 18:
+                await self.incoming_endpoints[channel]._incoming_attach(fields)
+                return False
+            if performative == 22:
+                await self.incoming_endpoints[channel]._incoming_detach(fields)
+                return True
+            if performative == 17:
+                await self._incoming_begin(channel, fields)
+                return True
+            if performative == 23:
+                await self._incoming_end(channel, fields)
+                return True
+            if performative == 16:
+                await self._incoming_open(channel, fields)
+                return True
+            if performative == 24:
+                await self._incoming_close(channel, fields)
+                return True
+            if performative == 0:
+                await self._incoming_header(channel, fields)
+                return True
+            if performative == 1:
+                return False  # TODO: incoming EMPTY
+            else:
+                _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+                return True
         except KeyError:
-            pass  #TODO: channel error
-        except AttributeError:
-            _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+            return True  #TODO: channel error
 
     async def _process_outgoing_frame(self, channel, frame):
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
@@ -330,24 +367,24 @@ class Connection(object):
                     break
                 await sleep(self.idle_wait_time)
                 await self.listen(wait=False)
+    
+    async def _listen_one_frame(self, **kwargs):
+        new_frame = await self._read_frame(**kwargs)
+        if not new_frame:
+            raise ValueError("Connection closed.")
+        await self._process_incoming_frame(*new_frame)
+        #    raise Exception("Stop")  # TODO: Stop listening
 
-    async def listen(self, wait=False, batch=None, **kwargs):
+    async def listen(self, wait=False, batch=1, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
-        if batch:
-            new_frames = await self._read_frame_batch(batch, wait=wait, **kwargs)
-        else:
-            new_frame = await self._read_frame(wait=wait, batch=batch, **kwargs)
-            new_frames = [new_frame]
-            if not new_frame:
-                raise ValueError("Connection closed.")
         async with create_task_group() as tg:
-            for frame in new_frames:
-                await tg.spawn(self._process_incoming_frame, *frame)
+            for _ in range(batch):
+                await tg.spawn(self._listen_one_frame, **kwargs)  # TODO: Close on first exception
+
+
         if self.state not in _CLOSING_STATES:
             now = time.time()
-            for session in self.outgoing_endpoints.values():
-                await session._evaluate_status()
             if self._get_local_timeout(now) or (await self._get_remote_timeout(now)):
                 await self.close(error=None, wait=False)
 
@@ -355,7 +392,12 @@ class Connection(object):
         assigned_channel = self._get_next_outgoing_channel()
         kwargs['allow_pipelined_open'] = self.allow_pipelined_open
         kwargs['idle_wait_time'] = self.idle_wait_time
-        session = Session(self, assigned_channel, **kwargs)
+        session = Session(
+            self,
+            assigned_channel,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace_params=dict(self.network_trace_params),
+            **kwargs)
         self.outgoing_endpoints[assigned_channel] = session
         return session
 

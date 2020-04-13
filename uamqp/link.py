@@ -82,7 +82,9 @@ class Link(object):
         self.offered_capabilities = None
         self.desired_capabilities = kwargs.pop('desired_capabilities', None)
 
-        self.network_trace = kwargs.get('network_trace', False)
+        self.network_trace = kwargs['network_trace']
+        self.network_trace_params = kwargs['network_trace_params']
+        self.network_trace_params['link'] = self.name
         self._session = session
         self._is_closed = False
         self._send_links = {}
@@ -110,13 +112,13 @@ class Link(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Link '%s' state changed: %r -> %r", self.name, previous_state, new_state)
+        _LOGGER.info("Link state changed: %r -> %r", previous_state, new_state, extra=self.network_trace_params)
         try:
             self._on_link_state_change(previous_state, new_state)
         except TypeError:
             pass
         except Exception as e:  # pylint: disable=broad-except
-            _LOGGER.error("Link state change callback failed: '{}'".format(e))
+            _LOGGER.error("Link state change callback failed: '%r'", e, extra=self.network_trace_params)
 
     def _remove_pending_deliveries(self):  # TODO: move to sender
         for delivery in self._pending_deliveries.values():
@@ -150,9 +152,13 @@ class Link(object):
             desired_capabilities=self.desired_capabilities if self.state == LinkState.DETACHED else None,
             properties=self.properties
         )
+        if self.network_trace:
+            _LOGGER.info("-> %r", attach_frame, extra=self.network_trace_params)
         self._session._outgoing_attach(attach_frame)
 
     def _incoming_attach(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", AttachFrame(*frame), extra=self.network_trace_params)
         if self._is_closed:
             raise ValueError("Invalid link")
         elif not frame[5] or not frame[6]:  # TODO: not sure if we should source + target check here
@@ -189,11 +195,15 @@ class Link(object):
 
     def _outgoing_detach(self, close=False, error=None):
         detach_frame = DetachFrame(handle=self.handle, closed=close, error=error)
+        if self.network_trace:
+            _LOGGER.info("-> %r", detach_frame, extra=self.network_trace_params)
         self._session._outgoing_detach(detach_frame)
         if close:
             self._is_closed = True
 
     def _incoming_detach(self, frame):
+        if self.network_trace:
+            _LOGGER.info("<- %r", DetachFrame(*frame), extra=self.network_trace_params)
         if self.state == LinkState.ATTACHED:
             self._outgoing_detach(close=frame[1])  # closed
         elif frame[1] and not self._is_closed and self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
