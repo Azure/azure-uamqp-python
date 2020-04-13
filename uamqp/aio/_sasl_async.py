@@ -9,7 +9,7 @@ from enum import Enum
 
 from ._transport_async import AsyncTransport
 from ..types import AMQPTypes, TYPE, VALUE
-from ..constants import SASL_MAJOR, SASL_MINOR, SASL_REVISION, FIELD, SASLCode, SASL_HEADER_FRAME
+from ..constants import FIELD, SASLCode, SASL_HEADER_FRAME
 from ..performatives import (
     SASLOutcome,
     SASLResponse,

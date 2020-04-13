@@ -160,10 +160,9 @@ def _decode_list_small(buffer):
     # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = buffer[1]
     buffer = buffer[2:]
-    values = []
-    for _ in range(count):
-        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
-        values.append(value)
+    values = [None] * count
+    for i in range(count):
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
     return buffer, values
 
 
@@ -171,19 +170,18 @@ def _decode_list_large(buffer):
     # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = c_unsigned_long.unpack(buffer[4:8])[0]
     buffer = buffer[8:]
-    values = []
-    for _ in range(count):
-        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
-        values.append(value)
+    values = [None] * count
+    for i in range(count):
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
     return buffer, values
 
 
 def _decode_map_small(buffer):
     # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
-    count = buffer[1]
+    count = int(buffer[1]/2)
     buffer = buffer[2:]
     values = {}
-    for  _ in range(0, count, 2):
+    for  _ in range(count):
         buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values[key] = value
@@ -192,10 +190,10 @@ def _decode_map_small(buffer):
 
 def _decode_map_large(buffer):
     # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
-    count = c_unsigned_long.unpack(buffer[4:8])[0]
+    count = int(c_unsigned_long.unpack(buffer[4:8])[0]/2)
     buffer = buffer[8:]
     values = {}
-    for  _ in range(0, count, 2):
+    for  _ in range(count):
         buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
         values[key] = value
@@ -207,10 +205,9 @@ def _decode_array_small(buffer):
     count = buffer[1]
     subconstructor = buffer[2]
     buffer = buffer[3:]
-    values = []
-    for  _ in range(count):
-        buffer, value = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
-        values.append(value)
+    values = [None] * count
+    for i in range(count):
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
     return buffer, values
 
 
@@ -219,29 +216,21 @@ def _decode_array_large(buffer):
     count = c_unsigned_long.unpack(buffer[4:8])[0]
     subconstructor = buffer[8]
     buffer = buffer[9:]
-    values = []
-    for  _ in range(count):
-        buffer, value = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
-        values.append(value)
+    values = [None] * count
+    for i in range(count):
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
     return buffer, values
+
 
 def _decode_described(buffer):
     # type: (memoryview) -> Tuple[memoryview, Any]
+    composite_type = buffer[1]
     buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[2]](buffer[3:])
     try:
-        composite_type = _COMPOSITES[buffer[1]]
+        composite_type = _COMPOSITES[composite_type]
         return buffer, {composite_type: value}
-    except (KeyError, IndexError):
+    except KeyError:
         return buffer, value
-
-
-def decode_empty_frame(header):
-    # type: (memory) -> bytes
-    if header[0:4] == _HEADER_PREFIX:
-        return 0, header.tobytes()
-    if header[5] == 0:
-        return 1, b"EMPTY"
-    raise ValueError("Received unrecognized empty frame")
 
 
 def decode_payload(buffer):
@@ -284,13 +273,21 @@ def decode_frame(data):
     # Ignore the next 2 bytes, they will always be list constructor, size.
     count = data[5]
     buffer = data[6:]
-    fields = []
-    for _ in range(count):
-        buffer, field = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
-        fields.append(field)
+    fields = [None] * count
+    for i in range(count):
+        buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
     if frame_type == 20:
         fields.append(decode_payload(buffer))
     return frame_type, fields
+
+
+def decode_empty_frame(header):
+    # type: (memory) -> bytes
+    if header[0:4] == _HEADER_PREFIX:
+        return 0, header.tobytes()
+    if header[5] == 0:
+        return 1, b"EMPTY"
+    raise ValueError("Received unrecognized empty frame")
 
 
 _DECODE_BY_CONSTRUCTOR = [None] * 256  # type: List[Callable[memoryview]]

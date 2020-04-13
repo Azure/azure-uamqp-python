@@ -19,7 +19,7 @@ import certifi
 from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
 from .._encode import encode_frame
 from .._decode import decode_frame, decode_empty_frame
-from .._constants import TLS_HEADER_FRAME
+from ..constants import TLS_HEADER_FRAME
 from .._transport import (
     unpack_frame_header,
     get_errno,

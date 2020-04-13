@@ -40,6 +40,7 @@ def main():
     with Connection(
         "amqps://" + config['hostname'],
         transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
+        network_trace=True,
         max_frame_size=65536,
         channel_max=65535,
         idle_timeout=10) as c:
