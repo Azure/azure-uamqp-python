@@ -13,7 +13,7 @@ from uamqp import authentication
 
 from live_settings import config as live_eventhub_config
 
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 global_msg_cnt_dict = {}
 
@@ -100,7 +100,13 @@ def create_and_open_receive_client(args, partition, clients_arr=None):
         '$default',
         str(partition))
     global_msg_cnt_dict[partition] = 0
-    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, debug=False, timeout=5000, prefetch=args.link_credit)
+    receive_client = uamqp.ReceiveClient(
+        source,
+        auth=sas_auth,
+        debug=True,
+        timeout=5000,
+        prefetch=args.link_credit,
+        receive_settle_mode=uamqp.constants.ReceiverSettleMode.ReceiveAndDelete)
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
@@ -166,6 +172,7 @@ def sync_receive_with_just_one_thread(args):
             if global_msg_cnt_dict[i] < args.messages_cnt:
                 stop_flag = False
                 batch = receive_clients[i].receive_message_batch(max_batch_size=MESSAGES_PER_BATCH, timeout=args.wait_timeout)
+                print("Received {} messages".format(len(batch)))
                 if len(batch) > 0:
                     global_msg_cnt_dict[i] += len(batch)
                 #else:
@@ -231,6 +238,7 @@ async def async_receive_messages(args):
 
 
 if __name__ == '__main__':
+    print("RUNNING AGAINST {} WITH SETTINGS {}".format(live_eventhub_config['hostname'], args))
     if args.run_type == 1:
         print('Running sync receive with multiple threads')
         sync_receive_with_multiple_threads(args)

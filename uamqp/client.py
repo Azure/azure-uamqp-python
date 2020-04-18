@@ -13,7 +13,7 @@ import uuid
 import certifi
 import queue
 
-from .connection import Connection
+from ._connection import Connection
 from .session import Session
 from .sender import SenderLink
 from .receiver import ReceiverLink
@@ -148,7 +148,7 @@ class AMQPClient(object):
 
         :param connection: An existing Connection that may be shared between
          multiple clients.
-        :type connetion: ~uamqp.connection.Connection
+        :type connetion: ~uamqp.Connection
         """
         # pylint: disable=protected-access
         if self._session:

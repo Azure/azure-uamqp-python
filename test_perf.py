@@ -3,6 +3,8 @@ import threading
 import argparse
 import logging
 import asyncio
+import uuid
+import cProfile
 try:
     from urllib import quote_plus #Py2
 except Exception:
@@ -13,7 +15,7 @@ from uamqp import aio
 from uamqp.sasl import SASLPlainCredential
 from legacy_test.live_settings import config as live_eventhub_config
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 global_msg_cnt_dict = {}
 
@@ -30,6 +32,9 @@ args = parser.parse_args()
 
 MESSAGES_PER_BATCH = args.link_credit
 BYTES_PER_MESSAGE = 1024
+RUN_PROFILER = True
+if RUN_PROFILER:
+    pr = cProfile.Profile()
 
 
 def client_receive_sync(args, partition, clients_arr):
@@ -58,10 +63,12 @@ async def client_receive_async(args, client, partition):
     start = time.time()
     while messagesReceived < args.messages_cnt:
         batch = await client.receive_message_batch_async(max_batch_size=MESSAGES_PER_BATCH, timeout=args.wait_timeout)  # timeout is milliseconds
+        #print("Received {} messages on partition {}".format(len(batch), partition))
         if len(batch) > 0:
             messagesReceived += len(batch)
 
     elapsed = time.time() - start
+    await client.close_async()
 
     messagesPerSecond = messagesReceived / elapsed
     megabytesPerSecond = (messagesPerSecond * BYTES_PER_MESSAGE) / (1024 * 1024)
@@ -141,6 +148,8 @@ def sync_receive_with_just_one_thread(args):
 
     print('All Receivers are opened and ready')
     stop_flag = False
+    if RUN_PROFILER:
+        pr.enable()
     start = time.time()
     while not stop_flag:
         stop_flag = True
@@ -151,7 +160,9 @@ def sync_receive_with_just_one_thread(args):
                 if len(batch) > 0:
                     global_msg_cnt_dict[i] += len(batch)
     elapsed = time.time() - start
-
+    if RUN_PROFILER:
+        pr.disable()
+        pr.dump_stats("py_perf.pstat")
     total_message = 0
     for i in range(args.partitions):
         total_message += global_msg_cnt_dict[i]
@@ -182,25 +193,39 @@ async def async_create_and_open_receive_client(args, partition):
 
 
 async def async_receive_messages(args):
-    receive_clients = await asyncio.gather(*[async_create_and_open_receive_client(args, str(i)) for i in range(args.partitions)])
-    for i in range(args.partitions):
-        global_msg_cnt_dict[i] = 0
+    creds = SASLPlainCredential(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+    #connection = aio.Connection("amqps://" + live_eventhub_config['hostname'], sasl_credential=creds)
+    #await connection.open()
+    try:
+        receive_clients = await asyncio.gather(*[async_create_and_open_receive_client(args, str(i)) for i in range(args.partitions)])
+        for i in range(args.partitions):
+            global_msg_cnt_dict[i] = 0
 
-    start = time.time()
-    await asyncio.gather(
-        *[client_receive_async(args, receive_clients[i], i) for i in range(args.partitions)])
-    elapsed = time.time() - start
+        if RUN_PROFILER:
+            pr.enable()
+        start = time.time()
+        await asyncio.gather(
+            *[client_receive_async(args, receive_clients[i], i) for i in range(args.partitions)])
 
-    total_message = 0
-    for i in range(args.partitions):
-        total_message += global_msg_cnt_dict[i]
+        elapsed = time.time() - start
+        if RUN_PROFILER:
+            pr.disable()
+            pr.dump_stats("py_perf_async.pstat")
 
-    messagesPerSecond = total_message / elapsed
-    print("The total speed is {} msg/s, received in {}".format(messagesPerSecond, elapsed))
-    await asyncio.gather(*[client.close_async() for client in receive_clients])
+        total_message = 0
+        for i in range(args.partitions):
+            total_message += global_msg_cnt_dict[i]
+
+        messagesPerSecond = total_message / elapsed
+        print("The total speed is {} msg/s, received in {}".format(messagesPerSecond, elapsed))
+        #await asyncio.gather(*[client.close_async() for client in receive_clients])
+    finally:
+        pass
+        #await connection.close()
 
 
 if __name__ == '__main__':
+    print("RUNNING AGAINST {} WITH SETTINGS {}".format(live_eventhub_config['hostname'], args))
     if args.run_type == 1:
         print('Running sync receive with multiple threads')
         sync_receive_with_multiple_threads(args)

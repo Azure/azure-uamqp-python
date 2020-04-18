@@ -15,12 +15,13 @@ https://github.com/agronholm/anyio/releases/tag/1.3.0
 """
 
 try:
-    from anyio import create_task_group, sleep, connect_tcp
+    from anyio import create_task_group, sleep, connect_tcp, create_capacity_limiter
 except ImportError:
-    from ._asyncio import create_task_group, sleep, connect_tcp
+    from ._asyncio import create_task_group, sleep, connect_tcp, create_capacity_limiter
 
 __all__ = [
     'create_task_group',
     'sleep',
-    'connect_tcp'
+    'connect_tcp',
+    'create_capacity_limiter'
 ]

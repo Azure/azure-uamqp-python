@@ -250,31 +250,3 @@ if _CAN_ADD_DOCSTRING:
         signatures and encryption details). A registry of deﬁned footers and their meanings can be found
         here: http://www.amqp.org/specification/1.0/footer.
     """
-
-    def __init__(
-            self,
-            data=None,
-            sequence=None,
-            value=None,
-            header=None,
-            delivery_annotations=None,
-            message_annotations=None,
-            properties=None,
-            application_properties=None,
-            footer=None,
-            **kwargs):
-        self.data = data
-        self.sequence = sequence
-        self.value = value
-        self.properties = properties
-        self.application_properties = application_properties
-        self.header = header
-        self.delivery_annotations = delivery_annotations
-        self.message_annotations = message_annotations
-        self.footer = footer
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        setattr(self, key, value)

@@ -7,7 +7,7 @@
 __version__ = "2.0.0a1"
 
 
-from .connection import Connection
+from ._connection import Connection
 from ._transport import SSLTransport
 
 from .client import ReceiveClient

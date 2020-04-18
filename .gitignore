@@ -105,6 +105,9 @@ ENV/
 # mypy
 .mypy_cache/
 
+#pycharm
+.idea/
+
 # uamqp
 uamqp/c_uamqp.c
 uamqp/c_uamqp.pyx
@@ -115,3 +118,4 @@ tests/test_dont_merge.py
 .vscode/settings.json
 .DS_Store
 legacy_test/live_settings.py
+*.pstat
