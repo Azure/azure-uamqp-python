@@ -9,9 +9,9 @@ except Exception:
     from urllib.parse import quote_plus
 
 import uamqp
-from uamqp import authentication
+#from uamqp import authentication
 
-from live_settings import config as live_eventhub_config
+from .live_settings import config as live_eventhub_config
 
 logging.basicConfig(level=logging.INFO)
 

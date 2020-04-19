@@ -141,7 +141,7 @@ def _decode_timestamp(buffer):
 
 def _decode_uuid(buffer):
     # type: (memoryview) -> Tuple[memoryview, uuid.UUID]
-    return buffer[16:], uuid.UUID(bytes=buffer[:16])
+    return buffer[16:], uuid.UUID(bytes=buffer[:16].tobytes())
 
 
 def _decode_binary_small(buffer):
@@ -202,24 +202,28 @@ def _decode_map_large(buffer):
 
 def _decode_array_small(buffer):
     # type: (memoryview) -> Tuple[memoryview, List[Any]]
-    count = buffer[1]
-    subconstructor = buffer[2]
-    buffer = buffer[3:]
-    values = [None] * count
-    for i in range(count):
-        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
-    return buffer, values
+    count = buffer[1]  # Ignore first byte (size) and just rely on count
+    if count:
+        subconstructor = buffer[2]
+        buffer = buffer[3:]
+        values = [None] * count
+        for i in range(count):
+            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
+        return buffer, values
+    return buffer[2:], []
 
 
 def _decode_array_large(buffer):
     # type: (memoryview) -> Tuple[memoryview, List[Any]]
     count = c_unsigned_long.unpack(buffer[4:8])[0]
-    subconstructor = buffer[8]
-    buffer = buffer[9:]
-    values = [None] * count
-    for i in range(count):
-        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
-    return buffer, values
+    if count:
+        subconstructor = buffer[8]
+        buffer = buffer[9:]
+        values = [None] * count
+        for i in range(count):
+            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
+        return buffer, values
+    return buffer[8:], []
 
 
 def _decode_described(buffer):
