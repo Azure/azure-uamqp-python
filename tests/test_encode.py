@@ -9,6 +9,7 @@ import uuid
 
 import uamqp._encode as encode
 from uamqp.types import AMQPTypes
+from uamqp.message import Message, Header, Properties
 
 import pytest
 
@@ -637,3 +638,27 @@ def test_encode_array():
 
     with pytest.raises(TypeError):
         encode.encode_array(b"", [bytearray([10]), 42])
+
+
+def test_encode_payload():
+    message = Message(data='test')
+    output = encode.encode_payload(b"", message)
+    assert output == b'\x00\x53\x75\xC1\x1C\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x04test'
+
+    message = Message(data='test1234567890', application_properties={"key": "value"})
+    output = encode.encode_payload(b"", message)
+    assert output == b'\x00\x53\x74\xC1\x0D\x02\xa1\x03key\xa1\x05value\x00\x53\x75\xc1\x26\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x0etest1234567890'
+
+    message = Message(value='test1234567890')
+    output = encode.encode_payload(b"", message)
+    assert output == b'\x00\x53\x77\xa1\x0Etest1234567890'
+
+    header = Header(delivery_count=2)
+    properties = Properties(correlation_id="cid")
+    message = Message(header=header, properties=properties, data='test')
+    output = encode.encode_payload(b"", message)
+    assert output == b'\x00\x53\x70\xc0\x07\x05\x40\x40\x40\x40\x52\x02\x00\x53\x73\xc0\x12\x0D\x40\x40\x40\x40\x40\xa1\x03cid\x40\x40\x40\x40\x40\x40\x40\x00\x53\x75\xc1\x1c\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x04test'
+
+    message = Message(sequence='abcdefghijklmnopqrstuvwxyz')
+    output = encode.encode_payload(b"", message)
+    assert output == b'\x00\x53\x76\xc0\x4f\x1a\xa1\x01a\xa1\x01b\xa1\x01c\xa1\x01d\xa1\x01e\xa1\x01f\xa1\x01g\xa1\x01h\xa1\x01i\xa1\x01j\xa1\x01k\xa1\x01l\xa1\x01m\xa1\x01n\xa1\x01o\xa1\x01p\xa1\x01q\xa1\x01r\xa1\x01s\xa1\x01t\xa1\x01u\xa1\x01v\xa1\x01w\xa1\x01x\xa1\x01y\xa1\x01z'

@@ -623,7 +623,12 @@ _ENCODE_MAP = {
 def encode_value(output, value, **kwargs):
     # type: (bytes, Any, Any) -> bytes
     try:
-        output = _ENCODE_MAP[value[TYPE]](output, value[VALUE], **kwargs)
+        if value[TYPE] is None:
+            # body being type of amqp value
+            value = value[VALUE]
+            raise KeyError
+        else:
+            output = _ENCODE_MAP[value[TYPE]](output, value[VALUE], **kwargs)
     except (KeyError, TypeError):
         if value is None:
             output = encode_null(output, **kwargs)
@@ -699,7 +704,7 @@ def encode_payload(output, payload):
                     _FIELD_DEFINITIONS[definition.type].encode(value)
                 )
             })
-        elif definition.type is not None:
+        else:
             output = encode_value(output, {
                 TYPE: AMQPTypes.described,
                 VALUE: (
@@ -707,8 +712,6 @@ def encode_payload(output, payload):
                     {TYPE: definition.type, VALUE: value}
                 )
             })
-        else:
-            output = encode_value(output, value)
     return output
 
 
