@@ -586,6 +586,38 @@ def encode_filter_set(value):
     return fields
 
 
+def encode_unknown(output, value, **kwargs):
+    # type: (Optional[Any]) -> Dict[str, Any]
+    """
+    Dynamic encoding according to the type of `value`.
+    """
+    if value is None:
+        output = encode_null(output, **kwargs)
+    elif isinstance(value, bool):
+        output = encode_boolean(output, value, **kwargs)
+    elif isinstance(value, six.string_types):
+        output = encode_string(output, value, **kwargs)
+    elif isinstance(value, uuid.UUID):
+        output = encode_uuid(output, value, **kwargs)
+    elif isinstance(value, (bytearray, six.binary_type)):
+        output = encode_binary(output, value, **kwargs)
+    elif isinstance(value, float):
+        output = encode_double(output, value, **kwargs)
+    elif isinstance(value, six.integer_types):
+        output = encode_int(output, value, **kwargs)
+    elif isinstance(value, datetime):
+        output = encode_timestamp(output, value, **kwargs)
+    elif isinstance(value, list):
+        output = encode_list(output, value, **kwargs)
+    elif isinstance(value, tuple):
+        output = encode_described(output, value, **kwargs)
+    elif isinstance(value, dict):
+        output = encode_map(output, value, **kwargs)
+    else:
+        raise TypeError("Unable to encode unknown value: {}".format(value))
+    return output
+
+
 _FIELD_DEFINITIONS = {
     FieldDefinition.fields: encode_fields,
     FieldDefinition.annotations: encode_annotations,
@@ -596,6 +628,7 @@ _FIELD_DEFINITIONS = {
 }
 
 _ENCODE_MAP = {
+    None: encode_unknown,
     AMQPTypes.null: encode_null,
     AMQPTypes.boolean: encode_boolean,
     AMQPTypes.ubyte: encode_ubyte,
@@ -623,37 +656,9 @@ _ENCODE_MAP = {
 def encode_value(output, value, **kwargs):
     # type: (bytes, Any, Any) -> bytes
     try:
-        if value[TYPE] is None:
-            # body being type of amqp value
-            value = value[VALUE]
-            raise KeyError
-        else:
-            output = _ENCODE_MAP[value[TYPE]](output, value[VALUE], **kwargs)
+        output = _ENCODE_MAP[value[TYPE]](output, value[VALUE], **kwargs)
     except (KeyError, TypeError):
-        if value is None:
-            output = encode_null(output, **kwargs)
-        elif isinstance(value, bool):
-            output = encode_boolean(output, value, **kwargs)
-        elif isinstance(value, six.string_types):
-            output = encode_string(output, value, **kwargs)
-        elif isinstance(value, uuid.UUID):
-            output = encode_uuid(output, value, **kwargs)
-        elif isinstance(value, bytearray):
-            output = encode_binary(output, value, **kwargs)
-        elif isinstance(value, float):
-            output = encode_double(output, value, **kwargs)
-        elif isinstance(value, six.integer_types):
-            output = encode_int(output, value, **kwargs)
-        elif isinstance(value, datetime):
-            output = encode_timestamp(output, value, **kwargs)
-        elif isinstance(value, list):
-            output = encode_list(output, value, **kwargs)
-        elif isinstance(value, tuple):
-            output = encode_described(output, value, **kwargs)
-        elif isinstance(value, dict):
-            output = encode_map(output, value, **kwargs)
-        else:
-            raise TypeError("Unable to encode unknown value: {}".format(value))
+        output = encode_unknown(output, value, **kwargs)
     return output
 
 
@@ -695,6 +700,9 @@ def encode_payload(output, payload):
             continue
         section_code, definition = Message._definition[index]
         if definition.type in _MESSAGE_PERFORMATIVES:
+            # TODO: Header and Properties encoding can be optimized to
+            #  1. not encoding trailing None fields
+            #  2. encoding bool without constructor
             output = encode_value(output, describe_performative(value))
         elif isinstance(definition.type, FieldDefinition):
             output = encode_value(output, {

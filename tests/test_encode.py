@@ -641,24 +641,97 @@ def test_encode_array():
 
 
 def test_encode_payload():
-    message = Message(data='test')
-    output = encode.encode_payload(b"", message)
-    assert output == b'\x00\x53\x75\xC1\x1C\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x04test'
+    data_body_msg1 = Message(data=b'Abc 123 !@#')
+    output = encode.encode_payload(b"", data_body_msg1)
+    assert output == b'\x00Su\xa0\x0bAbc 123 !@#'
 
-    message = Message(data='test1234567890', application_properties={"key": "value"})
-    output = encode.encode_payload(b"", message)
-    assert output == b'\x00\x53\x74\xC1\x0D\x02\xa1\x03key\xa1\x05value\x00\x53\x75\xc1\x26\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x0etest1234567890'
+    data_body_msg2 = Message(data=b'Abc 123 !@#' * 1024 * 1024)
+    output = encode.encode_payload(b"", data_body_msg2)
+    assert output == b'\x00Su\xb0\x00\xb0\x00\x00' + b'Abc 123 !@#' * 1024 * 1024
 
-    message = Message(value='test1234567890')
-    output = encode.encode_payload(b"", message)
-    assert output == b'\x00\x53\x77\xa1\x0Etest1234567890'
+    value_body_msg_1 = Message(value='Abc 123 !@#')
+    output = encode.encode_payload(b"", value_body_msg_1)
+    assert output == b'\x00Sw\xa1\x0bAbc 123 !@#'
 
-    header = Header(delivery_count=2)
-    properties = Properties(correlation_id="cid")
-    message = Message(header=header, properties=properties, data='test')
-    output = encode.encode_payload(b"", message)
-    assert output == b'\x00\x53\x70\xc0\x07\x05\x40\x40\x40\x40\x52\x02\x00\x53\x73\xc0\x12\x0D\x40\x40\x40\x40\x40\xa1\x03cid\x40\x40\x40\x40\x40\x40\x40\x00\x53\x75\xc1\x1c\x04\xa1\x04TYPE\xa1\x06BINARY\xa1\x05VALUE\xa1\x04test'
+    value_body_msg_2 = Message(value=123.456)
+    output = encode.encode_payload(b"", value_body_msg_2)
+    assert output == b'\x00Sw\x82@^\xdd/\x1a\x9f\xbew'
 
-    message = Message(sequence='abcdefghijklmnopqrstuvwxyz')
-    output = encode.encode_payload(b"", message)
-    assert output == b'\x00\x53\x76\xc0\x4f\x1a\xa1\x01a\xa1\x01b\xa1\x01c\xa1\x01d\xa1\x01e\xa1\x01f\xa1\x01g\xa1\x01h\xa1\x01i\xa1\x01j\xa1\x01k\xa1\x01l\xa1\x01m\xa1\x01n\xa1\x01o\xa1\x01p\xa1\x01q\xa1\x01r\xa1\x01s\xa1\x01t\xa1\x01u\xa1\x01v\xa1\x01w\xa1\x01x\xa1\x01y\xa1\x01z'
+    value_body_msg_3 = Message(value={"key": "value"})
+    output = encode.encode_payload(b"", value_body_msg_3)
+    assert output == b'\x00Sw\xc1\r\x02\xa1\x03key\xa1\x05value'
+
+    data_body_with_header_msg1 = Message(
+        data=b'Abc 123 !@#',
+        header=Header(durable=True),
+    )
+    output = encode.encode_payload(b"", data_body_with_header_msg1)
+    assert output == b'\x00\x53\x70\xc0\x07\x05\x56\x01\x40\x40\x40\x40\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+    data_body_with_header_msg2 = Message(
+        data=b'Abc 123 !@#',
+        header=Header(durable=True, ttl=1000, delivery_count=1),
+    )
+    output = encode.encode_payload(b"", data_body_with_header_msg2)
+    assert output == b'\x00\x53\x70\xc0\x0c\x05\x56\x01\x40\x70\x00\x00\x03\xe8\x40\x52\x01\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+    data_body_with_header_msg3 = Message(
+        data=b'Abc 123 !@#',
+        header=Header(durable=True, priority=1, ttl=1000, first_acquirer=True, delivery_count=1),
+    )
+    output = encode.encode_payload(b"", data_body_with_header_msg3)
+    assert output == b'\x00\x53\x70\xc0\x0e\x05\x56\x01\x50\x01\x70\x00\x00\x03\xe8\x56\x01\x52\x01\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+    data_body_with_properties_msg1 = Message(
+        data=b'Abc 123 !@#',
+        properties=Properties(
+            message_id=b"1",
+            user_id=b'user',
+            to=b"t",
+            subject=b's',
+            reply_to=b"rt",
+            correlation_id=b"1",
+            content_type=b"ct",
+            content_encoding=b"ce",
+            absolute_expiry_time=1587603220000,
+            creation_time=1587603220000,
+            group_id=b"gid",
+            group_sequence=100,
+            reply_to_group_id=b"rgid"
+        )
+    )
+    output = encode.encode_payload(b"", data_body_with_properties_msg1)
+    assert output == b'\x00\x53\x73\xc0\x3e\x0d\xa0\x01\x31\xa0\x04\x75\x73\x65\x72\xa1\x01\x74\xa1\x01\x73\xa1\x02\x72\x74\xa0\x01\x31\xa3\x02\x63\x74\xa3\x02\x63\x65\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\xa1\x03\x67\x69\x64\x52\x64\xa1\x04\x72\x67\x69\x64\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+    data_body_with_properties_msg2 = Message(
+        data=b'Abc 123 !@#',
+        properties=Properties(
+            message_id=b"1",
+            content_encoding=b"ce",
+            creation_time=1587603220000
+        )
+    )
+    output = encode.encode_payload(b"", data_body_with_properties_msg2)
+    assert output == b'\x00\x53\x73\xc0\x1b\x0d\xa0\x01\x31\x40\x40\x40\x40\x40\x40\xa3\x02\x63\x65\x40\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x40\x40\x40\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+    data_body_with_properties_and_header_msg1 = Message(
+        data=b'Abc 123 !@#',
+        header=Header(durable=True, priority=1, ttl=1000, first_acquirer=True, delivery_count=1),
+        properties=Properties(
+            message_id=b"1",
+            user_id=b'user',
+            to=b"t",
+            subject=b's',
+            reply_to=b"rt",
+            correlation_id=b"1",
+            content_type=b"ct",
+            content_encoding=b"ce",
+            absolute_expiry_time=1587603220000,
+            creation_time=1587603220000,
+            group_id=b"gid",
+            group_sequence=100,
+            reply_to_group_id=b"rgid"
+        )
+    )
+    output = encode.encode_payload(b"", data_body_with_properties_and_header_msg1)
+    assert output == b'\x00\x53\x70\xc0\x0e\x05\x56\x01\x50\x01\x70\x00\x00\x03\xe8\x56\x01\x52\x01\x00\x53\x73\xc0\x3e\x0d\xa0\x01\x31\xa0\x04\x75\x73\x65\x72\xa1\x01\x74\xa1\x01\x73\xa1\x02\x72\x74\xa0\x01\x31\xa3\x02\x63\x74\xa3\x02\x63\x65\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\xa1\x03\x67\x69\x64\x52\x64\xa1\x04\x72\x67\x69\x64\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
