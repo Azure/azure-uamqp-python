@@ -239,7 +239,8 @@ class Session(object):
 
     def _incoming_disposition(self, frame):
         for link in self._input_handles.values():
-            link._incoming_disposition(frame)
+            if hasattr(link, '_incoming_disposition'):
+                link._incoming_disposition(frame)
 
     def _outgoing_detach(self, frame):
         self._connection._process_outgoing_frame(self.channel, frame)
