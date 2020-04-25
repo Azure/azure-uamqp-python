@@ -52,6 +52,17 @@ DEFAULT_LINK_CREDIT = 10000
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
 
 
+AUTH_TIMEOUT = 60
+AUTH_DEFAULT_EXPIRATION_SECONDS = 3600
+TOKEN_TYPE_JWT = b"jwt"
+TOKEN_TYPE_SASTOKEN = b"servicebus.windows.net:sastoken"
+CBS_PUT_TOKEN = "put-token"
+CBS_NAME = "name"
+CBS_OPERATION = "operation"
+CBS_TYPE = "type"
+CBS_EXPIRATION = "expiration"
+
+
 class ConnectionState(Enum):
     #: In this state a Connection exists, but nothing has been sent or received. This is the state an
     #: implementation would be in immediately after performing a socket connect or socket accept.
@@ -156,6 +167,24 @@ class ManagementLinkState(Enum):
     CLOSING = 2
     OPEN = 3
     ERROR = 4
+
+
+class CbsState(Enum):
+    CLOSED = 0
+    OPENING = 1
+    OPEN = 2
+    ERROR = 3
+
+
+class CbsAuthState(Enum):
+    Ok = 0
+    Idle = 1
+    InProgress = 2
+    Timeout = 3
+    RefreshRequired = 4
+    Expired = 5
+    Error = 6
+    Failure = 7
 
 
 class Role(object):
