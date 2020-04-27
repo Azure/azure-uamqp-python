@@ -54,8 +54,8 @@ FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
 
 AUTH_TIMEOUT = 60
 AUTH_DEFAULT_EXPIRATION_SECONDS = 3600
-TOKEN_TYPE_JWT = b"jwt"
-TOKEN_TYPE_SASTOKEN = b"servicebus.windows.net:sastoken"
+TOKEN_TYPE_JWT = "jwt"
+TOKEN_TYPE_SASTOKEN = "servicebus.windows.net:sastoken"
 CBS_PUT_TOKEN = "put-token"
 CBS_NAME = "name"
 CBS_OPERATION = "operation"

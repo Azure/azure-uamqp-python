@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 import six
 
+from datetime import datetime, timedelta
 from .management_link import ManagementLink
 from .message import Message, Properties
 from .constants import (
@@ -30,7 +31,10 @@ class CbsAuth(object):
             encoding='UTF-8'
     ):
         self._session = session
-        self._mgmt_link = self._session.create_request_response_link_pair('$cbs')  # type: ManagementLink
+        self._mgmt_link = self._session.create_request_response_link_pair(
+            endpoint='$cbs',
+            on_open_complete=self._on_amqp_management_open_complete,
+        )  # type: ManagementLink
         self._auth_audience = auth_audience
         self._encoding = encoding
         self._auth_timeout = auth_timeout
@@ -57,7 +61,7 @@ class CbsAuth(object):
                 CBS_NAME: audience,
                 CBS_OPERATION: CBS_PUT_TOKEN,
                 CBS_TYPE: token_type,
-                CBS_EXPIRATION: expiration_at
+                #CBS_EXPIRATION: expiration_at
             }
         )
         self._mgmt_link.next_message_id += 1
@@ -67,19 +71,27 @@ class CbsAuth(object):
             timeout=self._auth_timeout
         )
 
-    def _on_put_token_complete(self, message, reason, state):
-        pass
+    def _on_amqp_management_open_complete(self):
+        self.state = CbsState.OPEN
 
-    def open(self):
+    def _on_message_received(self, message):
+        print(message)
+        # pass
+
+    def _on_put_token_complete(self, message, reason, state):
+        print(message)
+
+    def open(self, blocking=False):
         self.state = CbsState.OPENING
+        self._mgmt_link.open()
 
     def close(self):
         self.state = CbsState.CLOSED
 
     def update_token(self):
         access_token = self._get_token()
-        self._expires_at = access_token.expires_on
-        self._token = access_token.token
+        self._expires_at = datetime.utcfromtimestamp(access_token.expires_on)
+        self._token = 'SharedAccessSignature sr=sb%3A%2F%2Famqpproto.servicebus.windows.net%2Ftesteh&sig=3AFdK75uQyMz2b4maNEGagvbM2AnwZWF2DkMXkWddOo%3D&se=1587970752&skn=RootManageSharedAccessKey' #access_token.token
         self._put_token(self._token, self._token_type, self._auth_audience, self._expires_at)
 
     def delete_token(self, token_type, audience):
