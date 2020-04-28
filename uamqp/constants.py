@@ -62,6 +62,9 @@ CBS_OPERATION = "operation"
 CBS_TYPE = "type"
 CBS_EXPIRATION = "expiration"
 
+SEND_DISPOSITION_ACCEPT = "accepted"
+SEND_DISPOSITION_REJECT = "rejected"
+
 
 class ConnectionState(Enum):
     #: In this state a Connection exists, but nothing has been sent or received. This is the state an
@@ -167,6 +170,14 @@ class ManagementLinkState(Enum):
     CLOSING = 2
     OPEN = 3
     ERROR = 4
+
+
+class ManagementExecuteOperationResult(Enum):
+
+    OK = 0
+    ERROR = 1
+    FAILED_BAD_STATUS = 2
+    INSTANCE_CLOSED = 3
 
 
 class CbsState(Enum):

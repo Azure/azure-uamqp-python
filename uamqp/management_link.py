@@ -12,6 +12,7 @@ import time
 from urllib.parse import urlparse
 from enum import Enum
 from io import BytesIO
+from collections import namedtuple
 
 from .endpoints import Source, Target
 from .sender import SenderLink
@@ -25,7 +26,10 @@ from .constants import (
     LinkState,
     Role,
     SenderSettleMode,
-    ReceiverSettleMode
+    ReceiverSettleMode,
+    ManagementExecuteOperationResult,
+    SEND_DISPOSITION_ACCEPT,
+    SEND_DISPOSITION_REJECT
 )
 from .performatives import (
     AttachFrame,
@@ -36,6 +40,8 @@ from .performatives import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+PendingMgmtOperation = namedtuple('PendingMgmtOperation', ['message', 'on_execute_operation_complete'])
 
 
 class ManagementLink(object):
@@ -57,12 +63,9 @@ class ManagementLink(object):
             endpoint,
             on_link_state_change=self._on_receiver_state_change,
             on_message_received=self._on_message_received,
-            on_transfer_received=self._on_transfer_received,
             send_settle_mode=SenderSettleMode.Unsettled,
             rcv_settle_mode=ReceiverSettleMode.First
         )
-        self._on_message_received_callback = kwargs.get("on_message_received")
-        self._on_transfer_received_callback = kwargs.get("on_transfer_received")
         self._on_mgmt_error = kwargs.get('on_mgmt_error')
         self._on_open_complete = kwargs.get('on_open_complete')
         self._on_open_complete_called = False
@@ -121,13 +124,52 @@ class ManagementLink(object):
             # All state transitions shall be ignored.
             return
 
-    def _on_transfer_received(self, frame, message):
-        if self._on_transfer_received_callback:
-            self._on_transfer_received_callback(frame, message)
-
     def _on_message_received(self, message):
-        if self._on_message_received:
-            self._on_message_received_callback(message)
+        message_properties = message.get("properties")
+        correlation_id = message_properties[5]
+        response_detail = message.get("application_properties")
+        try:
+            status_code = response_detail[b'statusCode']
+            status_description = response_detail[b'statusDescription']
+        except KeyError:
+            status_code = response_detail[b'status-code']
+            status_description = response_detail[b'status-description']
+        to_remove_operation = None
+        for operation in self._pending_operations:
+            if operation.message.properties.message_id == correlation_id:
+                to_remove_operation = operation
+                break
+        if to_remove_operation:
+            if 200 <= status_code <= 299:
+                to_remove_operation.on_execute_operation_complete(
+                    ManagementExecuteOperationResult.OK,
+                    status_code,
+                    status_description,
+                    message
+                )
+            else:
+                to_remove_operation.on_execute_operation_complete(
+                    ManagementExecuteOperationResult.FAILED_BAD_STATUS,
+                    status_code,
+                    status_description,
+                    message,
+                    response_detail.get(b'error-condition')
+                )
+            self._pending_operations.remove(to_remove_operation)
+
+    def _on_send_complete(self, message, reason, state):
+        print(message)
+        print(reason)
+        print(state)
+        if SEND_DISPOSITION_REJECT in state:  # either rejected or accepted
+            to_remove_operation = None
+            for operation in self._pending_operations:
+                if message == operation.message:
+                    to_remove_operation = operation
+                    break
+            self._pending_operations.remove(to_remove_operation)
+            to_remove_operation.on_execute_operation_complete(
+                ManagementExecuteOperationResult.ERROR, None, None, message)
 
     def open(self):
         if self.state != ManagementLinkState.IDLE:
@@ -135,7 +177,24 @@ class ManagementLink(object):
         self.state = ManagementLinkState.OPENING
         self._response_link.attach()
         self._request_link.attach()
-    
+
+    def execute_operation(
+            self,
+            message,
+            on_execute_operation_complete,
+            timeout=None,
+            operation=None,
+            type=None,
+            locales=None
+    ):
+
+        self._request_link.send_transfer(
+            message,
+            on_send_complete=self._on_send_complete,
+            timeout=timeout
+        )
+        self._pending_operations.append(PendingMgmtOperation(message, on_execute_operation_complete))
+
     def close(self):
         if self.state != ManagementLinkState.IDLE:
             self._set_state(ManagementLinkState.CLOSING)

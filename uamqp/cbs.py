@@ -5,18 +5,20 @@
 #--------------------------------------------------------------------------
 import six
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from .management_link import ManagementLink
 from .message import Message, Properties
 from .constants import (
     CbsState,
+    CbsAuthState,
     AUTH_TIMEOUT,
     TOKEN_TYPE_SASTOKEN,
     CBS_PUT_TOKEN,
     CBS_EXPIRATION,
     CBS_NAME,
     CBS_TYPE,
-    CBS_OPERATION
+    CBS_OPERATION,
+    ManagementExecuteOperationResult
 )
 
 
@@ -33,7 +35,7 @@ class CbsAuth(object):
         self._session = session
         self._mgmt_link = self._session.create_request_response_link_pair(
             endpoint='$cbs',
-            on_open_complete=self._on_amqp_management_open_complete,
+            on_open_complete=self._on_amqp_management_open_complete
         )  # type: ManagementLink
         self._auth_audience = auth_audience
         self._encoding = encoding
@@ -48,12 +50,13 @@ class CbsAuth(object):
         self._token = None
 
         self.state = CbsState.CLOSED
+        self.auth_state = CbsAuthState.Idle
 
     def _encode(self, value):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def _put_token(self, token, token_type, audience, expiration_at=None):
-        # type: (str, str, str, int) -> None
+        # type: (str, str, str, datetime) -> None
         message = Message(
             value=token,
             properties=Properties(message_id=self._mgmt_link.next_message_id),
@@ -61,27 +64,41 @@ class CbsAuth(object):
                 CBS_NAME: audience,
                 CBS_OPERATION: CBS_PUT_TOKEN,
                 CBS_TYPE: token_type,
-                #CBS_EXPIRATION: expiration_at
+                CBS_EXPIRATION: expiration_at
             }
         )
-        self._mgmt_link.next_message_id += 1
-        self._mgmt_link._request_link.send_transfer(
+        self._mgmt_link.execute_operation(
             message,
-            on_send_complete=self._on_put_token_complete,
-            timeout=self._auth_timeout
+            self._on_execute_operation_complete,
+            timeout=self._auth_timeout,
+            operation=CBS_PUT_TOKEN,
+            type=token_type
         )
+        self._mgmt_link.next_message_id += 1
 
     def _on_amqp_management_open_complete(self):
         self.state = CbsState.OPEN
+
+    def _on_execute_operation_complete(
+            self,
+            execute_operation_result,
+            status_code,
+            status_description,
+            message,
+            error_condition=None
+    ):
+        if execute_operation_result == ManagementExecuteOperationResult.OK:
+            self.auth_state = CbsAuthState.Ok
+        elif execute_operation_result == ManagementExecuteOperationResult.ERROR:
+            self.auth_state = CbsAuthState.Error
+        elif execute_operation_result == ManagementExecuteOperationResult.FAILED_BAD_STATUS:
+            self.auth_state = CbsAuthState.Failure
 
     def _on_message_received(self, message):
         print(message)
         # pass
 
-    def _on_put_token_complete(self, message, reason, state):
-        print(message)
-
-    def open(self, blocking=False):
+    def open(self):
         self.state = CbsState.OPENING
         self._mgmt_link.open()
 
@@ -89,9 +106,10 @@ class CbsAuth(object):
         self.state = CbsState.CLOSED
 
     def update_token(self):
+        self.auth_state = CbsAuthState.InProgress
         access_token = self._get_token()
         self._expires_at = datetime.utcfromtimestamp(access_token.expires_on)
-        self._token = 'SharedAccessSignature sr=sb%3A%2F%2Famqpproto.servicebus.windows.net%2Ftesteh&sig=3AFdK75uQyMz2b4maNEGagvbM2AnwZWF2DkMXkWddOo%3D&se=1587970752&skn=RootManageSharedAccessKey' #access_token.token
+        self._token = access_token.token
         self._put_token(self._token, self._token_type, self._auth_audience, self._expires_at)
 
     def delete_token(self, token_type, audience):
