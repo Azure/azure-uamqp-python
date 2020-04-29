@@ -6,7 +6,7 @@ Release History
 1.2.7 (2020-05-04)
 ++++++++++++++++++
 
-- Fixed bug in setting certificate of tlsio on MacOS (azure-sdk-for-python issue #7336).
+- Fixed bug in setting certificate of tlsio on MacOS (azure-sdk-for-python issue #7201).
 - Fixed seg fault in logging network tracing on MacOS (PR#147, Thanks to malthe).
 - Fixed typos in log messages (PR#146, Thanks to bluca).
 - Imrpoved reproducibility of the generated c_uamqp.c file (PR#144, Thanks to bluca).
