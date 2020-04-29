@@ -45,5 +45,4 @@ services:
 install:
   - pip install -r dev_requirements.txt
   - python ./setup.py build_ext --inplace
-  - pip freeze
   - pip install -e .
