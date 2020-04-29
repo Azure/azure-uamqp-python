@@ -25,8 +25,12 @@ class LogCategory(Enum):
 
 cdef char* vprintf_alloc(const char* format, c_xlogging.va_list va):
     cdef char* result
+    cdef c_xlogging.va_list va_copy
     cdef int neededSize
-    neededSize = c_xlogging.vsnprintf(NULL, 0, format, va)
+    c_xlogging.va_copy(va_copy, va);
+    neededSize = c_xlogging.vsnprintf(NULL, 0, format, va_copy)
+    c_xlogging.va_end(va_copy)
+
     if neededSize < 0:
         result = NULL
     else:

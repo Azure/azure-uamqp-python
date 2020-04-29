@@ -24,10 +24,15 @@ cdef extern from "stdarg.h":
     ctypedef struct fake_type:
         pass
 
+    void va_copy(va_list dest, va_list src)
     void va_start(va_list, void* arg)
     void* va_arg(va_list, fake_type)
     void va_end(va_list)
     fake_type char_type "const char*"
+
+
+cdef extern from "va_copy_patch.h":
+    void va_copy(va_list dest, va_list src)
 
 
 cdef extern from "stdio.h":
