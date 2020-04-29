@@ -45,8 +45,10 @@ cwd = os.path.abspath('.')
 
 # Headers
 
-pxd_inc_dir = os.path.join(cwd, "src", "vendor", "inc")
-sys.path.insert(0, pxd_inc_dir)
+# Do not use an absolute path in include_dirs, otherwise the build
+# will vary depending on the build path
+pxd_inc_dir = os.path.join(".", "src", "vendor", "inc")
+sys.path.insert(0, os.path.join(cwd, pxd_inc_dir))
 
 include_dirs = [
     pxd_inc_dir,
@@ -68,7 +70,9 @@ else:
 
 def create_cython_file():
     content_includes = ""
-    for f in os.listdir("./src"):
+    # Sort the pyx files otherwise the build will vary
+    # depending on the filesystem
+    for f in sorted(os.listdir("./src")):
         if f.endswith(".pyx"):
             print("Adding {}".format(f))
             content_includes += "include \"src/" + f + "\"\n"
