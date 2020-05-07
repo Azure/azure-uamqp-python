@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------
 
 from enum import Enum
+import six
 from collections import namedtuple
 
 from .constants import PORT, FIELD
@@ -148,6 +149,7 @@ class AMQPDecodeError(AMQPException):
     :param info: A dictionary of additional data associated with the error.
     """
 
+
 class AMQPConnectionError(AMQPException):
     """Details of a Connection-level error.
 
@@ -197,6 +199,7 @@ class AMQPLinkError(AMQPException):
     :param info: A dictionary of additional data associated with the error.
     """
 
+
 class AMQPLinkRedirect(AMQPLinkError):
     """Details of a Link-level redirect response.
 
@@ -220,3 +223,35 @@ class AMQPLinkRedirect(AMQPLinkError):
         self.port = int(info.get(b'port', PORT))
         self.address = info.get(b'address', b'').decode('utf-8')
         super(AMQPLinkRedirect, self).__init__(condition, description=description, info=info)
+
+
+class AuthenticationException(AMQPException):
+    """
+
+    """
+
+
+class TokenExpired(AuthenticationException):
+    """
+
+    """
+
+
+class TokenAuthFailure(AuthenticationException):
+    """
+
+    """
+    def __init__(self, status_code, status_description, encoding="UTF-8"):
+        self._encoding = encoding
+        self.status_code = status_code
+        self.status_description = status_description
+        message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
+        if self.description:
+            if isinstance(self.status_description, six.text_type):
+                message += u"\nDescription: {}".format(self.status_description)
+            else:
+                message += u"\nDescription: {}".format(self.status_description.decode(self._encoding))
+        super(TokenAuthFailure, self).__init__(message)
+
+
+#TODO: Compat timeout exception

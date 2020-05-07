@@ -4,15 +4,54 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import six
+import datetime
 from base64 import b64encode
 from hashlib import sha256
 from hmac import HMAC
+
 try:
     from urlparse import urlparse
     from urllib import unquote_plus, urlencode, quote_plus
 except ImportError:
     from urllib.parse import urlparse, unquote_plus, urlencode, quote_plus
 import time
+
+
+class UTC(datetime.tzinfo):
+    """Time Zone info for handling UTC"""
+
+    def utcoffset(self, dt):
+        """UTF offset for UTC is 0."""
+        return datetime.timedelta(0)
+
+    def tzname(self, dt):
+        """Timestamp representation."""
+        return "Z"
+
+    def dst(self, dt):
+        """No daylight saving for UTC."""
+        return datetime.timedelta(hours=1)
+
+
+try:
+    from datetime import timezone  # pylint: disable=ungrouped-imports
+
+    TZ_UTC = timezone.utc  # type: ignore
+except ImportError:
+    TZ_UTC = UTC()  # type: ignore
+
+
+def utc_from_timestamp(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp, tz=TZ_UTC)
+
+
+def utc_now():
+    return datetime.datetime.now(tz=TZ_UTC)
+
+
+def encode(value, encoding='UTF-8'):
+    return value.encode(encoding) if isinstance(value, six.text_type) else value
 
 
 def generate_sas_token(audience, policy, key, expiry=None):

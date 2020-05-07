@@ -172,6 +172,13 @@ class ManagementLinkState(Enum):
     ERROR = 4
 
 
+class ManagementOpenResult(Enum):
+
+    OK = 0
+    ERROR = 1
+    CANCELLED = 2
+
+
 class ManagementExecuteOperationResult(Enum):
 
     OK = 0
@@ -194,8 +201,8 @@ class CbsAuthState(Enum):
     Timeout = 3
     RefreshRequired = 4
     Expired = 5
-    Error = 6
-    Failure = 7
+    Error = 6  # Put token rejected or complete but fail authentication
+    Failure = 7  # Fail to open cbs links
 
 
 class Role(object):

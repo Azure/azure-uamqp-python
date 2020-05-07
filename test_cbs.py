@@ -77,7 +77,7 @@ def main():
             while cbs.state.value != 2:  # OPEN
                 c.listen()
 
-            cbs.update_token()
+            cbs.handle_token()
 
             while cbs.auth_state.value != 0:  # OK
                 c.listen()
