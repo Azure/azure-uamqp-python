@@ -377,7 +377,7 @@ class Message(object):
             return True
         return False
 
-    def reject(self, condition=None, description=None):
+    def reject(self, condition=None, description=None, info=None):
         """Send a response disposition to the service to indicate that
         a received message has been rejected. If the client is running in PeekLock
         mode, the service will wait on this disposition. Otherwise it will
@@ -396,6 +396,7 @@ class Message(object):
             self._response = errors.MessageRejected(
                 condition=condition,
                 description=description,
+                info=info,
                 encoding=self._encoding)
             self._settler(self._response)
             self.state = constants.MessageState.ReceivedSettled

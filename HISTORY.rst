@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.8 (unrelease)
+++++++++++++++++++
+
+- Added info fields to rejected delivery disposition.
+
 1.2.7 (2020-05-04)
 ++++++++++++++++++
 

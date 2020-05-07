@@ -84,9 +84,13 @@ cdef class cMessageReceiver(StructBase):
             raise RuntimeError("Unable to send message dispostition 'released' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)
 
-    cpdef settle_rejected_message(self, c_amqp_definitions.delivery_number message_number, const char* error_condition, const char* error_description):
+    cpdef settle_rejected_message(self, c_amqp_definitions.delivery_number message_number, const char* error_condition, const char* error_description, AMQPValue error_info=None):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
-        delivery_state = c_message.messaging_delivery_rejected(error_condition, error_description)
+        if error_info is not None:
+            delivery_fields = <c_amqp_definitions.fields>error_info._c_value
+        else:
+            delivery_fields = <c_amqp_definitions.fields>NULL
+        delivery_state = c_message.messaging_delivery_rejected(error_condition, error_description, delivery_fields)
         if c_message_receiver.messagereceiver_send_message_disposition(self._c_value, self._link_name, message_number, delivery_state) != 0:
             raise RuntimeError("Unable to send message dispostition 'rejected' for message number {}".format(message_number))
         c_amqpvalue.amqpvalue_destroy(delivery_state)

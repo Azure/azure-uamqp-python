@@ -207,7 +207,8 @@ class MessageReceiver(object):
             self._receiver.settle_rejected_message(
                 message_number,
                 response.error_condition,
-                response.error_description)
+                response.error_description,
+                response.error_info)
         elif isinstance(response, errors.MessageModified):
             self._receiver.settle_modified_message(
                 message_number,
