@@ -722,6 +722,16 @@ static void on_frame_received(void* context, AMQP_VALUE performative, uint32_t p
 
                 session_set_state(session_instance, SESSION_STATE_DISCARDING);
             }
+            else if (session_instance->session_state == SESSION_STATE_DISCARDING)
+            {
+                connection_destroy_endpoint(session_instance->endpoint);
+                if (session_instance->link_endpoints != NULL)
+                {
+                    free(session_instance->link_endpoints);
+                }
+
+                free(session_instance);
+            }
         }
     }
 }
@@ -828,17 +838,18 @@ void session_destroy(SESSION_HANDLE session)
     {
         SESSION_INSTANCE* session_instance = (SESSION_INSTANCE*)session;
 
-        session_end(session, NULL, NULL);
+        // deallocating session should happen after received end frame from the pair point otherwise there would be handle inconsistency
+        if(session_end(session, NULL, NULL) != 0) {
+            /* Codes_S_R_S_SESSION_01_034: [session_destroy shall free all resources allocated by session_create.] */
+            /* Codes_S_R_S_SESSION_01_035: [The endpoint created in session_create shall be freed by calling connection_destroy_endpoint.] */
+            connection_destroy_endpoint(session_instance->endpoint);
+            if (session_instance->link_endpoints != NULL)
+            {
+                free(session_instance->link_endpoints);
+            }
 
-        /* Codes_S_R_S_SESSION_01_034: [session_destroy shall free all resources allocated by session_create.] */
-        /* Codes_S_R_S_SESSION_01_035: [The endpoint created in session_create shall be freed by calling connection_destroy_endpoint.] */
-        connection_destroy_endpoint(session_instance->endpoint);
-        if (session_instance->link_endpoints != NULL)
-        {
-            free(session_instance->link_endpoints);
+            free(session);
         }
-
-        free(session);
     }
 }
 
