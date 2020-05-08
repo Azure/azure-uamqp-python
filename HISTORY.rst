@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.2.8 (2020-05-18)
+1.2.8 (unreleased)
 ++++++++++++++++++
 - Fix to initialize delivery_count header at 0 instead of None (azure-sdk-for-python issue #9708)
 
