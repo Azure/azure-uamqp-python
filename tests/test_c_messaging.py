@@ -49,6 +49,14 @@ def test_delivery_accepted():
 
 
 def test_delivery_rejected():
+    rej_val = c_uamqp.Messaging.delivery_rejected(b'Failed', b'Test failure')
+    assert rej_val.type == c_uamqp.AMQPType.CompositeType
+    assert rej_val.size == 1
+    assert rej_val[0].type == c_uamqp.AMQPType.CompositeType
+    assert rej_val[0].size == 2
+    assert str(rej_val[0][0]) == 'Failed'
+    assert str(rej_val[0][1]) == 'Test failure'
+
     error = c_uamqp.dict_value()
     error_key = c_uamqp.string_value(b"key123")
     error_value = c_uamqp.string_value(b"value456")

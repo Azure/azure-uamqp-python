@@ -86,6 +86,7 @@ cdef class cMessageReceiver(StructBase):
 
     cpdef settle_rejected_message(self, c_amqp_definitions.delivery_number message_number, const char* error_condition, const char* error_description, AMQPValue error_info=None):
         cdef c_amqpvalue.AMQP_VALUE delivery_state
+        cdef c_amqp_definitions.fields delivery_fields
         if error_info is not None:
             delivery_fields = <c_amqp_definitions.fields>error_info._c_value
         else:
