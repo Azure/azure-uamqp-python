@@ -389,6 +389,8 @@ class Message(object):
         :type condition: bytes or str
         :param description: A description/reason to accompany the rejection.
         :type description: bytes or str
+        :param info: Information about the error condition.
+        :type info: dict
         :rtype: bool
         :raises: TypeError if the message is being sent rather than received.
         """
