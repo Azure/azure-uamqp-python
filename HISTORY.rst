@@ -3,10 +3,12 @@
 Release History
 ===============
 
-1.2.8 (unrelease)
+1.2.8 (unreleased)
 ++++++++++++++++++
 
+- Fix to initialize delivery_count header at 0 instead of None (azure-sdk-for-python issue #9708)
 - Added info fields to rejected delivery disposition.
+
 
 1.2.7 (2020-05-04)
 ++++++++++++++++++
@@ -14,7 +16,7 @@ Release History
 - Fixed bug in setting certificate of tlsio on MacOS (azure-sdk-for-python issue #7201).
 - Fixed seg fault in logging network tracing on MacOS (PR#147, Thanks to malthe).
 - Fixed typos in log messages (PR#146, Thanks to bluca).
-- Imrpoved reproducibility of the generated c_uamqp.c file (PR#144, Thanks to bluca).
+- Improved reproducibility of the generated c_uamqp.c file (PR#144, Thanks to bluca).
 
 
 1.2.6 (2020-02-13)

@@ -1068,13 +1068,13 @@ class MessageHeader(object):
     """
 
     def __init__(self, header=None):
-        self.delivery_count = None
+        self.delivery_count = 0
         self.time_to_live = None
         self.first_acquirer = None
         self.durable = None
         self.priority = None
         if header:
-            self.delivery_count = header.delivery_count
+            self.delivery_count = header.delivery_count or 0
             self.time_to_live = header.time_to_live
             self.first_acquirer = header.first_acquirer
             self.durable = header.durable
@@ -1095,8 +1095,7 @@ class MessageHeader(object):
         :rtype: uamqp.c_uamqp.cHeader
         """
         header = c_uamqp.create_header()
-        if self.delivery_count is not None:
-            header.delivery_count = self.delivery_count
+        header.delivery_count = self.delivery_count or 0
         if self.time_to_live is not None:
             header.time_to_live = self.time_to_live
         if self.first_acquirer is not None:
