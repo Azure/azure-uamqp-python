@@ -5,7 +5,9 @@ Release History
 
 1.2.8 (unreleased)
 ++++++++++++++++++
+
 - Fix to initialize delivery_count header at 0 instead of None (azure-sdk-for-python issue #9708)
+- Added info fields to rejected delivery disposition.
 
 
 1.2.7 (2020-05-04)

@@ -334,9 +334,15 @@ cdef class Messaging(object):
         return value_factory(_value)
 
     @staticmethod
-    def delivery_rejected(const char* error_condition, const char* error_description):
+    def delivery_rejected(const char* error_condition, const char* error_description, cFields error_info=None):
         cdef c_amqpvalue.AMQP_VALUE _value
-        _value = c_message.messaging_delivery_rejected(error_condition, error_description)
+
+        if error_info is not None:
+            delivery_fields = <c_amqp_definitions.fields>error_info._c_value
+        else:
+            delivery_fields = <c_amqp_definitions.fields>NULL
+
+        _value = c_message.messaging_delivery_rejected(error_condition, error_description, delivery_fields)
         if <void*>_value == NULL:
             raise MemoryError("Failed to allocate memory for rejected delivery.")
         return value_factory(_value)
