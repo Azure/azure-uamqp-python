@@ -266,7 +266,7 @@ class MessageAccepted(MessageResponse):
 
 class MessageRejected(MessageResponse):
 
-    def __init__(self, condition=None, description=None, info=None, encoding='UTF-8'):
+    def __init__(self, condition=None, description=None, encoding='UTF-8', info=None):
         if condition:
             self.error_condition = condition.encode(encoding) if isinstance(condition, six.text_type) else condition
         else:
