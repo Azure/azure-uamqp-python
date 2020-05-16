@@ -883,13 +883,21 @@ int session_begin(SESSION_HANDLE session)
                 else if(connection_open_result == CONNECTION_OPEN_ALREADY_OPEN)
                 {
                     session_instance->is_underlying_connection_open = UNDERLYING_CONNECTION_OPEN;
-                    if (send_begin(session) != 0)
+                    CONNECTION_STATE connection_state = connection_get_state(session_instance->connection);
+                    if (connection_state == CONNECTION_STATE_OPENED)
                     {
-                        result = __FAILURE__;
+                        if (send_begin(session) != 0)
+                        {
+                            result = __FAILURE__;
+                        }
+                        else
+                        {
+                            session_set_state(session_instance, SESSION_STATE_BEGIN_SENT);
+                            result = 0;
+                        }
                     }
                     else
                     {
-                        session_set_state(session_instance, SESSION_STATE_BEGIN_SENT);
                         result = 0;
                     }
                 }
