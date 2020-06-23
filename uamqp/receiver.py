@@ -275,6 +275,9 @@ class MessageReceiver(object):
         """Update the link status."""
         self._link.do_work()
 
+    def force_update_link_credit(self, link_credit):
+        self._link.update_link_credit(link_credit)
+
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""
         self._receiver.destroy()

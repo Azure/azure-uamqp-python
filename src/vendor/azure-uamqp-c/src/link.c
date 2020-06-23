@@ -1186,6 +1186,24 @@ int link_set_max_link_credit(LINK_HANDLE link, uint32_t max_link_credit)
     return result;
 }
 
+int link_update_link_credit(LINK_HANDLE link, uint32_t link_credit)
+{
+    int result;
+
+    if (link == NULL)
+    {
+        result = __FAILURE__;
+    }
+    else
+    {
+        link->current_link_credit = link_credit;
+        send_flow(link);
+        result = 0;
+    }
+
+    return result;
+}
+
 int link_attach(LINK_HANDLE link, ON_TRANSFER_RECEIVED on_transfer_received, ON_LINK_STATE_CHANGED on_link_state_changed, ON_LINK_FLOW_ON on_link_flow_on, void* callback_context)
 {
     int result;

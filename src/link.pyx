@@ -78,6 +78,10 @@ cdef class cLink(StructBase):
     cpdef unsubscribe_to_detach_event(self):
         c_link.link_unsubscribe_on_link_detach_received(self._detach_event)
 
+    cpdef update_link_credit(self, stdint.uint32_t link_credit):
+        if c_link.link_update_link_credit(self._c_value, link_credit) != 0:
+            self._value_error("Unable to update link credit.")
+
     @property
     def send_settle_mode(self):
         cdef c_amqp_definitions.sender_settle_mode snd_settle_mode
