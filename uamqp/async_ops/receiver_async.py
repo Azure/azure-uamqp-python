@@ -136,6 +136,15 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         await asyncio.sleep(0, loop=self.loop)
         self._link.do_work()
 
+    async def update_link_credit_async(self, link_credit):
+        """Update the link credit. Send flow control frame to the sender.
+
+        :param link_credit: The link credit amount that is requested.
+        :type link_credit: int
+        """
+        await asyncio.sleep(0, loop=self.loop)
+        self._link.update_link_credit(link_credit)
+
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
         self.close()

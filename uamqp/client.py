@@ -1002,7 +1002,7 @@ class ReceiveClient(AMQPClient):
             # Message was received with callback processing and wasn't settled.
             _logger.info("Message was not settled.")
 
-    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0, **kwargs):
+    def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
         accepted - if you wish to add logic to accept or reject messages based on custom
         criteria, pass in a callback. This method will return as soon as some messages are
@@ -1029,12 +1029,10 @@ class ReceiveClient(AMQPClient):
         """
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._prefetch
-        issue_link_credit_on_demand = kwargs.get("issue_link_credit_on_demand", False)
-        if not issue_link_credit_on_demand:
-            if max_batch_size > self._prefetch:
-                raise ValueError(
-                    'Maximum batch size cannot be greater than the '
-                    'connection link credit: {}'.format(self._prefetch))
+        if max_batch_size > self._prefetch:
+            raise ValueError(
+                'Maximum batch size cannot be greater than the '
+                'connection link credit: {}'.format(self._prefetch))
         timeout = self._counter.get_current_ms() + timeout if timeout else 0
         expired = False
         self.open()
@@ -1046,12 +1044,6 @@ class ReceiveClient(AMQPClient):
         if len(batch) >= max_batch_size:
             return batch
 
-        if issue_link_credit_on_demand:
-            # in the case max_batch_size <= self._prefetch, no extra link credit is needed.
-            if max_batch_size > self._prefetch:
-                extra_credit_amount_needed = max_batch_size - len(batch)
-                self.message_handler.force_update_link_credit(extra_credit_amount_needed)
-
         while receiving and not expired and len(batch) < max_batch_size:
             while receiving and self._received_messages.qsize() < max_batch_size:
                 if timeout and self._counter.get_current_ms() > timeout:
@@ -1062,19 +1054,11 @@ class ReceiveClient(AMQPClient):
                 received = self._received_messages.qsize() - before
                 if self._received_messages.qsize() > 0 and received == 0:
                     # No new messages arrived, but we have some - so return what we have.
-                    # TODO: we might need to change this no new messages arrived to time-based like no message recevied in 100ms,
-                    # the second connection.do_work() might a) not receiving any message b) not reflecting the flow control update
                     expired = True
                     break
             while not self._received_messages.empty() and len(batch) < max_batch_size:
                 batch.append(self._received_messages.get())
                 self._received_messages.task_done()
-
-        if issue_link_credit_on_demand:
-            # set credit back to self._prefetch
-            # TODO: do we need to set back to the original prefetch value?
-            self.message_handler.force_update_link_credit(self._prefetch)
-
         return batch
 
     def receive_messages(self, on_message_received):

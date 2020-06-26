@@ -275,7 +275,12 @@ class MessageReceiver(object):
         """Update the link status."""
         self._link.do_work()
 
-    def force_update_link_credit(self, link_credit):
+    def update_link_credit(self, link_credit):
+        """Update the link credit. Send flow control frame to the sender.
+
+        :param link_credit: The link credit amount that is requested.
+        :type link_credit: int
+        """
         self._link.update_link_credit(link_credit)
 
     def destroy(self):
