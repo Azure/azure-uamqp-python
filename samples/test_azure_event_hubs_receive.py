@@ -8,6 +8,8 @@ import logging
 import os
 import pytest
 import sys
+import time
+
 try:
     from urllib import quote_plus #Py2
 except Exception:
@@ -47,6 +49,25 @@ def send_single_message(live_eventhub_config, partition, msg_content):
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
         uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
     uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
+
+
+def send_multiple_message(live_eventhub_config, msg_count):
+    def data_generator():
+        for i in range(msg_count):
+            msg_content = "Hello world {}".format(i).encode('utf-8')
+            yield msg_content
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'], live_eventhub_config['partition'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    message_batch = uamqp.message.BatchMessage(data_generator())
+    send_client.queue_message(message_batch)
+    results = send_client.send_all_messages(close_on_done=False)
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+    send_client.close()
 
 
 def test_event_hubs_simple_receive(live_eventhub_config):
@@ -303,6 +324,44 @@ def test_event_hubs_filter_receive(live_eventhub_config):
                 log.info("Message format: {}".format(message._message.message_format))
                 log.info("{}".format(list(message.get_data())))
             batch = receive_client.receive_message_batch(max_batch_size=10)
+    log.info("Finished receiving")
+
+
+def test_event_hubs_dynamic_issue_link_credit(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    msg_sent_cnt = 200
+    send_multiple_message(live_eventhub_config, msg_sent_cnt)
+
+    def message_received_callback(message):
+        message_received_callback.received_msg_cnt += 1
+
+    message_received_callback.received_msg_cnt = 0
+
+    with uamqp.ReceiveClient(source, auth=sas_auth, debug=True, prefetch=1) as receive_client:
+
+        receive_client._message_received_callback = message_received_callback
+
+        while not receive_client.client_ready():
+            time.sleep(0.05)
+
+        receive_client.message_handler.update_link_credit(msg_sent_cnt)
+
+        now = start = time.time()
+        wait_time = 5
+        while now - start <= wait_time:
+            receive_client._connection.work()
+            now = time.time()
+
+        assert message_received_callback.received_msg_cnt == msg_sent_cnt
     log.info("Finished receiving")
 
 
