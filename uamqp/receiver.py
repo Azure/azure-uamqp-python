@@ -275,13 +275,14 @@ class MessageReceiver(object):
         """Update the link status."""
         self._link.do_work()
 
-    def update_link_credit(self, link_credit):
-        """Update the link credit. Send flow control frame to the sender.
+    def reset_link_credit(self, link_credit, **kwargs):
+        """Reset the link credit. This method would send flow control frame to the sender.
 
         :param link_credit: The link credit amount that is requested.
         :type link_credit: int
         """
-        self._link.update_link_credit(link_credit)
+        drain = kwargs.get("drain", False)
+        self._link.reset_link_credit(link_credit, drain)
 
     def destroy(self):
         """Close both the Receiver and the Link. Clean up any C objects."""

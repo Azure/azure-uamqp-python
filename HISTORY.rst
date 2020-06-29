@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.9 (2020-07-06)
+++++++++++++++++++
+
+- Added method `MessageReceiver.reset_link_credit` which is responsible for resetting current available link credit on the receiver link and send update to the sender.
+
 1.2.8 (2020-05-19)
 ++++++++++++++++++
 

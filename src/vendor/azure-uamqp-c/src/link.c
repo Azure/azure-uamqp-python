@@ -1186,7 +1186,7 @@ int link_set_max_link_credit(LINK_HANDLE link, uint32_t max_link_credit)
     return result;
 }
 
-int link_update_link_credit(LINK_HANDLE link, uint32_t link_credit)
+int link_reset_link_credit(LINK_HANDLE link, uint32_t link_credit, bool drain)
 {
     int result;
 
@@ -1197,10 +1197,50 @@ int link_update_link_credit(LINK_HANDLE link, uint32_t link_credit)
     else
     {
         link->current_link_credit = link_credit;
-        send_flow(link);
-        result = 0;
-    }
 
+        FLOW_HANDLE flow = flow_create(0, 0, 0);
+        if (flow == NULL)
+        {
+            LogError("NULL flow performative");
+            result = __FAILURE__;
+        }
+        else
+        {
+            if (flow_set_link_credit(flow, link->current_link_credit) != 0)
+            {
+                LogError("Cannot set link credit on flow performative");
+                result = __FAILURE__;
+            }
+            else if (flow_set_handle(flow, link->handle) != 0)
+            {
+                LogError("Cannot set handle on flow performative");
+                result = __FAILURE__;
+            }
+            else if (flow_set_delivery_count(flow, link->delivery_count) != 0)
+            {
+                LogError("Cannot set delivery count on flow performative");
+                result = __FAILURE__;
+            }
+            else if (drain && flow_set_drain(flow, drain) != 0)
+            {
+                LogError("Cannot set drain on flow performative");
+                result = __FAILURE__;
+            }
+            else
+            {
+                if (session_send_flow(link->link_endpoint, flow) != 0)
+                {
+                    LogError("Sending flow frame failed in session send");
+                    result = __FAILURE__;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+            flow_destroy(flow);
+        }
+    }
     return result;
 }
 

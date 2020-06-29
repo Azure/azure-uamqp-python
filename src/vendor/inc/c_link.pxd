@@ -57,7 +57,7 @@ cdef extern from "azure_uamqp_c/link.h":
     int link_get_desired_capabilities(LINK_HANDLE link, c_amqpvalue.AMQP_VALUE* desired_capabilities)
     int link_get_name(LINK_HANDLE link, const char** link_name)
     int link_get_received_message_id(LINK_HANDLE link, c_amqp_definitions.delivery_number* message_id)
-    int link_update_link_credit(LINK_HANDLE link, stdint.uint32_t link_credit)
+    int link_reset_link_credit(LINK_HANDLE link, stdint.uint32_t link_credit, bint drain)
 
     ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE link_subscribe_on_link_detach_received(LINK_HANDLE link, ON_LINK_DETACH_RECEIVED on_link_detach_received, void* context)
     void link_unsubscribe_on_link_detach_received(ON_LINK_DETACH_EVENT_SUBSCRIPTION_HANDLE event_subscription)
