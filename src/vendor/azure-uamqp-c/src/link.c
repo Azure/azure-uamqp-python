@@ -1189,6 +1189,7 @@ int link_set_max_link_credit(LINK_HANDLE link, uint32_t max_link_credit)
 int link_reset_link_credit(LINK_HANDLE link, uint32_t link_credit, bool drain)
 {
     int result;
+    FLOW_HANDLE flow;
 
     if (link == NULL)
     {
@@ -1198,7 +1199,7 @@ int link_reset_link_credit(LINK_HANDLE link, uint32_t link_credit, bool drain)
     {
         link->current_link_credit = link_credit;
 
-        FLOW_HANDLE flow = flow_create(0, 0, 0);
+        flow = flow_create(0, 0, 0);
         if (flow == NULL)
         {
             LogError("NULL flow performative");
