@@ -293,7 +293,7 @@ async def test_event_hubs_dynamic_issue_link_credit_async(live_eventhub_config):
         while not await receive_client.client_ready_async():
             await asyncio.sleep(0.05)
 
-        await receive_client.message_handler.update_link_credit_async(msg_sent_cnt)
+        await receive_client.message_handler.reset_link_credit_async(msg_sent_cnt)
 
         now = start = time.time()
         wait_time = 5

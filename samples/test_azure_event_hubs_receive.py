@@ -353,7 +353,7 @@ def test_event_hubs_dynamic_issue_link_credit(live_eventhub_config):
         while not receive_client.client_ready():
             time.sleep(0.05)
 
-        receive_client.message_handler.update_link_credit(msg_sent_cnt)
+        receive_client.message_handler.reset_link_credit(msg_sent_cnt)
 
         now = start = time.time()
         wait_time = 5
