@@ -78,6 +78,11 @@ cdef class cLink(StructBase):
     cpdef unsubscribe_to_detach_event(self):
         c_link.link_unsubscribe_on_link_detach_received(self._detach_event)
 
+    cpdef reset_link_credit(self, stdint.uint32_t link_credit, bint drain):
+        _logger.debug("send flow, reset link credit to %r and drain to %r", link_credit, drain)
+        if c_link.link_reset_link_credit(self._c_value, link_credit, drain) != 0:
+            self._value_error("Unable to reset link credit and send flow.")
+
     @property
     def send_settle_mode(self):
         cdef c_amqp_definitions.sender_settle_mode snd_settle_mode

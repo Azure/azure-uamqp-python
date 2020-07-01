@@ -136,6 +136,16 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         await asyncio.sleep(0, loop=self.loop)
         self._link.do_work()
 
+    async def reset_link_credit_async(self, link_credit, **kwargs):
+        """Asynchronously reset the link credit. This method would send flow control frame to the sender.
+
+        :param link_credit: The link credit amount that is requested.
+        :type link_credit: int
+        """
+        await asyncio.sleep(0, loop=self.loop)
+        drain = kwargs.get("drain", False)
+        self._link.reset_link_credit(link_credit, drain)
+
     async def close_async(self):
         """Close the Receiver asynchronously, leaving the link intact."""
         self.close()

@@ -9,6 +9,7 @@ import os
 import pytest
 import asyncio
 import sys
+import time
 
 import uamqp
 from uamqp import address, types, utils, authentication
@@ -31,6 +32,25 @@ def on_message_received(message):
     annotations = message.annotations
     log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
     return message
+
+
+def send_multiple_message(live_eventhub_config, msg_count):
+    def data_generator():
+        for i in range(msg_count):
+            msg_content = "Hello world {}".format(i).encode('utf-8')
+            yield msg_content
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'], live_eventhub_config['partition'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+    message_batch = uamqp.message.BatchMessage(data_generator())
+    send_client.queue_message(message_batch)
+    results = send_client.send_all_messages(close_on_done=False)
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+    send_client.close()
 
 
 @pytest.mark.asyncio
@@ -245,6 +265,44 @@ async def test_event_hubs_multiple_receiver_async(live_eventhub_config):
     finally:
         await partition_0.close_async()
         await partition_1.close_async()
+
+
+@pytest.mark.asyncio
+async def test_event_hubs_dynamic_issue_link_credit_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    msg_sent_cnt = 200
+    send_multiple_message(live_eventhub_config, msg_sent_cnt)
+
+    def message_received_callback(message):
+        message_received_callback.received_msg_cnt += 1
+
+    message_received_callback.received_msg_cnt = 0
+
+    async with uamqp.ReceiveClientAsync(source, debug=True, auth=sas_auth, prefetch=1) as receive_client:
+
+        receive_client._message_received_callback = message_received_callback
+
+        while not await receive_client.client_ready_async():
+            await asyncio.sleep(0.05)
+
+        await receive_client.message_handler.reset_link_credit_async(msg_sent_cnt)
+
+        now = start = time.time()
+        wait_time = 5
+        while now - start <= wait_time:
+            await receive_client._connection.work_async()
+            now = time.time()
+
+        assert message_received_callback.received_msg_cnt == msg_sent_cnt
+        log.info("Finished receiving")
 
 
 if __name__ == '__main__':
