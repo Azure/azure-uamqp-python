@@ -997,7 +997,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-mem
     def __init__(self, rcv_client, auto_complete=True):
         self._client = rcv_client
         self._client.auto_complete = False
-        self._client._timeout_reached = False
+        self._client._timeout_reached = False  # pylint: disable=protected-access
         self.receiving = True
         self.auto_complete = auto_complete
         self.current_message = None
