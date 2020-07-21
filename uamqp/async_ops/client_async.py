@@ -840,8 +840,13 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             if self._timeout > 0:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.info("Timeout reached, closing receiver.")
-                    self._shutdown = True
+                    self._timeout_reached = True
+                    if self._shutdown_after_timeout:
+                        _logger.info("Timeout reached, closing receiver.")
+                        self._shutdown = True
+                    else:
+                        self._last_activity_timestamp = None # To reuse the receiver, reset the timestamp
+                        _logger.info("Timeout reached, keeping receiver open.")
         else:
             self._last_activity_timestamp = now
         self._was_message_received = False
@@ -992,6 +997,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-mem
     def __init__(self, rcv_client, auto_complete=True):
         self._client = rcv_client
         self._client.auto_complete = False
+        self._client._timeout_reached = False
         self.receiving = True
         self.auto_complete = auto_complete
         self.current_message = None
@@ -1002,7 +1008,7 @@ class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-mem
         if self.current_message and self.auto_complete:
             self.current_message.accept()
         try:
-            while self.receiving and self._client._received_messages.empty():
+            while self.receiving and self._client._received_messages.empty() and not self._client._timeout_reached:
                 self.receiving = await self._client.do_work_async()
             if not self._client._received_messages.empty():
                 message = self._client._received_messages.get()
@@ -1014,5 +1020,5 @@ class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-mem
             self.receiving = False
             raise
         finally:
-            if not self.receiving:
+            if not self.receiving and self._client._shutdown_after_timeout:
                 await self._client.close_async()

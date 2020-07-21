@@ -34,6 +34,18 @@ def on_message_received(message):
     return message
 
 
+def send_single_message(live_eventhub_config, partition, msg_content):
+    target = "amqps://{}/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        partition
+    )
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    uamqp.send_message(target, msg_content, auth=sas_auth, debug=False)
+
+
 def send_multiple_message(live_eventhub_config, msg_count):
     def data_generator():
         for i in range(msg_count):
@@ -118,6 +130,52 @@ async def test_event_hubs_iter_receive_async(live_eventhub_config):
             break
     await receive_client.close_async()
 
+
+@pytest.mark.asyncio
+async def test_event_hubs_iter_receive_no_shutdown_after_timeout_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    source = address.Source(source)
+    source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
+    count = 0
+
+    await receive_client.open_async()
+    while not await receive_client.client_ready_async():
+        await receive_client.do_work_async()
+
+    gen = receive_client.receive_messages_iter_async()
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    async for message in gen:
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+        count += 1
+
+    assert count == 1
+    count = 0
+
+    message_handler_before = receive_client.message_handler
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    gen = receive_client.receive_messages_iter_async()
+
+    async for message in gen:
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+        count += 1
+
+    assert count == 1
+
+    message_handler_after = receive_client.message_handler
+    assert message_handler_before == message_handler_after
+
+    await receive_client.close_async()
 
 @pytest.mark.asyncio
 async def test_event_hubs_batch_receive_async(live_eventhub_config):
@@ -315,4 +373,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_iter_receive_async(config))
+    loop.run_until_complete(test_event_hubs_iter_receive_no_shutdown_after_timeout_async(config))

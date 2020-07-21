@@ -971,7 +971,6 @@ class ReceiveClient(AMQPClient):
 
         :rtype: generator[~uamqp.message.Message]
         """
-        # TODO: option 1, create new generator if we want to re-use the ReceiverClient
         self.open()
         auto_complete = self.auto_complete
         self.auto_complete = False
@@ -992,51 +991,6 @@ class ReceiveClient(AMQPClient):
             self.auto_complete = auto_complete
             if self._shutdown_after_timeout:
                 self.close()
-
-    def _message_generator_forever(self):
-        """Iterate over processed messages in the receive queue.
-
-        :rtype: generator[~uamqp.message.Message or compat.TimeoutException]
-        """
-        # TODO: option 2, introducting a new generator
-        self.open()
-        receiving = True
-        message = None
-        self._timeout_reached = False
-        try:
-            while receiving:
-                self._timeout_reached = False
-                while receiving and self._received_messages.empty() and not self._timeout_reached:
-                    receiving = self.do_work()
-                if self._timeout_reached:
-                    yield compat.TimeoutException("Generator timeout reached.")
-                while not self._received_messages.empty():
-                    message = self._received_messages.get()
-                    self._received_messages.task_done()
-                    yield message
-        finally:
-            self.close()
-
-    class _ReusableReceiveMessageIterator:
-        def __init__(self, internal_iterator):
-            self._internal_iterator = internal_iterator
-
-        def __iter__(self):
-            return self
-
-        def __next__(self):
-            object = next(self._internal_iterator)
-            if isinstance(object, compat.TimeoutException):
-                raise StopIteration
-            else:
-                return object
-
-        next = __next__  # for python2.7
-
-    def _message_reusable_generator(self):
-        generator = self._message_generator_forever()
-        iterator = self._ReusableReceiveMessageIterator(generator)
-        return iterator
 
     def _message_received(self, message):
         """Callback run on receipt of every message. If there is
