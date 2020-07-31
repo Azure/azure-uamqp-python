@@ -1101,6 +1101,7 @@ class ReceiveClient(AMQPClient):
         try:
             while receiving and not self._timeout_reached:
                 receiving = self.do_work()
+            receiving = False
         except:
             receiving = False
             raise

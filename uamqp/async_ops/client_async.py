@@ -880,6 +880,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         try:
             while receiving and not self._timeout_reached:
                 receiving = await self.do_work_async()
+            receiving = False
         except:
             receiving = False
             raise
