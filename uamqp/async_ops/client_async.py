@@ -692,7 +692,11 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :param timeout: A timeout in milliseconds. The receiver will shut down if no
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
+     Set `shutdown_after_timeout` to `False` if keeping the receiver open after timeout is needed.
     :type timeout: float
+    :param shutdown_after_timeout: Whether to automatically shutdown the receiver
+     if no new messages are received after the specified timeout. Default is `True`.
+    :type shutdown_after_timeout: bool
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -845,7 +849,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                         _logger.info("Timeout reached, closing receiver.")
                         self._shutdown = True
                     else:
-                        self._last_activity_timestamp = None # To reuse the receiver, reset the timestamp
+                        self._last_activity_timestamp = None  # To reuse the receiver, reset the timestamp
                         _logger.info("Timeout reached, keeping receiver open.")
         else:
             self._last_activity_timestamp = now
@@ -870,16 +874,18 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         self._streaming_receive = True
         await self.open_async()
         self._message_received_callback = on_message_received
+        self._timeout_reached = False
         receiving = True
         try:
-            while receiving:
+            while receiving and not self._timeout_reached:
                 receiving = await self.do_work_async()
         except:
             receiving = False
             raise
         finally:
             self._streaming_receive = False
-            if not receiving:
+            self._timeout_reached = False
+            if not receiving and self._shutdown_after_timeout:
                 await self.close_async()
 
     async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
@@ -922,23 +928,27 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         if len(batch) >= max_batch_size:
             return batch
 
-        while receiving and not expired and len(batch) < max_batch_size:
-            while receiving and self._received_messages.qsize() < max_batch_size:
-                if timeout and self._counter.get_current_ms() > timeout:
-                    expired = True
-                    break
-                before = self._received_messages.qsize()
-                receiving = await self.do_work_async()
-                received = self._received_messages.qsize() - before
-                if self._received_messages.qsize() > 0 and received == 0:
-                    # No new messages arrived, but we have some - so return what we have.
-                    expired = True
-                    break
+        self._timeout_reached = False
+        try:
+            while receiving and not expired and len(batch) < max_batch_size and not self._timeout_reached:
+                while receiving and self._received_messages.qsize() < max_batch_size and not self._timeout_reached:
+                    if timeout and self._counter.get_current_ms() > timeout:
+                        expired = True
+                        break
+                    before = self._received_messages.qsize()
+                    receiving = await self.do_work_async()
+                    received = self._received_messages.qsize() - before
+                    if self._received_messages.qsize() > 0 and received == 0:
+                        # No new messages arrived, but we have some - so return what we have.
+                        expired = True
+                        break
 
-            while not self._received_messages.empty() and len(batch) < max_batch_size:
-                batch.append(self._received_messages.get())
-                self._received_messages.task_done()
-        return batch
+                while not self._received_messages.empty() and len(batch) < max_batch_size:
+                    batch.append(self._received_messages.get())
+                    self._received_messages.task_done()
+            return batch
+        finally:
+            self._timeout_reached = False
 
     def receive_messages_iter_async(self, on_message_received=None):
         """Receive messages by asynchronous generator. Messages returned in the
@@ -1020,5 +1030,6 @@ class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-mem
             self.receiving = False
             raise
         finally:
+            self._client._timeout_reached = False  # pylint: disable=protected-access
             if not self.receiving and self._client._shutdown_after_timeout:
                 await self._client.close_async()
