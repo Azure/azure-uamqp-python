@@ -979,6 +979,7 @@ class ReceiveClient(AMQPClient):
         auto_complete = self.auto_complete
         self.auto_complete = False
         self._timeout_reached = False
+        self._last_activity_timestamp = None
         receiving = True
         message = None
         try:
@@ -992,7 +993,6 @@ class ReceiveClient(AMQPClient):
                     self._complete_message(message, auto_complete)
         finally:
             self._complete_message(message, auto_complete)
-            self._timeout_reached = False
             self.auto_complete = auto_complete
             if self._shutdown_after_timeout:
                 self.close()
@@ -1060,25 +1060,23 @@ class ReceiveClient(AMQPClient):
             return batch
 
         self._timeout_reached = False
-        try:
-            while receiving and not expired and len(batch) < max_batch_size and not self._timeout_reached:
-                while receiving and self._received_messages.qsize() < max_batch_size and not self._timeout_reached:
-                    if timeout and self._counter.get_current_ms() > timeout:
-                        expired = True
-                        break
-                    before = self._received_messages.qsize()
-                    receiving = self.do_work()
-                    received = self._received_messages.qsize() - before
-                    if self._received_messages.qsize() > 0 and received == 0:
-                        # No new messages arrived, but we have some - so return what we have.
-                        expired = True
-                        break
-                while not self._received_messages.empty() and len(batch) < max_batch_size:
-                    batch.append(self._received_messages.get())
-                    self._received_messages.task_done()
-            return batch
-        finally:
-            self._timeout_reached = False
+        self._last_activity_timestamp = None
+        while receiving and not expired and len(batch) < max_batch_size and not self._timeout_reached:
+            while receiving and self._received_messages.qsize() < max_batch_size and not self._timeout_reached:
+                if timeout and self._counter.get_current_ms() > timeout:
+                    expired = True
+                    break
+                before = self._received_messages.qsize()
+                receiving = self.do_work()
+                received = self._received_messages.qsize() - before
+                if self._received_messages.qsize() > 0 and received == 0:
+                    # No new messages arrived, but we have some - so return what we have.
+                    expired = True
+                    break
+            while not self._received_messages.empty() and len(batch) < max_batch_size:
+                batch.append(self._received_messages.get())
+                self._received_messages.task_done()
+        return batch
 
     def receive_messages(self, on_message_received):
         """Receive messages. This function will run indefinitely, until the client
@@ -1098,6 +1096,7 @@ class ReceiveClient(AMQPClient):
         self.open()
         self._message_received_callback = on_message_received
         self._timeout_reached = False
+        self._last_activity_timestamp = None
         receiving = True
         try:
             while receiving and not self._timeout_reached:
@@ -1107,7 +1106,6 @@ class ReceiveClient(AMQPClient):
             raise
         finally:
             self._streaming_receive = False
-            self._timeout_reached = False
             if not receiving and self._shutdown_after_timeout:
                 self.close()
 
