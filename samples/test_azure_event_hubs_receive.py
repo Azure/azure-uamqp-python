@@ -178,6 +178,44 @@ def test_event_hubs_client_receive_sync(live_eventhub_config):
     log.info("Finished receiving")
 
 
+def test_event_hubs_client_receive_no_shutdown_after_timeout_sync(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    source = address.Source(source)
+    source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
+    received_cnt = 0
+
+    with uamqp.ReceiveClient(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False) as receive_client:
+        log.info("Created client, receiving...")
+
+        received_cnt += len(receive_client.receive_message_batch(max_batch_size=10))
+        assert received_cnt == 0
+
+        message_handler_before = receive_client.message_handler
+
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        received_cnt += len(receive_client.receive_message_batch(max_batch_size=10))
+        assert received_cnt == 1
+
+        received_cnt += len(receive_client.receive_message_batch(max_batch_size=10))
+        assert received_cnt == 1
+
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        received_cnt += len(receive_client.receive_message_batch(max_batch_size=10))
+        message_handler_after = receive_client.message_handler
+
+        assert message_handler_before == message_handler_after
+        assert received_cnt == 2
+
+
 def test_event_hubs_client_receive_with_runtime_metric_sync(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -237,6 +275,52 @@ def test_event_hubs_callback_receive_sync(live_eventhub_config):
     log.info("Finished receiving")
 
 
+def test_event_hubs_callback_receive_no_shutdown_after_timeout_sync(live_eventhub_config):
+    received_cnt = {'cnt': 0}
+
+    def on_message_received(message):
+        annotations = message.annotations
+        log.info("Sequence Number: {}".format(annotations.get(b'x-opt-sequence-number')))
+        log.info(str(message))
+        message.accept()
+        received_cnt['cnt'] += 1
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+    
+    source = address.Source(source)
+    source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
+
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
+    log.info("Created client, receiving...")
+    
+    receive_client.open()
+    while not receive_client.client_ready():
+        receive_client.do_work()
+
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    receive_client.receive_messages(on_message_received)
+    message_handler_before = receive_client.message_handler
+    assert received_cnt['cnt'] == 1
+
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    receive_client.receive_messages(on_message_received)
+    message_handler_after = receive_client.message_handler
+    assert message_handler_before == message_handler_after
+
+    assert received_cnt['cnt'] == 2
+
+    log.info("Finished receiving")
+    receive_client.close()
+
+
 def test_event_hubs_iter_receive_sync(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     sas_auth = authentication.SASTokenAuth.from_shared_access_key(
@@ -265,7 +349,54 @@ def test_event_hubs_iter_receive_sync(live_eventhub_config):
             log.info("Got {} more messages. Shutting down.".format(count))
             message.accept()
             break
-    
+
+    receive_client.close()
+
+
+def test_event_hubs_iter_receive_no_shutdown_after_timeout_sync(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    source = address.Source(source)
+    source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
+    count = 0
+
+    receive_client.open()
+    while not receive_client.client_ready():
+        receive_client.do_work()
+
+    gen = receive_client.receive_messages_iter()
+
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    for message in gen:
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+        count += 1
+
+    assert count == 1
+    count = 0
+
+    message_handler_before = receive_client.message_handler
+    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+    gen = receive_client.receive_messages_iter()
+
+    for message in gen:
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+        count += 1
+
+    assert count == 1
+
+    message_handler_after = receive_client.message_handler
+    assert message_handler_before == message_handler_after
+
     receive_client.close()
 
 
@@ -373,4 +504,4 @@ if __name__ == '__main__':
     config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
-    test_event_hubs_client_receive_sync(config)
+    test_event_hubs_client_receive_no_shutdown_after_timeout_sync(config)

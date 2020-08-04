@@ -797,7 +797,11 @@ class ReceiveClient(AMQPClient):
     :param timeout: A timeout in milliseconds. The receiver will shut down if no
      new messages are received after the specified timeout. If set to 0, the receiver
      will never timeout and will continue to listen. The default is 0.
+     Set `shutdown_after_timeout` to `False` if keeping the receiver open after timeout is needed.
     :type timeout: float
+    :param shutdown_after_timeout: Whether to automatically shutdown the receiver
+     if no new messages are received after the specified timeout. Default is `True`.
+    :type shutdown_after_timeout: bool
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -874,6 +878,9 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = False
         self._received_messages = compat.queue.Queue()
 
+        self._shutdown_after_timeout = kwargs.pop('shutdown_after_timeout', True)
+        self._timeout_reached = False
+
         # Receiver and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or constants.MAX_MESSAGE_LENGTH_BYTES
         self._prefetch = kwargs.pop('prefetch', None) or 300
@@ -946,8 +953,13 @@ class ReceiveClient(AMQPClient):
             if self._timeout > 0:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
-                    _logger.info("Timeout reached, closing receiver.")
-                    self._shutdown = True
+                    self._timeout_reached = True
+                    if self._shutdown_after_timeout:
+                        _logger.info("Timeout reached, closing receiver.")
+                        self._shutdown = True
+                    else:
+                        self._last_activity_timestamp = None  # To reuse the receiver, reset the timestamp
+                        _logger.info("Timeout reached, keeping receiver open.")
         else:
             self._last_activity_timestamp = now
         self._was_message_received = False
@@ -966,11 +978,13 @@ class ReceiveClient(AMQPClient):
         self.open()
         auto_complete = self.auto_complete
         self.auto_complete = False
+        self._timeout_reached = False
+        self._last_activity_timestamp = None
         receiving = True
         message = None
         try:
-            while receiving:
-                while receiving and self._received_messages.empty():
+            while receiving and not self._timeout_reached:
+                while receiving and self._received_messages.empty() and not self._timeout_reached:
                     receiving = self.do_work()
                 while not self._received_messages.empty():
                     message = self._received_messages.get()
@@ -980,7 +994,8 @@ class ReceiveClient(AMQPClient):
         finally:
             self._complete_message(message, auto_complete)
             self.auto_complete = auto_complete
-            self.close()
+            if self._shutdown_after_timeout:
+                self.close()
 
     def _message_received(self, message):
         """Callback run on receipt of every message. If there is
@@ -1044,8 +1059,10 @@ class ReceiveClient(AMQPClient):
         if len(batch) >= max_batch_size:
             return batch
 
-        while receiving and not expired and len(batch) < max_batch_size:
-            while receiving and self._received_messages.qsize() < max_batch_size:
+        self._timeout_reached = False
+        self._last_activity_timestamp = None
+        while receiving and not expired and len(batch) < max_batch_size and not self._timeout_reached:
+            while receiving and self._received_messages.qsize() < max_batch_size and not self._timeout_reached:
                 if timeout and self._counter.get_current_ms() > timeout:
                     expired = True
                     break
@@ -1078,16 +1095,19 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = True
         self.open()
         self._message_received_callback = on_message_received
+        self._timeout_reached = False
+        self._last_activity_timestamp = None
         receiving = True
         try:
-            while receiving:
+            while receiving and not self._timeout_reached:
                 receiving = self.do_work()
+            receiving = False
         except:
             receiving = False
             raise
         finally:
             self._streaming_receive = False
-            if not receiving:
+            if not receiving and self._shutdown_after_timeout:
                 self.close()
 
     def receive_messages_iter(self, on_message_received=None):

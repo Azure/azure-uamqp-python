@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.10 (2020-08-05)
++++++++++++++++++++
+
+- Added parameter `shutdown_after_timeout` to `ReceiveClient` and `ReceiveClientAsync` which gives control over whether to shutdown receiver after timeout.
+
 1.2.9 (2020-07-06)
 ++++++++++++++++++
 
