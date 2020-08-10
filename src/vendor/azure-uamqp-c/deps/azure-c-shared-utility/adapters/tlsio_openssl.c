@@ -1056,7 +1056,7 @@ static int create_openssl_instance(TLS_IO_INSTANCE* tlsInstance)
                         SSL_CTX_free(tlsInstance->ssl_context);
                         tlsInstance->ssl_context = NULL;
                         log_ERR_get_error("Failed setting SSL hostname.");
-                        result = MU_FAILURE;
+                        result = __FAILURE__;
                     }
                     else
                     {
