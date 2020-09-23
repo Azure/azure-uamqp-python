@@ -566,6 +566,7 @@ def test_event_hubs_send_event_with_amqp_attributes_sync(live_eventhub_config):
     assert rich_single_received
     assert rich_batch_received
 
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
