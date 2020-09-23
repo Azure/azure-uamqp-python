@@ -656,7 +656,7 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
             annotations_destroy(footer);
         }
 
-        if (delivery_annotations != NULL);
+        if (delivery_annotations != NULL)
         {
             annotations_destroy(delivery_annotations);
         }
