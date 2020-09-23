@@ -3,6 +3,17 @@
 Release History
 ===============
 
+1.2.11 (Unreleased)
++++++++++++++++++++
+
+- Updated tlsio_openssl module to send SNI when establishing tls connection (Thanks to milope).
+
+1.2.10 (Unreleased)
++++++++++++++++++++
+
+- Added parameter `shutdown_after_timeout` to `ReceiveClient` and `ReceiveClientAsync` which gives control over whether to shutdown receiver after timeout.
+
+
 1.2.10 (2020-08-05)
 +++++++++++++++++++
 
