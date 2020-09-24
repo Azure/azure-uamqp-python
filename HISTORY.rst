@@ -6,8 +6,7 @@ Release History
 1.2.11 (Unreleased)
 +++++++++++++++++++
 
-- Fixed bug where `Message.footer` and `Message.delivery_annotation` not being encoded into the outgoing payload.
-
+- Fixed bug where `Message.footer` and `Message.delivery_annotation` were not encoded into the outgoing payload.
 
 1.2.10 (2020-08-05)
 +++++++++++++++++++
