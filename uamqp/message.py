@@ -278,8 +278,21 @@ class Message(object):
             ann_props = c_uamqp.create_message_annotations(
                 utils.data_factory(self.annotations, encoding=self._encoding))
             c_message.message_annotations = ann_props
+        if self.delivery_annotations:
+            if not isinstance(self.delivery_annotations, dict):
+                raise TypeError("Delivery annotations must be a dictionary.")
+            delivery_ann_props = c_uamqp.create_delivery_annotations(
+                utils.data_factory(self.delivery_annotations, encoding=self._encoding))
+            c_message.delivery_annotations = delivery_ann_props
         if self.header:
             c_message.header = self.header.get_header_obj()
+        if self.footer:
+            if not isinstance(self.footer, dict):
+                raise TypeError("Footer must be a dictionary.")
+            footer = c_uamqp.create_footer(
+                utils.data_factory(self.footer, encoding=self._encoding))
+            c_message.footer = footer
+
 
     @property
     def settled(self):
