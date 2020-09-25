@@ -496,6 +496,77 @@ def test_event_hubs_dynamic_issue_link_credit(live_eventhub_config):
     log.info("Finished receiving")
 
 
+def test_event_hubs_send_event_with_amqp_attributes_sync(live_eventhub_config):
+    def data_generator():
+        for i in range(2):
+            msg = uamqp.message.Message(body='Data')
+            # header is only used on received msg, not set on messages being sent
+            msg.application_properties = {'msg_type': 'rich_batch'}
+            msg.properties = uamqp.message.MessageProperties(message_id='richid')
+            msg.footer = {'footerkey':'footervalue'}
+            msg.delivery_annotations = {'deliveryannkey':'deliveryannvalue'}
+            msg.annotations = {'annkey':'annvalue'}
+            yield msg
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False)
+
+    message = uamqp.message.Message(body='Data')
+    # header is only used on received msg, not set on messages being sent
+    message.application_properties = {'msg_type': 'rich_single'}
+    message.properties = uamqp.message.MessageProperties(message_id='richid')
+    message.footer = {'footerkey':'footervalue'}
+    message.delivery_annotations = {'deliveryannkey':'deliveryannvalue'}
+    message.annotations = {'annkey':'annvalue'}
+    send_client.queue_message(message)
+
+    message_batch = uamqp.message.BatchMessage(data_generator())
+    send_client.queue_message(message_batch)
+    results = send_client.send_all_messages(close_on_done=False)
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+
+    rich_single_received = rich_batch_received = False
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        0)
+
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=5000, debug=False, prefetch=10)
+    gen = receive_client.receive_messages_iter()
+    for message in gen:
+        if message.application_properties and message.application_properties.get(b'msg_type'):
+            if not rich_single_received:
+                rich_single_received = message.application_properties.get(b'msg_type') == b'rich_single'
+            if not rich_batch_received:
+                rich_batch_received = message.application_properties.get(b'msg_type') == b'rich_batch'
+            assert message.properties.message_id == b'richid'
+            assert message.delivery_annotations
+            assert message.delivery_annotations.get(b'deliveryannkey') == b'deliveryannvalue'
+            assert message.footer
+            assert message.footer.get(b'footerkey') == b'footervalue'
+            assert message.annotations
+            assert message.annotations.get(b'annkey') == b'annvalue'
+
+        log.info(message.annotations.get(b'x-opt-sequence-number'))
+        log.info(str(message))
+
+    send_client.close()
+    receive_client.close()
+
+    assert rich_single_received
+    assert rich_batch_received
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -504,4 +575,4 @@ if __name__ == '__main__':
     config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
-    test_event_hubs_client_receive_no_shutdown_after_timeout_sync(config)
+    test_event_hubs_send_event_with_amqp_attributes_sync(config)

@@ -7,6 +7,7 @@ Release History
 +++++++++++++++++++
 
 - Updated tlsio_openssl module to send SNI when establishing tls connection (Thanks to milope).
+- Fixed bug where `Message.footer` and `Message.delivery_annotation` were not encoded into the outgoing payload.
 
 1.2.10 (2020-08-05)
 +++++++++++++++++++
