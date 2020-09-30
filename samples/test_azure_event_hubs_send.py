@@ -7,6 +7,9 @@
 import os
 import logging
 import sys
+import time
+import types
+import pytest
 
 import uamqp
 from uamqp import authentication
@@ -149,6 +152,41 @@ def test_event_hubs_batch_send_sync(live_eventhub_config):
     send_client.close()
 
 
+def test_event_hubs_send_timeout_sync(live_eventhub_config):
+
+    def _hack_client_run(cls):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+
+        :rtype: bool
+        """
+        # pylint: disable=protected-access
+        time.sleep(6)
+        cls.message_handler.work()
+        cls._waiting_messages = 0
+        cls._pending_messages = cls._filter_pending()
+        if cls._backoff and not cls._waiting_messages:
+            log.info("Client told to backoff - sleeping for %r seconds", cls._backoff)
+            cls._connection.sleep(cls._backoff)
+            cls._backoff = 0
+        cls._connection.work()
+        return True
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=False, msg_timeout=5000)
+    send_client._client_run = types.MethodType(_hack_client_run, send_client)
+    send_client.open()
+    with pytest.raises(uamqp.errors.ClientMessageError):
+        send_client.send_message(uamqp.message.Message(body='Hello World'))
+    send_client.close()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -158,4 +196,4 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    test_event_hubs_client_send_multiple_sync(config)
+    test_event_hubs_send_timeout_sync(config)

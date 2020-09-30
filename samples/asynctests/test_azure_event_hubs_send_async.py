@@ -9,6 +9,7 @@ import logging
 import asyncio
 import pytest
 import sys
+import types
 
 import uamqp
 from uamqp import authentication
@@ -119,6 +120,42 @@ async def test_event_hubs_batch_send_async(live_eventhub_config):
         assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
 
 
+@pytest.mark.asyncio
+async def test_event_hubs_send_timeout_async(live_eventhub_config):
+
+    async def _hack_client_run(cls):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+
+        :rtype: bool
+        """
+        # pylint: disable=protected-access
+        await asyncio.sleep(6)
+        await cls.message_handler.work_async()
+        cls._waiting_messages = 0
+        cls._pending_messages = cls._filter_pending()
+        if cls._backoff and not cls._waiting_messages:
+            log.info("Client told to backoff - sleeping for %r seconds", cls._backoff)
+            await cls._connection.sleep_async(cls._backoff)
+            cls._backoff = 0
+        await cls._connection.work_async()
+        return True
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False, msg_timeout=5000)
+    send_client._client_run_async = types.MethodType(_hack_client_run, send_client)
+    await send_client.open_async()
+    with pytest.raises(uamqp.errors.ClientMessageError):
+        await send_client.send_message_async(uamqp.message.Message(body='Hello World'))
+    await send_client.close_async()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -129,4 +166,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_single_send_async(config))
+    loop.run_until_complete(test_event_hubs_send_timeout_async(config))
