@@ -17,7 +17,7 @@ jobs:
       vmImage: 'ubuntu-18.04'
 
     steps:
-      - template: /eng/pipelines/templates/steps/wrapped-use-python.yml
+      - template: /.azure-pipelines/wrapped-use-python.yml
         parameters:
           versionSpec: '$(PythonVersion37)'
 
@@ -191,7 +191,7 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - template: /eng/pipelines/templates/steps/wrapped-use-python.yml
+      - template: /.azure-pipelines/wrapped-use-python.yml
         parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
@@ -261,7 +261,7 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - template: /eng/pipelines/templates/steps/wrapped-use-python.yml
+      - template: /.azure-pipelines/wrapped-use-python.yml
         parameters:
           versionSpec: '$(PythonVersion)'
 
