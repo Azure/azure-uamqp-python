@@ -7,7 +7,7 @@ variables:
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
-  PythonVersion39: '3.9'
+  PythonVersion39: '3.9.0-rc.2'
 
 jobs:
   - job: 'Windows'
@@ -58,9 +58,8 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - task: UsePythonVersion@0
-        displayName: 'Use Python Version'
-        inputs:
+      - template: /eng/pipelines/templates/steps/wrapped-use-python.yml
+        parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
 
@@ -158,7 +157,7 @@ jobs:
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
-      PythonVersion39: '3.9.0rc2'
+      PythonVersion39: '3.9.0-rc.2'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -264,9 +263,8 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - task: UsePythonVersion@0
-        displayName: 'Use Python Version'
-        inputs:
+      - template: /eng/pipelines/templates/steps/wrapped-use-python.yml
+        parameters:
           versionSpec: '$(PythonVersion)'
 
       - script: |
