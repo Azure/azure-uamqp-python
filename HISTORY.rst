@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.2.11 (Unreleased)
+1.2.11 (2020-10-01)
 +++++++++++++++++++
 
 - Updated tlsio_openssl module to send SNI when establishing tls connection (Thanks to milope).
