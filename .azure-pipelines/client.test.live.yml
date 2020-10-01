@@ -125,7 +125,7 @@ jobs:
     timeoutInMinutes: 120
 
     pool:
-      vmImage: 'macOS-10.9'
+      vmImage: 'macOS-10.15'
 
     strategy:
       maxParallel: 1
