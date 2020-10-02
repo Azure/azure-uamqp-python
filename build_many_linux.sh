@@ -16,7 +16,7 @@ export PYBIN="/opt/python/$PYTHON_VERSION/bin"
 
 # Build the wheel
 pushd /data;
-$PYBIN/pip install cython==0.28.5 wheel;
+$PYBIN/pip install cython==0.29.21 wheel;
 $PYBIN/python setup.py bdist_wheel -d /wheelhouse;
 rm -rf build/;
 popd;
