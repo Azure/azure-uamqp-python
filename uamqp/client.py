@@ -579,7 +579,11 @@ class SendClient(AMQPClient):
                     _logger.info("Message error, not retrying. Error: %r", exception)
                 message.state = constants.MessageState.SendFailed
                 message._response = exception
-
+            elif result == constants.MessageSendResult.Timeout:
+                exception = compat.TimeoutException("Message send timed out.")
+                _logger.info("Message error, not retrying. Error: %r", exception)
+                message.state = constants.MessageState.SendFailed
+                message._response = exception
             else:
                 _logger.debug("Message sent: %r, %r", result, exception)
                 message.state = constants.MessageState.SendComplete
