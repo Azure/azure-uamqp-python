@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.12 (Unreleased)
++++++++++++++++++++
+
+- Added support for Python 3.9.
+
 1.2.11 (2020-10-01)
 +++++++++++++++++++
 
