@@ -7,7 +7,7 @@ variables:
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
-  PythonVersion39: '3.9.0-rc.2'
+  PythonVersion39: '3.9'
 
 jobs:
   - job: 'Windows'
@@ -157,7 +157,7 @@ jobs:
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
-      PythonVersion39: '3.9.0rc2'
+      PythonVersion39: '3.9.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
