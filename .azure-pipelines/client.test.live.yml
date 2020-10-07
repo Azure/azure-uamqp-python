@@ -58,7 +58,7 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - template: /.azure-pipelines/wrapped-use-python.yml
+      - template: /.azure-pipelines/use-python-version.yml
         parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
@@ -263,7 +263,7 @@ jobs:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - template: /.azure-pipelines/wrapped-use-python.yml
+      - template: /.azure-pipelines/use-python-version.yml
         parameters:
           versionSpec: '$(PythonVersion)'
 
