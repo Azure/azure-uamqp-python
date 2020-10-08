@@ -24,7 +24,7 @@ except ImportError:
 
 # If the C file doesn't exist and no Cython is available, die
 if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
-    raise ValueError("You need to install cython==0.27.3 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
+    raise ValueError("You need to install cython==0.29.21 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
 
 is_27 = sys.version_info < (3,)
 is_x64 = platform.architecture()[0] == '64bit'
@@ -342,6 +342,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'License :: OSI Approved :: MIT License'
     ],
     zip_safe=False,

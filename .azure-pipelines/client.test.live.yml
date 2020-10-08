@@ -7,6 +7,7 @@ variables:
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
+  PythonVersion39: '3.9.0'
 
 jobs:
   - job: 'Windows'
@@ -34,6 +35,9 @@ jobs:
         x64 Python 3.8:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.9:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion39)'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -49,11 +53,13 @@ jobs:
         x86 Python 3.8:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.9:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - task: UsePythonVersion@0
-        displayName: 'Use Python Version'
-        inputs:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
 
@@ -139,6 +145,9 @@ jobs:
         Python 3.8:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion38)'
+        Python 3.9:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion39)'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -148,6 +157,7 @@ jobs:
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
+      PythonVersion39: '3.9.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -249,11 +259,12 @@ jobs:
           PythonVersion: '$(PythonVersion37)'
         Python 3.8:
           PythonVersion: '$(PythonVersion38)'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
 
     steps:
-      - task: UsePythonVersion@0
-        displayName: 'Use Python Version'
-        inputs:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
           versionSpec: '$(PythonVersion)'
 
       - script: |

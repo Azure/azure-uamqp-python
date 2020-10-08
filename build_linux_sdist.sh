@@ -8,5 +8,5 @@ apt-get update
 apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config
 
 cd /data
-pip3 install cython==0.28.5 wheel
+pip3 install cython==0.29.21 wheel
 python3 setup.py sdist
