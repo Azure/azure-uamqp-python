@@ -1,5 +1,6 @@
 parameters:
-  versionSpec: ''
+  versionSpec: '3.x'
+  architecture: 'x64'
 
 steps:
   # use python 3.8 for tooling. packaging. platform.
@@ -23,3 +24,4 @@ steps:
     displayName: "Use Python $(PythonVersion)"
     inputs:
       versionSpec: ${{ parameters.versionSpec }}
+      architecture: ${{ parameters.architecture }}
