@@ -17,7 +17,7 @@ steps:
     displayName: 'Check Version Spec Against Known Versions'
     inputs:
      scriptPath: '.azure-pipelines/install_python_version.py'
-     arguments: '${{ parameters.versionSpec }} --installer_folder="../_pyinstaller'
+     arguments: '${{ parameters.versionSpec }} --arch ${{ parameters.architecture }} --installer_folder="../_pyinstaller'
 
   # use
   - task: UsePythonVersion@0

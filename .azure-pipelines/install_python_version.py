@@ -80,7 +80,7 @@ def install_selected_python_version(installer_url, installer_folder):
             exit(1)
 
 
-def get_installer_url(requested_version, version_manifest):
+def get_installer_url(requested_version, requested_arch, version_manifest):
     current_plat = platform.system().lower()
 
     print("Current Platform Is {}".format(platform.platform()))
@@ -88,27 +88,27 @@ def get_installer_url(requested_version, version_manifest):
     if version_manifest[requested_version]:
         found_installers = version_manifest[requested_version]["files"]
 
-        # filter anything that's not x64. we don't care.
-        x64_installers = [
-            file_def for file_def in found_installers if file_def["arch"] == "x64"
+        # filter anything that's not our requested architecture.
+        arch_installers = [
+            file_def for file_def in found_installers if file_def["arch"] == requested_arch
         ]
 
         if current_plat == "windows":
             return [
                 installer
-                for installer in x64_installers
+                for installer in arch_installers
                 if installer["platform"] == "win32"
             ][0]
         elif current_plat == "darwin":
             return [
                 installer
-                for installer in x64_installers
+                for installer in arch_installers
                 if installer["platform"] == current_plat
             ][0]
         else:
             return [
                 installer
-                for installer in x64_installers
+                for installer in arch_installers
                 if installer["platform"] == "linux"
                 and installer["platform_version"] == CURRENT_UBUNTU_VERSION
             ][0]
@@ -123,6 +123,13 @@ if __name__ == "__main__":
         "version_spec",
         nargs="?",
         help=("The version specifier passed in to the UsePythonVersion extended task."),
+    )
+
+    parser.add_argument(
+        "--arch",
+        dest="arch",
+        default="x64",
+        help=("The architecture passed in to the UsePythonVersion extended task."),
     )
 
     parser.add_argument(
@@ -152,7 +159,7 @@ if __name__ == "__main__":
                 args.version_spec
             )
         )
-        install_file_details = get_installer_url(args.version_spec, version_dict)
+        install_file_details = get_installer_url(args.version_spec, args.arch, version_dict)
         install_selected_python_version(
             install_file_details["download_url"], args.installer_folder
         )
