@@ -39,6 +39,49 @@ matrix:
         - pytest
         - python ./setup.py check -r -s
         - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+        #power jobs
+    - os: linux
+      python: "2.7"
+      dist: trusty
+      arch: ppc64le
+      env: UAMQP_ENV=LINUX27
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp --ignore=async_ops,cbs_auth_async.py uamqp
+    - os: linux
+      python: "3.5"
+      arch: ppc64le
+      env: UAMQP_ENV=LINUX35
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+    - os: linux
+      python: "3.6"
+      arch: ppc64le
+      env: UAMQP_ENV=LINUX36
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+    - os: linux
+      python: "3.7"
+      arch: ppc64le
+      env: UAMQP_ENV=LINUX37
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+    - os: linux
+      python: "3.8"
+      arch: ppc64le
+      env: UAMQP_ENV=LINUX38
+      script:
+        - pytest
+        - python ./setup.py check -r -s
+        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
+
 sudo: required
 services:
   - docker
