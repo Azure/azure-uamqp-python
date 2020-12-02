@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.2.13 (2020-10-09)
+1.2.13 (unreleased)
 +++++++++++++++++++
 
 - Fixed bug in accessing `MessageProperties.user_id` triggering segmentation fault when the underlying C bytes are NULL.
