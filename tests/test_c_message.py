@@ -62,7 +62,7 @@ def test_message_properties():
 
     value = c_uamqp.create_properties()
     value.user_id = utils.data_factory(bytearray(b'!@#$%^&*()+_?'))
-    assert value.user_id == b'!@#$%^&*()+-?'
+    assert value.user_id == b'!@#$%^&*()+_?'
 
     value = c_uamqp.create_properties()
     value.user_id = utils.data_factory(bytearray(b'\nweird\0user\1id\0\t'))
