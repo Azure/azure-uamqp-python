@@ -766,7 +766,12 @@ class MessageProperties(object):
             value = value.encode(self._encoding)
         elif value is not None and not isinstance(value, six.binary_type):
             raise TypeError("user_id must be bytes or str.")
-        self._user_id = value
+        # user_id is type of binary according to the spec.
+        # convert byte string into bytearray then wrap the data into c_uamqp.BinaryValue.
+        if value is not None:
+            self._user_id = utils.data_factory(bytearray(value), encoding=self._encoding)
+        else:
+            self._user_id = None
 
     @property
     def to(self):

@@ -502,7 +502,7 @@ def test_event_hubs_send_event_with_amqp_attributes_sync(live_eventhub_config):
             msg = uamqp.message.Message(body='Data')
             # header is only used on received msg, not set on messages being sent
             msg.application_properties = {'msg_type': 'rich_batch'}
-            msg.properties = uamqp.message.MessageProperties(message_id='richid')
+            msg.properties = uamqp.message.MessageProperties(message_id='richid', user_id=b'!@qwe\0?123')
             msg.footer = {'footerkey':'footervalue'}
             msg.delivery_annotations = {'deliveryannkey':'deliveryannvalue'}
             msg.annotations = {'annkey':'annvalue'}
@@ -549,6 +549,12 @@ def test_event_hubs_send_event_with_amqp_attributes_sync(live_eventhub_config):
                 rich_single_received = message.application_properties.get(b'msg_type') == b'rich_single'
             if not rich_batch_received:
                 rich_batch_received = message.application_properties.get(b'msg_type') == b'rich_batch'
+
+            if message.application_properties.get(b'msg_type') == b'rich_single':
+                assert message.properties.user_id is None
+            elif message.application_properties.get(b'msg_type') == b'rich_batch':
+                assert message.properties.user_id == b'!@qwe\0?123'
+
             assert message.properties.message_id == b'richid'
             assert message.delivery_annotations
             assert message.delivery_annotations.get(b'deliveryannkey') == b'deliveryannvalue'
