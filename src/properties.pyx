@@ -9,7 +9,6 @@ import logging
 
 # C imports
 from libc cimport stdint
-from libc.string cimport strlen
 cimport c_amqpvalue
 cimport c_amqp_definitions
 cimport c_utils
