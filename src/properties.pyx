@@ -105,17 +105,18 @@ cdef class cProperties(StructBase):
     def user_id(self):
         cdef c_amqpvalue.amqp_binary _binary
         if c_amqp_definitions.properties_get_user_id(self._c_value, &_binary) == 0:
-            return <char*>_binary.bytes
+            bytes_value = <char*>_binary.bytes
+            return bytes_value[:_binary.length]
         else:
             return None
 
     @user_id.setter
-    def user_id(self, char* value):
+    def user_id(self, AMQPValue value):
         cdef c_amqpvalue.amqp_binary _binary
-        length = sizeof(value)
-        _binary.length = length
-        _binary.bytes = value
-        if c_amqp_definitions.properties_set_user_id(self._c_value, _binary) != 0:
+        if c_amqpvalue.amqpvalue_get_binary(value._c_value, &_binary) == 0:
+            if c_amqp_definitions.properties_set_user_id(self._c_value, _binary) != 0:
+                self._value_error("Could not set 'user_id'.")
+        else:
             self._value_error("Could not set 'user_id'.")
 
     @property

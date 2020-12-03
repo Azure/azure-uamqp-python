@@ -8,7 +8,7 @@ import os
 import sys
 import pytest
 
-from uamqp import c_uamqp
+from uamqp import c_uamqp, utils
 
 
 def test_message():
@@ -41,3 +41,29 @@ def test_body_value():
 def test_delivery_tag():
     message = c_uamqp.create_message()
     assert not message.delivery_tag
+
+
+def test_message_properties():
+
+    value = c_uamqp.create_properties()
+    assert not value.user_id
+
+    value = c_uamqp.create_properties()
+    value.user_id = utils.data_factory(bytearray(b'testuseridlongstring'))
+    assert value.user_id == b'testuseridlongstring'
+
+    value = c_uamqp.create_properties()
+    value.user_id = utils.data_factory(bytearray(b''))
+    assert value.user_id == b''
+
+    value = c_uamqp.create_properties()
+    value.user_id = utils.data_factory(bytearray(b'short'))
+    assert value.user_id == b'short'
+
+    value = c_uamqp.create_properties()
+    value.user_id = utils.data_factory(bytearray(b'!@#$%^&*()+_?'))
+    assert value.user_id == b'!@#$%^&*()+_?'
+
+    value = c_uamqp.create_properties()
+    value.user_id = utils.data_factory(bytearray(b'\nweird\0user\1id\0\t'))
+    assert value.user_id == b'\nweird\0user\1id\0\t'
