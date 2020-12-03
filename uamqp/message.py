@@ -758,7 +758,12 @@ class MessageProperties(object):
 
     @property
     def user_id(self):
-        return self._user_id
+        try:
+            if self._user_id is not None:
+                return self._user_id.value
+            return None
+        except AttributeError:
+            return self._user_id
 
     @user_id.setter
     def user_id(self, value):
