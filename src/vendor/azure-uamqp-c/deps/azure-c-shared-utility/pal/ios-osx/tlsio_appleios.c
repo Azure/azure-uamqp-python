@@ -519,20 +519,16 @@ static void dowork_poll_socket(TLS_IO_INSTANCE* tls_io_instance)
 {
     // This will pretty much only fail if we run out of memory
     CFStreamCreatePairWithSocketToHost(NULL, tls_io_instance->hostname, tls_io_instance->port, &tls_io_instance->sockRead, &tls_io_instance->sockWrite);
-
     if (tls_io_instance->sockRead != NULL && tls_io_instance->sockWrite != NULL)
     {
-
-        // Micha Edits: https://github.com/Azure/azure-iot-sdk-c/issues/1624#issuecomment-675866716
 
         CFStringRef keys[1] = {kCFStreamPropertySocketSecurityLevel};
         CFStringRef values[1] = {kCFStreamSocketSecurityLevelNegotiatedSSL};
 
-        CFDictionaryRef test = CFDictionaryCreate(NULL , (void *)keys , (void *)values , 1,  NULL , NULL);
+        CFDictionaryRef tls_io_dictionary = CFDictionaryCreate(NULL , (void *)keys , (void *)values , 1,  NULL , NULL);
 
-        if (CFReadStreamSetProperty(tls_io_instance->sockRead, kCFStreamPropertySSLSettings, test))
+        if (CFReadStreamSetProperty(tls_io_instance->sockRead, kCFStreamPropertySSLSettings, tls_io_dictionary))
 
-            //if (CFReadStreamSetProperty(tls_io_instance->sockRead, kCFStreamPropertySSLSettings, kCFStreamSocketSecurityLevelNegotiatedSSL))
         {
             tls_io_instance->tlsio_state = TLSIO_STATE_OPENING_WAITING_SSL;
         }
@@ -542,7 +538,7 @@ static void dowork_poll_socket(TLS_IO_INSTANCE* tls_io_instance)
             enter_open_error_state(tls_io_instance);
         }
 
-        CFRelease(test);
+        CFRelease(tls_io_dictionary);
     }
     else
     {
