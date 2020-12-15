@@ -13,10 +13,11 @@
 #include <math.h>
 #endif
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
 
 // VS 2008 does not have INFINITY and all the nice goodies...
-#if defined (TIZENRT) || defined (WINCE)
+#if defined (TIZENRT)
 #define DEFINE_INFINITY 1
 #else
 
@@ -162,13 +163,11 @@ static const size_t interestingSize_tNumbersToBeConverted[] =
     0x42
 };
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(CRTAbstractions_UnitTests)

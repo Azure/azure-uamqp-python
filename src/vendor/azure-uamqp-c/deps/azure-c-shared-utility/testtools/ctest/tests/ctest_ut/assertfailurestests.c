@@ -94,6 +94,11 @@ CTEST_FUNCTION(Assert_Are_Equal_2_strings_With_To_String_Type_Fails)
     CTEST_ASSERT_ARE_EQUAL(char_ptr, "test", "dan");
 }
 
+CTEST_FUNCTION(Assert_Are_Equal_2_wide_strings_With_To_String_Type_Fails)
+{
+    CTEST_ASSERT_ARE_EQUAL(wchar_ptr, L"test", L"matt");
+}
+
 CTEST_FUNCTION(Assert_Are_Equal_2_void_ptr_With_To_Different_Addresses_Fails)
 {
     char c1, c2;
@@ -108,7 +113,7 @@ CTEST_FUNCTION(Assert_Are_Equal_2_Structures_Fails)
     CTEST_ASSERT_ARE_EQUAL(mystruct_ptr, &a, &b);
 }
 
-/* CTEST_ASSERT_ARE_EQUAL_WITH_MSG */
+/* CTEST_ASSERT_ARE_EQUAL with custom message string */
 
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_Ints_Fails)
 {
@@ -173,6 +178,11 @@ CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_int64_t_Fails)
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_strings_With_To_String_Type_Fails)
 {
     CTEST_ASSERT_ARE_EQUAL(char_ptr, "test", "dan", "Test message");
+}
+
+CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_wide_strings_With_To_String_Type_Fails)
+{
+    CTEST_ASSERT_ARE_EQUAL(wchar_ptr, L"test", L"matt", "Test message");
 }
 
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_void_ptr_Different_Addresses_Fails)
@@ -265,6 +275,11 @@ CTEST_FUNCTION(Assert_Are_Not_Equal_2_strings_With_To_String_Type_Fails)
     CTEST_ASSERT_ARE_NOT_EQUAL(char_ptr, "dan", "dan");
 }
 
+CTEST_FUNCTION(Assert_Are_Not_Equal_2_wide_strings_With_To_String_Type_Fails)
+{
+    CTEST_ASSERT_ARE_NOT_EQUAL(wchar_ptr, L"matt", L"matt");
+}
+
 CTEST_FUNCTION(Assert_Are_Not_Equal_2_void_ptr_With_2_same_addresses_Fails)
 {
     char c1;
@@ -355,6 +370,11 @@ CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_strings_With_To_String_Type_Fails
     CTEST_ASSERT_ARE_NOT_EQUAL(char_ptr, "dan", "dan", "Test message");
 }
 
+CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_wide_strings_With_To_String_Type_Fails)
+{
+    CTEST_ASSERT_ARE_NOT_EQUAL(wchar_ptr, L"matt", L"matt", "Test message");
+}
+
 CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_void_ptr_with_same_address_Fails)
 {
     char c1;
@@ -378,7 +398,7 @@ CTEST_FUNCTION(Assert_Is_NULL_Fails)
     CTEST_ASSERT_IS_NULL(ptr);
 }
 
-/* CTEST_ASSERT_IS_NULL_WITH_MSG */
+/* CTEST_ASSERT_IS_NULL with custom message string */
 
 CTEST_FUNCTION(Assert_Is_NULL_With_Msg_Fails)
 {
@@ -395,7 +415,7 @@ CTEST_FUNCTION(Assert_Is_Not_NULL_Fails)
     CTEST_ASSERT_IS_NOT_NULL(test_value);
 }
 
-/* CTEST_ASSERT_IS_NOT_NULL_WITH_MSG */
+/* CTEST_ASSERT_IS_NOT_NULL with custom message string */
 
 CTEST_FUNCTION(Assert_Is_Not_NULL_With_Msg_Fails)
 {
@@ -407,15 +427,15 @@ CTEST_FUNCTION(Assert_Is_Not_NULL_With_Msg_Fails)
 
 CTEST_FUNCTION(Assert_Is_True_Fails)
 {
-	int tested_value = 0;
+    int tested_value = 0;
     CTEST_ASSERT_IS_TRUE(tested_value);
 }
 
-/* CTEST_ASSERT_IS_TRUE_WITH_MSG */
+/* CTEST_ASSERT_IS_TRUE with custom message string */
 
 CTEST_FUNCTION(Assert_Is_True_With_Msg_Fails)
 {
-	int tested_value = 0;
+    int tested_value = 0;
     CTEST_ASSERT_IS_TRUE(tested_value, "Test message");
 }
 
@@ -423,15 +443,15 @@ CTEST_FUNCTION(Assert_Is_True_With_Msg_Fails)
 
 CTEST_FUNCTION(Assert_Is_False_Fails)
 {
-	int tested_value = 1;
+    int tested_value = 1;
     CTEST_ASSERT_IS_FALSE(tested_value);
 }
 
-/* CTEST_ASSERT_IS_FALSE_WITH_MSG */
+/* CTEST_ASSERT_IS_FALSE with custom message string */
 
 CTEST_FUNCTION(Assert_Is_False_With_Msg_Fails)
 {
-	int tested_value = 1;
+    int tested_value = 1;
     CTEST_ASSERT_IS_FALSE(tested_value, "Test message");
 }
 

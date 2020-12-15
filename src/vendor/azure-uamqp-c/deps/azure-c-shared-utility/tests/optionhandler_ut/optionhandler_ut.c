@@ -22,46 +22,20 @@ static void my_gballoc_free(void* s)
 #else
 #include <stddef.h>
 #endif
-#include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umocktypes_charptr.h"
-#include "umock_c_negative_tests.h"
-#include "azure_c_shared_utility/optionhandler.h"
-#include "azure_c_shared_utility/optimize_size.h"
 
-/*not very nice source level preprocessor mocking... */
-/*but real implementation of VECTOR is paramount here, because -> operator cannot be mocked*/
-#define GBALLOC_H
-#define VECTOR_create real_VECTOR_create
-#define VECTOR_move real_VECTOR_move
-#define VECTOR_destroy real_VECTOR_destroy
-#define VECTOR_push_back real_VECTOR_push_back
-#define VECTOR_erase real_VECTOR_erase
-#define VECTOR_clear real_VECTOR_clear
-#define VECTOR_element real_VECTOR_element
-#define VECTOR_front real_VECTOR_front
-#define VECTOR_back real_VECTOR_back
-#define VECTOR_find_if real_VECTOR_find_if
-#define VECTOR_size real_VECTOR_size
-#include "../src/vector.c"
-#undef VECTOR_create
-#undef VECTOR_move
-#undef VECTOR_destroy
-#undef VECTOR_push_back
-#undef VECTOR_erase
-#undef VECTOR_clear
-#undef VECTOR_element
-#undef VECTOR_front
-#undef VECTOR_back
-#undef VECTOR_find_if
-#undef VECTOR_size
-#undef VECTOR_H
-#undef GBALLOC_H
-#undef CRT_ABSTRACTIONS_H
+#include "azure_macro_utils/macro_utils.h"
+#include "testrunnerswitcher.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_charptr.h"
+#include "umock_c/umock_c_negative_tests.h"
 
 #define ENABLE_MOCKS
+#define GBALLOC_H
+#include "azure_c_shared_utility/vector.h"
+#include "../src/vector.c"
+#undef GBALLOC_H
 #include "azure_c_shared_utility/gballoc.h"
-#include "azure_c_shared_utility/umock_c_prod.h"
+#include "umock_c/umock_c_prod.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/vector.h"
 
@@ -71,12 +45,15 @@ MOCKABLE_FUNCTION(, int, aSetOption, void*, handle, const char*, name, const voi
 
 #undef ENABLE_MOCKS
 
+#include "azure_c_shared_utility/optionhandler.h"
+
 static TEST_MUTEX_HANDLE g_testByTest;
+
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    (void)error_code;
-    ASSERT_FAIL("umock_c reported error");
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 TEST_DEFINE_ENUM_TYPE(OPTIONHANDLER_RESULT, OPTIONHANDLER_RESULT_VALUES);
@@ -123,24 +100,17 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         REGISTER_GLOBAL_MOCK_FAIL_RETURN(gballoc_malloc, NULL);
         REGISTER_GLOBAL_MOCK_HOOK(gballoc_free, my_gballoc_free);
 
-        REGISTER_GLOBAL_MOCK_HOOK(VECTOR_create, real_VECTOR_create);
+        REGISTER_GLOBAL_INTERFACE_HOOKS(vector);
         REGISTER_GLOBAL_MOCK_FAIL_RETURN(VECTOR_create, NULL);
-
-        REGISTER_GLOBAL_MOCK_HOOK(VECTOR_size, real_VECTOR_size);
-        REGISTER_GLOBAL_MOCK_HOOK(VECTOR_push_back, real_VECTOR_push_back);
-        REGISTER_GLOBAL_MOCK_FAIL_RETURN(VECTOR_push_back, __FAILURE__);
-
-        REGISTER_GLOBAL_MOCK_HOOK(VECTOR_element, real_VECTOR_element);
-
-        REGISTER_GLOBAL_MOCK_HOOK(VECTOR_destroy, real_VECTOR_destroy);
+        REGISTER_GLOBAL_MOCK_FAIL_RETURN(VECTOR_push_back, MU_FAILURE);
 
         REGISTER_GLOBAL_MOCK_HOOK(mallocAndStrcpy_s, my_mallocAndStrcpy_s);
-        REGISTER_GLOBAL_MOCK_FAIL_RETURN(mallocAndStrcpy_s, __FAILURE__);
+        REGISTER_GLOBAL_MOCK_FAIL_RETURN(mallocAndStrcpy_s, MU_FAILURE);
 
         REGISTER_GLOBAL_MOCK_HOOK(aCloneOption, my_aCloneOption);
         REGISTER_GLOBAL_MOCK_FAIL_RETURN(aCloneOption, NULL);
 
-        REGISTER_GLOBAL_MOCK_FAIL_RETURN(aSetOption, __FAILURE__);
+        REGISTER_GLOBAL_MOCK_FAIL_RETURN(aSetOption, MU_FAILURE);
 
         REGISTER_GLOBAL_MOCK_HOOK(aDestroyOption, my_aDestroyOption);
     }
@@ -256,7 +226,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             umock_c_negative_tests_fail_call(i);
 
             ///act
-            (void)sprintf(temp_str, "On failed call %zu", i);
+            (void)sprintf(temp_str, "On failed call %lu", (unsigned long)i);
 
             ///act
             h = OptionHandler_Create(aCloneOption, aDestroyOption, aSetOption);
@@ -271,7 +241,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
 
     /* OptionHandler_Clone */
 
-    /* Tests_SRS_OPTIONHANDLER_01_010: [ If `handler` is NULL, OptionHandler_Clone shall fail and return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_010: [ If handler is NULL, OptionHandler_Clone shall fail and return NULL. ]*/
     TEST_FUNCTION(OptionHandler_Clone_with_NULL_handler_fails)
     {
         ///arrange
@@ -285,10 +255,10 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_001: [ `OptionHandler_Clone` shall clone an existing option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_001: [ OptionHandler_Clone shall clone an existing option handler instance. ]*/
     /* Tests_SRS_OPTIONHANDLER_01_002: [ On success it shall return a non-NULL handle. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_003: [ `OptionHandler_Clone` shall allocate memory for the new option handler instance. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_005: [ `OptionHandler_Clone` shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_003: [ OptionHandler_Clone shall allocate memory for the new option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_005: [ OptionHandler_Clone shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
     TEST_FUNCTION(OptionHandler_Clone_clones_an_instance_with_no_options)
     {
         ///arrange
@@ -317,12 +287,12 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(result);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_001: [ `OptionHandler_Clone` shall clone an existing option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_001: [ OptionHandler_Clone shall clone an existing option handler instance. ]*/
     /* Tests_SRS_OPTIONHANDLER_01_002: [ On success it shall return a non-NULL handle. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_003: [ `OptionHandler_Clone` shall allocate memory for the new option handler instance. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_005: [ `OptionHandler_Clone` shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_006: [ For each option the option name shall be cloned by calling `mallocAndStrcpy_s`. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_007: [ For each option the value shall be cloned by using the cloning function associated with the source option handler `handler`. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_003: [ OptionHandler_Clone shall allocate memory for the new option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_005: [ OptionHandler_Clone shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_006: [ For each option the option name shall be cloned by calling mallocAndStrcpy_s. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_007: [ For each option the value shall be cloned by using the cloning function associated with the source option handler handler. ]*/
     TEST_FUNCTION(OptionHandler_Clone_clones_an_instance_with_one_option)
     {
         ///arrange
@@ -361,12 +331,12 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(result);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_001: [ `OptionHandler_Clone` shall clone an existing option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_001: [ OptionHandler_Clone shall clone an existing option handler instance. ]*/
     /* Tests_SRS_OPTIONHANDLER_01_002: [ On success it shall return a non-NULL handle. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_003: [ `OptionHandler_Clone` shall allocate memory for the new option handler instance. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_005: [ `OptionHandler_Clone` shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_006: [ For each option the option name shall be cloned by calling `mallocAndStrcpy_s`. ]*/
-    /* Tests_SRS_OPTIONHANDLER_01_007: [ For each option the value shall be cloned by using the cloning function associated with the source option handler `handler`. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_003: [ OptionHandler_Clone shall allocate memory for the new option handler instance. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_005: [ OptionHandler_Clone shall iterate through all the options stored by the option handler to be cloned by using VECTOR's iteration mechanism. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_006: [ For each option the option name shall be cloned by calling mallocAndStrcpy_s. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_007: [ For each option the value shall be cloned by using the cloning function associated with the source option handler handler. ]*/
     TEST_FUNCTION(OptionHandler_Clone_clones_an_instance_with_2_options)
     {
         ///arrange
@@ -417,7 +387,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(result);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_004: [ If allocating memory fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_004: [ If allocating memory fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_allocating_memory_for_the_cloned_option_handler_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -444,7 +414,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_004: [ If allocating memory fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_004: [ If allocating memory fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_creating_the_vector_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -474,7 +444,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_008: [ If cloning one of the option names fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_008: [ If cloning one of the option names fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_cloning_the_first_option_name_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -515,7 +485,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_009: [ If cloning one of the option values fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_009: [ If cloning one of the option values fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_cloning_the_first_option_value_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -559,7 +529,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_011: [ When adding one of the newly cloned options to the option handler storage vector fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_011: [ When adding one of the newly cloned options to the option handler storage vector fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_adding_the_first_cloned_option_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -607,7 +577,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_008: [ If cloning one of the option names fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_008: [ If cloning one of the option names fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_cloning_the_2nd_option_name_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -662,7 +632,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_009: [ If cloning one of the option values fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_009: [ If cloning one of the option values fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_cloning_the_2nd_option_value_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -720,7 +690,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
         OptionHandler_Destroy(source);
     }
 
-    /* Tests_SRS_OPTIONHANDLER_01_011: [ When adding one of the newly cloned options to the option handler storage vector fails, `OptionHandler_Clone` shall return NULL. ]*/
+    /* Tests_SRS_OPTIONHANDLER_01_011: [ When adding one of the newly cloned options to the option handler storage vector fails, OptionHandler_Clone shall return NULL. ]*/
     TEST_FUNCTION(when_adding_the_2nd_cloned_option_fails_OptionHandler_Clone_fails)
     {
         ///arrange
@@ -890,7 +860,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             umock_c_negative_tests_fail_call(i);
 
             ///act
-            (void)sprintf(temp_str, "On failed call %zu", i);
+            (void)sprintf(temp_str, "On failed call %lu", (unsigned long)i);
 
             ///act
             result = OptionHandler_AddOption(handle, "name", value);
@@ -1040,7 +1010,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             umock_c_negative_tests_fail_call(i);
 
             ///act
-            (void)sprintf(temp_str, "On failed call %zu", i);
+            (void)sprintf(temp_str, "On failed call %lu", (unsigned long)i);
 
             ///act
             result = OptionHandler_FeedOptions(handle, (void*)42);
@@ -1143,7 +1113,7 @@ BEGIN_TEST_SUITE(optionhandler_unittests)
             umock_c_negative_tests_fail_call(i);
 
             ///act
-            (void)sprintf(temp_str, "On failed call %zu", i);
+            (void)sprintf(temp_str, "On failed call %lu", (unsigned long)i);
 
             ///act
             result = OptionHandler_FeedOptions(handle, (void*)42);

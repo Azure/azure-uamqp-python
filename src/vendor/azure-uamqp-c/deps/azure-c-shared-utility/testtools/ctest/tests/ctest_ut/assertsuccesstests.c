@@ -92,6 +92,11 @@ CTEST_FUNCTION(Assert_Are_Equal_2_strings_With_To_String_Type_Succeeds)
     CTEST_ASSERT_ARE_EQUAL(char_ptr, "dan", "dan");
 }
 
+CTEST_FUNCTION(Assert_Are_Equal_2_wide_strings_With_To_String_Type_Succeeds)
+{
+    CTEST_ASSERT_ARE_EQUAL(wchar_ptr, L"matt", L"matt");
+}
+
 CTEST_FUNCTION(Assert_Are_Equal_2_strings_With_Same_Address_Succeeds)
 {
     char c1;
@@ -107,7 +112,7 @@ CTEST_FUNCTION(Assert_Are_Equal_2_Structures_Succeeds)
     CTEST_ASSERT_ARE_EQUAL(mystruct_ptr, &a, &b);
 }
 
-/* CTEST_ASSERT_ARE_EQUAL_WITH_MSG */
+/* CTEST_ASSERT_ARE_EQUAL with custom message string */
 
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_Ints_Succeeds)
 {
@@ -177,6 +182,11 @@ CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_int64_t_Succeeds)
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_strings_With_To_String_Type_Succeeds)
 {
     CTEST_ASSERT_ARE_EQUAL(char_ptr, "dan", "dan", "Test message");
+}
+
+CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_wide_strings_With_To_String_Type_Succeeds)
+{
+    CTEST_ASSERT_ARE_EQUAL(wchar_ptr, L"matt", L"matt", "Test message");
 }
 
 CTEST_FUNCTION(Assert_Are_Equal_With_Msg_2_void_ptr_same_address_Succeeds)
@@ -264,6 +274,11 @@ CTEST_FUNCTION(Assert_Are_Not_Equal_2_strings_With_To_String_Type_Succeeds)
     CTEST_ASSERT_ARE_NOT_EQUAL(char_ptr, "test", "dan");
 }
 
+CTEST_FUNCTION(Assert_Are_Not_Equal_2_wide_strings_With_To_String_Type_Succeeds)
+{
+    CTEST_ASSERT_ARE_NOT_EQUAL(wchar_ptr, L"test", L"matt");
+}
+
 CTEST_FUNCTION(Assert_Are_Not_Equal_2_void_ptr_different_address_Succeeds)
 {
     int c1, c2;
@@ -278,7 +293,7 @@ CTEST_FUNCTION(Assert_Are_Not_Equal_2_Structures_Succeeds)
     CTEST_ASSERT_ARE_NOT_EQUAL(mystruct_ptr, &a, &b);
 }
 
-/* CTEST_ASSERT_ARE_NOT_EQUAL_WITH_MSG */
+/* CTEST_ASSERT_ARE_NOT_EQUAL with custom message string */
 
 CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_Ints_Succeeds)
 {
@@ -349,6 +364,11 @@ CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_strings_With_To_String_Type_Succe
     CTEST_ASSERT_ARE_NOT_EQUAL(char_ptr, "test", "dan", "Test message");
 }
 
+CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_wide_strings_With_To_String_Type_Succeeds)
+{
+    CTEST_ASSERT_ARE_NOT_EQUAL(wchar_ptr, L"test", L"matt", "Test message");
+}
+
 CTEST_FUNCTION(Assert_Are_Not_Equal_With_Msg_2_void_ptr_with_different_addresses_Succeeds)
 {
     double b1, b2;
@@ -371,7 +391,7 @@ CTEST_FUNCTION(Assert_Is_NULL_Succeeds)
     CTEST_ASSERT_IS_NULL(test_value);
 }
 
-/* CTEST_ASSERT_IS_NULL_WITH_MSG */
+/* CTEST_ASSERT_IS_NULL with custom message string */
 
 CTEST_FUNCTION(Assert_Is_NULL_With_Msg_Succeeds)
 {
@@ -388,7 +408,7 @@ CTEST_FUNCTION(Assert_Is_Not_NULL_Succeeds)
     CTEST_ASSERT_IS_NOT_NULL(ptr);
 }
 
-/* CTEST_ASSERT_IS_NOT_NULL_WITH_MSG */
+/* CTEST_ASSERT_IS_NOT_NULL with custom message string */
 
 CTEST_FUNCTION(Assert_Is_Not_NULL_With_Msg_Succeeds)
 {
@@ -401,15 +421,15 @@ CTEST_FUNCTION(Assert_Is_Not_NULL_With_Msg_Succeeds)
 
 CTEST_FUNCTION(Assert_Is_True_Succeeds)
 {
-	int tested_value = 1;
+    int tested_value = 1;
     CTEST_ASSERT_IS_TRUE(tested_value);
 }
 
-/* CTEST_ASSERT_IS_TRUE_WITH_MSG */
+/* CTEST_ASSERT_IS_TRUE with custom message string */
 
 CTEST_FUNCTION(Assert_Is_True_With_Msg_Succeeds)
 {
-	int tested_value = 1;
+    int tested_value = 1;
     CTEST_ASSERT_IS_TRUE(tested_value, "Test message");
 }
 
@@ -417,16 +437,32 @@ CTEST_FUNCTION(Assert_Is_True_With_Msg_Succeeds)
 
 CTEST_FUNCTION(Assert_Is_False_Succeeds)
 {
-	int tested_value = 0;
+    int tested_value = 0;
     CTEST_ASSERT_IS_FALSE(tested_value);
 }
 
-/* CTEST_ASSERT_IS_FALSE_WITH_MSG */
+/* CTEST_ASSERT_IS_FALSE with custom message string */
 
 CTEST_FUNCTION(Assert_Is_False_With_Msg_Succeeds)
 {
-	int tested_value = 0;
+    int tested_value = 0;
     CTEST_ASSERT_IS_FALSE(tested_value, "Test message");
+}
+
+/* #define'd type */
+
+#define my_type int
+
+CTEST_FUNCTION(Assert_Are_Equal_with_defined_type_succeeds)
+{
+    my_type tested_value = 0;
+    CTEST_ASSERT_ARE_EQUAL(my_type, 0, tested_value);
+}
+
+CTEST_FUNCTION(Assert_Are_Not_Equal_with_defined_type_succeeds)
+{
+    my_type tested_value = 0;
+    CTEST_ASSERT_ARE_NOT_EQUAL(my_type, 1, tested_value);
 }
 
 CTEST_END_TEST_SUITE(AssertSuccessTests)

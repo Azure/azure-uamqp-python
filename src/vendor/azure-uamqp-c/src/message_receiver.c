@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#include "azure_c_shared_utility/optimize_size.h"
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_uamqp_c/link.h"
@@ -225,6 +225,7 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
     AMQP_VALUE result = NULL;
     MESSAGE_RECEIVER_INSTANCE* message_receiver = (MESSAGE_RECEIVER_INSTANCE*)context;
 
+    (void)transfer;
     if (message_receiver->on_message_received != NULL)
     {
         MESSAGE_HANDLE message = message_create();
@@ -235,25 +236,7 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
         }
         else
         {
-            delivery_tag received_message_tag;
-            AMQP_VALUE delivery_tag_value;
-            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder;
-
-            if (transfer_get_delivery_tag(transfer, &received_message_tag) == 0)
-            {
-                delivery_tag_value = amqpvalue_create_delivery_tag(received_message_tag);
-                if ((delivery_tag_value != NULL) && (message_set_delivery_tag(message, delivery_tag_value) != 0))
-                {
-                    LogError("Could not set message delivery tag");
-                    set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
-                }
-            }
-            else
-            {
-                delivery_tag_value = NULL;
-            }
-            
-            amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
+            AMQPVALUE_DECODER_HANDLE amqpvalue_decoder = amqpvalue_decoder_create(decode_message_value_callback, message_receiver);
             if (amqpvalue_decoder == NULL)
             {
                 LogError("Cannot create AMQP value decoder");
@@ -283,9 +266,7 @@ static AMQP_VALUE on_transfer_received(void* context, TRANSFER_HANDLE transfer, 
 
                 amqpvalue_decoder_destroy(amqpvalue_decoder);
             }
-            if ( delivery_tag_value != NULL ) {
-                amqpvalue_destroy(delivery_tag_value);
-            }
+
             message_destroy(message);
         }
     }
@@ -333,7 +314,7 @@ static void on_link_state_changed(void* context, LINK_STATE new_link_state, LINK
 
 MESSAGE_RECEIVER_HANDLE messagereceiver_create(LINK_HANDLE link, ON_MESSAGE_RECEIVER_STATE_CHANGED on_message_receiver_state_changed, void* context)
 {
-    MESSAGE_RECEIVER_INSTANCE* message_receiver = (MESSAGE_RECEIVER_INSTANCE*)malloc(sizeof(MESSAGE_RECEIVER_INSTANCE));
+    MESSAGE_RECEIVER_INSTANCE* message_receiver = (MESSAGE_RECEIVER_INSTANCE*)calloc(1, sizeof(MESSAGE_RECEIVER_INSTANCE));
     if (message_receiver == NULL)
     {
         LogError("Error creating message receiver");
@@ -369,7 +350,7 @@ int messagereceiver_open(MESSAGE_RECEIVER_HANDLE message_receiver, ON_MESSAGE_RE
     if (message_receiver == NULL)
     {
         LogError("NULL message_receiver");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -379,7 +360,7 @@ int messagereceiver_open(MESSAGE_RECEIVER_HANDLE message_receiver, ON_MESSAGE_RE
             if (link_attach(message_receiver->link, on_transfer_received, on_link_state_changed, NULL, message_receiver) != 0)
             {
                 LogError("Link attach failed");
-                result = __FAILURE__;
+                result = MU_FAILURE;
                 set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
@@ -406,7 +387,7 @@ int messagereceiver_close(MESSAGE_RECEIVER_HANDLE message_receiver)
     if (message_receiver == NULL)
     {
         LogError("NULL message_receiver");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -418,7 +399,7 @@ int messagereceiver_close(MESSAGE_RECEIVER_HANDLE message_receiver)
             if (link_detach(message_receiver->link, true, NULL, NULL, NULL) != 0)
             {
                 LogError("link detach failed");
-                result = __FAILURE__;
+                result = MU_FAILURE;
                 set_message_receiver_state(message_receiver, MESSAGE_RECEIVER_STATE_ERROR);
             }
             else
@@ -442,14 +423,14 @@ int messagereceiver_get_link_name(MESSAGE_RECEIVER_HANDLE message_receiver, cons
     if (message_receiver == NULL)
     {
         LogError("NULL message_receiver");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
         if (link_get_name(message_receiver->link, link_name) != 0)
         {
             LogError("Getting link name failed");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -467,14 +448,14 @@ int messagereceiver_get_received_message_id(MESSAGE_RECEIVER_HANDLE message_rece
     if (message_receiver == NULL)
     {
         LogError("NULL message_receiver");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
         if (link_get_received_message_id(message_receiver->link, message_id) != 0)
         {
             LogError("Failed getting received message Id");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -492,14 +473,14 @@ int messagereceiver_send_message_disposition(MESSAGE_RECEIVER_HANDLE message_rec
     if (message_receiver == NULL)
     {
         LogError("NULL message_receiver");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
         if (message_receiver->message_receiver_state != MESSAGE_RECEIVER_STATE_OPEN)
         {
             LogError("Message received not open");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -507,21 +488,21 @@ int messagereceiver_send_message_disposition(MESSAGE_RECEIVER_HANDLE message_rec
             if (link_get_name(message_receiver->link, &my_name) != 0)
             {
                 LogError("Failed getting link name");
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
                 if (strcmp(link_name, my_name) != 0)
                 {
                     LogError("Link name does not match");
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 else
                 {
                     if (link_send_disposition(message_receiver->link, message_number, delivery_state) != 0)
                     {
                         LogError("Seding disposition failed");
-                        result = __FAILURE__;
+                        result = MU_FAILURE;
                     }
                     else
                     {

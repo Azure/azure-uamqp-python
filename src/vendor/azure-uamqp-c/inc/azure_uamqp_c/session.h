@@ -27,8 +27,8 @@
 #include "azure_uamqp_c/amqp_definitions_transfer.h"
 
 
-#include "azure_c_shared_utility/umock_c_prod.h"
-#include "azure_c_shared_utility/macro_utils.h"
+#include "umock_c/umock_c_prod.h"
+#include "azure_macro_utils/macro_utils.h"
 
 
 #ifdef __cplusplus
@@ -48,16 +48,17 @@ typedef struct LINK_ENDPOINT_INSTANCE_TAG* LINK_ENDPOINT_HANDLE;
     SESSION_STATE_DISCARDING, \
     SESSION_STATE_ERROR
 
-DEFINE_ENUM(SESSION_STATE, SESSION_STATE_VALUES)
+MU_DEFINE_ENUM(SESSION_STATE, SESSION_STATE_VALUES)
 
 #define SESSION_SEND_TRANSFER_RESULT_VALUES \
     SESSION_SEND_TRANSFER_OK, \
     SESSION_SEND_TRANSFER_ERROR, \
     SESSION_SEND_TRANSFER_BUSY
 
-DEFINE_ENUM(SESSION_SEND_TRANSFER_RESULT, SESSION_SEND_TRANSFER_RESULT_VALUES)
+MU_DEFINE_ENUM(SESSION_SEND_TRANSFER_RESULT, SESSION_SEND_TRANSFER_RESULT_VALUES)
 
     typedef void(*LINK_ENDPOINT_FRAME_RECEIVED_CALLBACK)(void* context, AMQP_VALUE performative, uint32_t frame_payload_size, const unsigned char* payload_bytes);
+    typedef void(*ON_LINK_ENDPOINT_DESTROYED_CALLBACK)(LINK_ENDPOINT_HANDLE handle, void* context);
     typedef void(*ON_SESSION_STATE_CHANGED)(void* context, SESSION_STATE new_session_state, SESSION_STATE previous_session_state);
     typedef void(*ON_SESSION_FLOW_ON)(void* context);
     typedef bool(*ON_LINK_ATTACHED)(void* context, LINK_ENDPOINT_HANDLE new_link_endpoint, const char* name, role role, AMQP_VALUE source, AMQP_VALUE target, fields properties);
@@ -74,6 +75,7 @@ DEFINE_ENUM(SESSION_SEND_TRANSFER_RESULT, SESSION_SEND_TRANSFER_RESULT_VALUES)
     MOCKABLE_FUNCTION(, int, session_begin, SESSION_HANDLE, session);
     MOCKABLE_FUNCTION(, int, session_end, SESSION_HANDLE, session, const char*, condition_value, const char*, description);
     MOCKABLE_FUNCTION(, LINK_ENDPOINT_HANDLE, session_create_link_endpoint, SESSION_HANDLE, session, const char*, name);
+    MOCKABLE_FUNCTION(, void, session_set_link_endpoint_callback, LINK_ENDPOINT_HANDLE, link_endpoint, ON_LINK_ENDPOINT_DESTROYED_CALLBACK, on_link_endpoint_destroyed, void*, context);
     MOCKABLE_FUNCTION(, void, session_destroy_link_endpoint, LINK_ENDPOINT_HANDLE, link_endpoint);
     MOCKABLE_FUNCTION(, int, session_start_link_endpoint, LINK_ENDPOINT_HANDLE, link_endpoint, ON_ENDPOINT_FRAME_RECEIVED, frame_received_callback, ON_SESSION_STATE_CHANGED, on_session_state_changed, ON_SESSION_FLOW_ON, on_session_flow_on, void*, context);
     MOCKABLE_FUNCTION(, int, session_send_flow, LINK_ENDPOINT_HANDLE, link_endpoint, FLOW_HANDLE, flow);
