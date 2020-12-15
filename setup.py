@@ -52,6 +52,10 @@ sys.path.insert(0, os.path.join(cwd, pxd_inc_dir))
 
 include_dirs = [
     pxd_inc_dir,
+    # azure-macro-utils inc
+    "./src/vendor/azure-uamqp-c/deps/azure-macro-utils-c/inc",
+    # umock-c inc
+    "./src/vendor/azure-uamqp-c/deps/umock-c/inc",
     # azure-c-shared-utility inc
     "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/inc",
     "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc",
