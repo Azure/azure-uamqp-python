@@ -32,7 +32,7 @@ typedef enum SOCKETIO_ADDRESS_TYPE_TAG
 } SOCKETIO_ADDRESS_TYPE;
 
 #ifndef XIO_RECEIVE_BUFFER_SIZE
-#define XIO_RECEIVE_BUFFER_SIZE     64
+#define XIO_RECEIVE_BUFFER_SIZE     1024
 #endif
 
 MOCKABLE_FUNCTION(, CONCRETE_IO_HANDLE, socketio_create, void*, io_create_parameters);
