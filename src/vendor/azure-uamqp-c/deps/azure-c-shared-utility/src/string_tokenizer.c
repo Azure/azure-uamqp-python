@@ -2,8 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 #include <stdlib.h>
-#include "azure_c_shared_utility/gballoc.h"
 #include <stdbool.h>
+#include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/string_tokenizer.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/xlogging.h"
@@ -47,7 +47,7 @@ extern STRING_TOKENIZER_HANDLE STRING_TOKENIZER_create_from_char(const char* inp
         result = NULL;
     }
     /* Codes_SRS_STRING_07_002: [STRING_TOKENIZER_create shall allocate a new STRING_TOKENIZER_HANDLE having the content of the STRING_HANDLE copied and current position pointing at the beginning of the string] */
-    else if ((result = (STRING_TOKEN*)malloc(sizeof(STRING_TOKEN))) == NULL)
+    else if ((result = (STRING_TOKEN*)calloc(1, sizeof(STRING_TOKEN))) == NULL)
     {
         LogError("Memory Allocation failed. Cannot allocate STRING_TOKENIZER.");
     }
@@ -72,7 +72,7 @@ int STRING_TOKENIZER_get_next_token(STRING_TOKENIZER_HANDLE tokenizer, STRING_HA
     /* Codes_SRS_STRING_04_004: [STRING_TOKENIZER_get_next_token shall return a nonzero value if any of the 3 parameters is NULL] */
     if (tokenizer == NULL || output == NULL || delimiters == NULL)
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -85,12 +85,12 @@ int STRING_TOKENIZER_get_next_token(STRING_TOKENIZER_HANDLE tokenizer, STRING_HA
         /* Codes_SRS_STRING_TOKENIZER_04_014: [STRING_TOKENIZER_get_next_token shall return nonzero value if t contains an empty string.] */
         if (remainingInputStringSize == 0)
         {
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else if (delimitterSize == 0)
         {
             LogError("Empty delimiters parameter.");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -127,7 +127,7 @@ int STRING_TOKENIZER_get_next_token(STRING_TOKENIZER_HANDLE tokenizer, STRING_HA
             /* Codes_SRS_STRING_04_006: [If no such character is found, then STRING_TOKENIZER_get_next_token shall return a nonzero Value (You've reach the end of the string or the string consists with only delimiters).] */
             if (remainingInputStringSize == 0)
             {
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -162,7 +162,7 @@ int STRING_TOKENIZER_get_next_token(STRING_TOKENIZER_HANDLE tokenizer, STRING_HA
                 if (STRING_copy_n(output, token->currentPos, amountOfCharactersToCopy) != 0)
                 {
                     LogError("Problem copying token to output String.");
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 else
                 {

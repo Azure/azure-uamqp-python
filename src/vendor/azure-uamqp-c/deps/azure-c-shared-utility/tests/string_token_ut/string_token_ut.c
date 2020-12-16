@@ -24,15 +24,15 @@ void real_free(void* ptr)
     free(ptr);
 }
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umock_c_negative_tests.h"
-#include "umocktypes_charptr.h"
-#include "umocktypes_stdint.h"
-#include "umocktypes_bool.h"
-#include "umocktypes.h"
-#include "umocktypes_c.h"
-#include "azure_c_shared_utility/macro_utils.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umock_c_negative_tests.h"
+#include "umock_c/umocktypes_charptr.h"
+#include "umock_c/umocktypes_stdint.h"
+#include "umock_c/umocktypes_bool.h"
+#include "umock_c/umocktypes.h"
+#include "umock_c/umocktypes_c.h"
 
 #define ENABLE_MOCKS
 #include "azure_c_shared_utility/gballoc.h"
@@ -42,13 +42,11 @@ void real_free(void* ptr)
 
 static TEST_MUTEX_HANDLE g_testByTest;
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 // Helpers
@@ -57,9 +55,7 @@ static void* saved_malloc_returns[20];
 
 static void* TEST_malloc(size_t size)
 {
-    saved_malloc_returns[saved_malloc_returns_count] = real_malloc(size);
-
-    return saved_malloc_returns[saved_malloc_returns_count++];
+    return real_malloc(size);
 }
 
 static int saved_realloc_returns_count = 0;
@@ -67,23 +63,11 @@ static void* saved_realloc_returns[20];
 
 static void* TEST_realloc(void* block, size_t size)
 {
-    saved_realloc_returns[saved_realloc_returns_count] = real_realloc(block, size);
-
-    return saved_realloc_returns[saved_realloc_returns_count++];
+    return real_realloc(block, size);
 }
 
 static void TEST_free(void* ptr)
 {
-    int i, j;
-    for (i = 0, j = 0; j < saved_malloc_returns_count; i++, j++)
-    {
-        if (saved_malloc_returns[i] == ptr) j++;
-
-        saved_malloc_returns[i] = saved_malloc_returns[j];
-    }
-
-    if (i != j) saved_malloc_returns_count--;
-
     real_free(ptr);
 }
 
@@ -146,7 +130,7 @@ BEGIN_TEST_SUITE(string_token_ut)
 
         umock_c_reset_all_calls();
 
-        saved_realloc_returns_count = 0;
+        //saved_realloc_returns_count = 0;
     }
 
     TEST_FUNCTION_CLEANUP(string_token_ut_test_function_cleanup)
@@ -154,7 +138,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         TEST_MUTEX_RELEASE(g_testByTest);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_001: [ If `source` or `delimiters` are NULL, or `n_delims` is zero, the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_001: [ If source or delimiters are NULL, or n_delims is zero, the function shall return NULL ]
     TEST_FUNCTION(StringToken_GetFirst_NULL_source)
     {
         ///arrange
@@ -176,7 +160,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_001: [ If `source` or `delimiters` are NULL, or `n_delims` is zero, the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_001: [ If source or delimiters are NULL, or n_delims is zero, the function shall return NULL ]
     TEST_FUNCTION(StringToken_GetFirst_NULL_delimiters)
     {
         ///arrange
@@ -198,7 +182,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_001: [ If `source` or `delimiters` are NULL, or `n_delims` is zero, the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_001: [ If source or delimiters are NULL, or n_delims is zero, the function shall return NULL ]
     TEST_FUNCTION(StringToken_GetFirst_ZERO_delimiters)
     {
         ///arrange
@@ -206,7 +190,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         size_t length;
         const char* delimiters[1];
         STRING_TOKEN_HANDLE handle;
-        
+
         length = strlen(string);
         delimiters[0] = "?";
 
@@ -222,7 +206,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_002: [ If any of the strings in `delimiters` are NULL, the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_002: [ If any of the strings in delimiters are NULL, the function shall return NULL ]
     // Tests_SRS_STRING_TOKENIZER_09_007: [ If any failure occurs, all memory allocated by this function shall be released ]
     TEST_FUNCTION(StringToken_GetFirst_NULL_delimiter)
     {
@@ -284,7 +268,7 @@ BEGIN_TEST_SUITE(string_token_ut)
             // act
             handle = StringToken_GetFirst(string, length, delimiters, 1);
 
-            sprintf(error_msg, "On failed call %zu", i);
+            sprintf(error_msg, "On failed call %lu", (unsigned long)i);
             ASSERT_IS_NULL(handle, error_msg);
         }
 
@@ -293,7 +277,7 @@ BEGIN_TEST_SUITE(string_token_ut)
     }
 
     // Tests_SRS_STRING_TOKENIZER_09_003: [ A STRING_TOKEN structure shall be allocated to hold the token parameters ]
-    // Tests_SRS_STRING_TOKENIZER_09_005: [ The source string shall be split in a token starting from the beginning of `source` up to occurrence of any one of the `demiliters`, whichever occurs first in the order provided ]
+    // Tests_SRS_STRING_TOKENIZER_09_005: [ The source string shall be split in a token starting from the beginning of source up to occurrence of any one of the demiliters, whichever occurs first in the order provided ]
     TEST_FUNCTION(StringToken_GetFirst_Success)
     {
         ///arrange
@@ -301,7 +285,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         const char* delimiters[1];
         char* string = "https://some.site.com/path/morepath/?prop1=site.com&prop2=/prop2/abc";
         size_t length = strlen(string);
-        
+
         delimiters[0] = "?";
 
         umock_c_reset_all_calls();
@@ -350,7 +334,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_006: [ If the source string does not have any of the `demiliters`, the resulting token shall be the entire `source` string ]
+    // Tests_SRS_STRING_TOKENIZER_09_006: [ If the source string does not have any of the demiliters, the resulting token shall be the entire source string ]
     TEST_FUNCTION(StringToken_GetFirst_delimiter_not_found)
     {
         ///arrange
@@ -379,7 +363,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_008: [ If `token` or `delimiters` are NULL, or `n_delims` is zero, the function shall return false ]
+    // Tests_SRS_STRING_TOKENIZER_09_008: [ If token or delimiters are NULL, or n_delims is zero, the function shall return false ]
     TEST_FUNCTION(StringToken_GetNext_NULL_token)
     {
         ///arrange
@@ -401,7 +385,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_008: [ If `token` or `delimiters` are NULL, or `n_delims` is zero, the function shall return false ]
+    // Tests_SRS_STRING_TOKENIZER_09_008: [ If token or delimiters are NULL, or n_delims is zero, the function shall return false ]
     TEST_FUNCTION(StringToken_GetNext_NULL_delimiters)
     {
         ///arrange
@@ -432,7 +416,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_008: [ If `token` or `delimiters` are NULL, or `n_delims` is zero, the function shall return false ]
+    // Tests_SRS_STRING_TOKENIZER_09_008: [ If token or delimiters are NULL, or n_delims is zero, the function shall return false ]
     TEST_FUNCTION(StringToken_GetNext_zero_delimiters)
     {
         ///arrange
@@ -463,7 +447,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_010: [ The next token shall be selected starting from the position in `source` right after the previous delimiter up to occurrence of any one of `demiliters`, whichever occurs first in the order provided ]
+    // Tests_SRS_STRING_TOKENIZER_09_010: [ The next token shall be selected starting from the position in source right after the previous delimiter up to occurrence of any one of demiliters, whichever occurs first in the order provided ]
     TEST_FUNCTION(StringToken_GetNext_Success)
     {
         ///arrange
@@ -481,7 +465,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         set_expected_calls_for_StringToken_GetFirst();
 
         handle = StringToken_GetFirst(string, length, delimiters, 2);
-        
+
         umock_c_reset_all_calls();
         set_expected_calls_for_get_delimiters_lengths();
         STRICT_EXPECTED_CALL(free(IGNORED_PTR_ARG)); // delimiters lengths
@@ -507,7 +491,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         const char* delimiters[2];
         char* string = "https://some.site.com/path/morepath/?prop1=site.com&prop2=/prop2/abc";
         size_t length = strlen(string);
-        
+
         ASSERT_ARE_EQUAL(int, 0, umock_c_negative_tests_init());
 
         delimiters[0] = "https://";
@@ -537,7 +521,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_009: [ If the previous token already extended to the end of `source`, the function shall return false ]
+    // Tests_SRS_STRING_TOKENIZER_09_009: [ If the previous token already extended to the end of source, the function shall return false ]
     TEST_FUNCTION(StringToken_GetNext_no_more_tokens)
     {
         ///arrange
@@ -571,7 +555,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_011: [ If the source string, starting right after the position of the last delimiter found, does not have any of the `demiliters`, the resulting token shall be the entire remaining of the `source` string ]
+    // Tests_SRS_STRING_TOKENIZER_09_011: [ If the source string, starting right after the position of the last delimiter found, does not have any of the demiliters, the resulting token shall be the entire remaining of the source string ]
     TEST_FUNCTION(StringToken_GetNext_delimiter_not_found)
     {
         ///arrange
@@ -603,7 +587,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_013: [ If `token` is NULL the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_013: [ If token is NULL the function shall return NULL ]
     TEST_FUNCTION(StringToken_GetValue_NULL_handle)
     {
         ///arrange
@@ -621,7 +605,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_015: [ If `token` is NULL the function shall return zero ]
+    // Tests_SRS_STRING_TOKENIZER_09_015: [ If token is NULL the function shall return zero ]
     TEST_FUNCTION(StringToken_GetLength_NULL_handle)
     {
         ///arrange
@@ -639,7 +623,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_017: [ If `token` is NULL the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_017: [ If token is NULL the function shall return NULL ]
     TEST_FUNCTION(StringToken_GetDelimiter_NULL_handle)
     {
         ///arrange
@@ -657,7 +641,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_020: [ If `token` is NULL the function shall return ]
+    // Tests_SRS_STRING_TOKENIZER_09_020: [ If token is NULL the function shall return ]
     TEST_FUNCTION(StringToken_Destroy_NULL_handle)
     {
         ///arrange
@@ -681,7 +665,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         char* string = "https://some.site.com/path/morepath/?prop1=site.com&prop2=/prop2/abc";
         size_t length = strlen(string);
 
-        
+
         delimiters[0] = "?";
 
         umock_c_reset_all_calls();
@@ -700,10 +684,10 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_014: [ The function shall return the pointer to the position in `source` where the current token starts. ]
+    // Tests_SRS_STRING_TOKENIZER_09_014: [ The function shall return the pointer to the position in source where the current token starts. ]
     // Tests_SRS_STRING_TOKENIZER_09_016: [ The function shall return the length of the current token ]
-    // Tests_SRS_STRING_TOKENIZER_09_018: [ The function shall return a pointer to the delimiter that defined the current token, as passed to the previous call to `StringToken_GetNext()` or `StringToken_GetFirst()` ]
-    // Tests_SRS_STRING_TOKENIZER_09_019: [ If the current token extends to the end of `source`, the function shall return NULL ]
+    // Tests_SRS_STRING_TOKENIZER_09_018: [ The function shall return a pointer to the delimiter that defined the current token, as passed to the previous call to StringToken_GetNext() or StringToken_GetFirst() ]
+    // Tests_SRS_STRING_TOKENIZER_09_019: [ If the current token extends to the end of source, the function shall return NULL ]
     TEST_FUNCTION(StringToken_tokenize_HTTP_URL)
     {
         ///arrange
@@ -816,7 +800,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         StringToken_Destroy(handle);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_022: [ If `source`, `delimiters`, `token` or `token_count` are NULL, or `n_delims` is zero the function shall return a non-zero value ]
+    // Tests_SRS_STRING_TOKENIZER_09_022: [ If source, delimiters, token or token_count are NULL, or n_delims is zero the function shall return a non-zero value ]
     TEST_FUNCTION(StringToken_Split_NULL_source)
     {
         ///arrange
@@ -833,7 +817,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_022: [ If `source`, `delimiters`, `token` or `token_count` are NULL, or `n_delims` is zero the function shall return a non-zero value ]
+    // Tests_SRS_STRING_TOKENIZER_09_022: [ If source, delimiters, token or token_count are NULL, or n_delims is zero the function shall return a non-zero value ]
     TEST_FUNCTION(StringToken_Split_NULL_delimiters)
     {
         ///arrange
@@ -850,7 +834,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_022: [ If `source`, `delimiters`, `token` or `token_count` are NULL, or `n_delims` is zero the function shall return a non-zero value ]
+    // Tests_SRS_STRING_TOKENIZER_09_022: [ If source, delimiters, token or token_count are NULL, or n_delims is zero the function shall return a non-zero value ]
     TEST_FUNCTION(StringToken_Split_NULL_token)
     {
         ///arrange
@@ -867,7 +851,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_022: [ If `source`, `delimiters`, `token` or `token_count` are NULL, or `n_delims` is zero the function shall return a non-zero value ]
+    // Tests_SRS_STRING_TOKENIZER_09_022: [ If source, delimiters, token or token_count are NULL, or n_delims is zero the function shall return a non-zero value ]
     TEST_FUNCTION(StringToken_Split_NULL_token_count)
     {
         ///arrange
@@ -884,7 +868,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_022: [ If `source`, `delimiters`, `token` or `token_count` are NULL, or `n_delims` is zero the function shall return a non-zero value ]
+    // Tests_SRS_STRING_TOKENIZER_09_022: [ If source, delimiters, token or token_count are NULL, or n_delims is zero the function shall return a non-zero value ]
     TEST_FUNCTION(StringToken_Split_zero_n_delims)
     {
         ///arrange
@@ -901,9 +885,9 @@ BEGIN_TEST_SUITE(string_token_ut)
         // cleanup
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_023: [ `source` (up to `length`) shall be split into individual tokens separated by any of `delimiters` ]
-    // Tests_SRS_STRING_TOKENIZER_09_024: [ All NULL tokens shall be ommited if `include_empty` is not TRUE ]
-    // Tests_SRS_STRING_TOKENIZER_09_025: [ The tokens shall be stored in `tokens`, and their count stored in `token_count` ]
+    // Tests_SRS_STRING_TOKENIZER_09_023: [ source (up to length) shall be split into individual tokens separated by any of delimiters ]
+    // Tests_SRS_STRING_TOKENIZER_09_024: [ All NULL tokens shall be ommited if include_empty is not TRUE ]
+    // Tests_SRS_STRING_TOKENIZER_09_025: [ The tokens shall be stored in tokens, and their count stored in token_count ]
     // Tests_SRS_STRING_TOKENIZER_09_027: [ If no failures occur the function shall return zero ]
     TEST_FUNCTION(StringToken_Split_Success)
     {
@@ -926,15 +910,15 @@ BEGIN_TEST_SUITE(string_token_ut)
         set_expected_calls_for_StringToken_GetNext();
         STRICT_EXPECTED_CALL(realloc(IGNORED_PTR_ARG, IGNORED_NUM_ARG));
         STRICT_EXPECTED_CALL(malloc(IGNORED_NUM_ARG));
-        
+
         set_expected_calls_for_StringToken_GetNext();
         STRICT_EXPECTED_CALL(realloc(IGNORED_PTR_ARG, IGNORED_NUM_ARG));
         STRICT_EXPECTED_CALL(malloc(IGNORED_NUM_ARG));
-        
+
         set_expected_calls_for_StringToken_GetNext();
         STRICT_EXPECTED_CALL(realloc(IGNORED_PTR_ARG, IGNORED_NUM_ARG));
         STRICT_EXPECTED_CALL(malloc(IGNORED_NUM_ARG));
-        
+
         STRICT_EXPECTED_CALL(free(IGNORED_PTR_ARG));
 
         // act
@@ -987,7 +971,7 @@ BEGIN_TEST_SUITE(string_token_ut)
         free(tokens);
     }
 
-    // Tests_SRS_STRING_TOKENIZER_09_024: [ All NULL tokens shall be ommited if `include_empty` is not TRUE ]
+    // Tests_SRS_STRING_TOKENIZER_09_024: [ All NULL tokens shall be ommited if include_empty is not TRUE ]
     TEST_FUNCTION(StringToken_Split_include_NULL_Success)
     {
         ///arrange
@@ -1112,19 +1096,7 @@ BEGIN_TEST_SUITE(string_token_ut)
             // act
             result = StringToken_Split(string, length, delimiters, 2, false, &tokens, &token_count);
 
-            if (i == 7 || i == 11 || i == 15)
-            {
-                int j = sizeof(saved_realloc_returns[saved_realloc_returns_count - 1]) / sizeof(char*);
-                
-                while (j > 0)
-                {
-                    free(((char**)saved_realloc_returns[saved_realloc_returns_count - 1])[--j]);
-                }
-                
-                free(saved_realloc_returns[saved_realloc_returns_count - 1]);
-            }
-
-            sprintf(error_msg, "On failed call %zu", i);
+            sprintf(error_msg, "On failed call %lu", (unsigned long)i);
             ASSERT_ARE_NOT_EQUAL(int, 0, result, error_msg);
         }
 

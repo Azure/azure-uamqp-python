@@ -24,10 +24,11 @@ void my_gballoc_free(void* ptr)
     free(ptr);
 }
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umock_c_negative_tests.h"
-#include "umocktypes_charptr.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umock_c_negative_tests.h"
+#include "umock_c/umocktypes_charptr.h"
 
 #define ENABLE_MOCKS
 
@@ -75,13 +76,11 @@ static const struct JSONEncoding {
 
     };
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(strings_unittests)
@@ -175,7 +174,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             str_handle = STRING_new();
 
-            sprintf(tmp_msg, "STRING_new failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_new failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(str_handle, tmp_msg);
@@ -271,7 +270,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             str_handle = STRING_construct(TEST_STRING_VALUE);
 
-            sprintf(tmp_msg, "STRING_construct failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_construct failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(str_handle, tmp_msg);
@@ -415,7 +414,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             str_handle = STRING_construct_sprintf(FORMAT_STRING, TEST_STRING_VALUE);
 
-            sprintf(tmp_msg, "STRING_construct_sprintf failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_construct_sprintf failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(str_handle, tmp_msg);
@@ -783,7 +782,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             nResult = STRING_quote(str_handle);
 
-            sprintf(tmp_msg, "STRING_quote failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_quote failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_ARE_NOT_EQUAL(int, 0, nResult, tmp_msg);
@@ -1013,7 +1012,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             str_result = STRING_clone(str_handle);
 
-            sprintf(tmp_msg, "STRING_clone failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_clone failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(str_result, tmp_msg);
@@ -1122,7 +1121,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             result = STRING_construct_n("qq", 2);
 
-            sprintf(tmp_msg, "STRING_construct_n failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_construct_n failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(result, tmp_msg);
@@ -1323,7 +1322,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             result = STRING_new_JSON("ab");
 
-            sprintf(tmp_msg, "STRING_new_JSON failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_new_JSON failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             //assert
             ASSERT_IS_NULL(result, tmp_msg);
@@ -1561,7 +1560,7 @@ BEGIN_TEST_SUITE(strings_unittests)
 
             str_result = STRING_sprintf(str_handle, FORMAT_STRING, TEST_STRING_VALUE);
 
-            sprintf(tmp_msg, "STRING_sprintf failure in test %zu/%zu", index+1, count);
+            sprintf(tmp_msg, "STRING_sprintf failure in test %lu/%lu", (unsigned long)index+1, (unsigned long)count);
 
             ///assert
             ASSERT_ARE_NOT_EQUAL(int, str_result, 0);
