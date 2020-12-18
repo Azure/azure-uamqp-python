@@ -61,11 +61,12 @@ include_dirs = [
     "./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc",
     # azure-uamqp-c inc
     "./src/vendor/azure-uamqp-c/inc",
+
 ]
 if is_win:
     include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/windows")
     if is_27:
-        include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/deps/umock-c/inc/umock_c/aux_inc")
+        include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc/azure_c_shared_utility/windowsce")
 else:
     include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/linux")
 
