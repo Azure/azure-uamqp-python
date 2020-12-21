@@ -7,7 +7,7 @@ variables:
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
-  PythonVersion39: '3.9.0'
+  PythonVersion39: '3.9'
 
 jobs:
   - job: 'sdist'

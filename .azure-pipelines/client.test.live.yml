@@ -7,14 +7,14 @@ variables:
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
-  PythonVersion39: '3.9.0'
+  PythonVersion39: '3.9'
 
 jobs:
   - job: 'Windows'
 
     pool:
       vmImage: 'vs2017-win2016'
-    
+
     timeoutInMinutes: 120
 
     strategy:
@@ -238,7 +238,7 @@ jobs:
           pathToPublish: 'dist'
 
   - job: 'Linux'
-    
+
     timeoutInMinutes: 120
 
     dependsOn: 'MacOS'
@@ -302,7 +302,7 @@ jobs:
           IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
           IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
           IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
-          
+
       - task: PublishTestResults@2
         displayName: 'Publish test results'
         condition: succeededOrFailed()
