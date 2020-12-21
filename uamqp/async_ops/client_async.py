@@ -809,7 +809,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 debug=self._debug_trace,
                 receive_settle_mode=self._receive_settle_mode,
                 send_settle_mode=self._send_settle_mode,
-                prefetch=self._prefetch,
+                prefetch=0,  # set to 0 as not to receive messages during connection establishment, set prefetch later
                 max_message_size=self._max_message_size,
                 properties=self._link_properties,
                 error_policy=self._error_policy,
@@ -826,6 +826,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         if self.message_handler.get_state() != constants.MessageReceiverState.Open:
             self._last_activity_timestamp = self._counter.get_current_ms()
             return False
+        # once the receiver client is ready/connection established, we set prefetch as per the config
+        self.message_handler._link.set_prefetch_count(self._prefetch)  # pylint: disable=protected-access
         return True
 
     async def _client_run_async(self):
