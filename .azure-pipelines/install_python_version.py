@@ -141,7 +141,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    max_precached_version = Version("3.8.6")
+    max_precached_version = Version("3.9.0")
     try:
         version_from_spec = Version(args.version_spec)
     except InvalidVersion:
