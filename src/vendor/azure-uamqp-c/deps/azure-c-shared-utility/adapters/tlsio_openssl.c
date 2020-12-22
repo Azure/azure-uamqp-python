@@ -947,7 +947,7 @@ static int enable_domain_check(TLS_IO_INSTANCE* tlsInstance)
         X509_VERIFY_PARAM_set_hostflags(param, 0);
         if (!X509_VERIFY_PARAM_set1_host(param, tlsInstance->hostname, strlen(tlsInstance->hostname)))
         {
-            result = MU_FAILURE;
+            result = __FAILURE__;
         }
         else
         {
