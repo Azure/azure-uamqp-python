@@ -197,7 +197,7 @@ async def test_event_hubs_iter_receive_no_shutdown_after_timeout_async(live_even
 
     source = address.Source(source)
     source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
-    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=5000, debug=False, shutdown_after_timeout=False)
     count = 0
     try:
         await receive_client.open_async()
