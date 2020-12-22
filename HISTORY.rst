@@ -8,6 +8,7 @@ Release History
 
 - Fixed bug in accessing `MessageProperties.user_id` triggering segmentation fault when the underlying C bytes are NULL.
 - Fixed bug in `MessageProperties.user_id` being limited to 8 bytes.
+- Fixed bug where connection establishment on macOS with Clang 12 triggering unrecognized selector exception.
 - Fixed bug that macOS was unable to detect network error.
 
 1.2.12 (2020-10-09)
