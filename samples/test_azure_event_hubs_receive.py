@@ -300,25 +300,32 @@ def test_event_hubs_callback_receive_no_shutdown_after_timeout_sync(live_eventhu
 
     receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
     log.info("Created client, receiving...")
-    
-    receive_client.open()
-    while not receive_client.client_ready():
-        receive_client.do_work()
+    try:
+        receive_client.open()
+        while not receive_client.client_ready():
+            time.sleep(0.05)
 
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    receive_client.receive_messages(on_message_received)
-    message_handler_before = receive_client.message_handler
-    assert received_cnt['cnt'] == 1
+        time.sleep(1)
+        receive_client._connection.work()
 
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    receive_client.receive_messages(on_message_received)
-    message_handler_after = receive_client.message_handler
-    assert message_handler_before == message_handler_after
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
 
-    assert received_cnt['cnt'] == 2
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        receive_client.receive_messages(on_message_received)
+        message_handler_before = receive_client.message_handler
+        assert received_cnt['cnt'] == 1
 
-    log.info("Finished receiving")
-    receive_client.close()
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        receive_client.receive_messages(on_message_received)
+        message_handler_after = receive_client.message_handler
+        assert message_handler_before == message_handler_after
+
+        assert received_cnt['cnt'] == 2
+
+        log.info("Finished receiving")
+    finally:
+        receive_client.close()
 
 
 def test_event_hubs_iter_receive_sync(live_eventhub_config):
@@ -367,37 +374,43 @@ def test_event_hubs_iter_receive_no_shutdown_after_timeout_sync(live_eventhub_co
     source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
     receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
     count = 0
+    try:
+        receive_client.open()
+        while not receive_client.client_ready():
+            time.sleep(0.05)
 
-    receive_client.open()
-    while not receive_client.client_ready():
-        receive_client.do_work()
+        time.sleep(1)
+        receive_client._connection.work()
 
-    gen = receive_client.receive_messages_iter()
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
 
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    for message in gen:
-        log.info(message.annotations.get(b'x-opt-sequence-number'))
-        log.info(str(message))
-        count += 1
+        gen = receive_client.receive_messages_iter()
 
-    assert count == 1
-    count = 0
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        for message in gen:
+            log.info(message.annotations.get(b'x-opt-sequence-number'))
+            log.info(str(message))
+            count += 1
 
-    message_handler_before = receive_client.message_handler
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    gen = receive_client.receive_messages_iter()
+        assert count == 1
+        count = 0
 
-    for message in gen:
-        log.info(message.annotations.get(b'x-opt-sequence-number'))
-        log.info(str(message))
-        count += 1
+        message_handler_before = receive_client.message_handler
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        gen = receive_client.receive_messages_iter()
 
-    assert count == 1
+        for message in gen:
+            log.info(message.annotations.get(b'x-opt-sequence-number'))
+            log.info(str(message))
+            count += 1
 
-    message_handler_after = receive_client.message_handler
-    assert message_handler_before == message_handler_after
+        assert count == 1
 
-    receive_client.close()
+        message_handler_after = receive_client.message_handler
+        assert message_handler_before == message_handler_after
+    finally:
+        receive_client.close()
 
 
 def test_event_hubs_shared_connection(live_eventhub_config):
@@ -483,6 +496,12 @@ def test_event_hubs_dynamic_issue_link_credit(live_eventhub_config):
 
         while not receive_client.client_ready():
             time.sleep(0.05)
+
+        time.sleep(1)
+        receive_client._connection.work()
+
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
 
         receive_client.message_handler.reset_link_credit(msg_sent_cnt)
 
@@ -573,6 +592,36 @@ def test_event_hubs_send_event_with_amqp_attributes_sync(live_eventhub_config):
     assert rich_batch_received
 
 
+def test_event_hubs_not_receive_events_during_connection_establishment(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    receive_client = uamqp.ReceiveClient(source, auth=sas_auth, timeout=1000, debug=False, prefetch=10)
+    try:
+        receive_client.open()
+
+        while not receive_client.client_ready():
+            time.sleep(0.05)
+
+        time.sleep(1)  # sleep for 1s
+        receive_client._connection.work()  # do a single connection iteration to see if there're incoming transfers
+
+        # make sure no messages are received
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
+
+        messages_0 = receive_client.receive_message_batch()
+        assert len(messages_0) > 0
+    finally:
+        receive_client.close()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -581,4 +630,4 @@ if __name__ == '__main__':
     config['access_key'] = os.environ['EVENT_HUB_SAS_KEY']
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
-    test_event_hubs_send_event_with_amqp_attributes_sync(config)
+    test_event_hubs_not_receive_events_during_connection_establishment(config)
