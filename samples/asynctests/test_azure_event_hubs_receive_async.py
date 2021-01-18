@@ -107,24 +107,32 @@ async def test_event_hubs_callback_async_receive_no_shutdown_after_timeout(live_
 
     receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=3000, prefetch=10, shutdown_after_timeout=False)
     log.info("Created client, receiving...")
+    try:
+        await receive_client.open_async()
+        while not await receive_client.client_ready_async():
+            await asyncio.sleep(0.05)
 
-    await receive_client.open_async()
-    while not await receive_client.client_ready_async():
-        await receive_client.do_work_async()
+        await asyncio.sleep(1)  # sleep for 1s
+        await receive_client._connection.work_async()  # do a single connection iteration to see if there're incoming transfers
 
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    await receive_client.receive_messages_async(on_message_received_internal)
-    message_handler_before = receive_client.message_handler
-    assert received_cnt['cnt'] == 1
+        # make sure no messages are received
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
 
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    await receive_client.receive_messages_async(on_message_received_internal)
-    message_handler_after = receive_client.message_handler
-    assert message_handler_before == message_handler_after
-    assert received_cnt['cnt'] == 2
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        await receive_client.receive_messages_async(on_message_received_internal)
+        message_handler_before = receive_client.message_handler
+        assert received_cnt['cnt'] == 1
 
-    log.info("Finished receiving")
-    await receive_client.close_async()
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        await receive_client.receive_messages_async(on_message_received_internal)
+        message_handler_after = receive_client.message_handler
+        assert message_handler_before == message_handler_after
+        assert received_cnt['cnt'] == 2
+
+        log.info("Finished receiving")
+    finally:
+        await receive_client.close_async()
 
 
 @pytest.mark.asyncio
@@ -189,38 +197,45 @@ async def test_event_hubs_iter_receive_no_shutdown_after_timeout_async(live_even
 
     source = address.Source(source)
     source.set_filter(b"amqp.annotation.x-opt-offset > '@latest'")
-    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=2000, debug=False, shutdown_after_timeout=False)
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=5000, debug=False, shutdown_after_timeout=False)
     count = 0
+    try:
+        await receive_client.open_async()
+        while not await receive_client.client_ready_async():
+            await asyncio.sleep(0.05)
 
-    await receive_client.open_async()
-    while not await receive_client.client_ready_async():
-        await receive_client.do_work_async()
+        await asyncio.sleep(1)  # sleep for 1s
+        await receive_client._connection.work_async()  # do a single connection iteration to see if there're incoming transfers
 
-    gen = receive_client.receive_messages_iter_async()
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    async for message in gen:
-        log.info(message.annotations.get(b'x-opt-sequence-number'))
-        log.info(str(message))
-        count += 1
+        # make sure no messages are received
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
 
-    assert count == 1
-    count = 0
+        gen = receive_client.receive_messages_iter_async()
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        async for message in gen:
+            log.info(message.annotations.get(b'x-opt-sequence-number'))
+            log.info(str(message))
+            count += 1
 
-    message_handler_before = receive_client.message_handler
-    send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
-    gen = receive_client.receive_messages_iter_async()
+        assert count == 1
+        count = 0
 
-    async for message in gen:
-        log.info(message.annotations.get(b'x-opt-sequence-number'))
-        log.info(str(message))
-        count += 1
+        message_handler_before = receive_client.message_handler
+        send_single_message(live_eventhub_config, live_eventhub_config['partition'], 'message')
+        gen = receive_client.receive_messages_iter_async()
 
-    assert count == 1
+        async for message in gen:
+            log.info(message.annotations.get(b'x-opt-sequence-number'))
+            log.info(str(message))
+            count += 1
 
-    message_handler_after = receive_client.message_handler
-    assert message_handler_before == message_handler_after
+        assert count == 1
 
-    await receive_client.close_async()
+        message_handler_after = receive_client.message_handler
+        assert message_handler_before == message_handler_after
+    finally:
+        await receive_client.close_async()
 
 @pytest.mark.asyncio
 async def test_event_hubs_batch_receive_async(live_eventhub_config):
@@ -432,6 +447,13 @@ async def test_event_hubs_dynamic_issue_link_credit_async(live_eventhub_config):
         while not await receive_client.client_ready_async():
             await asyncio.sleep(0.05)
 
+        await asyncio.sleep(1)  # sleep for 1s
+        await receive_client._connection.work_async()  # do a single connection iteration to see if there're incoming transfers
+
+        # make sure no messages are received
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
+
         await receive_client.message_handler.reset_link_credit_async(msg_sent_cnt)
 
         now = start = time.time()
@@ -444,6 +466,37 @@ async def test_event_hubs_dynamic_issue_link_credit_async(live_eventhub_config):
         log.info("Finished receiving")
 
 
+@pytest.mark.asyncio
+async def test_event_hubs_not_receive_events_during_connection_establishment_async(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        live_eventhub_config['partition'])
+
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=1000, debug=False, prefetch=10)
+    try:
+        await receive_client.open_async()
+
+        while not await receive_client.client_ready_async():
+            await asyncio.sleep(0.05)
+
+        await asyncio.sleep(1)  # sleep for 1s
+        await receive_client._connection.work_async()  # do a single connection iteration to see if there're incoming transfers
+
+        # make sure no messages are received
+        assert not receive_client._was_message_received
+        assert receive_client._received_messages.empty()
+
+        messages_0 = await receive_client.receive_message_batch_async()
+        assert len(messages_0) > 0
+    finally:
+        await receive_client.close_async()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -454,4 +507,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_batch_receive_async_no_shutdown_after_timeout_sync(config))
+    loop.run_until_complete(test_event_hubs_not_receive_events_during_connection_establishment_async(config))
