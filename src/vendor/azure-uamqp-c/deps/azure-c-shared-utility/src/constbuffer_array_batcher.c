@@ -54,6 +54,7 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
             else
             {
                 CONSTBUFFER_HANDLE* all_buffers;
+                uint32_t all_buffers_array_size;
 
                 /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_005: [ count shall be written as the first uint32_t in the header memory. ]*/
                 write_uint32_t((void*)&header_memory[0], count);
@@ -72,7 +73,7 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
                 }
 
                 /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_007: [ constbuffer_array_batcher_batch shall allocate enough memory for all the buffer handles in all the arrays + one extra header buffer handle. ]*/
-                uint32_t all_buffers_array_size = total_buffer_count + 1;
+                all_buffers_array_size = total_buffer_count + 1;
                 all_buffers = malloc(sizeof(CONSTBUFFER_HANDLE) * ((size_t)all_buffers_array_size));
                 if (all_buffers == NULL)
                 {
