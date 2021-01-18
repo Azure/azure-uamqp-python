@@ -105,7 +105,7 @@ class MessageReceiver(object):
         self._session = session
         self._link = c_uamqp.create_link(session._session, self.name, role.value, self.source, self.target)
         self._link.subscribe_to_detach_event(self)
-        if prefetch:
+        if prefetch is not None:
             self._link.set_prefetch_count(prefetch)
         if properties:
             self._link.set_attach_properties(utils.data_factory(properties, encoding=encoding))
