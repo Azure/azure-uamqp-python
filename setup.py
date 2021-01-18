@@ -49,6 +49,7 @@ cwd = os.path.abspath('.')
 # will vary depending on the build path
 pxd_inc_dir = os.path.join(".", "src", "vendor", "inc")
 sys.path.insert(0, os.path.join(cwd, pxd_inc_dir))
+latest_windows_sdk_shared_include_path = None
 
 include_dirs = [
     pxd_inc_dir,
@@ -98,6 +99,10 @@ def get_generator_flags():
     flags = ["-G"]
     if is_msvc_9_for_python_compiler():
         flags.append("\"NMake Makefiles\"")
+        if latest_windows_sdk_shared_include_path:
+            flags.append("-Duse_latest_windows_sdk:bool=ON")
+            include_path_command = "\"-Dlatest_windows_sdk_shared_include_path=" +latest_windows_sdk_shared_include_path +"\""
+            flags.append(include_path_command)
     elif is_win:
         flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 15 2017\"")
         flags.append("-A")
@@ -147,6 +152,7 @@ def get_latest_windows_sdk():
     latest_sdk_version = installed_versions[-1].vstring
     logger.info("Selecting Windows SDK v%s" % latest_sdk_version)
     lib_path = os.path.join(installed_sdks[latest_sdk_version], "lib")
+    include_path = os.path.join(installed_sdks[latest_sdk_version], "include")
     libs_dirs = [d for d in os.listdir(lib_path) if os.path.isdir(os.path.join(lib_path, d, "um"))]
     if not libs_dirs:
         print("Warning - build may fail: No Windows SDK libraries found.")
@@ -155,7 +161,8 @@ def get_latest_windows_sdk():
     logger.info("Found SDK libraries %s in Windows SDK v%s" % (", ".join(libs_dirs), latest_sdk_version))
     latest_libs_dir = max([LooseVersion(d) for d in libs_dirs]).vstring
     logger.info("Selecting SDK libraries %s" % latest_libs_dir)
-
+    global latest_windows_sdk_shared_include_path
+    latest_windows_sdk_shared_include_path = os.path.join(include_path, latest_libs_dir, "shared")
     platform_libs_path = os.path.join(lib_path, latest_libs_dir, "um", 'x64' if is_x64 else 'x86')
     if not os.path.isdir(platform_libs_path):
         print("Warning - build may fail: Windows SDK v{} libraries {} not found at path {}.".format(
@@ -192,7 +199,12 @@ class build_ext(build_ext_orig):
     def run(self):
         monkey.patch_all()
         cmake_build_dir = None
+
         for ext in self.extensions:
+            if is_win and is_27:
+                ext.library_dirs.extend([lib for lib in get_msvc_env(9.0)['LIB'].split(';') if lib])
+                ext.library_dirs.extend(get_latest_windows_sdk())
+
             if isinstance(ext, UAMQPExtension):
                 self.build_cmake(ext)
                 # Now I have built in ext.cmake_build_dir
@@ -207,9 +219,9 @@ class build_ext(build_ext_orig):
                     cmake_build_dir + "/deps/azure-c-shared-utility/Release/"
                 ]
 
-        if is_win and is_27:
-            ext.library_dirs.extend([lib for lib in get_msvc_env(9.0)['LIB'].split(';') if lib])
-            ext.library_dirs.extend(get_latest_windows_sdk())
+        # if is_win and is_27:
+        #     ext.library_dirs.extend([lib for lib in get_msvc_env(9.0)['LIB'].split(';') if lib])
+        #     ext.library_dirs.extend(get_latest_windows_sdk())
 
         build_ext_orig.run(self)
 
