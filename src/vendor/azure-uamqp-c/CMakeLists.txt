@@ -14,7 +14,6 @@ option(memory_trace "set memory_trace to ON if memory usage is to be used, set t
 option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
 option(use_latest_windows_sdk "use latest windows sdk if available (default is OFF)" OFF)
 option(latest_windows_sdk_shared_include_path "the path to Windows SDK shared include")
-option(latest_windows_sdk_um_include_path "the path to Windows SDK um include")
 
 if(${use_latest_windows_sdk})
     include_directories(${latest_windows_sdk_shared_include_path})
