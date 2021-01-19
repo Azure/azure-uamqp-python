@@ -50,7 +50,6 @@ cwd = os.path.abspath('.')
 pxd_inc_dir = os.path.join(".", "src", "vendor", "inc")
 sys.path.insert(0, os.path.join(cwd, pxd_inc_dir))
 latest_windows_sdk_shared_include_path = None
-latest_windows_sdk_um_include_path = None
 
 include_dirs = [
     pxd_inc_dir,
@@ -102,10 +101,8 @@ def get_generator_flags():
         flags.append("\"NMake Makefiles\"")
         if latest_windows_sdk_shared_include_path:
             shared_include_path_command = "\"-Dlatest_windows_sdk_shared_include_path=" + latest_windows_sdk_shared_include_path +"\""
-            um_include_path_command = "\"-Dlatest_windows_sdk_um_include_path=" + latest_windows_sdk_um_include_path + "\""
             flags.append("-Duse_latest_windows_sdk:bool=ON")
             flags.append(shared_include_path_command)
-            flags.append(um_include_path_command)
     elif is_win:
         flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 15 2017\"")
         flags.append("-A")
@@ -165,18 +162,12 @@ def get_latest_windows_sdk():
     latest_libs_dir = max([LooseVersion(d) for d in libs_dirs]).vstring
     logger.info("Selecting SDK libraries %s" % latest_libs_dir)
     global latest_windows_sdk_shared_include_path
-    global latest_windows_sdk_um_include_path
     latest_windows_sdk_shared_include_path = os.path.join(include_path, latest_libs_dir, "shared")
-    latest_windows_sdk_um_include_path = os.path.join(include_path, latest_libs_dir, "um")
     platform_libs_path = os.path.join(lib_path, latest_libs_dir, "um", 'x64' if is_x64 else 'x86')
 
     if not os.path.isdir(latest_windows_sdk_shared_include_path):
         print("Warning - build may fail: Windows SDK v{} include directory of shared header files {} not found at path {}.".format(
             latest_sdk_version, latest_libs_dir, latest_windows_sdk_shared_include_path))
-
-    if not os.path.isdir(latest_windows_sdk_um_include_path):
-        print("Warning - build may fail: Windows SDK v{} include directory of um header files {} not found at path {}.".format(
-            latest_sdk_version, latest_libs_dir, latest_windows_sdk_um_include_path))
 
     if not os.path.isdir(platform_libs_path):
         print("Warning - build may fail: Windows SDK v{} libraries {} not found at path {}.".format(
