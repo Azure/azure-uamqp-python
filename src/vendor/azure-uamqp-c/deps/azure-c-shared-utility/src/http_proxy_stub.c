@@ -37,7 +37,7 @@ static int http_proxy_stub_open(CONCRETE_IO_HANDLE http_proxy_io, ON_IO_OPEN_COM
     (void)on_io_error_context;
 
     LogError("Function %s is a stub and should never be called", __FUNCTION__);
-    result = __FAILURE__;
+    result = MU_FAILURE;
 
     return result;
 }
@@ -51,7 +51,7 @@ static int http_proxy_stub_close(CONCRETE_IO_HANDLE http_proxy_io, ON_IO_CLOSE_C
     (void)on_io_close_complete_context;
 
     LogError("Function %s is a stub and should never be called", __FUNCTION__);
-    result = __FAILURE__;
+    result = MU_FAILURE;
 
     return result;
 }
@@ -67,7 +67,7 @@ static int http_proxy_stub_send(CONCRETE_IO_HANDLE http_proxy_io, const void* bu
     (void)on_send_complete_context;
 
     LogError("Function %s is a stub and should never be called", __FUNCTION__);
-    result = __FAILURE__;
+    result = MU_FAILURE;
 
     return result;
 }
@@ -88,7 +88,7 @@ static int http_proxy_stub_set_option(CONCRETE_IO_HANDLE http_proxy_io, const ch
     (void)value;
 
     LogError("Function %s is a stub and should never be called", __FUNCTION__);
-    result = __FAILURE__;
+    result = MU_FAILURE;
 
     return result;
 }
@@ -119,6 +119,6 @@ static const IO_INTERFACE_DESCRIPTION http_proxy_stub_interface_description =
 
 const IO_INTERFACE_DESCRIPTION* http_proxy_io_get_interface_description(void)
 {
-    /* Codes_SRS_HTTP_PROXY_IO_01_049: [ `http_proxy_io_get_interface_description` shall return a pointer to an `IO_INTERFACE_DESCRIPTION` structure that contains pointers to the functions: `http_proxy_io_retrieve_options`, `http_proxy_io_retrieve_create`, `http_proxy_io_destroy`, `http_proxy_io_open`, `http_proxy_io_close`, `http_proxy_io_send` and `http_proxy_io_dowork`. ]*/
+    /* Codes_SRS_HTTP_PROXY_IO_01_049: [ http_proxy_io_get_interface_description shall return a pointer to an IO_INTERFACE_DESCRIPTION structure that contains pointers to the functions: http_proxy_io_retrieve_options, http_proxy_io_retrieve_create, http_proxy_io_destroy, http_proxy_io_open, http_proxy_io_close, http_proxy_io_send and http_proxy_io_dowork. ]*/
     return &http_proxy_stub_interface_description;
 }

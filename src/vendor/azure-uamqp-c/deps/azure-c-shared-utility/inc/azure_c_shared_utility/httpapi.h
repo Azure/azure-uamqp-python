@@ -13,16 +13,19 @@
 #ifndef HTTPAPI_H
 #define HTTPAPI_H
 
-#include "azure_c_shared_utility/httpheaders.h"
-#include "azure_c_shared_utility/macro_utils.h"
-#include "azure_c_shared_utility/buffer_.h"
-#include "azure_c_shared_utility/umock_c_prod.h"
-
 #ifdef __cplusplus
 #include <cstddef>
-extern "C" {
 #else
 #include <stddef.h>
+#endif
+
+#include "azure_macro_utils/macro_utils.h"
+#include "azure_c_shared_utility/httpheaders.h"
+#include "azure_c_shared_utility/buffer_.h"
+#include "umock_c/umock_c_prod.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 typedef struct HTTP_HANDLE_DATA_TAG* HTTP_HANDLE;
@@ -53,7 +56,7 @@ HTTPAPI_SET_TIMEOUTS_FAILED                  \
 /** @brief Enumeration specifying the possible return values for the APIs in
  *           this module.
  */
-DEFINE_ENUM(HTTPAPI_RESULT, HTTPAPI_RESULT_VALUES);
+MU_DEFINE_ENUM(HTTPAPI_RESULT, HTTPAPI_RESULT_VALUES);
 
 #define HTTPAPI_REQUEST_TYPE_VALUES\
     HTTPAPI_REQUEST_GET,            \
@@ -67,7 +70,7 @@ DEFINE_ENUM(HTTPAPI_RESULT, HTTPAPI_RESULT_VALUES);
 /** @brief Enumeration specifying the HTTP request verbs accepted by
  *    the HTTPAPI module.
  */
-DEFINE_ENUM(HTTPAPI_REQUEST_TYPE, HTTPAPI_REQUEST_TYPE_VALUES);
+MU_DEFINE_ENUM(HTTPAPI_REQUEST_TYPE, HTTPAPI_REQUEST_TYPE_VALUES);
 
 #define MAX_HOSTNAME_LEN        65
 #define MAX_USERNAME_LEN        65

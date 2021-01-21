@@ -9,9 +9,9 @@ It wraps the structure that needs to be ref counted into another structure that 
 ## Exposed API
 
 ```c
-#define REFCOUNT_TYPE_CREATE(type) C2(REFCOUNT_SHORT_TYPE(type), _Create)()
-#define REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE(type, size) C2(REFCOUNT_SHORT_TYPE(type), _Create_With_Extra_Size)(size)
-#define REFCOUNT_TYPE_DESTROY(type, var) C2(REFCOUNT_SHORT_TYPE(type), _Destroy)(var)
+#define REFCOUNT_TYPE_CREATE(type) MU_C2(REFCOUNT_SHORT_TYPE(type), _Create)()
+#define REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE(type, size) MU_C2(REFCOUNT_SHORT_TYPE(type), _Create_With_Extra_Size)(size)
+#define REFCOUNT_TYPE_DESTROY(type, var) MU_C2(REFCOUNT_SHORT_TYPE(type), _Destroy)(var)
 
 #define DEFINE_REFCOUNT_TYPE(type) \
 ...
@@ -33,7 +33,7 @@ REFCOUNT_TYPE_CREATE(type)
 
 **SRS_REFCOUNT_01_003: [** On success it shall return a non-NULL handle to the allocated ref counted type `type`. **]**
 
-**SRS_REFCOUNT_01_004: [** If any error occurrs, `REFCOUNT_TYPE_CREATE` shall return NULL. **]**
+**SRS_REFCOUNT_01_004: [** If any error occurs, `REFCOUNT_TYPE_CREATE` shall return NULL. **]**
 
 ### REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE
 
@@ -47,7 +47,7 @@ REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE(type, size)
 
 **SRS_REFCOUNT_01_006: [** On success it shall return a non-NULL handle to the allocated ref counted type `type`. **]**
 
-**SRS_REFCOUNT_01_007: [** If any error occurrs, `REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE` shall return NULL. **]**
+**SRS_REFCOUNT_01_007: [** If any error occurs, `REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE` shall return NULL. **]**
 
 ### REFCOUNT_TYPE_DESTROY
 
@@ -57,7 +57,7 @@ REFCOUNT_TYPE_DESTROY(type, counted_type)
 
 `REFCOUNT_TYPE_DESTROY` frees the memory for a ref counted type.
 
-**SRS_REFCOUNT_01_008: [** `REFCOUNT_TYPE_DESTROY` shall free the memory allocated by `REFCOUNT_TYPE_CREATE` or `REFCOUNT_TYPE_CREATE_WITH_EXTRA_MEMORY`. **]**
+**SRS_REFCOUNT_01_008: [** `REFCOUNT_TYPE_DESTROY` shall free the memory allocated by `REFCOUNT_TYPE_CREATE` or `REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE`. **]**
 
 **SRS_REFCOUNT_01_009: [** If `counted_type` is NULL, `REFCOUNT_TYPE_DESTROY` shall return. **]**
 

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include "azure_c_shared_utility/optimize_size.h"
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/singlylinkedlist.h"
 #include "azure_c_shared_utility/xlogging.h"
@@ -80,7 +80,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
             LogError("Could not retrieve application properties");
             amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
             /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-            result = messaging_delivery_rejected("amqp:internal-error", "Could not get application properties on AMQP management response.", NULL);
+            result = messaging_delivery_rejected("amqp:internal-error", "Could not get application properties on AMQP management response.");
         }
         else
         {
@@ -93,7 +93,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                 LogError("Could not retrieve message properties");
                 amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                 /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                result = messaging_delivery_rejected("amqp:internal-error", "Could not get message properties on AMQP management response.", NULL);
+                result = messaging_delivery_rejected("amqp:internal-error", "Could not get message properties on AMQP management response.");
             }
             else
             {
@@ -112,7 +112,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                     LogError("Could not retrieve correlation Id");
                     amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                     /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                    result = messaging_delivery_rejected("amqp:internal-error", "Could not get correlation Id from AMQP management response.", NULL);
+                    result = messaging_delivery_rejected("amqp:internal-error", "Could not get correlation Id from AMQP management response.");
                 }
                 else
                 {
@@ -122,7 +122,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                         LogError("Could not retrieve correlation Id ulong value");
                         amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                         /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                        result = messaging_delivery_rejected("amqp:internal-error", "Could not get correlation Id from AMQP management response.", NULL);
+                        result = messaging_delivery_rejected("amqp:internal-error", "Could not get correlation Id from AMQP management response.");
                     }
                     else
                     {
@@ -135,7 +135,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                             LogError("Could not retrieve application property map");
                             amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                             /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                            result = messaging_delivery_rejected("amqp:internal-error", "Could not get application property map from the application properties in the AMQP management response.", NULL);
+                            result = messaging_delivery_rejected("amqp:internal-error", "Could not get application property map from the application properties in the AMQP management response.");
                         }
                         else
                         {
@@ -160,7 +160,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                     LogError("Could not retrieve status code from application properties");
                                     amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                                     /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                                    result = messaging_delivery_rejected("amqp:internal-error", "Could not retrieve status code from the application properties in the AMQP management response.", NULL);
+                                    result = messaging_delivery_rejected("amqp:internal-error", "Could not retrieve status code from the application properties in the AMQP management response.");
                                 }
                                 else
                                 {
@@ -172,7 +172,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                         LogError("Could not retrieve status code int value");
                                         amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                                         /* Codes_SRS_AMQP_MANAGEMENT_01_136: [ When `on_message_received` fails due to errors in parsing the response message `on_message_received` shall call `messaging_delivery_rejected` and return the created delivery AMQP value. ]*/
-                                        result = messaging_delivery_rejected("amqp:internal-error", "Could not retrieve status code value from the application properties in the AMQP management response.", NULL);
+                                        result = messaging_delivery_rejected("amqp:internal-error", "Could not retrieve status code value from the application properties in the AMQP management response.");
                                     }
                                     else
                                     {
@@ -198,17 +198,8 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                             desc_value = amqpvalue_get_map_value(map, desc_key);
                                             if (desc_value != NULL)
                                             {
-                                                AMQP_TYPE amqp_type = amqpvalue_get_type(desc_value);
-                                                if (amqp_type == AMQP_TYPE_STRING)
-                                                {
-                                                    /* Codes_SRS_AMQP_MANAGEMENT_01_134: [ The status description value shall be extracted from the value found in the map by using `amqpvalue_get_string`. ]*/
-                                                    if (amqpvalue_get_string(desc_value, &status_description) != 0)
-                                                    {
-                                                        /* Codes_SRS_AMQP_MANAGEMENT_01_125: [ If status description is not found, NULL shall be passed to the user callback as `status_description` argument. ]*/
-                                                        status_description = NULL;
-                                                    }
-                                                }
-                                                else
+                                                /* Codes_SRS_AMQP_MANAGEMENT_01_134: [ The status description value shall be extracted from the value found in the map by using `amqpvalue_get_string`. ]*/
+                                                if (amqpvalue_get_string(desc_value, &status_description) != 0)
                                                 {
                                                     /* Codes_SRS_AMQP_MANAGEMENT_01_125: [ If status description is not found, NULL shall be passed to the user callback as `status_description` argument. ]*/
                                                     status_description = NULL;
@@ -298,7 +289,7 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                                     LogError("Could not match AMQP management response to request");
                                                     amqp_management->on_amqp_management_error(amqp_management->on_amqp_management_error_context);
                                                     /* Codes_SRS_AMQP_MANAGEMENT_01_135: [ When an error occurs in creating AMQP values (for status code, etc.) `on_message_received` shall call `messaging_delivery_released` and return the created delivery AMQP value. ]*/
-                                                    result = messaging_delivery_rejected("amqp:internal-error", "Could not match AMQP management response to request", NULL);
+                                                    result = messaging_delivery_rejected("amqp:internal-error", "Could not match AMQP management response to request");
                                                 }
                                                 else
                                                 {
@@ -571,7 +562,7 @@ static int set_message_id(MESSAGE_HANDLE message, uint64_t next_message_id)
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_098: [ If any API fails while setting the message Id, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
         LogError("Could not retrieve message properties");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -585,7 +576,7 @@ static int set_message_id(MESSAGE_HANDLE message, uint64_t next_message_id)
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_098: [ If any API fails while setting the message Id, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
             LogError("Could not create message properties");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -595,7 +586,7 @@ static int set_message_id(MESSAGE_HANDLE message, uint64_t next_message_id)
             {
                 /* Codes_SRS_AMQP_MANAGEMENT_01_098: [ If any API fails while setting the message Id, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                 LogError("Could not create message id value");
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -604,14 +595,14 @@ static int set_message_id(MESSAGE_HANDLE message, uint64_t next_message_id)
                 {
                     /* Codes_SRS_AMQP_MANAGEMENT_01_098: [ If any API fails while setting the message Id, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                     LogError("Could not set message Id on the properties");
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 /* Codes_SRS_AMQP_MANAGEMENT_01_097: [ The properties thus modified to contain the message Id shall be set on the message by calling `message_set_properties`. ]*/
                 else if (message_set_properties(message, properties) != 0)
                 {
                     /* Codes_SRS_AMQP_MANAGEMENT_01_098: [ If any API fails while setting the message Id, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                     LogError("Could not set message properties");
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 else
                 {
@@ -639,7 +630,7 @@ static int add_string_key_value_pair_to_map(AMQP_VALUE map, const char* key, con
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_090: [ If any APIs used to create and set the application properties on the message fails, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
         LogError("Could not create key value for %s", key);
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -649,7 +640,7 @@ static int add_string_key_value_pair_to_map(AMQP_VALUE map, const char* key, con
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_090: [ If any APIs used to create and set the application properties on the message fails, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
             LogError("Could not create value for key %s", key);
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -658,7 +649,7 @@ static int add_string_key_value_pair_to_map(AMQP_VALUE map, const char* key, con
             {
                 /* Codes_SRS_AMQP_MANAGEMENT_01_090: [ If any APIs used to create and set the application properties on the message fails, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                 LogError("Could not set the value in the map for key %s", key);
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -681,7 +672,7 @@ static int internal_set_status_code_key_name(AMQP_MANAGEMENT_HANDLE amqp_managem
     if (mallocAndStrcpy_s(&copied_status_code_key_name, status_code_key_name) != 0)
     {
         LogError("Cannot copy status code key name");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -704,7 +695,7 @@ static int internal_set_status_description_key_name(AMQP_MANAGEMENT_HANDLE amqp_
     if (mallocAndStrcpy_s(&copied_status_description_key_name, status_description_key_name) != 0)
     {
         LogError("Cannot copy status description key name");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -740,7 +731,7 @@ AMQP_MANAGEMENT_HANDLE amqp_management_create(SESSION_HANDLE session, const char
     else
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_001: [ `amqp_management_create` shall create a new CBS instance and on success return a non-NULL handle to it. ]*/
-        amqp_management = (AMQP_MANAGEMENT_INSTANCE*)malloc(sizeof(AMQP_MANAGEMENT_INSTANCE));
+        amqp_management = (AMQP_MANAGEMENT_INSTANCE*)calloc(1, sizeof(AMQP_MANAGEMENT_INSTANCE));
         if (amqp_management == NULL)
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_005: [ If allocating memory for the new handle fails, `amqp_management_create` shall fail and return NULL. ]*/
@@ -966,13 +957,13 @@ int amqp_management_open_async(AMQP_MANAGEMENT_HANDLE amqp_management, ON_AMQP_M
             amqp_management,
             on_amqp_management_open_complete,
             on_amqp_management_error);
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else if (amqp_management->amqp_management_state != AMQP_MANAGEMENT_STATE_IDLE)
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_043: [ If the AMQP management instance is already OPEN or OPENING, `amqp_management_open_async` shall fail and return a non-zero value. ]*/
         LogError("AMQP management instance already OPEN");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -989,7 +980,7 @@ int amqp_management_open_async(AMQP_MANAGEMENT_HANDLE amqp_management, ON_AMQP_M
             /* Codes_SRS_AMQP_MANAGEMENT_01_042: [ If `messagereceiver_open` fails, `amqp_management_open_async` shall fail and return a non-zero value. ]*/
             LogError("Failed opening message receiver");
             amqp_management->amqp_management_state = AMQP_MANAGEMENT_STATE_IDLE;
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -1000,7 +991,7 @@ int amqp_management_open_async(AMQP_MANAGEMENT_HANDLE amqp_management, ON_AMQP_M
                 LogError("Failed opening message sender");
                 amqp_management->amqp_management_state = AMQP_MANAGEMENT_STATE_IDLE;
                 (void)messagereceiver_close(amqp_management->message_receiver);
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -1021,13 +1012,13 @@ int amqp_management_close(AMQP_MANAGEMENT_HANDLE amqp_management)
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_047: [ If `amqp_management` is NULL, `amqp_management_close` shall fail and return a non-zero value. ]*/
         LogError("NULL amqp_management");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else if (amqp_management->amqp_management_state == AMQP_MANAGEMENT_STATE_IDLE)
     {
         /* Codes_SRS_AMQP_MANAGEMENT_01_049: [ `amqp_management_close` on an AMQP management instance that is not OPEN, shall fail and return a non-zero value. ]*/
         LogError("AMQP management instance not open");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -1048,14 +1039,14 @@ int amqp_management_close(AMQP_MANAGEMENT_HANDLE amqp_management)
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_052: [ If `messagesender_close` fails, `amqp_management_close` shall fail and return a non-zero value. ]*/
             LogError("messagesender_close failed");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         /* Codes_SRS_AMQP_MANAGEMENT_01_051: [ `amqp_management_close` shall close the message receiver by calling `messagereceiver_close`. ]*/
         else if (messagereceiver_close(amqp_management->message_receiver) != 0)
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_053: [ If `messagereceiver_close` fails, `amqp_management_close` shall fail and return a non-zero value. ]*/
             LogError("messagereceiver_close failed");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -1104,7 +1095,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
         /* Codes_SRS_AMQP_MANAGEMENT_01_057: [ If `amqp_management`, `operation`, `type` or `on_execute_operation_complete` is NULL, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
         LogError("Bad arguments: amqp_management = %p, operation = %p, type = %p",
             amqp_management, operation, type);
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     /* Codes_SRS_AMQP_MANAGEMENT_01_081: [ If `amqp_management_execute_operation_async` is called when not OPEN, it shall fail and return a non-zero value. ]*/
     else if ((amqp_management->amqp_management_state == AMQP_MANAGEMENT_STATE_IDLE) ||
@@ -1112,7 +1103,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
         (amqp_management->amqp_management_state == AMQP_MANAGEMENT_STATE_ERROR))
     {
         LogError("amqp_management_execute_operation_async called while not open or in error");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -1136,7 +1127,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
 
         if (cloned_message == NULL)
         {
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -1145,7 +1136,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
             if (message_get_application_properties(cloned_message, &application_properties) != 0)
             {
                 LogError("Could not get application properties");
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -1161,7 +1152,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
 
                 if (application_properties == NULL)
                 {
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 else
                 {
@@ -1176,7 +1167,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
                         /* Codes_SRS_AMQP_MANAGEMENT_01_063: [ locales string No A list of locales that the sending peer permits for incoming informational text in response messages. ]*/
                         ((locales != NULL) && (add_string_key_value_pair_to_map(application_properties, "locales", locales) != 0)))
                     {
-                        result = __FAILURE__;
+                        result = MU_FAILURE;
                     }
                     else
                     {
@@ -1185,18 +1176,18 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
                         {
                             /* Codes_SRS_AMQP_MANAGEMENT_01_090: [ If any APIs used to create and set the application properties on the message fails, `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                             LogError("Could not set application properties");
-                            result = __FAILURE__;
+                            result = MU_FAILURE;
                         }
                         else if (set_message_id(cloned_message, amqp_management->next_message_id) != 0)
                         {
-                            result = __FAILURE__;
+                            result = MU_FAILURE;
                         }
                         else
                         {
-                            OPERATION_MESSAGE_INSTANCE* pending_operation_message = (OPERATION_MESSAGE_INSTANCE*)malloc(sizeof(OPERATION_MESSAGE_INSTANCE));
+                            OPERATION_MESSAGE_INSTANCE* pending_operation_message = (OPERATION_MESSAGE_INSTANCE*)calloc(1, sizeof(OPERATION_MESSAGE_INSTANCE));
                             if (pending_operation_message == NULL)
                             {
-                                result = __FAILURE__;
+                                result = MU_FAILURE;
                             }
                             else
                             {
@@ -1213,7 +1204,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
                                     /* Codes_SRS_AMQP_MANAGEMENT_01_092: [ If `singlylinkedlist_add` fails then `amqp_management_execute_operation_async` shall fail and return a non-zero value. ]*/
                                     LogError("Could not add the operation to the pending operations list.");
                                     free(pending_operation_message);
-                                    result = __FAILURE__;
+                                    result = MU_FAILURE;
                                 }
                                 else
                                 {
@@ -1225,7 +1216,7 @@ int amqp_management_execute_operation_async(AMQP_MANAGEMENT_HANDLE amqp_manageme
                                         LogError("Could not send request message");
                                         (void)singlylinkedlist_remove(amqp_management->pending_operations, added_item);
                                         free(pending_operation_message);
-                                        result = __FAILURE__;
+                                        result = MU_FAILURE;
                                     }
                                     else
                                     {
@@ -1277,8 +1268,8 @@ int amqp_management_set_override_status_code_key_name(AMQP_MANAGEMENT_HANDLE amq
         (override_status_code_key_name == NULL))
     {
         LogError("Bad arguments: amqp_management = %p, override_status_code_key_name = %s",
-            amqp_management, P_OR_NULL(override_status_code_key_name));
-        result = __FAILURE__;
+            amqp_management, MU_P_OR_NULL(override_status_code_key_name));
+        result = MU_FAILURE;
     }
     else
     {
@@ -1289,7 +1280,7 @@ int amqp_management_set_override_status_code_key_name(AMQP_MANAGEMENT_HANDLE amq
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_173: [ If any error occurs in copying the `override_status_code_key_name` string, `amqp_management_set_override_status_code_key_name` shall fail and return a non-zero value. ]*/
             LogError("Cannot set status code key name");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -1311,8 +1302,8 @@ int amqp_management_set_override_status_description_key_name(AMQP_MANAGEMENT_HAN
         (override_status_description_key_name == NULL))
     {
         LogError("Bad arguments: amqp_management = %p, override_status_description_key_name = %s",
-            amqp_management, P_OR_NULL(override_status_description_key_name));
-        result = __FAILURE__;
+            amqp_management, MU_P_OR_NULL(override_status_description_key_name));
+        result = MU_FAILURE;
     }
     else
     {
@@ -1324,7 +1315,7 @@ int amqp_management_set_override_status_description_key_name(AMQP_MANAGEMENT_HAN
         {
             /* Codes_SRS_AMQP_MANAGEMENT_01_180: [ If any error occurs in copying the `override_status_description_key_name` string, `amqp_management_set_override_status_description_key_name` shall fail and return a non-zero value. ]*/
             LogError("Cannot set status description key name");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {

@@ -1,0 +1,100 @@
+name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+resources:
+- repo: self
+  clean: true
+jobs:
+- job: windowsx86
+  displayName: 'Build Windows x86'
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Setup VS vars'
+    inputs:
+      filename: '"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: CMake@1
+    displayName: CMake
+    inputs:
+      cmakeArgs: '.. -Drun_int_tests:bool=ON -G "Visual Studio 15 2017"'
+
+  - task: VSBuild@1
+    displayName: 'Build solution build\*.sln (RelWithDebInfo)'
+    inputs:
+      solution: 'build\*.sln'
+      configuration: RelWithDebInfo
+      clean: true
+      maximumCpuCount: true
+
+  - task: CmdLine@1
+    displayName: 'Run ctest (RelWithDebInfo)'
+    inputs:
+      filename: ctest
+      arguments: '-C "RelWithDebInfo" -V --output-on-failure'
+      workingFolder: build
+
+- job: windowsx64
+  displayName: 'Build Windows x64'
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Setup VS vars'
+    inputs:
+      filename: '"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: CMake@1
+    displayName: CMake
+    inputs:
+      cmakeArgs: '.. -Drun_int_tests:bool=ON -G "Visual Studio 15 2017 Win64"'
+
+  - task: VSBuild@1
+    displayName: 'Build solution build\*.sln (Debug)'
+    inputs:
+      solution: 'build\*.sln'
+      configuration: Debug
+      clean: true
+      maximumCpuCount: true
+
+  - task: CmdLine@1
+    displayName: 'Run ctest (Debug)'
+    inputs:
+      filename: ctest
+      arguments: '-C "Debug" -V --output-on-failure'
+      workingFolder: build
+
+
+- job: ubuntu1604
+  displayName: 'Build Linux Ubuntu 1604'
+  pool:
+    name: Hosted Ubuntu 1604
+
+  steps:
+  - task: CMake@1
+    displayName: CMake
+    inputs:
+      cmakeArgs: '.. -Drun_int_tests:bool=ON'
+
+  - script: 'make -j$(nproc)'
+    workingDirectory: build
+    displayName: make
+
+  - task: CmdLine@1
+    displayName: 'Run ctest'
+    inputs:
+      filename: ctest
+      arguments: '-C "Debug" -V --output-on-failure -j $(nproc)'
+      workingFolder: build
+

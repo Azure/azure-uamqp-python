@@ -5,10 +5,12 @@
 #include <cstdlib>
 #include <cstddef>
 #include <ctime>
+#include <cstdint>
 #else
 #include <stdlib.h>
 #include <stddef.h>
 #include <time.h>
+#include <stdint.h>
 #endif
 
 static void* my_gballoc_malloc(size_t size)
@@ -21,11 +23,12 @@ static void my_gballoc_free(void* ptr)
     free(ptr);
 }
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umocktypes_charptr.h"
-#include "umock_c_negative_tests.h"
-#include "azure_c_shared_utility/macro_utils.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_charptr.h"
+#include "umock_c/umock_c_negative_tests.h"
+#include "umock_c/umocktypes_stdint.h"
 
 #define ENABLE_MOCKS
 #include "azure_c_shared_utility/gballoc.h"
@@ -62,10 +65,12 @@ IMPLEMENT_UMOCK_C_ENUM_TYPE(HTTP_HEADERS_RESULT, HTTP_HEADERS_RESULT_VALUES);
 #define TEST_RESPONSE_CONTENT (BUFFER_HANDLE)0x59
 #define TEST_CONST_CHAR_STAR_NULL (const char*)NULL
 #define TEST_SASTOKEN_HANDLE (STRING_HANDLE)0x60
-#define TEST_EXPIRY ((size_t)7200)
+#define TEST_EXPIRY ((uint64_t)7200)
 #define TEST_TIME_T ((time_t)-1)
 
 static const char* TEST_KEY = "key";
+static const char* TEST_SAS = "signature";
+static const char* TEST_SAS_KEY = "sas=signature";
 static const char* TEST_URI_RESOURCE = "test_uri";
 static const char* TEST_KEY_NAME = "key_name";
 
@@ -81,12 +86,20 @@ static int my_mallocAndStrcpy_s(char** destination, const char* source)
     return 0;
 }
 
+static STRING_HANDLE my_STRING_construct(const char* psz)
+{
+    char* temp = (char*)my_gballoc_malloc(strlen(psz) + 1);
+    ASSERT_IS_NOT_NULL(temp);
+    (void)memcpy(temp, psz, strlen(psz) + 1);
+    return (STRING_HANDLE)temp;
+}
+
 static void my_STRING_delete(STRING_HANDLE handle)
 {
     my_gballoc_free(handle);
 }
 
-static STRING_HANDLE my_SASToken_CreateString(const char* key, const char* scope, const char* keyName, size_t expiry)
+static STRING_HANDLE my_SASToken_CreateString(const char* key, const char* scope, const char* keyName, uint64_t expiry)
 {
     (void)key, (void)scope, (void)keyName, (void)expiry;
     return (STRING_HANDLE)my_gballoc_malloc(1);
@@ -103,10 +116,10 @@ static void setupSASString_Create_happy_path(bool allocateKeyName)
     }
 }
 
-static void setupSAS_Create_happy_path(bool allocateKeyName)
+static void setupSAS_Create_happy_path_provide_key(bool useSasKey, bool allocateKeyName)
 {
     // HTTPAPIEX_SAS_Create
-    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)).SetReturn(TEST_KEY);
+    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)).SetReturn(useSasKey ? TEST_SAS_KEY : TEST_KEY);
     STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)).SetReturn(TEST_URI_RESOURCE);
     if (allocateKeyName)
     {
@@ -121,13 +134,16 @@ static void setupSAS_Create_happy_path(bool allocateKeyName)
     }
 }
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+static void setupSAS_Create_happy_path(bool allocateKeyName)
+{
+    setupSAS_Create_happy_path_provide_key(false, allocateKeyName);
+}
+
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 int umocktypes_copy_time_t(time_t* destination, const time_t* source)
@@ -187,6 +203,9 @@ TEST_SUITE_INITIALIZE(TestClassInitialize)
 
     umock_c_init(on_umock_c_error);
 
+    result = umocktypes_stdint_register_types();
+    ASSERT_ARE_EQUAL(int, 0, result, "umocktypes_stdint_register_types");
+
     result = umocktypes_charptr_register_types();
     ASSERT_ARE_EQUAL(int, 0, result);
 
@@ -206,6 +225,7 @@ TEST_SUITE_INITIALIZE(TestClassInitialize)
 
     REGISTER_GLOBAL_MOCK_RETURN(STRING_c_str, TEST_CONST_CHAR_STAR_NULL);
     REGISTER_GLOBAL_MOCK_RETURN(STRING_length, 0);
+    REGISTER_GLOBAL_MOCK_HOOK(STRING_construct, my_STRING_construct);
     REGISTER_GLOBAL_MOCK_HOOK(STRING_delete, my_STRING_delete);
 
     REGISTER_GLOBAL_MOCK_RETURN(HTTPAPIEX_ExecuteRequest, HTTPAPIEX_OK);
@@ -579,6 +599,38 @@ TEST_FUNCTION(HTTPAPIEX_SAS_invoke_executerequest_get_time_fails)
 
     STRICT_EXPECTED_CALL(HTTPHeaders_FindHeaderValue(TEST_REQUEST_HTTP_HEADERS_HANDLE, "Authorization")).SetReturn(TEST_CHAR_ARRAY);
     STRICT_EXPECTED_CALL(get_time(NULL)).SetReturn((time_t)-1);
+    STRICT_EXPECTED_CALL(HTTPAPIEX_ExecuteRequest(TEST_HTTPAPIEX_HANDLE, TEST_HTTPAPI_REQUEST_TYPE, TEST_CHAR_ARRAY, TEST_REQUEST_HTTP_HEADERS_HANDLE, TEST_REQUEST_CONTENT, &statusCode, TEST_RESPONSE_HTTP_HEADERS_HANDLE, TEST_RESPONSE_CONTENT)).SetReturn(HTTPAPIEX_OK);
+
+    // act
+    result = HTTPAPIEX_SAS_ExecuteRequest(sasHandle, TEST_HTTPAPIEX_HANDLE, TEST_HTTPAPI_REQUEST_TYPE, TEST_CHAR_ARRAY, TEST_REQUEST_HTTP_HEADERS_HANDLE, TEST_REQUEST_CONTENT, &statusCode, TEST_RESPONSE_HTTP_HEADERS_HANDLE, TEST_RESPONSE_CONTENT);
+
+    // assert
+    ASSERT_ARE_EQUAL(HTTPAPIEX_RESULT, result, HTTPAPIEX_OK);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // Cleanup
+    HTTPAPIEX_SAS_Destroy(sasHandle);
+}
+
+/*Tests_SRS_HTTPAPIEXSAS_06_017: [If state->key is prefixed with "sas=", SharedAccessSignature will be used rather than created.  STRING_construct will be invoked.]*/
+TEST_FUNCTION(HTTPAPIEX_SAS_invoke_executerequest_sas_is_provided_succeeds)
+{
+
+    HTTPAPIEX_RESULT result;
+    unsigned int statusCode;
+    HTTPAPIEX_SAS_HANDLE sasHandle;
+
+    // arrange
+    setupSAS_Create_happy_path_provide_key(true, true);
+    sasHandle = HTTPAPIEX_SAS_Create(TEST_KEY_HANDLE, TEST_URIRESOURCE_HANDLE, TEST_KEYNAME_HANDLE);
+    umock_c_reset_all_calls();
+
+    STRICT_EXPECTED_CALL(HTTPHeaders_FindHeaderValue(TEST_REQUEST_HTTP_HEADERS_HANDLE, "Authorization")).SetReturn(TEST_CHAR_ARRAY);
+    STRICT_EXPECTED_CALL(get_time(NULL)).SetReturn(3600);
+    STRICT_EXPECTED_CALL(STRING_construct(TEST_SAS));
+    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)).SetReturn(TEST_CHAR_ARRAY);
+    STRICT_EXPECTED_CALL(HTTPHeaders_ReplaceHeaderNameValuePair(TEST_REQUEST_HTTP_HEADERS_HANDLE, "Authorization", IGNORED_PTR_ARG)).SetReturn(HTTP_HEADERS_ERROR);
+    STRICT_EXPECTED_CALL(STRING_delete(IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(HTTPAPIEX_ExecuteRequest(TEST_HTTPAPIEX_HANDLE, TEST_HTTPAPI_REQUEST_TYPE, TEST_CHAR_ARRAY, TEST_REQUEST_HTTP_HEADERS_HANDLE, TEST_REQUEST_CONTENT, &statusCode, TEST_RESPONSE_HTTP_HEADERS_HANDLE, TEST_RESPONSE_CONTENT)).SetReturn(HTTPAPIEX_OK);
 
     // act
