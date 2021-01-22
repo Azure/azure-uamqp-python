@@ -38,7 +38,7 @@ class AMQPAuth(object):
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None, http_proxy=None,
+    def __init__(self, hostname, port=None, verify=None, http_proxy=None,
                  transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
@@ -67,9 +67,9 @@ class AMQPAuth(object):
 
     def set_io(self, hostname, port, http_proxy, transport_type):
         if transport_type == TransportType.AmqpOverWebsocket or http_proxy is not None:
-            self.set_wsio(hostname, constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
+            self.set_wsio(hostname, port or constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
         else:
-            self.set_tlsio(hostname, port)
+            self.set_tlsio(hostname, port or constants.DEFAULT_AMQPS_PORT)
 
     def set_wsio(self, hostname, port, http_proxy):
         """Setup the default underlying Web Socket IO layer.

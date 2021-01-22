@@ -223,21 +223,22 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  expires_at=None,
                  username=None,
                  password=None,
-                 port=constants.DEFAULT_AMQPS_PORT,
+                 port=None,
                  timeout=10,
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
                  token_type=b"servicebus.windows.net:sastoken",
                  http_proxy=None,
                  transport_type=TransportType.Amqp,
-                 encoding='UTF-8'):  # pylint: disable=no-member
+                 encoding='UTF-8',
+                 **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = parsed.hostname.encode(self._encoding)
+        self.hostname = kwargs.pop("hostname", parsed.hostname).encode(self._encoding)
         self.username = compat.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
         self.password = compat.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
 
@@ -274,13 +275,14 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             key_name,
             shared_access_key,
             expiry=None,
-            port=constants.DEFAULT_AMQPS_PORT,
+            port=None,
             timeout=10,
             retry_policy=TokenRetryPolicy(),
             verify=None,
             http_proxy=None,
             transport_type=TransportType.Amqp,
-            encoding='UTF-8'):
+            encoding='UTF-8',
+            **kwargs):
         """Attempt to create a CBS token session using a Shared Access Key such
         as is used to connect to Azure services.
 
@@ -337,7 +339,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             verify=verify,
             http_proxy=http_proxy,
             transport_type=transport_type,
-            encoding=encoding)
+            encoding=encoding,
+            hostname=kwargs.pop("hostname", None))
 
 
 class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
@@ -388,21 +391,22 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
                  get_token,
                  expires_in=datetime.timedelta(seconds=constants.AUTH_EXPIRATION_SECS),
                  expires_at=None,
-                 port=constants.DEFAULT_AMQPS_PORT,
+                 port=None,
                  timeout=10,
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
                  token_type=b"jwt",
                  http_proxy=None,
                  transport_type=TransportType.Amqp,
-                 encoding='UTF-8'):  # pylint: disable=no-member
+                 encoding='UTF-8',
+                 **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = parsed.hostname.encode(self._encoding)
+        self.hostname = kwargs.pop("hostname", parsed.hostname).encode(self._encoding)
 
         if not get_token or not callable(get_token):
             raise ValueError("get_token must be a callable object.")
