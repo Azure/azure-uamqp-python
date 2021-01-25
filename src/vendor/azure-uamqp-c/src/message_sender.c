@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
-#include "azure_c_shared_utility/optimize_size.h"
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_c_shared_utility/tickcounter.h"
@@ -171,8 +171,8 @@ static void log_message_chunk(MESSAGE_SENDER_INSTANCE* message_sender, const cha
     if (xlogging_get_log_function() != NULL && message_sender->is_trace_on == 1)
     {
         char* value_as_string = NULL;
-        LOG(AZ_LOG_TRACE, 0, "%s", P_OR_NULL(name));
-        LOG(AZ_LOG_TRACE, 0, "%s", ((value_as_string = amqpvalue_to_string(value)), P_OR_NULL(value_as_string)));
+        LOG(AZ_LOG_TRACE, 0, "%s", MU_P_OR_NULL(name));
+        LOG(AZ_LOG_TRACE, 0, "%s", ((value_as_string = amqpvalue_to_string(value)), MU_P_OR_NULL(value_as_string)));
         if (value_as_string != NULL)
         {
             free(value_as_string);
@@ -793,7 +793,7 @@ static void on_link_flow_on(void* context)
 
 MESSAGE_SENDER_HANDLE messagesender_create(LINK_HANDLE link, ON_MESSAGE_SENDER_STATE_CHANGED on_message_sender_state_changed, void* context)
 {
-    MESSAGE_SENDER_INSTANCE* message_sender = (MESSAGE_SENDER_INSTANCE*)malloc(sizeof(MESSAGE_SENDER_INSTANCE));
+    MESSAGE_SENDER_INSTANCE* message_sender = (MESSAGE_SENDER_INSTANCE*)calloc(1, sizeof(MESSAGE_SENDER_INSTANCE));
     if (message_sender == NULL)
     {
         LogError("Failed allocating message sender");
@@ -833,7 +833,7 @@ int messagesender_open(MESSAGE_SENDER_HANDLE message_sender)
     if (message_sender == NULL)
     {
         LogError("NULL message_sender");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -843,7 +843,7 @@ int messagesender_open(MESSAGE_SENDER_HANDLE message_sender)
             if (link_attach(message_sender->link, NULL, on_link_state_changed, on_link_flow_on, message_sender) != 0)
             {
                 LogError("attach link failed");
-                result = __FAILURE__;
+                result = MU_FAILURE;
                 set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_ERROR);
             }
             else
@@ -867,7 +867,7 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
     if (message_sender == NULL)
     {
         LogError("NULL message_sender");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -878,7 +878,7 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
             if (link_detach(message_sender->link, true, NULL, NULL, NULL) != 0)
             {
                 LogError("Detaching link failed");
-                result = __FAILURE__;
+                result = MU_FAILURE;
                 set_message_sender_state(message_sender, MESSAGE_SENDER_STATE_ERROR);
             }
             else

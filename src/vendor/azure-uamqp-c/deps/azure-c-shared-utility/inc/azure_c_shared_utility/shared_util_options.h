@@ -28,6 +28,15 @@ extern "C"
     // They instead should rely on the underlying client TLS stack and service to negotiate an appropriate cipher.
     static STATIC_VAR_UNUSED const char* const OPTION_OPENSSL_CIPHER_SUITE = "CipherSuite";
 
+    static STATIC_VAR_UNUSED const char* const OPTION_OPENSSL_ENGINE = "Engine";
+    static STATIC_VAR_UNUSED const char* const OPTION_OPENSSL_PRIVATE_KEY_TYPE = "x509PrivatekeyType";
+
+    typedef enum OPTION_OPENSSL_KEY_TYPE_TAG
+    {
+        KEY_TYPE_DEFAULT,
+        KEY_TYPE_ENGINE
+    } OPTION_OPENSSL_KEY_TYPE;
+
     static STATIC_VAR_UNUSED const char* const SU_OPTION_X509_CERT = "x509certificate";
     static STATIC_VAR_UNUSED const char* const SU_OPTION_X509_PRIVATE_KEY = "x509privatekey";
 
@@ -42,6 +51,10 @@ extern "C"
 
     static STATIC_VAR_UNUSED const char* const OPTION_NET_INT_MAC_ADDRESS = "net_interface_mac_address";
 
+    static STATIC_VAR_UNUSED const char* const OPTION_SET_TLS_RENEGOTIATION = "tls_renegotiation";
+
+    // DEPRECATED: The underlying security library for your platform will use a secure TLS version
+    // that in general  should not be overridden with OPTION_TLS_VERSION.
     static STATIC_VAR_UNUSED const char* const OPTION_TLS_VERSION = "tls_version";
 
     static STATIC_VAR_UNUSED const char* const OPTION_ADDRESS_TYPE = "ADDRESS_TYPE";

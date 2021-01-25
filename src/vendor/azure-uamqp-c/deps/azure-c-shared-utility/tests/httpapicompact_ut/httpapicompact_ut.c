@@ -2,10 +2,19 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 #ifdef __cplusplus
+#include <cstddef>
+#include <ctime>
 #include <cstdlib>
 #else
 #include <stdlib.h>
+#include <stddef.h>
+#include <time.h>
 #endif
+
+#include "azure_macro_utils/macro_utils.h"
+#include "testrunnerswitcher.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_charptr.h"
 
 static int currentmalloc_call = 0;
 static int whenShallmalloc_fail = 0;
@@ -51,18 +60,13 @@ void my_gballoc_free(void* ptr)
     free(ptr);
 }
 
-#ifdef __cplusplus
-#include <cstddef>
-#include <ctime>
-#else
-#include <stddef.h>
-#include <time.h>
-#endif
-
-#include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umocktypes_charptr.h"
-#include "azure_c_shared_utility/macro_utils.h"
+int my_mallocAndStrcpy_s(char** destination, const char* source)
+{
+    *destination = (char*)malloc(strlen(source) + 1);
+    (void)strcpy(*destination, source);
+    currentmalloc_call++;
+    return 0;
+}
 
 #define MAX_RECEIVE_BUFFER_SIZES    3
 #define HUGE_RELATIVE_PATH_SIZE        10000
@@ -79,12 +83,14 @@ void my_gballoc_free(void* ptr)
 
 #define ENABLE_MOCKS
 #include "azure_c_shared_utility/gballoc.h"
+#include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/xio.h"
 #include "azure_c_shared_utility/httpheaders.h"
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/platform.h"
 #include "azure_c_shared_utility/buffer_.h"
+#include "azure_c_shared_utility/http_proxy_io.h"
 #undef ENABLE_MOCKS
 #include "azure_c_shared_utility/httpapi.h"
 #include "azure_c_shared_utility/shared_util_options.h"
@@ -120,7 +126,7 @@ int my_xio_setoption(XIO_HANDLE xio, const char* optionName, const void* value)
     int result;
     if ((xio == NULL) || (optionName == NULL) || (value == NULL))
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -234,7 +240,7 @@ int my_xio_open(XIO_HANDLE xio,
         (on_bytes_received == NULL) || (on_bytes_received_context == NULL) ||
         (on_io_error == NULL) || (on_io_error_context == NULL))
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -261,7 +267,7 @@ int my_xio_close(XIO_HANDLE xio, ON_IO_CLOSE_COMPLETE on_io_close_complete, void
     if ((xio == NULL) ||
         (on_io_close_complete == NULL) || (on_io_close_complete_context == NULL))
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -282,7 +288,7 @@ int my_xio_send(XIO_HANDLE xio, const void* buffer, size_t size, ON_SEND_COMPLET
     if ((xio == NULL) ||
         (buffer == NULL) || (size == 0))
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
 
         if (call_on_send_complete_in_xio_send)
         {
@@ -507,6 +513,7 @@ static HTTP_HANDLE createHttpConnection(void)
     current_xioCreate_must_fail = false;
 
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG)).IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(platform_get_default_tlsio());
     STRICT_EXPECTED_CALL(xio_create(&default_tlsio, IGNORED_PTR_ARG)).IgnoreArgument(2);
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG)).IgnoreArgument(1);
@@ -685,13 +692,11 @@ IMPLEMENT_UMOCK_C_ENUM_TYPE(HTTP_HEADERS_RESULT, HTTP_HEADERS_RESULT_VALUES);
 
 static TEST_MUTEX_HANDLE g_testByTest;
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(httpapicompact_ut)
@@ -742,6 +747,7 @@ TEST_SUITE_INITIALIZE(setsBufferTempSize)
     REGISTER_GLOBAL_MOCK_HOOK(HTTPHeaders_GetHeader, my_HTTPHeaders_GetHeader);
 
     REGISTER_GLOBAL_MOCK_HOOK(platform_get_default_tlsio, my_platform_get_default_tlsio);
+    REGISTER_GLOBAL_MOCK_HOOK(mallocAndStrcpy_s, my_mallocAndStrcpy_s);
 }
 
 TEST_SUITE_CLEANUP(TestClassCleanup)
@@ -785,7 +791,7 @@ TEST_FUNCTION_CLEANUP(cleans)
 
 /* HTTPAPI_Init */
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_001: [ The httpapi_compact shall implement the methods defined by the `httpapi.h`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_001: [ The httpapi_compact shall implement the methods defined by the httpapi.h. ]*/
 /*Tests_SRS_HTTPAPI_COMPACT_21_002: [ The httpapi_compact shall support the http requests. ]*/
 /*Tests_SRS_HTTPAPI_COMPACT_21_003: [ The httpapi_compact shall return error codes defined by HTTPAPI_RESULT. ]*/
 /*Tests_SRS_HTTPAPI_COMPACT_21_004: [ The HTTPAPI_Init shall allocate all memory to control the http protocol. ]*/
@@ -877,7 +883,8 @@ TEST_FUNCTION(HTTPAPI_CreateConnection__valid_hostName_Succeed)
     HTTP_HANDLE httpHandle;
     HTTPAPI_Init();
     current_xioCreate_must_fail = false;
-    STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG)).IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
+    STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(platform_get_default_tlsio());
     STRICT_EXPECTED_CALL(xio_create(&default_tlsio, IGNORED_PTR_ARG)).IgnoreArgument(2);
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG)).IgnoreArgument(1);
@@ -887,7 +894,7 @@ TEST_FUNCTION(HTTPAPI_CreateConnection__valid_hostName_Succeed)
 
     /// assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 2, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
     ASSERT_IS_NOT_NULL(httpHandle);
 
     /// cleanup
@@ -926,8 +933,10 @@ TEST_FUNCTION(HTTPAPI_CreateConnection__create_xio_connection_failed)
     HTTPAPI_Init();
 
     STRICT_EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG)).IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(platform_get_default_tlsio());
     STRICT_EXPECTED_CALL(xio_create(&default_tlsio, IGNORED_PTR_ARG)).IgnoreArgument(2);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_NUM_ARG)).IgnoreArgument(1);
 
     /// act
@@ -958,6 +967,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__valid_hostName_Succeed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
 
     /// act
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1003,6 +1013,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__free_certificate_memory_succeed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     /// act
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 3 */
@@ -1035,6 +1046,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__free_x509client_memory_succeed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)) // the instance.
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     /// act
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 3 */
@@ -1053,7 +1065,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__return_LINE_failed)
     /// arrange
     HTTP_HANDLE httpHandle = createHttpConnection();
 
-    xio_close_shallReturn = __FAILURE__;
+    xio_close_shallReturn = MU_FAILURE;
     DoworkJobsCloseSuccess = true;
     SkipDoworkJobsCloseResult = 0;
     call_on_io_close_complete_in_xio_close = true;
@@ -1066,6 +1078,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__return_LINE_failed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     /// act
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1121,6 +1134,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__close_on_dowork_succeed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     result = HTTPAPI_ExecuteRequest(
         httpHandle,
@@ -1195,6 +1209,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__close_on_dowork_retry_n_succeed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     result = HTTPAPI_ExecuteRequest(
         httpHandle,
@@ -1269,6 +1284,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__close_on_dowork_retry_n_failed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
 
     result = HTTPAPI_ExecuteRequest(
         httpHandle,
@@ -1343,6 +1359,7 @@ TEST_FUNCTION(HTTPAPI_CloseConnection__close_timeout_failed)
         .IgnoreArgument(1);
     STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG))
         .IgnoreArgument(1);
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG)); // hostname
 
     result = HTTPAPI_ExecuteRequest(
         httpHandle,
@@ -1416,7 +1433,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__invalid_request_type_failed)
     /// act
     result = HTTPAPI_ExecuteRequest(
         httpHandle,
-        (HTTPAPI_REQUEST_TYPE)COUNT_ARG(HTTPAPI_REQUEST_TYPE_VALUES),
+        (HTTPAPI_REQUEST_TYPE)MU_ENUM_VALUE_COUNT(HTTPAPI_REQUEST_TYPE_VALUES),
         TEST_EXECUTE_REQUEST_RELATIVE_PATH,
         requestHttpHeaders,
         TEST_EXECUTE_REQUEST_CONTENT,
@@ -1428,7 +1445,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__invalid_request_type_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1462,7 +1479,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__NULL_relative_path_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1496,7 +1513,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__NULL_http_headers_handle_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1534,7 +1551,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__invalid_http_headers_handle_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1572,7 +1589,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__http_headers_handle_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1592,7 +1609,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_failed)
 
     createHttpObjects(&requestHttpHeaders, &responseHttpHeaders);
     setHttpCertificate(httpHandle);
-    xio_setoption_shallReturn = __FAILURE__;
+    xio_setoption_shallReturn = MU_FAILURE;
 
     STRICT_EXPECTED_CALL(HTTPHeaders_GetHeaderCount(requestHttpHeaders, IGNORED_PTR_ARG))
         .IgnoreArgument(2);
@@ -1615,7 +1632,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SET_OPTION_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1638,7 +1655,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__x509client_certificate_failed)
         .IgnoreArgument(1);
     HTTPAPI_SetOption(httpHandle, SU_OPTION_X509_CERT, TEST_SETOPTIONS_X509CLIENTCERT);                /* currentmalloc_call += 1 */
 
-    xio_setoption_shallReturn = __FAILURE__;
+    xio_setoption_shallReturn = MU_FAILURE;
 
     STRICT_EXPECTED_CALL(HTTPHeaders_GetHeaderCount(requestHttpHeaders, IGNORED_PTR_ARG))
         .IgnoreArgument(2);
@@ -1661,7 +1678,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__x509client_certificate_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SET_OPTION_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1684,7 +1701,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__x509client_privatekey_failed)
         .IgnoreArgument(1);
     HTTPAPI_SetOption(httpHandle, SU_OPTION_X509_PRIVATE_KEY, TEST_SETOPTIONS_X509PRIVATEKEY);                /* currentmalloc_call += 1 */
 
-    xio_setoption_shallReturn = __FAILURE__;
+    xio_setoption_shallReturn = MU_FAILURE;
 
     STRICT_EXPECTED_CALL(HTTPHeaders_GetHeaderCount(requestHttpHeaders, IGNORED_PTR_ARG))
         .IgnoreArgument(2);
@@ -1707,7 +1724,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__x509client_privatekey_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SET_OPTION_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -1734,7 +1751,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_out_of_memory_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_ALLOC_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 2, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
 
     /// cleanup
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1758,7 +1775,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_succeed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 4, currentmalloc_call);
 
     /// cleanup
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 3 */
@@ -1796,7 +1813,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_NULL_optionName_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 2, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
 
     /// cleanup
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1817,7 +1834,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_invalid_optionName_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 2, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
 
     /// cleanup
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1838,7 +1855,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__certificate_NULL_value_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 2, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 3, currentmalloc_call);
 
     /// cleanup
     HTTPAPI_CloseConnection(httpHandle);    /* currentmalloc_call -= 2 */
@@ -1975,7 +1992,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__xoi_open_returns_LINE_failed)
     HTTP_HANDLE httpHandle = createHttpConnection();
     createHttpObjects(&requestHttpHeaders, &responseHttpHeaders);
     setHttpCertificate(httpHandle);
-    xio_open_shallReturn = __FAILURE__;
+    xio_open_shallReturn = MU_FAILURE;
     setupAllCallBeforeOpenHTTPsequence(requestHttpHeaders, 0, false);
 
     /// act
@@ -1993,7 +2010,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__xoi_open_returns_LINE_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2034,7 +2051,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_open_complete_with_error_on_openning
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2074,7 +2091,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_open_complete_with_error_on_working_
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2116,7 +2133,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_open_complete_with_error_after_n_ret
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2160,7 +2177,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_open_complete_with_timeout_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2199,7 +2216,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_error_on_openning_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2238,7 +2255,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_io_error_on_working_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OPEN_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders);    /* currentmalloc_call -= 2 */
@@ -2286,7 +2303,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__huge_relative_path_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_STRING_PROCESSING_ERROR, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2335,7 +2352,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__io_send_header_return_error_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 7, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 8, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2388,7 +2405,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_send_header_complete_with_success_befor
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2443,7 +2460,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_send_header_complete_with_2_success_bef
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2501,7 +2518,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_send_header_complete_timeout_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2559,7 +2576,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_send_header_complete_retry_n_and_failed
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2629,7 +2646,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_send_buffer_complete_with_error_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_SEND_REQUEST_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2677,7 +2694,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_header_failed_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2727,7 +2744,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_NULL_header_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2780,7 +2797,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_not_HTTP_header_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_RECEIVE_RESPONSE_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2822,7 +2839,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_wrong_URL_header_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_RECEIVE_RESPONSE_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2864,7 +2881,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_header_with_no_statusCode_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_RECEIVE_RESPONSE_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2906,7 +2923,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_header_incomplete_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_RECEIVE_RESPONSE_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -2949,7 +2966,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__on_read_multi_header_with_size_0_and_error
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_RECEIVE_RESPONSE_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3004,7 +3021,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__read_huge_header_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3046,7 +3063,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__content_length_without_value_failed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3105,7 +3122,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_succeed)
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3156,7 +3173,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_retry_open_succeed)
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3258,7 +3275,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_retry_send_succeed)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(int, 433, statusCode);
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3266,7 +3283,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_retry_send_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 /*Tests_SRS_HTTPAPI_COMPACT_21_036: [ The request type shall be provided in the parameter requestType. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_get_succeed)
 {
@@ -3311,7 +3328,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_get_succeed)
     xio_send_transmited_buffer[3] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "GET", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3319,7 +3336,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_get_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_post_succeed)
 {
     /// arrange
@@ -3363,7 +3380,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_post_succeed)
     xio_send_transmited_buffer[4] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "POST", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3371,7 +3388,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_post_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_put_succeed)
 {
     /// arrange
@@ -3415,7 +3432,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_put_succeed)
     xio_send_transmited_buffer[3] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "PUT", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3423,7 +3440,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_put_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_delete_succeed)
 {
     /// arrange
@@ -3467,7 +3484,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_delete_succeed)
     xio_send_transmited_buffer[6] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "DELETE", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3475,7 +3492,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_delete_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_patch_succeed)
 {
     /// arrange
@@ -3519,7 +3536,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_patch_succeed)
     xio_send_transmited_buffer[5] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "PATCH", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3527,7 +3544,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_patch_succeed)
     HTTPAPI_Deinit();
 }
 
-/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Tests_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_head_succeed)
 {
     /// arrange
@@ -3571,7 +3588,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_head_succeed)
     xio_send_transmited_buffer[4] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, "HEAD", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3623,7 +3640,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_relative_path_succeed)
     xio_send_transmited_buffer[66] = '\0';
     ASSERT_ARE_EQUAL(char_ptr, TEST_EXECUTE_REQUEST_RELATIVE_PATH, &(xio_send_transmited_buffer[4]));
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3676,7 +3693,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_with_content_succeed)
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, (const char*)TEST_EXECUTE_REQUEST_CONTENT, xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3748,7 +3765,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_NULL_content_succeed)
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, (const char*)"", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3821,7 +3838,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_content_size_0_succeed)
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, (const char*)"", xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3868,7 +3885,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_no_statusCode_succeed)
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -3955,7 +3972,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_no_responseHeadersHandle_s
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -4004,7 +4021,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_responseContent_NULL_succe
     ASSERT_ARE_EQUAL(int, HTTPAPI_OK, result);
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -4081,7 +4098,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_with_truncated_content_fai
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -4152,7 +4169,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_with_truncated_parameter_f
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -4217,7 +4234,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__Execute_request_with_truncated_header_fail
     /// assert
     ASSERT_ARE_EQUAL(int, HTTPAPI_READ_DATA_FAILED, result);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */
@@ -4268,7 +4285,7 @@ TEST_FUNCTION(HTTPAPI_ExecuteRequest__request_with_no_content_succeed)
     ASSERT_ARE_EQUAL(int, 433, statusCode);
     ASSERT_ARE_EQUAL(char_ptr, (const char*)TEST_EXECUTE_REQUEST_CONTENT, xio_send_transmited_buffer);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-    ASSERT_ARE_EQUAL(int, 5, currentmalloc_call);
+    ASSERT_ARE_EQUAL(int, 6, currentmalloc_call);
 
     /// cleanup
     destroyHttpObjects(&requestHttpHeaders, &responseHttpHeaders); /* currentmalloc_call -= 2 */

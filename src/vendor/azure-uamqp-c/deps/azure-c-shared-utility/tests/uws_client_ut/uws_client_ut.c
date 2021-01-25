@@ -12,11 +12,12 @@
 #include <stdint.h>
 #endif
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umocktypes_charptr.h"
-#include "umocktypes_bool.h"
-#include "umock_c_negative_tests.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_charptr.h"
+#include "umock_c/umocktypes_bool.h"
+#include "umock_c/umock_c_negative_tests.h"
 
 /* Requirements not needed as they are optional:
 Tests_SRS_UWS_CLIENT_01_254: [ If an endpoint receives a Ping frame and has not yet sent Pong frame(s) in response to previous Ping frame(s), the endpoint MAY elect to send a Pong frame for only the most recently processed Ping frame. ]
@@ -59,7 +60,7 @@ Tests_SRS_UWS_CLIENT_01_211: [ One implication of this is that in absence of ext
 #include "azure_c_shared_utility/tlsio.h"
 #include "azure_c_shared_utility/uws_frame_encoder.h"
 #include "azure_c_shared_utility/gb_rand.h"
-#include "azure_c_shared_utility/base64.h"
+#include "azure_c_shared_utility/azure_base64.h"
 #include "azure_c_shared_utility/map.h"
 
 IMPLEMENT_UMOCK_C_ENUM_TYPE(IO_OPEN_RESULT, IO_OPEN_RESULT_VALUES);
@@ -207,7 +208,6 @@ static LIST_ITEM_HANDLE my_singlylinkedlist_find(SINGLYLINKEDLIST_HANDLE handle,
     return (LIST_ITEM_HANDLE)found_item;
 }
 
-static MAP_RESULT my_Map_GetInternals_return;
 static char* my_Map_GetInternals_keys[10];
 static char* my_Map_GetInternals_values[10];
 static size_t my_Map_GetInternals_count;
@@ -217,7 +217,7 @@ static MAP_RESULT my_Map_GetInternals(MAP_HANDLE handle, const char*const** keys
     *keys = (const char*const*)my_Map_GetInternals_keys;
     *values = (const char*const*)my_Map_GetInternals_values;
     *count = my_Map_GetInternals_count;
-    return my_Map_GetInternals_return;
+    return MAP_OK;
 }
 
 
@@ -307,7 +307,7 @@ static int umocktypes_copy_const_SOCKETIO_CONFIG_ptr(SOCKETIO_CONFIG** destinati
     *destination = (SOCKETIO_CONFIG*)malloc(sizeof(SOCKETIO_CONFIG));
     if (*destination == NULL)
     {
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -432,13 +432,11 @@ extern "C" {
 }
 #endif
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(uws_client_ut)
@@ -475,7 +473,7 @@ TEST_SUITE_INITIALIZE(suite_init)
     REGISTER_GLOBAL_MOCK_RETURN(xio_create, TEST_IO_HANDLE);
     REGISTER_GLOBAL_MOCK_RETURN(xio_retrieveoptions, TEST_IO_OPTIONHANDLER_HANDLE);
     REGISTER_GLOBAL_MOCK_RETURN(utf8_checker_is_valid_utf8, true);
-    REGISTER_GLOBAL_MOCK_RETURN(Base64_Encode_Bytes, BASE64_ENCODED_STRING);
+    REGISTER_GLOBAL_MOCK_RETURN(Azure_Base64_Encode_Bytes, BASE64_ENCODED_STRING);
     REGISTER_GLOBAL_MOCK_RETURN(OptionHandler_FeedOptions, OPTIONHANDLER_OK);
     REGISTER_GLOBAL_MOCK_RETURN(OptionHandler_AddOption, OPTIONHANDLER_OK);
     REGISTER_GLOBAL_MOCK_RETURN(OptionHandler_Clone, TEST_OPTIONHANDLER_HANDLE);
@@ -511,8 +509,6 @@ TEST_SUITE_INITIALIZE(suite_init)
     REGISTER_UMOCK_ALIAS_TYPE(ON_IO_ERROR, void*);
     REGISTER_UMOCK_ALIAS_TYPE(ON_IO_CLOSE_COMPLETE, void*);
     REGISTER_UMOCK_ALIAS_TYPE(ON_SEND_COMPLETE, void*);
-    REGISTER_UMOCK_ALIAS_TYPE(UWS_FRAME_DECODER_HANDLE, void*);
-    REGISTER_UMOCK_ALIAS_TYPE(ON_WS_FRAME_DECODED, void*);
     REGISTER_UMOCK_ALIAS_TYPE(BUFFER_HANDLE, void*);
     REGISTER_UMOCK_ALIAS_TYPE(OPTIONHANDLER_HANDLE, void*);
     REGISTER_UMOCK_ALIAS_TYPE(STRING_HANDLE, void*);
@@ -560,18 +556,18 @@ TEST_FUNCTION_CLEANUP(method_cleanup)
 
 /* uws_client_create */
 
-/* Tests_SRS_UWS_CLIENT_01_001: [`uws_client_create` shall create an instance of uws and return a non-NULL handle to it.]*/
-/* Tests_SRS_UWS_CLIENT_01_017: [ `uws_client_create` shall create a pending send IO list that is to be used to queue send packets by calling `singlylinkedlist_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_005: [ If `use_ssl` is false then `uws_client_create` shall obtain the interface used to create a socketio instance by calling `socketio_get_interface_description`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_001: [uws_client_create shall create an instance of uws and return a non-NULL handle to it.]*/
+/* Tests_SRS_UWS_CLIENT_01_017: [ uws_client_create shall create a pending send IO list that is to be used to queue send packets by calling singlylinkedlist_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_005: [ If use_ssl is false then uws_client_create shall obtain the interface used to create a socketio instance by calling socketio_get_interface_description. ]*/
 /* Tests_SRS_UWS_CLIENT_01_008: [ The obtained interface shall be used to create the IO used as underlying IO by the newly created uws instance. ]*/
-/* Tests_SRS_UWS_CLIENT_01_009: [ The underlying IO shall be created by calling `xio_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_010: [ The create arguments for the socket IO (when `use_ssl` is 0) shall have: ]*/
-/* Tests_SRS_UWS_CLIENT_01_011: [ - `hostname` set to the `hostname` argument passed to `uws_client_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_012: [ - `port` set to the `port` argument passed to `uws_client_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_004: [ The argument `hostname` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_403: [ The argument `port` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_404: [ The argument `resource_name` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_413: [ The protocol information indicated by `protocols` and `protocol_count` shall be copied for later use (for constructing the upgrade request). ]*/
+/* Tests_SRS_UWS_CLIENT_01_009: [ The underlying IO shall be created by calling xio_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_010: [ The create arguments for the socket IO (when use_ssl is 0) shall have: ]*/
+/* Tests_SRS_UWS_CLIENT_01_011: [ - hostname set to the hostname argument passed to uws_client_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_012: [ - port set to the port argument passed to uws_client_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_004: [ The argument hostname shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_403: [ The argument port shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_404: [ The argument resource_name shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_413: [ The protocol information indicated by protocols and protocol_count shall be copied for later use (for constructing the upgrade request). ]*/
 /* Tests_SRS_UWS_CLIENT_01_063: [ A client will need to supply a /host/, /port/, /resource name/, and a /secure/ flag, which are the components of a WebSocket URI as discussed in Section 3, along with a list of /protocols/ and /extensions/ to be used. ]*/
 /* Tests_SRS_UWS_CLIENT_01_076: [ If /secure/ is true, the client MUST perform a TLS handshake over the connection after opening the connection and before sending the handshake data [RFC2818]. ]*/
 TEST_FUNCTION(uws_client_create_with_valid_args_no_ssl_succeeds)
@@ -609,7 +605,7 @@ TEST_FUNCTION(uws_client_create_with_valid_args_no_ssl_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_002: [ If any of the arguments `hostname` and `resource_name` is NULL then `uws_client_create` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_002: [ If any of the arguments hostname and resource_name is NULL then uws_client_create shall return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_NULL_hostname_fails)
 {
     // arrange
@@ -622,7 +618,7 @@ TEST_FUNCTION(uws_client_create_with_NULL_hostname_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_002: [ If any of the arguments `hostname` and `resource_name` is NULL then `uws_client_create` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_002: [ If any of the arguments hostname and resource_name is NULL then uws_client_create shall return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_NULL_resource_name_fails)
 {
     // arrange
@@ -635,7 +631,7 @@ TEST_FUNCTION(uws_client_create_with_NULL_resource_name_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_012: [ - `port` set to the `port` argument passed to `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_012: [ - port set to the port argument passed to uws_client_create. ]*/
 TEST_FUNCTION(uws_client_create_with_valid_args_no_ssl_port_different_than_80_succeeds)
 {
     // arrange
@@ -671,7 +667,7 @@ TEST_FUNCTION(uws_client_create_with_valid_args_no_ssl_port_different_than_80_su
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_410: [ The `protocols` argument shall be allowed to be NULL, in which case no protocol is to be specified by the client in the upgrade request. ]*/
+/* Tests_SRS_UWS_CLIENT_01_410: [ The protocols argument shall be allowed to be NULL, in which case no protocol is to be specified by the client in the upgrade request. ]*/
 TEST_FUNCTION(uws_client_create_with_NULL_protocols_succeeds)
 {
     // arrange
@@ -704,7 +700,7 @@ TEST_FUNCTION(uws_client_create_with_NULL_protocols_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_411: [ If `protocol_count` is non zero and `protocols` is NULL then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_411: [ If protocol_count is non zero and protocols is NULL then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_non_zero_protocol_count_and_NULL_protocols_fails)
 {
     // arrange
@@ -718,7 +714,7 @@ TEST_FUNCTION(uws_client_create_with_non_zero_protocol_count_and_NULL_protocols_
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_412: [ If the `protocol` member of any of the items in the `protocols` argument is NULL, then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_412: [ If the protocol member of any of the items in the protocols argument is NULL, then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_the_first_protocol_name_NULL_fails)
 {
     // arrange
@@ -733,7 +729,7 @@ TEST_FUNCTION(uws_client_create_with_the_first_protocol_name_NULL_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_412: [ If the `protocol` member of any of the items in the `protocols` argument is NULL, then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_412: [ If the protocol member of any of the items in the protocols argument is NULL, then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_the_second_protocol_name_NULL_fails)
 {
     // arrange
@@ -748,7 +744,7 @@ TEST_FUNCTION(uws_client_create_with_the_second_protocol_name_NULL_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_003: [ If allocating memory for the new uws instance fails then `uws_client_create` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_003: [ If allocating memory for the new uws instance fails then uws_client_create shall return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_new_uws_instance_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -770,7 +766,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_new_uws_instance_fails_then_uws_cli
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_392: [ If allocating memory for the copy of the `hostname` argument fails, then `uws_client_create` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_392: [ If allocating memory for the copy of the hostname argument fails, then uws_client_create shall return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_hostname_copy_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -795,7 +791,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_hostname_copy_fails_then_uws_client
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_405: [ If allocating memory for the copy of the `resource_name` argument fails, then `uws_client_create` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_405: [ If allocating memory for the copy of the resource_name argument fails, then uws_client_create shall return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_resource_name_copy_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -823,7 +819,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_resource_name_copy_fails_then_uws_c
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_018: [ If `singlylinkedlist_create` fails then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_018: [ If singlylinkedlist_create fails then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_creating_the_pending_sends_list_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -855,7 +851,7 @@ TEST_FUNCTION(when_creating_the_pending_sends_list_fails_then_uws_client_create_
     ASSERT_IS_NULL(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_007: [ If obtaining the underlying IO interface fails, then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_007: [ If obtaining the underlying IO interface fails, then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_getting_the_socket_interface_description_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -889,7 +885,7 @@ TEST_FUNCTION(when_getting_the_socket_interface_description_fails_then_uws_clien
     ASSERT_IS_NULL(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_016: [ If `xio_create` fails, then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_016: [ If xio_create fails, then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_creating_the_io_handle_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -925,7 +921,7 @@ TEST_FUNCTION(when_creating_the_io_handle_fails_then_uws_client_create_fails)
     ASSERT_IS_NULL(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_protocols_array_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -963,7 +959,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_protocols_array_fails_then_uws_clie
     ASSERT_IS_NULL(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_first_proitocol_name_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -1004,7 +1000,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_first_proitocol_name_fails_then_uws
     ASSERT_IS_NULL(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_second_protocol_name_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -1049,10 +1045,10 @@ TEST_FUNCTION(when_allocating_memory_for_the_second_protocol_name_fails_then_uws
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_006: [ If `use_ssl` is true then `uws_client_create` shall obtain the interface used to create a tlsio instance by calling `platform_get_default_tlsio`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_013: [ The create arguments for the tls IO (when `use_ssl` is 1) shall have: ]*/
-/* Tests_SRS_UWS_CLIENT_01_014: [ - `hostname` set to the `hostname` argument passed to `uws_client_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_015: [ - `port` set to the `port` argument passed to `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_006: [ If use_ssl is true then uws_client_create shall obtain the interface used to create a tlsio instance by calling platform_get_default_tlsio. ]*/
+/* Tests_SRS_UWS_CLIENT_01_013: [ The create arguments for the tls IO (when use_ssl is 1) shall have: ]*/
+/* Tests_SRS_UWS_CLIENT_01_014: [ - hostname set to the hostname argument passed to uws_client_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_015: [ - port set to the port argument passed to uws_client_create. ]*/
 /* Tests_SRS_UWS_CLIENT_01_360: [ Connection confidentiality and integrity is provided by running the WebSocket Protocol over TLS (wss URIs). ]*/
 /* Tests_SRS_UWS_CLIENT_01_361: [ WebSocket implementations MUST support TLS and SHOULD employ it when communicating with their peers. ]*/
 TEST_FUNCTION(uws_client_create_with_valid_args_ssl_succeeds)
@@ -1082,6 +1078,7 @@ TEST_FUNCTION(uws_client_create_with_valid_args_ssl_succeeds)
     STRICT_EXPECTED_CALL(socketio_get_interface_description());
     STRICT_EXPECTED_CALL(xio_create(TEST_TLS_IO_INTERFACE_DESCRIPTION, &tlsio_config))
         .IgnoreArgument_io_create_parameters();
+    STRICT_EXPECTED_CALL(xio_setoption(IGNORED_PTR_ARG, OPTION_SET_TLS_RENEGOTIATION, IGNORED_PTR_ARG));
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_PTR_ARG, "test_protocol"))
         .IgnoreArgument_destination();
@@ -1097,10 +1094,10 @@ TEST_FUNCTION(uws_client_create_with_valid_args_ssl_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_006: [ If `use_ssl` is true then `uws_client_create` shall obtain the interface used to create a tlsio instance by calling `platform_get_default_tlsio`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_013: [ The create arguments for the tls IO (when `use_ssl` is 1) shall have: ]*/
-/* Tests_SRS_UWS_CLIENT_01_014: [ - `hostname` set to the `hostname` argument passed to `uws_client_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_015: [ - `port` set to the `port` argument passed to `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_006: [ If use_ssl is true then uws_client_create shall obtain the interface used to create a tlsio instance by calling platform_get_default_tlsio. ]*/
+/* Tests_SRS_UWS_CLIENT_01_013: [ The create arguments for the tls IO (when use_ssl is 1) shall have: ]*/
+/* Tests_SRS_UWS_CLIENT_01_014: [ - hostname set to the hostname argument passed to uws_client_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_015: [ - port set to the port argument passed to uws_client_create. ]*/
 TEST_FUNCTION(uws_client_create_with_valid_args_ssl_port_different_than_443_succeeds)
 {
     // arrange
@@ -1128,6 +1125,7 @@ TEST_FUNCTION(uws_client_create_with_valid_args_ssl_port_different_than_443_succ
     STRICT_EXPECTED_CALL(socketio_get_interface_description());
     STRICT_EXPECTED_CALL(xio_create(TEST_TLS_IO_INTERFACE_DESCRIPTION, &tlsio_config))
         .IgnoreArgument_io_create_parameters();
+    STRICT_EXPECTED_CALL(xio_setoption(IGNORED_PTR_ARG, OPTION_SET_TLS_RENEGOTIATION, IGNORED_PTR_ARG));
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_PTR_ARG, "test_protocol"))
         .IgnoreArgument_destination();
@@ -1143,7 +1141,7 @@ TEST_FUNCTION(uws_client_create_with_valid_args_ssl_port_different_than_443_succ
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_007: [ If obtaining the underlying IO interface fails, then `uws_client_create` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_007: [ If obtaining the underlying IO interface fails, then uws_client_create shall fail and return NULL. ]*/
 TEST_FUNCTION(when_getting_the_tlsio_interface_fails_then_uws_client_create_fails)
 {
     // arrange
@@ -1178,13 +1176,13 @@ TEST_FUNCTION(when_getting_the_tlsio_interface_fails_then_uws_client_create_fail
 
 /* uws_client_create_with_io */
 
-/* Tests_SRS_UWS_CLIENT_01_515: [ `uws_client_create_with_io` shall create an instance of uws and return a non-NULL handle to it. ]*/
-/* Tests_SRS_UWS_CLIENT_01_518: [ The argument `hostname` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_520: [ The argument `port` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_521: [ The underlying IO shall be created by calling `xio_create`, while passing as arguments the `io_interface` and `io_create_parameters` argument values. ]*/
-/* Tests_SRS_UWS_CLIENT_01_523: [ The argument `resource_name` shall be copied for later use. ]*/
-/* Tests_SRS_UWS_CLIENT_01_530: [ `uws_client_create_with_io` shall create a pending send IO list that is to be used to queue send packets by calling `singlylinkedlist_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_527: [ The protocol information indicated by `protocols` and `protocol_count` shall be copied for later use (for constructing the upgrade request). ]*/
+/* Tests_SRS_UWS_CLIENT_01_515: [ uws_client_create_with_io shall create an instance of uws and return a non-NULL handle to it. ]*/
+/* Tests_SRS_UWS_CLIENT_01_518: [ The argument hostname shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_520: [ The argument port shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_521: [ The underlying IO shall be created by calling xio_create, while passing as arguments the io_interface and io_create_parameters argument values. ]*/
+/* Tests_SRS_UWS_CLIENT_01_523: [ The argument resource_name shall be copied for later use. ]*/
+/* Tests_SRS_UWS_CLIENT_01_530: [ uws_client_create_with_io shall create a pending send IO list that is to be used to queue send packets by calling singlylinkedlist_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_527: [ The protocol information indicated by protocols and protocol_count shall be copied for later use (for constructing the upgrade request). ]*/
 TEST_FUNCTION(uws_client_create_with_io_valid_args_succeeds)
 {
     // arrange
@@ -1204,6 +1202,7 @@ TEST_FUNCTION(uws_client_create_with_io_valid_args_succeeds)
     STRICT_EXPECTED_CALL(singlylinkedlist_create());
     STRICT_EXPECTED_CALL(xio_create(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config))
         .IgnoreArgument_io_create_parameters();
+    STRICT_EXPECTED_CALL(xio_setoption(IGNORED_PTR_ARG, OPTION_SET_TLS_RENEGOTIATION, IGNORED_PTR_ARG));
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_PTR_ARG, "test_protocol"))
         .IgnoreArgument_destination();
@@ -1219,7 +1218,7 @@ TEST_FUNCTION(uws_client_create_with_io_valid_args_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments `io_interface`, `hostname` and `resource_name` is NULL then `uws_client_create_with_io` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments io_interface, hostname and resource_name is NULL then uws_client_create_with_io shall return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_NULL_io_interface_description_fails)
 {
     // arrange
@@ -1238,7 +1237,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_io_interface_description_fails
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments `io_interface`, `hostname` and `resource_name` is NULL then `uws_client_create_with_io` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments io_interface, hostname and resource_name is NULL then uws_client_create_with_io shall return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_NULL_hostname_fails)
 {
     // arrange
@@ -1257,7 +1256,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_hostname_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments `io_interface`, `hostname` and `resource_name` is NULL then `uws_client_create_with_io` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_516: [ If any of the arguments io_interface, hostname and resource_name is NULL then uws_client_create_with_io shall return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_NULL_resource_name_fails)
 {
     // arrange
@@ -1276,12 +1275,12 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_resource_name_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_517: [ If allocating memory for the new uws instance fails then `uws_client_create_with_io` shall return NULL. ]*/
-/* Tests_SRS_UWS_CLIENT_01_519: [ If allocating memory for the copy of the `hostname` argument fails, then `uws_client_create` shall return NULL. ]*/
-/* Tests_SRS_UWS_CLIENT_01_522: [ If `xio_create` fails, then `uws_client_create_with_io` shall fail and return NULL. ]*/
-/* Tests_SRS_UWS_CLIENT_01_529: [ If allocating memory for the copy of the `resource_name` argument fails, then `uws_client_create_with_io` shall return NULL. ]*/
-/* Tests_SRS_UWS_CLIENT_01_531: [ If `singlylinkedlist_create` fails then `uws_client_create_with_io` shall fail and return NULL. ]*/
-/* Tests_SRS_UWS_CLIENT_01_528: [ If allocating memory for the copied protocol information fails then `uws_client_create_with_io` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_517: [ If allocating memory for the new uws instance fails then uws_client_create_with_io shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_519: [ If allocating memory for the copy of the hostname argument fails, then uws_client_create shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_522: [ If xio_create fails, then uws_client_create_with_io shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_529: [ If allocating memory for the copy of the resource_name argument fails, then uws_client_create_with_io shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_531: [ If singlylinkedlist_create fails then uws_client_create_with_io shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_528: [ If allocating memory for the copied protocol information fails then uws_client_create_with_io shall fail and return NULL. ]*/
 TEST_FUNCTION(when_any_call_fails_uws_client_create_with_io_fails)
 {
     // arrange
@@ -1311,6 +1310,7 @@ TEST_FUNCTION(when_any_call_fails_uws_client_create_with_io_fails)
     STRICT_EXPECTED_CALL(xio_create(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config))
         .IgnoreArgument_io_create_parameters()
         .SetFailReturn(NULL);
+    STRICT_EXPECTED_CALL(xio_setoption(IGNORED_PTR_ARG, OPTION_SET_TLS_RENEGOTIATION, IGNORED_PTR_ARG)).CallCannotFail();
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG))
         .SetFailReturn(NULL);
     STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_PTR_ARG, "test_protocol1"))
@@ -1324,22 +1324,21 @@ TEST_FUNCTION(when_any_call_fails_uws_client_create_with_io_fails)
 
     for (i = 0; i < umock_c_negative_tests_call_count(); i++)
     {
-        char temp_str[128];
+        if (umock_c_negative_tests_can_call_fail(i))
+        {
+            umock_c_negative_tests_reset();
+            umock_c_negative_tests_fail_call(i);
 
-        umock_c_negative_tests_reset();
-        umock_c_negative_tests_fail_call(i);
+            // act
+            uws_client = uws_client_create_with_io(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config, "test_host", 80, "111", two_protocols, sizeof(two_protocols) / sizeof(two_protocols[0]));
 
-        (void)sprintf(temp_str, "On failed call %zu", i);
-
-        // act
-        uws_client = uws_client_create_with_io(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config, "test_host", 80, "111", two_protocols, sizeof(two_protocols) / sizeof(two_protocols[0]));
-
-        // assert
-        ASSERT_IS_NULL(uws_client, temp_str);
+            // assert
+            ASSERT_IS_NULL(uws_client, "On failed call %lu", (unsigned long)i);
+        }
     }
 }
 
-/* Tests_SRS_UWS_CLIENT_01_524: [ The `protocols` argument shall be allowed to be NULL, in which case no protocol is to be specified by the client in the upgrade request. ]*/
+/* Tests_SRS_UWS_CLIENT_01_524: [ The protocols argument shall be allowed to be NULL, in which case no protocol is to be specified by the client in the upgrade request. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_NULL_protocols_succeeds)
 {
     // arrange
@@ -1359,6 +1358,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_protocols_succeeds)
     STRICT_EXPECTED_CALL(singlylinkedlist_create());
     STRICT_EXPECTED_CALL(xio_create(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config))
         .IgnoreArgument_io_create_parameters();
+    STRICT_EXPECTED_CALL(xio_setoption(IGNORED_PTR_ARG, OPTION_SET_TLS_RENEGOTIATION, IGNORED_PTR_ARG));
 
     // act
     uws_client = uws_client_create_with_io(TEST_SOCKET_IO_INTERFACE_DESCRIPTION, &socketio_config, "test_host", 80, "111", NULL, 0);
@@ -1371,7 +1371,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_protocols_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_525: [ If `protocol_count` is non zero and `protocols` is NULL then `uws_client_create_with_io` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_525: [ If protocol_count is non zero and protocols is NULL then uws_client_create_with_io shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_NULL_protocols_and_non_zero_protocol_count_fails)
 {
     // arrange
@@ -1390,7 +1390,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_NULL_protocols_and_non_zero_protoco
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_526: [ If the `protocol` member of any of the items in the `protocols` argument is NULL, then `uws_client_create_with_io` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_526: [ If the protocol member of any of the items in the protocols argument is NULL, then uws_client_create_with_io shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_a_NULL_protocol_name_for_first_protocol_fails)
 {
     // arrange
@@ -1410,7 +1410,7 @@ TEST_FUNCTION(uws_client_create_with_io_with_a_NULL_protocol_name_for_first_prot
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_526: [ If the `protocol` member of any of the items in the `protocols` argument is NULL, then `uws_client_create_with_io` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_526: [ If the protocol member of any of the items in the protocols argument is NULL, then uws_client_create_with_io shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_client_create_with_io_with_a_NULL_protocol_name_for_second_protocol_fails)
 {
     // arrange
@@ -1432,11 +1432,11 @@ TEST_FUNCTION(uws_client_create_with_io_with_a_NULL_protocol_name_for_second_pro
 
 /* uws_client_destroy */
 
-/* Tests_SRS_UWS_CLIENT_01_019: [ `uws_client_destroy` shall free all resources associated with the uws instance. ]*/
-/* Tests_SRS_UWS_CLIENT_01_023: [ `uws_client_destroy` shall ensure the underlying IO created in `uws_client_open_async` is destroyed by calling `xio_destroy`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_024: [ `uws_client_destroy` shall free the list used to track the pending sends by calling `singlylinkedlist_destroy`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_424: [ `uws_client_destroy` shall free the buffer allocated in `uws_client_create` by calling `BUFFER_delete`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_437: [ `uws_client_destroy` shall free the protocols array allocated in `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_019: [ uws_client_destroy shall free all resources associated with the uws instance. ]*/
+/* Tests_SRS_UWS_CLIENT_01_023: [ uws_client_destroy shall ensure the underlying IO created in uws_client_open_async is destroyed by calling xio_destroy. ]*/
+/* Tests_SRS_UWS_CLIENT_01_024: [ uws_client_destroy shall free the list used to track the pending sends by calling singlylinkedlist_destroy. ]*/
+/* Tests_SRS_UWS_CLIENT_01_424: [ uws_client_destroy shall free the buffer allocated in uws_client_create by calling BUFFER_delete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_437: [ uws_client_destroy shall free the protocols array allocated in uws_client_create. ]*/
 TEST_FUNCTION(uws_client_destroy_fress_the_resources)
 {
     // arrange
@@ -1467,7 +1467,7 @@ TEST_FUNCTION(uws_client_destroy_fress_the_resources)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_437: [ `uws_client_destroy` shall free the protocols array allocated in `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_437: [ uws_client_destroy shall free the protocols array allocated in uws_client_create. ]*/
 TEST_FUNCTION(uws_client_destroy_with_2_protocols_fress_both_protocols)
 {
     // arrange
@@ -1500,7 +1500,7 @@ TEST_FUNCTION(uws_client_destroy_with_2_protocols_fress_both_protocols)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_437: [ `uws_client_destroy` shall free the protocols array allocated in `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_437: [ uws_client_destroy shall free the protocols array allocated in uws_client_create. ]*/
 TEST_FUNCTION(uws_client_destroy_with_no_protocols_frees_all_other_resources)
 {
     // arrange
@@ -1529,7 +1529,7 @@ TEST_FUNCTION(uws_client_destroy_with_no_protocols_frees_all_other_resources)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_020: [ If `uws_client` is NULL, `uws_client_destroy` shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_020: [ If uws_client is NULL, uws_client_destroy shall do nothing. ]*/
 TEST_FUNCTION(uws_client_destroy_with_NULL_does_nothing)
 {
     // arrange
@@ -1541,9 +1541,9 @@ TEST_FUNCTION(uws_client_destroy_with_NULL_does_nothing)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_021: [ `uws_client_destroy` shall perform a close action if the uws instance has already been open. ]*/
-/* Tests_SRS_UWS_CLIENT_01_034: [ `uws_client_close_async` shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
-/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling `singlylinkedlist_get_head_item`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_021: [ uws_client_destroy shall perform a close action if the uws instance has already been open. ]*/
+/* Tests_SRS_UWS_CLIENT_01_034: [ uws_client_close_async shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
+/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling singlylinkedlist_get_head_item. ]*/
 TEST_FUNCTION(uws_client_destroy_also_performs_a_close)
 {
     TLSIO_CONFIG tlsio_config;
@@ -1581,9 +1581,9 @@ TEST_FUNCTION(uws_client_destroy_also_performs_a_close)
 
 /* uws_client_open_async */
 
-/* Tests_SRS_UWS_CLIENT_01_025: [ `uws_client_open_async` shall open the underlying IO by calling `xio_open` and providing the IO handle created in `uws_client_create` as argument. ]*/
-/* Tests_SRS_UWS_CLIENT_01_367: [ The callbacks `on_underlying_io_open_complete`, `on_underlying_io_bytes_received` and `on_underlying_io_error` shall be passed as arguments to `xio_open`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_026: [ On success, `uws_client_open_async` shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_025: [ uws_client_open_async shall open the underlying IO by calling xio_open and providing the IO handle created in uws_client_create as argument. ]*/
+/* Tests_SRS_UWS_CLIENT_01_367: [ The callbacks on_underlying_io_open_complete, on_underlying_io_bytes_received and on_underlying_io_error shall be passed as arguments to xio_open. ]*/
+/* Tests_SRS_UWS_CLIENT_01_026: [ On success, uws_client_open_async shall return 0. ]*/
 /* Tests_SRS_UWS_CLIENT_01_061: [ To _Establish a WebSocket Connection_, a client opens a connection and sends a handshake as defined in this section. ]*/
 TEST_FUNCTION(uws_client_open_async_opens_the_underlying_IO)
 {
@@ -1617,7 +1617,7 @@ TEST_FUNCTION(uws_client_open_async_opens_the_underlying_IO)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_027: [ If `uws_client`, `on_ws_open_complete`, `on_ws_frame_received`, `on_ws_peer_closed` or `on_ws_error` is NULL, `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_027: [ If uws_client, on_ws_open_complete, on_ws_frame_received, on_ws_peer_closed or on_ws_error is NULL, uws_client_open_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_with_NULL_handle_fails)
 {
     // arrange
@@ -1631,7 +1631,7 @@ TEST_FUNCTION(uws_client_open_async_with_NULL_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_027: [ If `uws_client`, `on_ws_open_complete`, `on_ws_frame_received`, `on_ws_peer_closed` or `on_ws_error` is NULL, `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_027: [ If uws_client, on_ws_open_complete, on_ws_frame_received, on_ws_peer_closed or on_ws_error is NULL, uws_client_open_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_open_complete_callback_fails)
 {
     // arrange
@@ -1656,7 +1656,7 @@ TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_open_complete_callback_fails
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_027: [ If `uws_client`, `on_ws_open_complete`, `on_ws_frame_received`, `on_ws_peer_closed` or `on_ws_error` is NULL, `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_027: [ If uws_client, on_ws_open_complete, on_ws_frame_received, on_ws_peer_closed or on_ws_error is NULL, uws_client_open_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_frame_received_callback_fails)
 {
     // arrange
@@ -1681,7 +1681,7 @@ TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_frame_received_callback_fail
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_027: [ If `uws_client`, `on_ws_open_complete`, `on_ws_frame_received`, `on_ws_peer_closed` or `on_ws_error` is NULL, `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_027: [ If uws_client, on_ws_open_complete, on_ws_frame_received, on_ws_peer_closed or on_ws_error is NULL, uws_client_open_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_peer_closed_callback_fails)
 {
     // arrange
@@ -1706,7 +1706,7 @@ TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_peer_closed_callback_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_027: [ If `uws_client`, `on_ws_open_complete`, `on_ws_frame_received`, `on_ws_peer_closed` or `on_ws_error` is NULL, `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_027: [ If uws_client, on_ws_open_complete, on_ws_frame_received, on_ws_peer_closed or on_ws_error is NULL, uws_client_open_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_error_callback_fails)
 {
     // arrange
@@ -1863,7 +1863,7 @@ TEST_FUNCTION(uws_client_open_async_with_NULL_on_ws_error_context_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_028: [ If opening the underlying IO fails then `uws_client_open_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_028: [ If opening the underlying IO fails then uws_client_open_async shall fail and return a non-zero value. ]*/
 /* Tests_SRS_UWS_CLIENT_01_075: [ If the connection could not be opened, either because a direct connection failed or because any proxy used returned an error, then the client MUST _Fail the WebSocket Connection_ and abort the connection attempt. ]*/
 TEST_FUNCTION(when_opening_the_underlying_io_fails_uws_client_open_async_fails)
 {
@@ -1898,7 +1898,7 @@ TEST_FUNCTION(when_opening_the_underlying_io_fails_uws_client_open_async_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_394: [ `uws_client_open_async` while the uws instance is already OPEN or OPENING shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_394: [ uws_client_open_async while the uws instance is already OPEN or OPENING shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_after_uws_client_open_async_without_a_close_fails)
 {
     // arrange
@@ -1924,7 +1924,7 @@ TEST_FUNCTION(uws_client_open_async_after_uws_client_open_async_without_a_close_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_400: [ `uws_client_open_async` while CLOSING shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_400: [ uws_client_open_async while CLOSING shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_while_closing_fails)
 {
     // arrange
@@ -1951,7 +1951,7 @@ TEST_FUNCTION(uws_client_open_async_while_closing_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_400: [ `uws_client_open_async` while CLOSING shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_400: [ uws_client_open_async while CLOSING shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_open_async_while_waiting_for_CLOSE_frame_fails)
 {
     // arrange
@@ -1983,11 +1983,11 @@ TEST_FUNCTION(uws_client_open_async_while_waiting_for_CLOSE_frame_fails)
 
 /* uws_client_close_async */
 
-/* Tests_SRS_UWS_CLIENT_01_029: [ `uws_client_close_async` shall close the uws instance connection if an open action is either pending or has completed successfully (if the IO is open). ]*/
-/* Tests_SRS_UWS_CLIENT_01_031: [ `uws_client_close_async` shall close the connection by calling `xio_close` while passing as argument the IO handle created in `uws_client_create`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_368: [ The callback `on_underlying_io_close` shall be passed as argument to `xio_close`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_396: [ On success `uws_client_close_async` shall return 0. ]*/
-/* Tests_SRS_UWS_CLIENT_01_399: [ `on_ws_close_complete` and `on_ws_close_complete_context` shall be saved and the callback `on_ws_close_complete` shall be triggered when the close is complete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_029: [ uws_client_close_async shall close the uws instance connection if an open action is either pending or has completed successfully (if the IO is open). ]*/
+/* Tests_SRS_UWS_CLIENT_01_031: [ uws_client_close_async shall close the connection by calling xio_close while passing as argument the IO handle created in uws_client_create. ]*/
+/* Tests_SRS_UWS_CLIENT_01_368: [ The callback on_underlying_io_close shall be passed as argument to xio_close. ]*/
+/* Tests_SRS_UWS_CLIENT_01_396: [ On success uws_client_close_async shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_399: [ on_ws_close_complete and on_ws_close_complete_context shall be saved and the callback on_ws_close_complete shall be triggered when the close is complete. ]*/
 /* Tests_SRS_UWS_CLIENT_01_317: [ Clients SHOULD NOT close the WebSocket connection arbitrarily. ]*/
 TEST_FUNCTION(uws_client_close_async_closes_the_underlying_IO)
 {
@@ -2022,7 +2022,7 @@ TEST_FUNCTION(uws_client_close_async_closes_the_underlying_IO)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_030: [ if `uws_client` is NULL, `uws_client_close_async` shall return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_030: [ if uws_client is NULL, uws_client_close_async shall return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_async_with_NULL_handle_fails)
 {
     // arrange
@@ -2036,7 +2036,7 @@ TEST_FUNCTION(uws_client_close_async_with_NULL_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_397: [ The `on_ws_close_complete` argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_397: [ The on_ws_close_complete argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
 TEST_FUNCTION(uws_client_close_async_with_NULL_close_complete_callback_is_allowed)
 {
     // arrange
@@ -2070,7 +2070,7 @@ TEST_FUNCTION(uws_client_close_async_with_NULL_close_complete_callback_is_allowe
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_398: [ `on_ws_close_complete_context` shall also be allows to be NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_398: [ on_ws_close_complete_context shall also be allows to be NULL. ]*/
 TEST_FUNCTION(uws_client_close_async_with_NULL_close_context_succeeds)
 {
     // arrange
@@ -2104,7 +2104,7 @@ TEST_FUNCTION(uws_client_close_async_with_NULL_close_context_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_395: [ If `xio_close` fails, `uws_client_close_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_395: [ If xio_close fails, uws_client_close_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_the_underlying_xio_close_fails_then_uws_client_close_async_fails)
 {
     // arrange
@@ -2138,7 +2138,7 @@ TEST_FUNCTION(when_the_underlying_xio_close_fails_then_uws_client_close_async_fa
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_032: [ `uws_client_close_async` when no open action has been issued shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_032: [ uws_client_close_async when no open action has been issued shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_async_without_open_fails)
 {
     // arrange
@@ -2163,7 +2163,7 @@ TEST_FUNCTION(uws_client_close_async_without_open_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_033: [ `uws_client_close_async` after a `uws_client_close_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_033: [ uws_client_close_async after a uws_client_close_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_async_while_closing_fails)
 {
     // arrange
@@ -2190,7 +2190,7 @@ TEST_FUNCTION(uws_client_close_async_while_closing_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_033: [ `uws_client_close_async` after a `uws_client_close_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_033: [ uws_client_close_async after a uws_client_close_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_async_while_WAITING_for_close_frame_fails)
 {
     // arrange
@@ -2220,7 +2220,7 @@ TEST_FUNCTION(uws_client_close_async_while_WAITING_for_close_frame_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_033: [ `uws_client_close_async` after a `uws_client_close_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_033: [ uws_client_close_async after a uws_client_close_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_async_after_close_complete_fails)
 {
     // arrange
@@ -2248,10 +2248,10 @@ TEST_FUNCTION(uws_client_close_async_after_close_complete_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_034: [ `uws_client_close_async` shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
-/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling `singlylinkedlist_get_head_item`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_036: [ For each pending send frame the send complete callback shall be called with `UWS_SEND_FRAME_CANCELLED`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_037: [ When indicating pending send frames as cancelled the callback context passed to the `on_ws_send_frame_complete` callback shall be the context given to `uws_client_send_frame_async`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_034: [ uws_client_close_async shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
+/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling singlylinkedlist_get_head_item. ]*/
+/* Tests_SRS_UWS_CLIENT_01_036: [ For each pending send frame the send complete callback shall be called with UWS_SEND_FRAME_CANCELLED. ]*/
+/* Tests_SRS_UWS_CLIENT_01_037: [ When indicating pending send frames as cancelled the callback context passed to the on_ws_send_frame_complete callback shall be the context given to uws_client_send_frame_async. ]*/
 TEST_FUNCTION(uws_client_close_async_with_1_pending_send_frames_indicates_the_frames_as_cancelled)
 {
     // arrange
@@ -2294,10 +2294,10 @@ TEST_FUNCTION(uws_client_close_async_with_1_pending_send_frames_indicates_the_fr
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_034: [ `uws_client_close_async` shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
-/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling `singlylinkedlist_get_head_item`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_036: [ For each pending send frame the send complete callback shall be called with `UWS_SEND_FRAME_CANCELLED`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_037: [ When indicating pending send frames as cancelled the callback context passed to the `on_ws_send_frame_complete` callback shall be the context given to `uws_client_send_frame_async`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_034: [ uws_client_close_async shall obtain all the pending send frames by repetitively querying for the head of the pending IO list and freeing that head item. ]*/
+/* Tests_SRS_UWS_CLIENT_01_035: [ Obtaining the head of the pending send frames list shall be done by calling singlylinkedlist_get_head_item. ]*/
+/* Tests_SRS_UWS_CLIENT_01_036: [ For each pending send frame the send complete callback shall be called with UWS_SEND_FRAME_CANCELLED. ]*/
+/* Tests_SRS_UWS_CLIENT_01_037: [ When indicating pending send frames as cancelled the callback context passed to the on_ws_send_frame_complete callback shall be the context given to uws_client_send_frame_async. ]*/
 TEST_FUNCTION(uws_client_close_async_with_2_pending_send_frames_indicates_the_frames_as_cancelled)
 {
     // arrange
@@ -2353,10 +2353,10 @@ TEST_FUNCTION(uws_client_close_async_with_2_pending_send_frames_indicates_the_fr
 
 /* uws_client_close_handshake_async */
 
-/* Tests_SRS_UWS_CLIENT_01_465: [ `uws_client_close_handshake_async` shall initiate the close handshake by sending a close frame to the peer. ]*/
-/* Tests_SRS_UWS_CLIENT_01_466: [ On success `uws_client_close_handshake_async` shall return 0. ]*/
-/* Tests_SRS_UWS_CLIENT_01_468: [ `on_ws_close_complete` and `on_ws_close_complete_context` shall be saved and the callback `on_ws_close_complete` shall be triggered when the close is complete. ]*/
-/* Tests_SRS_UWS_CLIENT_01_471: [ The callback `on_underlying_io_close_sent` shall be passed as argument to `xio_send`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_465: [ uws_client_close_handshake_async shall initiate the close handshake by sending a close frame to the peer. ]*/
+/* Tests_SRS_UWS_CLIENT_01_466: [ On success uws_client_close_handshake_async shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_468: [ on_ws_close_complete and on_ws_close_complete_context shall be saved and the callback on_ws_close_complete shall be triggered when the close is complete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_471: [ The callback on_underlying_io_close_sent shall be passed as argument to xio_send. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_sends_the_close_frame)
 {
     // arrange
@@ -2403,7 +2403,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_sends_the_close_frame)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_467: [ if `uws_client` is NULL, `uws_client_close_handshake_async` shall return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_467: [ if uws_client is NULL, uws_client_close_handshake_async shall return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_handle_fails)
 {
     // arrange
@@ -2417,8 +2417,8 @@ TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_469: [ The `on_ws_close_complete` argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
-/* Tests_SRS_UWS_CLIENT_01_471: [ The callback `on_underlying_io_close_sent` shall be passed as argument to `xio_send`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_469: [ The on_ws_close_complete argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_471: [ The callback on_underlying_io_close_sent shall be passed as argument to xio_send. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_close_complete_callback_is_allowed)
 {
     // arrange
@@ -2464,7 +2464,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_close_complete_callback
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_470: [ `on_ws_close_complete_context` shall also be allowed to be NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_470: [ on_ws_close_complete_context shall also be allowed to be NULL. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_context_is_allowed)
 {
     // arrange
@@ -2511,7 +2511,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_with_NULL_context_is_allowed)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_472: [ If `xio_send` fails, `uws_client_close_handshake_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_472: [ If xio_send fails, uws_client_close_handshake_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_xio_send_fails_uws_client_close_handshake_async_fails)
 {
     // arrange
@@ -2558,7 +2558,7 @@ TEST_FUNCTION(when_xio_send_fails_uws_client_close_handshake_async_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_473: [ `uws_client_close_handshake_async` when no open action has been issued shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_473: [ uws_client_close_handshake_async when no open action has been issued shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_when_not_opened_fails)
 {
     // arrange
@@ -2583,7 +2583,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_when_not_opened_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_474: [ `uws_client_close_handshake_async` when already CLOSING shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_474: [ uws_client_close_handshake_async when already CLOSING shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_when_already_SENDING_CLOSE_frame_fails)
 {
     // arrange
@@ -2614,7 +2614,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_when_already_SENDING_CLOSE_frame_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_474: [ `uws_client_close_handshake_async` when already CLOSING shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_474: [ uws_client_close_handshake_async when already CLOSING shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_when_already_CLOSING_underlying_IO_fails)
 {
     // arrange
@@ -2646,7 +2646,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_when_already_CLOSING_underlying_I
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_033: [ `uws_client_close_async` after a `uws_client_close_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_033: [ uws_client_close_async after a uws_client_close_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_close_handshake_async_while_WAITING_for_close_frame_fails)
 {
     // arrange
@@ -2678,7 +2678,7 @@ TEST_FUNCTION(uws_client_close_handshake_async_while_WAITING_for_close_frame_fai
 
 /* on_underlying_io_open_complete */
 
-/* Tests_SRS_UWS_CLIENT_01_369: [ When `on_underlying_io_open_complete` is called with `IO_OPEN_ERROR` while uws is OPENING (`uws_client_open_async` was called), uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_369: [ When on_underlying_io_open_complete is called with IO_OPEN_ERROR while uws is OPENING (uws_client_open_async was called), uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED. ]*/
 TEST_FUNCTION(on_underlying_io_open_complete_with_ERROR_triggers_the_ws_open_complete_callback_with_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED)
 {
     // arrange
@@ -2704,7 +2704,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_ERROR_triggers_the_ws_open_com
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by `on_ws_open_complete`, a subsequent `uws_client_open_async` shall be possible. ]*/
+/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by on_ws_open_complete, a subsequent uws_client_open_async shall be possible. ]*/
 TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED_succeeds)
 {
     // arrange
@@ -2739,7 +2739,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILE
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_401: [ If `on_underlying_io_open_complete` is called with a NULL context, `on_underlying_io_open_complete` shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_401: [ If on_underlying_io_open_complete is called with a NULL context, on_underlying_io_open_complete shall do nothing. ]*/
 TEST_FUNCTION(on_underlying_io_open_complete_with_NULL_context_does_nothing)
 {
     // arrange
@@ -2763,7 +2763,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_NULL_context_does_nothing)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_402: [ When `on_underlying_io_open_complete` is called with `IO_OPEN_CANCELLED` while uws is OPENING (`uws_client_open_async` was called), uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCELLED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_402: [ When on_underlying_io_open_complete is called with IO_OPEN_CANCELLED while uws is OPENING (uws_client_open_async was called), uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCELLED. ]*/
 TEST_FUNCTION(on_underlying_io_open_complete_with_CANCELLED_triggers_the_ws_open_complete_callback_with_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCELLED)
 {
     // arrange
@@ -2789,7 +2789,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_CANCELLED_triggers_the_ws_open
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by `on_ws_open_complete`, a subsequent `uws_client_open_async` shall be possible. ]*/
+/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by on_ws_open_complete, a subsequent uws_client_open_async shall be possible. ]*/
 TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCELLED_succeeds)
 {
     // arrange
@@ -2824,8 +2824,8 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCE
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_371: [ When `on_underlying_io_open_complete` is called with `IO_OPEN_OK` while uws is OPENING (`uws_client_open_async` was called), uws shall prepare the WebSockets upgrade request. ]*/
-/* Tests_SRS_UWS_CLIENT_01_372: [ Once prepared the WebSocket upgrade request shall be sent by calling `xio_send`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_371: [ When on_underlying_io_open_complete is called with IO_OPEN_OK while uws is OPENING (uws_client_open_async was called), uws shall prepare the WebSockets upgrade request. ]*/
+/* Tests_SRS_UWS_CLIENT_01_372: [ Once prepared the WebSocket upgrade request shall be sent by calling xio_send. ]*/
 /* Tests_SRS_UWS_CLIENT_01_080: [ Once a connection to the server has been established (including a connection via a proxy or over a TLS-encrypted tunnel), the client MUST send an opening handshake to the server. ]*/
 /* Tests_SRS_UWS_CLIENT_01_081: [ The handshake consists of an HTTP Upgrade request, along with a list of required and optional header fields. ]*/
 /* Tests_SRS_UWS_CLIENT_01_082: [ The handshake MUST be a valid HTTP request as specified by [RFC2616]. ]*/
@@ -2842,7 +2842,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_UNDERLYING_IO_OPEN_CANCE
 /* Tests_SRS_UWS_CLIENT_01_101: [ The request MAY include any other header fields, for example, cookies [RFC6265] and/or authentication-related header fields such as the |Authorization| header field [RFC2616], which are processed according to documents that define them. ] */
 /* Tests_SRS_UWS_CLIENT_01_089: [ The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded (see Section 4 of [RFC4648]). ]*/
 /* Tests_SRS_UWS_CLIENT_01_090: [ The nonce MUST be selected randomly for each connection. ]*/
-/* Tests_SRS_UWS_CLIENT_01_497: [ The nonce needed for the upgrade request shall be Base64 encoded with `Base64_Encode_Bytes`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_497: [ The nonce needed for the upgrade request shall be Base64 encoded with Azure_Base64_Encode_Bytes. ]*/
 TEST_FUNCTION(on_underlying_io_open_complete_with_OK_prepares_and_sends_the_WebSocket_upgrade_request)
 {
     // arrange
@@ -2866,7 +2866,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_OK_prepares_and_sends_the_WebS
     umock_c_reset_all_calls();
     STRICT_EXPECTED_CALL(Map_AddOrUpdate(TEST_REQUEST_HEADERS_MAP, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     (void)uws_client_set_request_header(uws_client, req_header1_key, req_header1_value);
-    
+
     umock_c_reset_all_calls();
 
     /* get the random 16 bytes */
@@ -2876,21 +2876,17 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_OK_prepares_and_sends_the_WebS
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16);
     // get_request_headers()
     STRICT_EXPECTED_CALL(Map_GetInternals(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(malloc(strlen(req_header1_key)+strlen(req_header1_value)+2+2+1));
 
-    STRICT_EXPECTED_CALL(STRING_c_str(BASE64_ENCODED_STRING)).SetReturn("ZWRuYW1vZGU6bm9jYXBlcyE=");
+    STRICT_EXPECTED_CALL(STRING_c_str(IGNORED_PTR_ARG)).SetReturn("ZWRuYW1vZGU6bm9jYXBlcyE=");
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
-    STRICT_EXPECTED_CALL(xio_send(TEST_IO_HANDLE, IGNORED_PTR_ARG, IGNORED_NUM_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG))
-        .IgnoreArgument_on_send_complete()
-        .IgnoreArgument_callback_context()
-        .IgnoreArgument_buffer()
-        .IgnoreArgument_size();
+    STRICT_EXPECTED_CALL(xio_send(TEST_IO_HANDLE, IGNORED_PTR_ARG, IGNORED_NUM_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
-    STRICT_EXPECTED_CALL(STRING_delete(BASE64_ENCODED_STRING));
+    STRICT_EXPECTED_CALL(STRING_delete(IGNORED_PTR_ARG));
     EXPECTED_CALL(free(IGNORED_PTR_ARG)); // request headers
 
     // act
@@ -2903,7 +2899,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_OK_prepares_and_sends_the_WebS
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_498: [ If Base64 encoding the nonce for the upgrade request fails, then the uws client shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BASE64_ENCODE_FAILED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_498: [ If Base64 encoding the nonce for the upgrade request fails, then the uws client shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BASE64_ENCODE_FAILED. ]*/
 TEST_FUNCTION(when_base64_encode_fails_on_underlying_io_open_complete_triggers_the_error_WS_OPEN_ERROR_BASE64_ENCODE_FAILED)
 {
     // arrange
@@ -2926,7 +2922,7 @@ TEST_FUNCTION(when_base64_encode_fails_on_underlying_io_open_complete_triggers_t
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16)
         .SetReturn(NULL);
     STRICT_EXPECTED_CALL(test_on_ws_open_complete((void*)0x4242, WS_OPEN_ERROR_BASE64_ENCODE_FAILED));
@@ -2941,7 +2937,7 @@ TEST_FUNCTION(when_base64_encode_fails_on_underlying_io_open_complete_triggers_t
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_406: [ If not enough memory can be allocated to construct the WebSocket upgrade request, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_NOT_ENOUGH_MEMORY`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_406: [ If not enough memory can be allocated to construct the WebSocket upgrade request, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_websocket_upgrade_request_fails_the_error_WS_OPEN_ERROR_NOT_ENOUGH_MEMORY_is_indicated_via_the_open_complete_callback)
 {
     // arrange
@@ -2964,7 +2960,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_websocket_upgrade_request_fails_the
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16);
     // get_request_headers()
     STRICT_EXPECTED_CALL(Map_GetInternals(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
@@ -2988,7 +2984,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_websocket_upgrade_request_fails_the
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by `on_ws_open_complete`, a subsequent `uws_client_open_async` shall be possible. ]*/
+/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by on_ws_open_complete, a subsequent uws_client_open_async shall be possible. ]*/
 TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_NOT_ENOUGH_MEMORY_succeeds)
 {
     // arrange
@@ -3012,7 +3008,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_NOT_ENOUGH_MEMORY_succee
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16);
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG))
         .SetReturn(NULL);
@@ -3040,7 +3036,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_NOT_ENOUGH_MEMORY_succee
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_373: [ If `xio_send` fails then uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQUEST`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_373: [ If xio_send fails then uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQUEST. ]*/
 TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQUEST_is_indicated)
 {
     // arrange
@@ -3063,7 +3059,7 @@ TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_CAN
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16);
     STRICT_EXPECTED_CALL(Map_GetInternals(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(malloc(IGNORED_NUM_ARG)); // get_request_headers(), no headers
@@ -3091,7 +3087,7 @@ TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_CAN
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by `on_ws_open_complete`, a subsequent `uws_client_open_async` shall be possible. ]*/
+/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by on_ws_open_complete, a subsequent uws_client_open_async shall be possible. ]*/
 TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQUEST_succeeds)
 {
     // arrange
@@ -3115,12 +3111,12 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQU
         expected_nonce[i] = (unsigned char)i;
     }
 
-    STRICT_EXPECTED_CALL(Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
+    STRICT_EXPECTED_CALL(Azure_Base64_Encode_Bytes(IGNORED_PTR_ARG, 16))
         .ValidateArgumentBuffer(1, expected_nonce, 16);
     // get_request_headers()
     STRICT_EXPECTED_CALL(Map_GetInternals(IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(malloc(IGNORED_NUM_ARG));
-        
+
     STRICT_EXPECTED_CALL(STRING_c_str(BASE64_ENCODED_STRING)).SetReturn("ZWRuYW1vZGU6bm9jYXBlcyE=");
     EXPECTED_CALL(gballoc_malloc(IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(xio_send(TEST_IO_HANDLE, IGNORED_PTR_ARG, IGNORED_NUM_ARG, IGNORED_PTR_ARG, IGNORED_PTR_ARG))
@@ -3152,7 +3148,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQU
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_407: [ When `on_underlying_io_open_complete` is called when the uws instance has send the upgrade request but it is waiting for the response, an error shall be reported to the user by calling the `on_ws_open_complete` with `WS_OPEN_ERROR_MULTIPLE_UNDERLYING_IO_OPEN_EVENTS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_407: [ When on_underlying_io_open_complete is called when the uws instance has send the upgrade request but it is waiting for the response, an error shall be reported to the user by calling the on_ws_open_complete with WS_OPEN_ERROR_MULTIPLE_UNDERLYING_IO_OPEN_EVENTS. ]*/
 TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_MULTIPLE_UNDERLYING_IO_OPEN_EVENTS_is_indicated)
 {
     // arrange
@@ -3180,7 +3176,7 @@ TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_MUL
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by `on_ws_open_complete`, a subsequent `uws_client_open_async` shall be possible. ]*/
+/* Tests_SRS_UWS_CLIENT_01_409: [ After any error is indicated by on_ws_open_complete, a subsequent uws_client_open_async shall be possible. ]*/
 TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_MULTIPLE_UNDERLYING_IO_OPEN_EVENTS_succeeds)
 {
     // arrange
@@ -3220,9 +3216,9 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_MULTIPLE_UNDERLYING_IO_O
 
 /* on_underlying_io_bytes_received */
 
-/* Tests_SRS_UWS_CLIENT_01_378: [ When `on_underlying_io_bytes_received` is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
+/* Tests_SRS_UWS_CLIENT_01_378: [ When on_underlying_io_bytes_received is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_380: [ If an WebSocket Upgrade request can be parsed from the accumulated bytes, the status shall be read from the WebSocket upgrade response. ]*/
-/* Tests_SRS_UWS_CLIENT_01_381: [ If the status is 101, uws shall be considered OPEN and this shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `IO_OPEN_OK`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_381: [ If the status is 101, uws shall be considered OPEN and this shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with IO_OPEN_OK. ]*/
 /* Tests_SRS_UWS_CLIENT_01_065: [ When the client is to _Establish a WebSocket Connection_ given a set of (/host/, /port/, /resource name/, and /secure/ flag), along with a list of /protocols/ and /extensions/ to be used, and an /origin/ in the case of web browsers, it MUST open a connection, send an opening handshake, and read the server's handshake in response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_102: [ Once the client's opening handshake has been sent, the client MUST wait for a response from the server before sending any further data. ]*/
 /* Tests_SRS_UWS_CLIENT_01_115: [ If the server's response is validated as provided for above, it is said that _The WebSocket Connection is Established_ and that the WebSocket Connection is in the OPEN state. ]*/
@@ -3256,7 +3252,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_a_full_reply_after_the_upgrad
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_RESPONSE_STATUS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_RESPONSE_STATUS. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_a_reply_with_a_status_code_different_than_101_indicates_an_open_complete_with_error)
 {
@@ -3288,7 +3284,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_a_reply_with_a_status_code_di
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_RESPONSE_STATUS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_RESPONSE_STATUS. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_a_reply_with_status_100_indicates_an_open_complete_with_error)
 {
@@ -3320,7 +3316,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_a_reply_with_status_100_indic
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_RESPONSE_STATUS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_382: [ If a negative status is decoded from the WebSocket upgrade request, an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_RESPONSE_STATUS. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(open_after_a_bad_status_is_decoded_succeeds)
 {
@@ -3358,9 +3354,9 @@ TEST_FUNCTION(open_after_a_bad_status_is_decoded_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_378: [ When `on_underlying_io_bytes_received` is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
+/* Tests_SRS_UWS_CLIENT_01_378: [ When on_underlying_io_bytes_received is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_380: [ If an WebSocket Upgrade request can be parsed from the accumulated bytes, the status shall be read from the WebSocket upgrade response. ]*/
-/* Tests_SRS_UWS_CLIENT_01_381: [ If the status is 101, uws shall be considered OPEN and this shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `IO_OPEN_OK`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_381: [ If the status is 101, uws shall be considered OPEN and this shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with IO_OPEN_OK. ]*/
 /* Tests_SRS_UWS_CLIENT_01_065: [ When the client is to _Establish a WebSocket Connection_ given a set of (/host/, /port/, /resource name/, and /secure/ flag), along with a list of /protocols/ and /extensions/ to be used, and an /origin/ in the case of web browsers, it MUST open a connection, send an opening handshake, and read the server's handshake in response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_102: [ Once the client's opening handshake has been sent, the client MUST wait for a response from the server before sending any further data. ]*/
 /* Tests_SRS_UWS_CLIENT_01_115: [ If the server's response is validated as provided for above, it is said that _The WebSocket Connection is Established_ and that the WebSocket Connection is in the OPEN state. ]*/
@@ -3399,7 +3395,7 @@ TEST_FUNCTION(after_a_bad_status_code_a_subsequent_open_completes)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_an_empty_reply_indicates_an_open_complete_with_error)
 {
@@ -3431,7 +3427,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_an_empty_reply_indicates_an_o
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_an_imcomplete_HTTP_1_1__reply_indicates_an_open_complete_with_error)
 {
@@ -3463,7 +3459,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_an_imcomplete_HTTP_1_1__reply
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_383: [ If the WebSocket upgrade request cannot be decoded an error shall be indicated by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BAD_UPGRADE_RESPONSE. ]*/
 /* Tests_SRS_UWS_CLIENT_01_478: [ A Status-Line with a 101 response code as per RFC 2616 [RFC2616]. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_a_complete_HTTP_version_but_no_status_code_indicates_an_open_complete_with_error)
 {
@@ -3585,7 +3581,7 @@ TEST_FUNCTION(open_completes_when_a_header_is_present_in_the_response)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_NOT_ENOUGH_MEMORY`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_received_bytes_fails_on_underlying_io_bytes_received_indicates_open_complete_with_error)
 {
     // arrange
@@ -3617,7 +3613,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_received_bytes_fails_on_underlying_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_378: [ When `on_underlying_io_bytes_received` is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
+/* Tests_SRS_UWS_CLIENT_01_378: [ When on_underlying_io_bytes_received is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_380: [ If an WebSocket Upgrade request can be parsed from the accumulated bytes, the status shall be read from the WebSocket upgrade response. ]*/
 TEST_FUNCTION(when_only_a_byte_is_received_no_open_complete_is_indicated)
 {
@@ -3647,7 +3643,7 @@ TEST_FUNCTION(when_only_a_byte_is_received_no_open_complete_is_indicated)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_415: [ If called with a NULL `context` argument, `on_underlying_io_bytes_received` shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_415: [ If called with a NULL context argument, on_underlying_io_bytes_received shall do nothing. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_NULL_context_does_nothing)
 {
     // arrange
@@ -3672,7 +3668,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_NULL_context_does_nothing)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_416: [ If called with NULL `buffer` or zero `size` and the state of the iws is OPENING, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_INVALID_BYTES_RECEIVED_ARGUMENTS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_416: [ If called with NULL buffer or zero size and the state of the iws is OPENING, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_INVALID_BYTES_RECEIVED_ARGUMENTS. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_NULL_buffer_indicates_an_open_complete_with_error)
 {
     // arrange
@@ -3701,7 +3697,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_NULL_buffer_indicates_an_open
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_416: [ If called with NULL `buffer` or zero `size` and the state of the iws is OPENING, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_INVALID_BYTES_RECEIVED_ARGUMENTS`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_416: [ If called with NULL buffer or zero size and the state of the iws is OPENING, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_INVALID_BYTES_RECEIVED_ARGUMENTS. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_with_zero_size_indicates_an_open_complete_with_error)
 {
     // arrange
@@ -3730,7 +3726,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_with_zero_size_indicates_an_open_c
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_417: [ When `on_underlying_io_bytes_received` is called while OPENING but before the `on_underlying_io_open_complete` has been called, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_BYTES_RECEIVED_BEFORE_UNDERLYING_OPEN`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_417: [ When on_underlying_io_bytes_received is called while OPENING but before the on_underlying_io_open_complete has been called, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_BYTES_RECEIVED_BEFORE_UNDERLYING_OPEN. ]*/
 TEST_FUNCTION(on_underlying_io_bytes_received_before_underlying_io_open_complete_indicates_an_open_complete_with_error)
 {
     // arrange
@@ -3758,7 +3754,7 @@ TEST_FUNCTION(on_underlying_io_bytes_received_before_underlying_io_open_complete
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_NOT_ENOUGH_MEMORY`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
 TEST_FUNCTION(when_allocating_memory_for_a_second_byte_fails_open_complete_is_indicated_with_error)
 {
     // arrange
@@ -3830,7 +3826,7 @@ TEST_FUNCTION(when_all_but_1_bytes_are_received_from_the_response_no_open_comple
     }
 }
 
-/* Tests_SRS_UWS_CLIENT_01_384: [ Any extra bytes that are left unconsumed after decoding a succesfull WebSocket upgrade response shall be used for decoding WebSocket frames by passing them to `uws_frame_decoder_decode`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_384: [ Any extra bytes that are left unconsumed after decoding a succesfull WebSocket upgrade response shall be used for decoding WebSocket frames by passing them to uws_frame_decoder_decode. ]*/
 TEST_FUNCTION(when_1_extra_byte_is_received_the_open_complete_is_properly_indicated_and_the_extra_byte_is_saved_for_decoding_frames)
 {
     // arrange
@@ -3860,7 +3856,7 @@ TEST_FUNCTION(when_1_extra_byte_is_received_the_open_complete_is_properly_indica
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_386: [ When a WebSocket data frame is decoded succesfully it shall be indicated via the callback `on_ws_frame_received`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_386: [ When a WebSocket data frame is decoded succesfully it shall be indicated via the callback on_ws_frame_received. ]*/
 /* Tests_SRS_UWS_CLIENT_01_385: [ If the state of the uws instance is OPEN, the received bytes shall be used for decoding WebSocket frames. ]*/
 /* Tests_SRS_UWS_CLIENT_01_154: [ *  %x2 denotes a binary frame ]*/
 /* Tests_SRS_UWS_CLIENT_01_163: [ The length of the "Payload data", in bytes: ]*/
@@ -4588,7 +4584,7 @@ TEST_FUNCTION(when_a_65537_bytes_binary_frame_is_received_it_shall_be_indicated_
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(when_a_0_byte_binary_frame_is_received_with_16_bit_length_an_error_is_indicated)
 {
     // arrange
@@ -4620,7 +4616,7 @@ TEST_FUNCTION(when_a_0_byte_binary_frame_is_received_with_16_bit_length_an_error
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(when_a_125_byte_binary_frame_is_received_with_16_bit_length_an_error_is_indicated)
 {
     // arrange
@@ -4658,7 +4654,7 @@ TEST_FUNCTION(when_a_125_byte_binary_frame_is_received_with_16_bit_length_an_err
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(when_a_0_byte_binary_frame_is_received_with_64_bit_length_an_error_is_indicated)
 {
     // arrange
@@ -4690,7 +4686,7 @@ TEST_FUNCTION(when_a_0_byte_binary_frame_is_received_with_64_bit_length_an_error
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(when_a_65535_byte_binary_frame_is_received_with_64_bit_length_an_error_is_indicated)
 {
     // arrange
@@ -4739,7 +4735,7 @@ TEST_FUNCTION(when_a_65535_byte_binary_frame_is_received_with_64_bit_length_an_e
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(check_for_16_bit_length_too_low_is_done_as_soon_as_length_is_received)
 {
     // arrange
@@ -4771,7 +4767,7 @@ TEST_FUNCTION(check_for_16_bit_length_too_low_is_done_as_soon_as_length_is_recei
 }
 
 /* Tests_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(check_for_64_bit_length_too_low_is_done_as_soon_as_length_is_received)
 {
     // arrange
@@ -4803,7 +4799,7 @@ TEST_FUNCTION(check_for_64_bit_length_too_low_is_done_as_soon_as_length_is_recei
 }
 
 /* Tests_SRS_UWS_CLIENT_01_166: [ If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length. ]*/
-/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_BAD_FRAME_RECEIVED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_419: [ If there is an error decoding the WebSocket frame, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_BAD_FRAME_RECEIVED. ]*/
 TEST_FUNCTION(when_the_highest_bit_is_set_in_a_64_bit_length_frame_an_error_is_indicated)
 {
     // arrange
@@ -4851,7 +4847,7 @@ TEST_FUNCTION(when_the_highest_bit_is_set_in_a_64_bit_length_frame_an_error_is_i
     free(test_frame);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_418: [ If allocating memory for the bytes accumulated for decoding WebSocket frames fails, an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_NOT_ENOUGH_MEMORY`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_418: [ If allocating memory for the bytes accumulated for decoding WebSocket frames fails, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_NOT_ENOUGH_MEMORY. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_received_frame_bytes_fails_an_error_is_indicated)
 {
     // arrange
@@ -5184,12 +5180,12 @@ TEST_FUNCTION(when_a_masked_frame_is_received_and_sending_the_encoded_CLOSE_fram
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_460: [ When a CLOSE frame is received the callback `on_ws_peer_closed` passed to `uws_client_open_async` shall be called, while passing to it the argument `on_ws_peer_closed_context`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_460: [ When a CLOSE frame is received the callback on_ws_peer_closed passed to uws_client_open_async shall be called, while passing to it the argument on_ws_peer_closed_context. ]*/
 /* Tests_SRS_UWS_CLIENT_01_156: [ *  %x8 denotes a connection close ]*/
 /* Tests_SRS_UWS_CLIENT_01_234: [ The Close frame contains an opcode of 0x8. ]*/
 /* Tests_SRS_UWS_CLIENT_01_235: [ The Close frame MAY contain a body (the "Application data" portion of the frame) that indicates a reason for closing, such as an endpoint shutting down, an endpoint having received a frame too large, or an endpoint having received a frame that does not conform to the format expected by the endpoint. ]*/
 /* Tests_SRS_UWS_CLIENT_01_236: [ If there is a body, the first two bytes of the body MUST be a 2-byte unsigned integer (in network byte order) representing a status code with value /code/ defined in Section 7.4. ]*/
-/* Tests_SRS_UWS_CLIENT_01_461: [ The argument `close_code` shall be set to point to the code extracted from the CLOSE frame. ]*/
+/* Tests_SRS_UWS_CLIENT_01_461: [ The argument close_code shall be set to point to the code extracted from the CLOSE frame. ]*/
 /* Tests_SRS_UWS_CLIENT_01_296: [ Upon either sending or receiving a Close control frame, it is said that _The WebSocket Closing Handshake is Started_ and that the WebSocket connection is in the CLOSING state. ]*/
 /* Tests_SRS_UWS_CLIENT_01_241: [ If an endpoint receives a Close frame and did not previously send a Close frame, the endpoint MUST send a Close frame in response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_242: [ It SHOULD do so as soon as practical. ]*/
@@ -5243,10 +5239,10 @@ TEST_FUNCTION(when_a_CLOSE_frame_is_received_while_in_open_the_code_is_reported_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_460: [ When a CLOSE frame is received the callback `on_ws_peer_closed` passed to `uws_client_open_async` shall be called, while passing to it the argument `on_ws_peer_closed_context`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_460: [ When a CLOSE frame is received the callback on_ws_peer_closed passed to uws_client_open_async shall be called, while passing to it the argument on_ws_peer_closed_context. ]*/
 /* Tests_SRS_UWS_CLIENT_01_156: [ *  %x8 denotes a connection close ]*/
 /* Tests_SRS_UWS_CLIENT_01_234: [ The Close frame contains an opcode of 0x8. ]*/
-/* Tests_SRS_UWS_CLIENT_01_462: [ If no code can be extracted then `close_code` shall be NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_462: [ If no code can be extracted then close_code shall be NULL. ]*/
 /* Tests_SRS_UWS_CLIENT_01_241: [ If an endpoint receives a Close frame and did not previously send a Close frame, the endpoint MUST send a Close frame in response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_140: [ To avoid confusing network intermediaries (such as intercepting proxies) and for security reasons that are further discussed in Section 10.3, a client MUST mask all frames that it sends to the server (see Section 5.3 for further details). ]*/
 TEST_FUNCTION(when_a_CLOSE_frame_is_received_without_a_close_code_while_in_open_the_callback_is_triggered)
@@ -5295,7 +5291,7 @@ TEST_FUNCTION(when_a_CLOSE_frame_is_received_without_a_close_code_while_in_open_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_463: [ The extra bytes (besides the close code) shall be passed to the `on_ws_peer_closed` callback by using `extra_data` and `extra_data_length`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_463: [ The extra bytes (besides the close code) shall be passed to the on_ws_peer_closed callback by using extra_data and extra_data_length. ]*/
 /* Tests_SRS_UWS_CLIENT_01_241: [ If an endpoint receives a Close frame and did not previously send a Close frame, the endpoint MUST send a Close frame in response. ]*/
 /* Tests_SRS_UWS_CLIENT_01_140: [ To avoid confusing network intermediaries (such as intercepting proxies) and for security reasons that are further discussed in Section 10.3, a client MUST mask all frames that it sends to the server (see Section 5.3 for further details). ]*/
 TEST_FUNCTION(when_a_CLOSE_frame_is_received_with_extra_bytes_the_bytes_are_passed_to_the_callback)
@@ -5518,7 +5514,7 @@ TEST_FUNCTION(sending_after_a_close_is_received_does_not_send_anything)
 
 /* uws_client_send_frame_async */
 
-/* Tests_SRS_UWS_CLIENT_01_044: [ If any the arguments `uws_client` is NULL, `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_044: [ If any the arguments uws_client is NULL, uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_send_frame_async_with_NULL_handle_fails)
 {
     // arrange
@@ -5533,7 +5529,7 @@ TEST_FUNCTION(uws_client_send_frame_async_with_NULL_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_045: [ If `size` is non-zero and `buffer` is NULL then `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_045: [ If size is non-zero and buffer is NULL then uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(uws_client_send_frame_async_with_NULL_buffer_and_non_zero_size_fails)
 {
     // arrange
@@ -5562,7 +5558,7 @@ TEST_FUNCTION(uws_client_send_frame_async_with_NULL_buffer_and_non_zero_size_fai
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 /* Tests_SRS_UWS_CLIENT_01_146: [ A data frame MAY be transmitted by either the client or the server at any time after opening handshake completion and before that endpoint has sent a Close frame (Section 5.5.1). ]*/
 /* Tests_SRS_UWS_CLIENT_01_268: [ The endpoint MUST ensure the WebSocket connection is in the OPEN state ]*/
 TEST_FUNCTION(uws_client_send_frame_async_when_not_open_fails)
@@ -5590,7 +5586,7 @@ TEST_FUNCTION(uws_client_send_frame_async_when_not_open_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 /* Tests_SRS_UWS_CLIENT_01_146: [ A data frame MAY be transmitted by either the client or the server at any time after opening handshake completion and before that endpoint has sent a Close frame (Section 5.5.1). ]*/
 TEST_FUNCTION(uws_client_send_frame_async_when_opening_underlying_io_fails)
 {
@@ -5618,7 +5614,7 @@ TEST_FUNCTION(uws_client_send_frame_async_when_opening_underlying_io_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_043: [ If the uws instance is not OPEN (open has not been called or is still in progress) then uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 /* Tests_SRS_UWS_CLIENT_01_146: [ A data frame MAY be transmitted by either the client or the server at any time after opening handshake completion and before that endpoint has sent a Close frame (Section 5.5.1). ]*/
 TEST_FUNCTION(uws_client_send_frame_async_when_waiting_for_upgrade_response_fails)
 {
@@ -5647,18 +5643,18 @@ TEST_FUNCTION(uws_client_send_frame_async_when_waiting_for_upgrade_response_fail
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_038: [ `uws_client_send_frame_async` shall create and queue a structure that contains: ]*/
-/* Tests_SRS_UWS_CLIENT_01_039: [ - the encoded websocket frame, so that the frame can be later sent when `uws_client_dowork` is called ]*/
-/* Tests_SRS_UWS_CLIENT_01_040: [ - the send complete callback `on_ws_send_frame_complete` ]*/
-/* Tests_SRS_UWS_CLIENT_01_056: [ - the `send_complete` callback shall be the `on_underlying_io_send_complete` function. ]*/
-/* Tests_SRS_UWS_CLIENT_01_042: [ On success, `uws_client_send_frame_async` shall return 0. ]*/
-/* Tests_SRS_UWS_CLIENT_01_425: [ Encoding shall be done by calling `uws_frame_encoder_encode` and passing to it the `buffer` and `size` argument for payload, the `is_final` flag and setting `is_masked` to true. ]*/
-/* Tests_SRS_UWS_CLIENT_01_428: [ The encoded frame buffer memory shall be obtained by calling `BUFFER_u_char` on the encode buffer. ]*/
-/* Tests_SRS_UWS_CLIENT_01_429: [ The encoded frame size shall be obtained by calling `BUFFER_length` on the encode buffer. ]*/
-/* Tests_SRS_UWS_CLIENT_01_048: [ Queueing shall be done by calling `singlylinkedlist_add`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_038: [ `uws_client_send_frame_async` shall create and queue a structure that contains: ]*/
-/* Tests_SRS_UWS_CLIENT_01_040: [ - the send complete callback `on_ws_send_frame_complete` ]*/
-/* Tests_SRS_UWS_CLIENT_01_041: [ - the send complete callback context `on_ws_send_frame_complete_context` ]*/
+/* Tests_SRS_UWS_CLIENT_01_038: [ uws_client_send_frame_async shall create and queue a structure that contains: ]*/
+/* Tests_SRS_UWS_CLIENT_01_039: [ - the encoded websocket frame, so that the frame can be later sent when uws_client_dowork is called ]*/
+/* Tests_SRS_UWS_CLIENT_01_040: [ - the send complete callback on_ws_send_frame_complete ]*/
+/* Tests_SRS_UWS_CLIENT_01_056: [ - the send_complete callback shall be the on_underlying_io_send_complete function. ]*/
+/* Tests_SRS_UWS_CLIENT_01_042: [ On success, uws_client_send_frame_async shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_425: [ Encoding shall be done by calling uws_frame_encoder_encode and passing to it the buffer and size argument for payload, the is_final flag and setting is_masked to true. ]*/
+/* Tests_SRS_UWS_CLIENT_01_428: [ The encoded frame buffer memory shall be obtained by calling BUFFER_u_char on the encode buffer. ]*/
+/* Tests_SRS_UWS_CLIENT_01_429: [ The encoded frame size shall be obtained by calling BUFFER_length on the encode buffer. ]*/
+/* Tests_SRS_UWS_CLIENT_01_048: [ Queueing shall be done by calling singlylinkedlist_add. ]*/
+/* Tests_SRS_UWS_CLIENT_01_038: [ uws_client_send_frame_async shall create and queue a structure that contains: ]*/
+/* Tests_SRS_UWS_CLIENT_01_040: [ - the send complete callback on_ws_send_frame_complete ]*/
+/* Tests_SRS_UWS_CLIENT_01_041: [ - the send complete callback context on_ws_send_frame_complete_context ]*/
 /* Tests_SRS_UWS_CLIENT_01_140: [ To avoid confusing network intermediaries (such as intercepting proxies) and for security reasons that are further discussed in Section 10.3, a client MUST mask all frames that it sends to the server (see Section 5.3 for further details). ]*/
 /* Tests_SRS_UWS_CLIENT_01_146: [ A data frame MAY be transmitted by either the client or the server at any time after opening handshake completion and before that endpoint has sent a Close frame (Section 5.5.1). ]*/
 /* Tests_SRS_UWS_CLIENT_01_270: [ An endpoint MUST encapsulate the /data/ in a WebSocket frame as defined in Section 5.2. ]*/
@@ -5763,7 +5759,7 @@ TEST_FUNCTION(uws_send_text_frame_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_047: [ If allocating memory for the newly queued item fails, `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_047: [ If allocating memory for the newly queued item fails, uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_allocating_memory_for_the_new_sent_item_fails_uws_client_send_frame_async_fails)
 {
     // arrange
@@ -5796,7 +5792,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_new_sent_item_fails_uws_client_send
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_426: [ If `uws_frame_encoder_encode` fails, `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_426: [ If uws_frame_encoder_encode fails, uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_encoding_the_frame_fails_uws_client_send_frame_async_fails)
 {
     // arrange
@@ -5831,8 +5827,8 @@ TEST_FUNCTION(when_encoding_the_frame_fails_uws_client_send_frame_async_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_058: [ If `xio_send` fails, `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
-/* Tests_SRS_UWS_CLIENT_09_001: [ If `xio_send` fails and the message is still queued, it shall be de-queued and destroyed. ] */
+/* Tests_SRS_UWS_CLIENT_01_058: [ If xio_send fails, uws_client_send_frame_async shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_09_001: [ If xio_send fails and the message is still queued, it shall be de-queued and destroyed. ] */
 TEST_FUNCTION(when_xio_send_fails_uws_client_send_frame_async_fails)
 {
     // arrange
@@ -5894,7 +5890,7 @@ TEST_FUNCTION(when_xio_send_fails_uws_client_send_frame_async_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_09_001: [ If `xio_send` fails and the message is still queued, it shall be de-queued and destroyed. ] */
+/* Tests_SRS_UWS_CLIENT_09_001: [ If xio_send fails and the message is still queued, it shall be de-queued and destroyed. ] */
 TEST_FUNCTION(when_xio_send_fails_uws_client_send_frame_async_fails_message_removed_by_xio_send)
 {
     // arrange
@@ -5960,7 +5956,7 @@ TEST_FUNCTION(when_xio_send_fails_uws_client_send_frame_async_fails_message_remo
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_049: [ If `singlylinkedlist_add` fails, `uws_client_send_frame_async` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_049: [ If singlylinkedlist_add fails, uws_client_send_frame_async shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_adding_the_item_to_the_list_fails_uws_client_send_frame_async_fails)
 {
     // arrange
@@ -6008,7 +6004,7 @@ TEST_FUNCTION(when_adding_the_item_to_the_list_fails_uws_client_send_frame_async
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_050: [ The argument `on_ws_send_frame_complete` shall be optional, if NULL is passed by the caller then no send complete callback shall be triggered. ]*/
+/* Tests_SRS_UWS_CLIENT_01_050: [ The argument on_ws_send_frame_complete shall be optional, if NULL is passed by the caller then no send complete callback shall be triggered. ]*/
 TEST_FUNCTION(uws_client_send_frame_async_with_NULL_complete_callback_succeeds)
 {
     // arrange
@@ -6060,8 +6056,8 @@ TEST_FUNCTION(uws_client_send_frame_async_with_NULL_complete_callback_succeeds)
 
 /* on_underlying_io_send_complete */
 
-/* Tests_SRS_UWS_CLIENT_01_389: [ When `on_underlying_io_send_complete` is called with `IO_SEND_OK` as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling `on_ws_send_frame_complete` with `WS_SEND_FRAME_OK`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_432: [ The indicated sent frame shall be removed from the list by calling `singlylinkedlist_remove`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_389: [ When on_underlying_io_send_complete is called with IO_SEND_OK as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling on_ws_send_frame_complete with WS_SEND_FRAME_OK. ]*/
+/* Tests_SRS_UWS_CLIENT_01_432: [ The indicated sent frame shall be removed from the list by calling singlylinkedlist_remove. ]*/
 /* Tests_SRS_UWS_CLIENT_01_434: [ The memory associated with the sent frame shall be freed. ]*/
 TEST_FUNCTION(on_underlying_io_send_complete_with_OK_indicates_the_frame_as_sent_OK)
 {
@@ -6097,7 +6093,7 @@ TEST_FUNCTION(on_underlying_io_send_complete_with_OK_indicates_the_frame_as_sent
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_433: [ If `singlylinkedlist_remove` fails an error shall be indicated by calling the `on_ws_error` callback with `WS_ERROR_CANNOT_REMOVE_SENT_ITEM_FROM_LIST`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_433: [ If singlylinkedlist_remove fails an error shall be indicated by calling the on_ws_error callback with WS_ERROR_CANNOT_REMOVE_SENT_ITEM_FROM_LIST. ]*/
 TEST_FUNCTION(when_removing_the_sent_framefrom_the_list_fails_then_an_error_is_indicated)
 {
     // arrange
@@ -6132,7 +6128,7 @@ TEST_FUNCTION(when_removing_the_sent_framefrom_the_list_fails_then_an_error_is_i
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_390: [ When `on_underlying_io_send_complete` is called with `IO_SEND_ERROR` as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling `on_ws_send_frame_complete` with `WS_SEND_FRAME_ERROR`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_390: [ When on_underlying_io_send_complete is called with IO_SEND_ERROR as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling on_ws_send_frame_complete with WS_SEND_FRAME_ERROR. ]*/
 TEST_FUNCTION(on_underlying_io_send_complete_with_ERROR_indicates_the_frame_with_WS_SEND_ERROR)
 {
     // arrange
@@ -6167,7 +6163,7 @@ TEST_FUNCTION(on_underlying_io_send_complete_with_ERROR_indicates_the_frame_with
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_391: [ When `on_underlying_io_send_complete` is called with `IO_SEND_CANCELLED` as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling `on_ws_send_frame_complete` with `WS_SEND_FRAME_CANCELLED`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_391: [ When on_underlying_io_send_complete is called with IO_SEND_CANCELLED as a result of sending a WebSocket frame to the underlying IO, the send shall be indicated to the uws user by calling on_ws_send_frame_complete with WS_SEND_FRAME_CANCELLED. ]*/
 TEST_FUNCTION(on_underlying_io_send_complete_with_CANCELLED_indicates_the_frame_with_WS_SEND_CANCELLED)
 {
     // arrange
@@ -6202,7 +6198,7 @@ TEST_FUNCTION(on_underlying_io_send_complete_with_CANCELLED_indicates_the_frame_
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_435: [ When `on_underlying_io_send_complete` is called with a NULL `context`, it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_435: [ When on_underlying_io_send_complete is called with a NULL context, it shall do nothing. ]*/
 TEST_FUNCTION(on_underlying_io_send_complete_with_NULL_context_does_nothing)
 {
     // arrange
@@ -6231,7 +6227,7 @@ TEST_FUNCTION(on_underlying_io_send_complete_with_NULL_context_does_nothing)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_436: [ When `on_underlying_io_send_complete` is called with any other error code, the send shall be indicated to the uws user by calling `on_ws_send_frame_complete` with `WS_SEND_FRAME_ERROR`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_436: [ When on_underlying_io_send_complete is called with any other error code, the send shall be indicated to the uws user by calling on_ws_send_frame_complete with WS_SEND_FRAME_ERROR. ]*/
 TEST_FUNCTION(on_underlying_io_send_complete_with_an_unknown_result_indicates_an_error)
 {
     // arrange
@@ -6268,7 +6264,7 @@ TEST_FUNCTION(on_underlying_io_send_complete_with_an_unknown_result_indicates_an
 
 /* uws_client_dowork */
 
-/* Tests_SRS_UWS_CLIENT_01_059: [ If the `uws_client` argument is NULL, `uws_client_dowork` shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_059: [ If the uws_client argument is NULL, uws_client_dowork shall do nothing. ]*/
 TEST_FUNCTION(uws_client_dowork_with_NULL_handle_does_nothing)
 {
     // arrange
@@ -6280,7 +6276,7 @@ TEST_FUNCTION(uws_client_dowork_with_NULL_handle_does_nothing)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_430: [ `uws_client_dowork` shall call `xio_dowork` with the IO handle argument set to the underlying IO created in `uws_client_create`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_430: [ uws_client_dowork shall call xio_dowork with the IO handle argument set to the underlying IO created in uws_client_create. ]*/
 TEST_FUNCTION(uws_client_dowork_calls_the_underlying_io_dowork)
 {
     // arrange
@@ -6306,7 +6302,7 @@ TEST_FUNCTION(uws_client_dowork_calls_the_underlying_io_dowork)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_060: [ If the IO is not yet open, `uws_client_dowork` shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_060: [ If the IO is not yet open, uws_client_dowork shall do nothing. ]*/
 TEST_FUNCTION(uws_client_dowork_when_closed_does_nothing)
 {
     // arrange
@@ -6331,7 +6327,7 @@ TEST_FUNCTION(uws_client_dowork_when_closed_does_nothing)
 
 /* on_underlying_io_error */
 
-/* Tests_SRS_UWS_CLIENT_01_375: [ When `on_underlying_io_error` is called while uws is OPENING, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_UNDERLYING_IO_ERROR`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_375: [ When on_underlying_io_error is called while uws is OPENING, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_UNDERLYING_IO_ERROR. ]*/
 /* Tests_SRS_UWS_CLIENT_01_077: [ If this fails (e.g., the server's certificate could not be verified), then the client MUST _Fail the WebSocket Connection_ and abort the connection. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_opening_underlying_io_indicates_an_open_complete_with_WS_OPEN_ERROR_UNDERLYING_IO_ERROR)
 {
@@ -6359,7 +6355,7 @@ TEST_FUNCTION(on_underlying_io_error_while_opening_underlying_io_indicates_an_op
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_375: [ When `on_underlying_io_error` is called while uws is OPENING, uws shall report that the open failed by calling the `on_ws_open_complete` callback passed to `uws_client_open_async` with `WS_OPEN_ERROR_UNDERLYING_IO_ERROR`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_375: [ When on_underlying_io_error is called while uws is OPENING, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_UNDERLYING_IO_ERROR. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_waiting_for_upgrade_response_indicates_an_open_complete_with_WS_OPEN_ERROR_UNDERLYING_IO_ERROR)
 {
     // arrange
@@ -6387,7 +6383,7 @@ TEST_FUNCTION(on_underlying_io_error_while_waiting_for_upgrade_response_indicate
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_376: [ When `on_underlying_io_error` is called while the uws instance is OPEN, an error shall be reported to the user by calling the `on_ws_error` callback that was passed to `uws_client_open_async` with the argument `WS_ERROR_UNDERLYING_IO_ERROR`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_376: [ When on_underlying_io_error is called while the uws instance is OPEN, an error shall be reported to the user by calling the on_ws_error callback that was passed to uws_client_open_async with the argument WS_ERROR_UNDERLYING_IO_ERROR. ]*/
 /* Tests_SRS_UWS_CLIENT_01_318: [ Servers MAY close the WebSocket connection whenever desired. ]*/
 /* Tests_SRS_UWS_CLIENT_01_269: [ If at any point the state of the WebSocket connection changes, the endpoint MUST abort the following steps. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_OPEN_indicates_an_error)
@@ -6418,7 +6414,7 @@ TEST_FUNCTION(on_underlying_io_error_while_OPEN_indicates_an_error)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_377: [ When `on_underlying_io_error` is called while the uws instance is CLOSING the underlying IO shall be closed by calling `xio_close`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_377: [ When on_underlying_io_error is called while the uws instance is CLOSING the underlying IO shall be closed by calling xio_close. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_CLOSING_indicates_an_error)
 {
     // arrange
@@ -6449,7 +6445,7 @@ TEST_FUNCTION(on_underlying_io_error_while_CLOSING_indicates_an_error)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_377: [ When `on_underlying_io_error` is called while the uws instance is CLOSING the underlying IO shall be closed by calling `xio_close`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_377: [ When on_underlying_io_error is called while the uws instance is CLOSING the underlying IO shall be closed by calling xio_close. ]*/
 TEST_FUNCTION(open_after_error_during_sending_close_succeeds)
 {
     // arrange
@@ -6489,8 +6485,8 @@ TEST_FUNCTION(open_after_error_during_sending_close_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_377: [ When `on_underlying_io_error` is called while the uws instance is CLOSING the underlying IO shall be closed by calling `xio_close`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_499: [ If the CLOSE was due to the peer closing, the callback `on_ws_close_complete` shall not be called. ]*/
+/* Tests_SRS_UWS_CLIENT_01_377: [ When on_underlying_io_error is called while the uws instance is CLOSING the underlying IO shall be closed by calling xio_close. ]*/
+/* Tests_SRS_UWS_CLIENT_01_499: [ If the CLOSE was due to the peer closing, the callback on_ws_close_complete shall not be called. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_CLOSING_underlying_io_indicates_the_close)
 {
     // arrange
@@ -6524,7 +6520,7 @@ TEST_FUNCTION(on_underlying_io_error_while_CLOSING_underlying_io_indicates_the_c
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_377: [ When `on_underlying_io_error` is called while the uws instance is CLOSING the underlying IO shall be closed by calling `xio_close`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_377: [ When on_underlying_io_error is called while the uws instance is CLOSING the underlying IO shall be closed by calling xio_close. ]*/
 TEST_FUNCTION(open_after_error_during_closing_underlying_io_succeeds)
 {
     // arrange
@@ -6565,8 +6561,8 @@ TEST_FUNCTION(open_after_error_during_closing_underlying_io_succeeds)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_500: [ If `xio_close` fails then the callback `on_ws_close_complete` shall be called, while passing the `on_ws_close_complete_context` argument to it. ]*/
-/* Tests_SRS_UWS_CLIENT_01_500: [ The callback `on_ws_close_complete` shall be called, while passing the `on_ws_close_complete_context` argument to it. ]*/
+/* Tests_SRS_UWS_CLIENT_01_500: [ If xio_close fails then the callback on_ws_close_complete shall be called, while passing the on_ws_close_complete_context argument to it. ]*/
+/* Tests_SRS_UWS_CLIENT_01_500: [ The callback on_ws_close_complete shall be called, while passing the on_ws_close_complete_context argument to it. ]*/
 TEST_FUNCTION(on_underlying_io_error_while_CLOSING_due_to_local_initiated_close)
 {
     // arrange
@@ -6602,7 +6598,7 @@ TEST_FUNCTION(on_underlying_io_error_while_CLOSING_due_to_local_initiated_close)
 
 /* on_underlying_io_close_sent */
 
-/* Tests_SRS_UWS_CLIENT_01_489: [ When `on_underlying_io_close_sent` is called with NULL context, it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_489: [ When on_underlying_io_close_sent is called with NULL context, it shall do nothing. ]*/
 TEST_FUNCTION(on_underlying_io_close_sent_with_NULL_context_does_nothing)
 {
     // arrange
@@ -6631,7 +6627,7 @@ TEST_FUNCTION(on_underlying_io_close_sent_with_NULL_context_does_nothing)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_490: [ When `on_underlying_io_close_sent` is called while the uws client is CLOSING, `on_underlying_io_close_sent` shall close the underlying IO by calling `xio_close`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_490: [ When on_underlying_io_close_sent is called while the uws client is CLOSING, on_underlying_io_close_sent shall close the underlying IO by calling xio_close. ]*/
 TEST_FUNCTION(on_underlying_io_close_sent_when_a_CLOSE_was_sent_closes_the_underlying_IO)
 {
     // arrange
@@ -6664,8 +6660,8 @@ TEST_FUNCTION(on_underlying_io_close_sent_when_a_CLOSE_was_sent_closes_the_under
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_493: [ If calling `xio_close` fails, the state of the uws client shall be considered CLOSED and the `on_ws_close_complete` shall be called if it was specified. ]*/
-/* Tests_SRS_UWS_CLIENT_01_496: [ If the close was initiated by the peer no `on_ws_close_complete` shall be called. ]*/
+/* Tests_SRS_UWS_CLIENT_01_493: [ If calling xio_close fails, the state of the uws client shall be considered CLOSED and the on_ws_close_complete shall be called if it was specified. ]*/
+/* Tests_SRS_UWS_CLIENT_01_496: [ If the close was initiated by the peer no on_ws_close_complete shall be called. ]*/
 TEST_FUNCTION(when_xio_close_fails_in_on_underlying_io_close_sent_and_CLOSE_initiated_by_peer_no_callback_is_triggered)
 {
     // arrange
@@ -6699,8 +6695,8 @@ TEST_FUNCTION(when_xio_close_fails_in_on_underlying_io_close_sent_and_CLOSE_init
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_493: [ If calling `xio_close` fails, the state of the uws client shall be considered CLOSED and the `on_ws_close_complete` shall be called if it was specified. ]*/
-/* Tests_SRS_UWS_CLIENT_01_496: [ If the close was initiated by the peer no `on_ws_close_complete` shall be called. ]*/
+/* Tests_SRS_UWS_CLIENT_01_493: [ If calling xio_close fails, the state of the uws client shall be considered CLOSED and the on_ws_close_complete shall be called if it was specified. ]*/
+/* Tests_SRS_UWS_CLIENT_01_496: [ If the close was initiated by the peer no on_ws_close_complete shall be called. ]*/
 TEST_FUNCTION(when_xio_close_fails_in_on_underlying_io_close_sent_and_CLOSE_initiated_by_peer_no_callback_is_triggered_and_next_open_succeeds)
 {
     // arrange
@@ -6898,7 +6894,7 @@ TEST_FUNCTION(when_a_PING_frame_is_received_after_a_close_frame_no_pong_is_sent)
 
 /* uws_setoption */
 
-/* Tests_SRS_UWS_CLIENT_01_440: [ If any of the arguments `uws_client` or `option_name` is NULL `uws_client_set_option` shall return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_440: [ If any of the arguments uws_client or option_name is NULL uws_client_set_option shall return a non-zero value. ]*/
 TEST_FUNCTION(uws_set_option_with_NULL_uws_handle_fails)
 {
     // arrange
@@ -6912,7 +6908,7 @@ TEST_FUNCTION(uws_set_option_with_NULL_uws_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_440: [ If any of the arguments `uws_client` or `option_name` is NULL `uws_client_set_option` shall return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_440: [ If any of the arguments uws_client or option_name is NULL uws_client_set_option shall return a non-zero value. ]*/
 TEST_FUNCTION(uws_set_option_with_NULL_option_name_fails)
 {
     // arrange
@@ -6936,8 +6932,8 @@ TEST_FUNCTION(uws_set_option_with_NULL_option_name_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_510: [ If the option name is `uWSClientOptions` then `uws_client_set_option` shall call `OptionHandler_FeedOptions` and pass to it the underlying IO handle and the `value` argument. ]*/
-/* Tests_SRS_UWS_CLIENT_01_442: [ On success, `uws_client_set_option` shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_510: [ If the option name is uWSClientOptions then uws_client_set_option shall call OptionHandler_FeedOptions and pass to it the underlying IO handle and the value argument. ]*/
+/* Tests_SRS_UWS_CLIENT_01_442: [ On success, uws_client_set_option shall return 0. ]*/
 TEST_FUNCTION(uws_set_option_with_uws_client_options_calls_OptionHandler_FeedOptions)
 {
     // arrange
@@ -6963,7 +6959,7 @@ TEST_FUNCTION(uws_set_option_with_uws_client_options_calls_OptionHandler_FeedOpt
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_511: [ If `OptionHandler_FeedOptions` fails, `uws_client_set_option` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_511: [ If OptionHandler_FeedOptions fails, uws_client_set_option shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_OptionHandler_FeedOptions_fails_then_uws_set_option_fails)
 {
     // arrange
@@ -6990,8 +6986,8 @@ TEST_FUNCTION(when_OptionHandler_FeedOptions_fails_then_uws_set_option_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_441: [ Otherwise all options shall be passed as they are to the underlying IO by calling `xio_setoption`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_442: [ On success, `uws_client_set_option` shall return 0. ]*/
+/* Tests_SRS_UWS_CLIENT_01_441: [ Otherwise all options shall be passed as they are to the underlying IO by calling xio_setoption. ]*/
+/* Tests_SRS_UWS_CLIENT_01_442: [ On success, uws_client_set_option shall return 0. ]*/
 TEST_FUNCTION(uws_set_option_passes_the_option_down)
 {
     // arrange
@@ -7017,7 +7013,7 @@ TEST_FUNCTION(uws_set_option_passes_the_option_down)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_443: [ If `xio_setoption` fails, `uws_client_set_option` shall fail and return a non-zero value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_443: [ If xio_setoption fails, uws_client_set_option shall fail and return a non-zero value. ]*/
 TEST_FUNCTION(when_xio_setoption_fails_then_uws_set_option_fails)
 {
     // arrange
@@ -7046,7 +7042,7 @@ TEST_FUNCTION(when_xio_setoption_fails_then_uws_set_option_fails)
 
 /* uws_client_retrieve_options */
 
-/* Tests_SRS_UWS_CLIENT_01_444: [ If parameter `uws_client` is `NULL` then `uws_client_retrieve_options` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_444: [ If parameter uws_client is NULL then uws_client_retrieve_options shall fail and return NULL. ]*/
 TEST_FUNCTION(uws_retrieve_options_with_NULL_handle_fails)
 {
     // arrange
@@ -7060,10 +7056,10 @@ TEST_FUNCTION(uws_retrieve_options_with_NULL_handle_fails)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-/* Tests_SRS_UWS_CLIENT_01_445: [ `uws_client_retrieve_options` shall call `OptionHandler_Create` to produce an `OPTIONHANDLER_HANDLE` and on success return the new `OPTIONHANDLER_HANDLE` handle. ]*/
-/* Tests_SRS_UWS_CLIENT_01_501: [ `uws_client_retrieve_options` shall add to the option handler one option, whose name shall be `uWSClientOptions` and the value shall be queried by calling `xio_retrieveoptions`. ]*/
-/* Tests_SRS_UWS_CLIENT_01_502: [ When calling `xio_retrieveoptions` the underlying IO handle shall be passed to it. ]*/
-/* Tests_SRS_UWS_CLIENT_01_504: [ Adding the option shall be done by calling `OptionHandler_AddOption`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_445: [ uws_client_retrieve_options shall call OptionHandler_Create to produce an OPTIONHANDLER_HANDLE and on success return the new OPTIONHANDLER_HANDLE handle. ]*/
+/* Tests_SRS_UWS_CLIENT_01_501: [ uws_client_retrieve_options shall add to the option handler one option, whose name shall be uWSClientOptions and the value shall be queried by calling xio_retrieveoptions. ]*/
+/* Tests_SRS_UWS_CLIENT_01_502: [ When calling xio_retrieveoptions the underlying IO handle shall be passed to it. ]*/
+/* Tests_SRS_UWS_CLIENT_01_504: [ Adding the option shall be done by calling OptionHandler_AddOption. ]*/
 TEST_FUNCTION(uws_retrieve_options_calls_the_underlying_xio_retrieve_options_and_returns_the_a_new_option_handler_instance)
 {
     // arrange
@@ -7091,7 +7087,7 @@ TEST_FUNCTION(uws_retrieve_options_calls_the_underlying_xio_retrieve_options_and
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_446: [ If `OptionHandler_Create` fails then `uws_client_retrieve_options` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_446: [ If OptionHandler_Create fails then uws_client_retrieve_options shall fail and return NULL. ]*/
 TEST_FUNCTION(when_OptionHandler_Create_fails_then_uws_retrieve_options_fails)
 {
     // arrange
@@ -7118,7 +7114,7 @@ TEST_FUNCTION(when_OptionHandler_Create_fails_then_uws_retrieve_options_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_503: [ If `xio_retrieveoptions` fails, `uws_client_retrieve_options` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_503: [ If xio_retrieveoptions fails, uws_client_retrieve_options shall fail and return NULL. ]*/
 TEST_FUNCTION(when_xio_retrieveoptions_fails_then_uws_retrieve_options_fails)
 {
     // arrange
@@ -7147,7 +7143,7 @@ TEST_FUNCTION(when_xio_retrieveoptions_fails_then_uws_retrieve_options_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_505: [ If `OptionHandler_AddOption` fails, `uws_client_retrieve_options` shall fail and return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_505: [ If OptionHandler_AddOption fails, uws_client_retrieve_options shall fail and return NULL. ]*/
 TEST_FUNCTION(when_OptionHandler_AddOption_fails_then_uws_retrieve_options_fails)
 {
     // arrange
@@ -7180,7 +7176,7 @@ TEST_FUNCTION(when_OptionHandler_AddOption_fails_then_uws_retrieve_options_fails
 
 /* uws_client_clone_option */
 
-/* Tests_SRS_UWS_CLIENT_01_507: [ `uws_client_clone_option` called with `name` being `uWSClientOptions` shall return the same value. ]*/
+/* Tests_SRS_UWS_CLIENT_01_507: [ uws_client_clone_option called with name being uWSClientOptions shall return the same value. ]*/
 TEST_FUNCTION(uws_client_clone_option_calls_xio_cloneoption)
 {
     // arrange
@@ -7205,7 +7201,7 @@ TEST_FUNCTION(uws_client_clone_option_calls_xio_cloneoption)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_512: [ `uws_client_clone_option` called with any other option name than `uWSClientOptions` shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_512: [ uws_client_clone_option called with any other option name than uWSClientOptions shall return NULL. ]*/
 TEST_FUNCTION(uws_client_clone_with_an_unknown_option_fails)
 {
     // arrange
@@ -7230,7 +7226,7 @@ TEST_FUNCTION(uws_client_clone_with_an_unknown_option_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_506: [ If `uws_client_clone_option` is called with NULL `name` or `value` it shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_506: [ If uws_client_clone_option is called with NULL name or value it shall return NULL. ]*/
 TEST_FUNCTION(uws_client_clone_option_with_NULL_name_fails)
 {
     // arrange
@@ -7255,7 +7251,7 @@ TEST_FUNCTION(uws_client_clone_option_with_NULL_name_fails)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_506: [ If `uws_client_clone_option` is called with NULL `name` or `value` it shall return NULL. ]*/
+/* Tests_SRS_UWS_CLIENT_01_506: [ If uws_client_clone_option is called with NULL name or value it shall return NULL. ]*/
 TEST_FUNCTION(uws_client_clone_option_with_NULL_value_fails)
 {
     // arrange
@@ -7282,7 +7278,7 @@ TEST_FUNCTION(uws_client_clone_option_with_NULL_value_fails)
 
 /* uws_client_destroy_option */
 
-/* Tests_SRS_UWS_CLIENT_01_509: [ If `uws_client_destroy_option` is called with NULL `name` or `value` it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_509: [ If uws_client_destroy_option is called with NULL name or value it shall do nothing. ]*/
 TEST_FUNCTION(uws_client_destroy_option_with_NULL_name_does_no_destroy)
 {
     // arrange
@@ -7305,7 +7301,7 @@ TEST_FUNCTION(uws_client_destroy_option_with_NULL_name_does_no_destroy)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_509: [ If `uws_client_destroy_option` is called with NULL `name` or `value` it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_509: [ If uws_client_destroy_option is called with NULL name or value it shall do nothing. ]*/
 TEST_FUNCTION(uws_client_destroy_option_with_NULL_value_does_no_destroy)
 {
     // arrange
@@ -7328,7 +7324,7 @@ TEST_FUNCTION(uws_client_destroy_option_with_NULL_value_does_no_destroy)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_513: [ If `uws_client_destroy_option` is called with any other `name` it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_513: [ If uws_client_destroy_option is called with any other name it shall do nothing. ]*/
 TEST_FUNCTION(uws_client_destroy_option_with_an_unknown_option_does_no_destroy)
 {
     // arrange
@@ -7351,7 +7347,7 @@ TEST_FUNCTION(uws_client_destroy_option_with_an_unknown_option_does_no_destroy)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_508: [ `uws_client_destroy_option` called with the option `name` being `uWSClientOptions` shall destroy the value by calling `OptionHandler_Destroy`. ]*/
+/* Tests_SRS_UWS_CLIENT_01_508: [ uws_client_destroy_option called with the option name being uWSClientOptions shall destroy the value by calling OptionHandler_Destroy. ]*/
 TEST_FUNCTION(uws_client_destroy_option_with_uWSClientOptions_calls_OptionHandler_Destroy)
 {
     // arrange
@@ -7378,7 +7374,7 @@ TEST_FUNCTION(uws_client_destroy_option_with_uWSClientOptions_calls_OptionHandle
 
 /* on_underlying_io_close_complete */
 
-/* Tests_SRS_UWS_CLIENT_01_475: [ When `on_underlying_io_close_complete` is called while closing the underlying IO a subsequent `uws_client_open_async` shall succeed. ]*/
+/* Tests_SRS_UWS_CLIENT_01_475: [ When on_underlying_io_close_complete is called while closing the underlying IO a subsequent uws_client_open_async shall succeed. ]*/
 TEST_FUNCTION(underlying_io_close_after_a_send_close_frame_failed_puts_the_uws_in_closed_state_and_a_new_open_is_allowed)
 {
     // arrange
@@ -7473,7 +7469,7 @@ TEST_FUNCTION(underlying_io_close_due_to_CLOSE_frame_being_received_doe_not_trig
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_477: [ When `on_underlying_io_close_complete` is called with a NULL context, it shall do nothing. ]*/
+/* Tests_SRS_UWS_CLIENT_01_477: [ When on_underlying_io_close_complete is called with a NULL context, it shall do nothing. ]*/
 TEST_FUNCTION(underlying_io_close_complete_with_NULL_context_does_nothing)
 {
     // arrange
@@ -7518,7 +7514,7 @@ TEST_FUNCTION(underlying_io_close_complete_with_NULL_context_does_nothing)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_387: [ When `on_underlying_io_close_complete` is called when the uws instance is closing, the `on_ws_close_complete` callback passed to `uws_client_close_async` shall be called. ]*/
+/* Tests_SRS_UWS_CLIENT_01_387: [ When on_underlying_io_close_complete is called when the uws instance is closing, the on_ws_close_complete callback passed to uws_client_close_async shall be called. ]*/
 TEST_FUNCTION(when_close_complete_is_called_the_user_callback_is_triggered)
 {
     // arrange
@@ -7550,8 +7546,8 @@ TEST_FUNCTION(when_close_complete_is_called_the_user_callback_is_triggered)
     uws_client_destroy(uws_client);
 }
 
-/* Tests_SRS_UWS_CLIENT_01_387: [ When `on_underlying_io_close_complete` is called when the uws instance is closing, the `on_ws_close_complete` callback passed to `uws_client_close_async` shall be called. ]*/
-/* Tests_SRS_UWS_CLIENT_01_469: [ The `on_ws_close_complete` argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
+/* Tests_SRS_UWS_CLIENT_01_387: [ When on_underlying_io_close_complete is called when the uws instance is closing, the on_ws_close_complete callback passed to uws_client_close_async shall be called. ]*/
+/* Tests_SRS_UWS_CLIENT_01_469: [ The on_ws_close_complete argument shall be allowed to be NULL, in which case no callback shall be called when the close is complete. ]*/
 TEST_FUNCTION(when_close_complete_is_called_and_the_user_callback_is_NULL_no_callback_is_triggered)
 {
     // arrange
@@ -7581,7 +7577,7 @@ TEST_FUNCTION(when_close_complete_is_called_and_the_user_callback_is_NULL_no_cal
     uws_client_destroy(uws_client);
 }
 
-// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments `uws_client` or `name` or `value` is NULL `uws_client_set_request_header` shall fail and return a non-zero value. ]  
+// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments uws_client or name or value is NULL uws_client_set_request_header shall fail and return a non-zero value. ]
 TEST_FUNCTION(uws_client_set_request_header_NULL_handle)
 {
     // arrange
@@ -7601,7 +7597,7 @@ TEST_FUNCTION(uws_client_set_request_header_NULL_handle)
     // cleanup
 }
 
-// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments `uws_client` or `name` or `value` is NULL `uws_client_set_request_header` shall fail and return a non-zero value. ]  
+// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments uws_client or name or value is NULL uws_client_set_request_header shall fail and return a non-zero value. ]
 TEST_FUNCTION(uws_client_set_request_header_NULL_name)
 {
     // arrange
@@ -7625,7 +7621,7 @@ TEST_FUNCTION(uws_client_set_request_header_NULL_name)
     uws_client_destroy(uws_client);
 }
 
-// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments `uws_client` or `name` or `value` is NULL `uws_client_set_request_header` shall fail and return a non-zero value. ]  
+// Tests_SRS_UWS_CLIENT_09_002: [ If any of the arguments uws_client or name or value is NULL uws_client_set_request_header shall fail and return a non-zero value. ]
 TEST_FUNCTION(uws_client_set_request_header_NULL_value)
 {
     // arrange
@@ -7649,7 +7645,7 @@ TEST_FUNCTION(uws_client_set_request_header_NULL_value)
     uws_client_destroy(uws_client);
 }
 
-// Tests_SRS_UWS_CLIENT_09_004: [ If `name` or `value` fail to be stored the function shall fail and return a non-zero value. ]  
+// Tests_SRS_UWS_CLIENT_09_004: [ If name or value fail to be stored the function shall fail and return a non-zero value. ]
 TEST_FUNCTION(uws_client_set_request_header_negative_tests)
 {
     // arrange
@@ -7678,7 +7674,7 @@ TEST_FUNCTION(uws_client_set_request_header_negative_tests)
         // act
         result = uws_client_set_request_header(uws_client, req_header1_key, req_header1_value);
 
-        sprintf(error_msg, "On failed call %zu", i);
+        sprintf(error_msg, "On failed call %lu", (unsigned long)i);
         ASSERT_ARE_NOT_EQUAL(int, 0, result, error_msg);
     }
 
@@ -7687,8 +7683,8 @@ TEST_FUNCTION(uws_client_set_request_header_negative_tests)
     umock_c_negative_tests_deinit();
 }
 
-// Tests_SRS_UWS_CLIENT_09_003: [ A copy of `name` and `value` shall be stored for later sending in the request message. ]  
-// Tests_SRS_UWS_CLIENT_09_005: [ If no failures occur the function shall return zero. ]  
+// Tests_SRS_UWS_CLIENT_09_003: [ A copy of name and value shall be stored for later sending in the request message. ]
+// Tests_SRS_UWS_CLIENT_09_005: [ If no failures occur the function shall return zero. ]
 TEST_FUNCTION(uws_client_set_request_header_success)
 {
     // arrange

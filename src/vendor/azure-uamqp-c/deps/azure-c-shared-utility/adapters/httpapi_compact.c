@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <limits.h>
+
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/httpheaders.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
@@ -15,12 +17,13 @@
 #include "azure_c_shared_utility/tlsio.h"
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/shared_util_options.h"
+#include "azure_c_shared_utility/http_proxy_io.h"
 
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #endif
 
-/*Codes_SRS_HTTPAPI_COMPACT_21_001: [ The httpapi_compact shall implement the methods defined by the `httpapi.h`. ]*/
+/*Codes_SRS_HTTPAPI_COMPACT_21_001: [ The httpapi_compact shall implement the methods defined by the httpapi.h. ]*/
 /*Codes_SRS_HTTPAPI_COMPACT_21_002: [ The httpapi_compact shall support the http requests. ]*/
 /*Codes_SRS_HTTPAPI_COMPACT_21_003: [ The httpapi_compact shall return error codes defined by HTTPAPI_RESULT. ]*/
 #include "azure_c_shared_utility/httpapi.h"
@@ -39,10 +42,11 @@
 /*Codes_SRS_HTTPAPI_COMPACT_21_083: [ The HTTPAPI_ExecuteRequest shall wait, at least, 100 milliseconds between retries. ]*/
 #define RETRY_INTERVAL_IN_MICROSECONDS  100
 
-DEFINE_ENUM_STRINGS(HTTPAPI_RESULT, HTTPAPI_RESULT_VALUES)
+MU_DEFINE_ENUM_STRINGS(HTTPAPI_RESULT, HTTPAPI_RESULT_VALUES)
 
 typedef struct HTTP_HANDLE_DATA_TAG
 {
+    char*           hostName;
     char*           certificate;
     char*           x509ClientCertificate;
     char*           x509ClientPrivateKey;
@@ -218,9 +222,15 @@ HTTP_HANDLE HTTPAPI_CreateConnection(const char* hostName)
         {
             LogError("There is no memory to control the http connection");
         }
+        else if (mallocAndStrcpy_s(&http_instance->hostName, hostName) != 0)
+        {
+            LogError("Failed copying hostname");
+            free(http_instance);
+            http_instance = NULL;
+        }
         else
         {
-            tlsio_config.hostname = hostName;
+            tlsio_config.hostname = http_instance->hostName;
             tlsio_config.port = 443;
             tlsio_config.underlying_io_interface = NULL;
             tlsio_config.underlying_io_parameters = NULL;
@@ -231,6 +241,7 @@ HTTP_HANDLE HTTPAPI_CreateConnection(const char* hostName)
             if (http_instance->xio_handle == NULL)
             {
                 LogError("Create connection failed");
+                free(http_instance->hostName);
                 free(http_instance);
                 http_instance = NULL;
             }
@@ -328,6 +339,12 @@ void HTTPAPI_CloseConnection(HTTP_HANDLE handle)
         {
             free(http_instance->x509ClientPrivateKey);
         }
+
+        if (http_instance->hostName)
+        {
+            free(http_instance->hostName);
+        }
+
         free(http_instance);
     }
 }
@@ -816,11 +833,11 @@ static HTTPAPI_RESULT conn_send_all(HTTP_HANDLE_DATA* http_instance, const unsig
     return result;
 }
 
-/*Codes_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`. ]*/
+/*Codes_SRS_HTTPAPI_COMPACT_21_035: [ The HTTPAPI_ExecuteRequest shall execute resquest for types GET, POST, PUT, DELETE, PATCH, HEAD. ]*/
 const char httpapiRequestString[6][7] = { "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD" };
 const char* get_request_type(HTTPAPI_REQUEST_TYPE requestType)
 {
-    return (const char*)httpapiRequestString[requestType];
+    return (const char*)httpapiRequestString[requestType - HTTPAPI_REQUEST_GET];
 }
 
 /*Codes_SRS_HTTPAPI_COMPACT_21_026: [ If the open process succeed, the HTTPAPI_ExecuteRequest shall send the request message to the host. ]*/
@@ -1202,33 +1219,33 @@ HTTPAPI_RESULT HTTPAPI_ExecuteRequest(HTTP_HANDLE handle, HTTPAPI_REQUEST_TYPE r
         HTTPHeaders_GetHeaderCount(httpHeadersHandle, &headersCount) != HTTP_HEADERS_OK)
     {
         result = HTTPAPI_INVALID_ARG;
-        LogError("(result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("(result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_21_024: [ The HTTPAPI_ExecuteRequest shall open the transport connection with the host to send the request. ]*/
     else if ((result = OpenXIOConnection(http_instance)) != HTTPAPI_OK)
     {
-        LogError("Open HTTP connection failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("Open HTTP connection failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_21_026: [ If the open process succeed, the HTTPAPI_ExecuteRequest shall send the request message to the host. ]*/
     else if ((result = SendHeadsToXIO(http_instance, requestType, relativePath, httpHeadersHandle, headersCount)) != HTTPAPI_OK)
     {
-        LogError("Send heads to HTTP failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("Send heads to HTTP failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_21_042: [ The request can contain the a content message, provided in content parameter. ]*/
     else if ((result = SendContentToXIO(http_instance, content, contentLength)) != HTTPAPI_OK)
     {
-        LogError("Send content to HTTP failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("Send content to HTTP failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_21_030: [ At the end of the transmission, the HTTPAPI_ExecuteRequest shall receive the response from the host. ]*/
     /*Codes_SRS_HTTPAPI_COMPACT_21_073: [ The message received by the HTTPAPI_ExecuteRequest shall starts with a valid header. ]*/
     else if ((result = ReceiveHeaderFromXIO(http_instance, statusCode)) != HTTPAPI_OK)
     {
-        LogError("Receive header from HTTP failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("Receive header from HTTP failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_21_074: [ After the header, the message received by the HTTPAPI_ExecuteRequest can contain addition information about the content. ]*/
     else if ((result = ReceiveContentInfoFromXIO(http_instance, responseHeadersHandle, &bodyLength, &chunked)) != HTTPAPI_OK)
     {
-        LogError("Receive content information from HTTP failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+        LogError("Receive content information from HTTP failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
     }
     /*Codes_SRS_HTTPAPI_COMPACT_42_084: [ The message received by the HTTPAPI_ExecuteRequest should not contain http body. ]*/
     else if (requestType != HTTPAPI_REQUEST_HEAD)
@@ -1236,7 +1253,7 @@ HTTPAPI_RESULT HTTPAPI_ExecuteRequest(HTTP_HANDLE handle, HTTPAPI_REQUEST_TYPE r
         /*Codes_SRS_HTTPAPI_COMPACT_21_075: [ The message received by the HTTPAPI_ExecuteRequest can contain a body with the message content. ]*/
         if ((result = ReadHTTPResponseBodyFromXIO(http_instance, bodyLength, chunked, responseContent)) != HTTPAPI_OK)
         {
-            LogError("Read HTTP response body from HTTP failed (result = %s)", ENUM_TO_STRING(HTTPAPI_RESULT, result));
+            LogError("Read HTTP response body from HTTP failed (result = %" PRI_MU_ENUM ")", MU_ENUM_VALUE(HTTPAPI_RESULT, result));
         }
     }
 
@@ -1293,7 +1310,7 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
         }
 #endif // DO_NOT_COPY_TRUSTED_CERTS_STRING
     }
-    else if (strcmp(SU_OPTION_X509_CERT, optionName) == 0)
+    else if (strcmp(SU_OPTION_X509_CERT, optionName) == 0 || strcmp(OPTION_X509_ECC_CERT, optionName) == 0)
     {
         int len;
         if (http_instance->x509ClientCertificate)
@@ -1316,7 +1333,7 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
             result = HTTPAPI_OK;
         }
     }
-    else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0)
+    else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0 || strcmp(OPTION_X509_ECC_KEY, optionName) == 0)
     {
         int len;
         if (http_instance->x509ClientPrivateKey)
@@ -1339,12 +1356,82 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
             result = HTTPAPI_OK;
         }
     }
+    else if (strcmp(OPTION_HTTP_PROXY, optionName) == 0)
+    {
+        TLSIO_CONFIG tlsio_config;
+        HTTP_PROXY_IO_CONFIG proxy_config;
+        HTTP_PROXY_OPTIONS* proxy_options = (HTTP_PROXY_OPTIONS*)value;
+
+        if (proxy_options->host_address == NULL)
+        {
+            LogError("NULL host_address in proxy options");
+            result = HTTPAPI_ERROR;
+        }
+        else if (((proxy_options->username == NULL) || (proxy_options->password == NULL)) &&
+                (proxy_options->username != proxy_options->password))
+        {
+            LogError("Only one of username and password for proxy settings was NULL");
+            result = HTTPAPI_ERROR;
+        }
+        else
+        {
+
+            /* Workaround: xio interface is already created when HTTPAPI_CreateConnection is call without proxy support
+             * need to destroy the interface and create a new one with proxy information
+             */
+            OPTIONHANDLER_HANDLE xio_options;
+            if ((xio_options = xio_retrieveoptions(http_instance->xio_handle)) == NULL)
+            {
+                LogError("failed saving underlying I/O transport options");
+                result = HTTPAPI_ERROR;
+            }
+            else
+            {
+                xio_destroy(http_instance->xio_handle);
+
+                proxy_config.hostname = http_instance->hostName;
+                proxy_config.proxy_hostname = proxy_options->host_address;
+                proxy_config.password = proxy_options->password;
+                proxy_config.username = proxy_options->username;
+                proxy_config.proxy_port = proxy_options->port;
+                proxy_config.port = 443;
+
+                tlsio_config.hostname = http_instance->hostName;
+                tlsio_config.port = 443;
+                tlsio_config.underlying_io_interface =  http_proxy_io_get_interface_description();
+                tlsio_config.underlying_io_parameters = &proxy_config;
+
+                http_instance->xio_handle = xio_create(platform_get_default_tlsio(), (void*)&tlsio_config);
+
+                if (http_instance->xio_handle == NULL)
+                {
+                    LogError("Failed to create xio handle with proxy configuration");
+                    result = HTTPAPI_ERROR;
+                }
+                else
+                {
+                    if (OptionHandler_FeedOptions(xio_options, http_instance->xio_handle) != OPTIONHANDLER_OK)
+                    {
+                        LogError("Failed feeding existing options to new xio instance.");
+                        result = HTTPAPI_ERROR;
+                    }
+                    else
+                    {
+                        result = HTTPAPI_OK;
+                    }
+                }
+
+                OptionHandler_Destroy(xio_options);
+            }
+        }
+    }
     else
     {
         /*Codes_SRS_HTTPAPI_COMPACT_21_063: [ If the HTTP do not support the optionName, the HTTPAPI_SetOption shall return HTTPAPI_INVALID_ARG. ]*/
         result = HTTPAPI_INVALID_ARG;
         LogInfo("unknown option %s", optionName);
     }
+
     return result;
 }
 
@@ -1389,7 +1476,7 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
         }
 #endif // DO_NOT_COPY_TRUSTED_CERTS_STRING
     }
-    else if (strcmp(SU_OPTION_X509_CERT, optionName) == 0)
+    else if (strcmp(SU_OPTION_X509_CERT, optionName) == 0 || strcmp(OPTION_X509_ECC_CERT, optionName) == 0)
     {
         certLen = strlen((const char*)value);
         tempCert = (char*)malloc((certLen + 1) * sizeof(char));
@@ -1406,7 +1493,7 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
             result = HTTPAPI_OK;
         }
     }
-    else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0)
+    else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0 || strcmp(OPTION_X509_ECC_KEY, optionName) == 0)
     {
         certLen = strlen((const char*)value);
         tempCert = (char*)malloc((certLen + 1) * sizeof(char));
@@ -1420,6 +1507,26 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
             /*Codes_SRS_HTTPAPI_COMPACT_21_072: [ If the HTTPAPI_CloneOption get success setting the option, it shall return HTTPAPI_OK. ]*/
             (void)strcpy(tempCert, (const char*)value);
             *savedValue = tempCert;
+            result = HTTPAPI_OK;
+        }
+    }
+    else if (strcmp(OPTION_HTTP_PROXY, optionName) == 0)
+    {
+        HTTP_PROXY_OPTIONS* proxy_data = (HTTP_PROXY_OPTIONS*)value;
+
+        HTTP_PROXY_OPTIONS* new_proxy_info = malloc(sizeof(HTTP_PROXY_OPTIONS));
+        if (new_proxy_info == NULL)
+        {
+            LogError("unable to allocate proxy option information");
+            result = HTTPAPI_ERROR;
+        }
+        else
+        {
+            new_proxy_info->host_address = proxy_data->host_address;
+            new_proxy_info->port = proxy_data->port;
+            new_proxy_info->password = proxy_data->password;
+            new_proxy_info->username = proxy_data->username;
+            *savedValue = new_proxy_info;
             result = HTTPAPI_OK;
         }
     }

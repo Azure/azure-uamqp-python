@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #endif
 
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "testrunnerswitcher.h"
@@ -27,8 +28,8 @@ static const LOCK_HANDLE TEST_LOCK_HANDLE = (LOCK_HANDLE)0x4244;
 
 #define ENABLE_MOCKS
 
-#include "umock_c.h"
-#include "umock_c_prod.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umock_c_prod.h"
 
 //TEST_DEFINE_ENUM_TYPE(LOCK_RESULT, LOCK_RESULT_VALUES);
 IMPLEMENT_UMOCK_C_ENUM_TYPE(LOCK_RESULT, LOCK_RESULT_VALUES);
@@ -49,13 +50,11 @@ extern "C" {
 }
 #endif
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(GBAlloc_For_Init_UnitTests)
