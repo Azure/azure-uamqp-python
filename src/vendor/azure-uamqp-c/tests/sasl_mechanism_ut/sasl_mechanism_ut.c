@@ -8,9 +8,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #endif
+
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
-#include "umock_c.h"
-#include "umocktypes_charptr.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_charptr.h"
 
 static void* my_gballoc_malloc(size_t size)
 {
@@ -47,13 +49,11 @@ MOCK_FUNCTION_END(0);
 
 static TEST_MUTEX_HANDLE g_testByTest;
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 static const SASL_MECHANISM_INTERFACE_DESCRIPTION test_io_description =

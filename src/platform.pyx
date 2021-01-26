@@ -17,6 +17,11 @@ cimport c_tlsio
 _logger = logging.getLogger(__name__)
 
 
+class PlatformInfoOption(Enum):
+    DefaultOption = c_platform.PLATFORM_INFO_OPTION_TAG.PLATFORM_INFO_OPTION_DEFAULT
+    RetrieveSQMOption = c_platform.PLATFORM_INFO_OPTION_TAG.PLATFORM_INFO_OPTION_RETRIEVE_SQM
+
+
 cpdef platform_init():
     if c_platform.platform_init() != 0:
         raise ValueError("Failed to initialize platform.")
@@ -29,7 +34,7 @@ cpdef platform_deinit():
 
 cpdef get_info():
     cdef c_strings.STRING_HANDLE str_info
-    str_info = c_platform.platform_get_platform_info()
+    str_info = c_platform.platform_get_platform_info(PlatformInfoOption.DefaultOption)
     info = AMQPString()
     info.wrap(str_info)
     return info

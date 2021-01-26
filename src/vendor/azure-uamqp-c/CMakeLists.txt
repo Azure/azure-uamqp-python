@@ -12,6 +12,12 @@ option(skip_samples "set skip_samples to ON to skip building samples (default is
 option(use_installed_dependencies "set use_installed_dependencies to ON to use installed packages instead of building dependencies from submodules" OFF)
 option(memory_trace "set memory_trace to ON if memory usage is to be used, set to OFF to not use it" OFF)
 option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
+option(use_latest_windows_sdk "use latest windows sdk if available (default is OFF)" OFF)
+option(latest_windows_sdk_shared_include_path "the path to Windows SDK shared include")
+
+if(${use_latest_windows_sdk})
+    include_directories(${latest_windows_sdk_shared_include_path})
+endif()
 
 if(${use_custom_heap})
     add_definitions(-DGB_USE_CUSTOM_HEAP)
@@ -31,31 +37,49 @@ set(run_int_tests OFF)
 set(run_unittests OFF)
 
 if(NOT ${use_installed_dependencies})
+    if ((NOT TARGET azure_macro_utils_c) AND (EXISTS ${CMAKE_CURRENT_LIST_DIR}/deps/azure-macro-utils-c/CMakeLists.txt))
+        add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/azure-macro-utils-c)
+    endif()
+    if ((NOT TARGET umock_c) AND (EXISTS ${CMAKE_CURRENT_LIST_DIR}/deps/umock-c/CMakeLists.txt))
+        add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/umock-c)
+    endif()
+
     if(${original_run_e2e_tests} OR ${original_run_unittests})
-        if (NOT TARGET testrunnerswitcher)
-            add_subdirectory(deps/azure-c-testrunnerswitcher)
+        if ((NOT TARGET testrunnerswitcher) AND (EXISTS ${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-testrunnerswitcher/CMakeLists.txt))
+            add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-testrunnerswitcher)
         endif()
-        if (NOT TARGET ctest)
-            add_subdirectory(deps/azure-ctest)
-        endif()
-        if (NOT TARGET umock_c)
-            add_subdirectory(deps/umock-c)
+        if ((NOT TARGET ctest) AND (EXISTS ${CMAKE_CURRENT_LIST_DIR}/deps/azure-ctest/CMakeLists.txt))
+            add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/azure-ctest)
         endif()
     endif()
-    if (NOT TARGET aziotsharedutil)
-        add_subdirectory(deps/azure-c-shared-utility)
+    if ((NOT TARGET aziotsharedutil) AND (EXISTS ${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-shared-utility/CMakeLists.txt))
+        add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/azure-c-shared-utility)
     endif()
+else()
+    if (NOT azure_macro_utils_cFOUND)
+        find_package(azure_macro_utils_c REQUIRED CONFIG)
+    endif ()
+    if (NOT umock_cFOUND)
+        find_package(umock_c REQUIRED CONFIG)
+    endif ()
+    if (NOT azure_c_shared_utilityFOUND)
+        find_package(azure_c_shared_utility REQUIRED CONFIG)
+    endif ()
+    
+    include(${azure_c_shared_utility_DIR}/azure_c_shared_utilityConfig.cmake)
+    include(${azure_c_shared_utility_DIR}/azure_c_shared_utilityFunctions.cmake)
+    include(${azure_c_shared_utility_DIR}/azure_iot_build_rules.cmake)
 endif()
-include("dependencies.cmake")
+
+include_directories(${MACRO_UTILS_INC_FOLDER} ${UMOCK_C_INC_FOLDER})
 
 # Include the common build rules for C shared utility
-if(${use_installed_dependencies})
-    include(deps/azure-c-shared-utility/configs/azure_iot_build_rules.cmake)
-else()
+if(NOT ${use_installed_dependencies})
     include(${SHARED_UTIL_FOLDER}/configs/azure_iot_build_rules.cmake)
+
+    set_platform_files(${SHARED_UTIL_FOLDER})
 endif()
 
-set_platform_files(${SHARED_UTIL_FOLDER})
 
 set(run_e2e_tests ${original_run_e2e_tests})
 set(run_int_tests ${original_run_int_tests})
@@ -245,58 +269,47 @@ set(UAMQP_SRC_FOLDER ${CMAKE_CURRENT_LIST_DIR}/src CACHE INTERNAL "This is the l
 # Set CMAKE_INSTALL_LIBDIR if not defined
 include(GNUInstallDirs)
 
-if(${use_installed_dependencies})
-    # Install uamqp
-    set(package_location "cmake")
+# Install uamqp
+set(package_location "cmake")
 
-    if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
-        set(CMAKE_INSTALL_LIBDIR "lib")
-    endif()
-
-    install(TARGETS uamqp EXPORT uamqpTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/../bin
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot
-    )
-    install(FILES ${uamqp_h_files} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot/azure_uamqp_c)
-
-    include(CMakePackageConfigHelpers)
-
-    write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
-        VERSION ${UAMQP_VERSION}
-        COMPATIBILITY SameMajorVersion
-    )
-
-    configure_file("configs/${PROJECT_NAME}Config.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake"
-        COPYONLY
-    )
-
-    install(EXPORT uamqpTargets
-        FILE
-            "${PROJECT_NAME}Targets.cmake"
-        DESTINATION
-            ${package_location}
-    )
-
-    install(
-        FILES
-            "configs/${PROJECT_NAME}Config.cmake"
-            "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION
-            ${package_location}
-    )
-else()
-    set(install_staticlibs
-        uamqp
-    )
-    install(FILES ${uamqp_h_files}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azure_uamqp_c)
-    install(TARGETS ${install_staticlibs}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR "lib")
 endif()
+
+install(TARGETS uamqp EXPORT uamqpTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/../bin
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot
+)
+install(FILES ${uamqp_h_files} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/azureiot/azure_uamqp_c)
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${UAMQP_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_file("configs/${PROJECT_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake"
+    COPYONLY
+)
+
+install(EXPORT uamqpTargets
+    FILE
+        "${PROJECT_NAME}Targets.cmake"
+    DESTINATION
+        ${package_location}
+)
+
+install(
+    FILES
+        "configs/${PROJECT_NAME}Config.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION
+        ${package_location}
+)
 
 compileTargetAsC99(uamqp)

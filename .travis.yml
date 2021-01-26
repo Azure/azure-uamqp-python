@@ -5,7 +5,6 @@ matrix:
   include:
     - os: linux
       python: "2.7"
-      dist: trusty
       env: UAMQP_ENV=LINUX27
       script:
         - pytest

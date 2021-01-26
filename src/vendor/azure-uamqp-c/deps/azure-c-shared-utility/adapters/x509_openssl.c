@@ -5,11 +5,13 @@
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_c_shared_utility/const_defines.h"
+#include "azure_c_shared_utility/shared_util_options.h"
 #include "openssl/bio.h"
 #include "openssl/rsa.h"
 #include "openssl/x509.h"
 #include "openssl/pem.h"
 #include "openssl/err.h"
+#include "openssl/engine.h"
 
 #ifdef __APPLE__
     #ifndef EVP_PKEY_id
@@ -47,7 +49,7 @@ static int load_certificate_chain(SSL_CTX* ssl_ctx, const char* certificate)
     if ((bio_cert = BIO_new_mem_buf((char*)certificate, -1)) == NULL)
     {
         log_ERR_get_error("cannot create BIO");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -55,14 +57,14 @@ static int load_certificate_chain(SSL_CTX* ssl_ctx, const char* certificate)
         if ((x509_value = PEM_read_bio_X509_AUX(bio_cert, NULL, NULL, NULL)) == NULL)
         {
             log_ERR_get_error("Failure PEM_read_bio_X509_AUX");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
             if (SSL_CTX_use_certificate(ssl_ctx, x509_value) != 1)
             {
                 log_ERR_get_error("Failure PEM_read_bio_X509_AUX");
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -87,7 +89,7 @@ static int load_certificate_chain(SSL_CTX* ssl_ctx, const char* certificate)
                     if (SSL_CTX_add_extra_chain_cert(ssl_ctx, ca_chain) != 1)
                     {
                         X509_free(ca_chain);
-                        result = __FAILURE__;
+                        result = MU_FAILURE;
                         break;
                     }
                 }
@@ -102,7 +104,7 @@ static int load_certificate_chain(SSL_CTX* ssl_ctx, const char* certificate)
                     }
                     else
                     {
-                        result = __FAILURE__;
+                        result = MU_FAILURE;
                     }
                 }
             }
@@ -121,7 +123,7 @@ static int load_ecc_key(SSL_CTX* ssl_ctx, EVP_PKEY* evp_key)
     if (SSL_CTX_use_PrivateKey(ssl_ctx, evp_key) != 1)
     {
         LogError("Failed SSL_CTX_use_PrivateKey");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -140,7 +142,7 @@ static int load_key_RSA(SSL_CTX* ssl_ctx, EVP_PKEY* evp_key)
     {
         /*Codes_SRS_X509_OPENSSL_02_009: [ Otherwise x509_openssl_add_credentials shall fail and return a non-zero number. ]*/
         log_ERR_get_error("Failure reading RSA private key");
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -149,7 +151,7 @@ static int load_key_RSA(SSL_CTX* ssl_ctx, EVP_PKEY* evp_key)
         {
             /*Codes_SRS_X509_OPENSSL_02_009: [ Otherwise x509_openssl_add_credentials shall fail and return a non-zero number. ]*/
             log_ERR_get_error("Failure calling SSL_CTX_use_RSAPrivateKey");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -162,79 +164,158 @@ static int load_key_RSA(SSL_CTX* ssl_ctx, EVP_PKEY* evp_key)
     return result;
 }
 
-int x509_openssl_add_credentials(SSL_CTX* ssl_ctx, const char* x509certificate, const char* x509privatekey)
+int x509_openssl_add_pem_file_key(SSL_CTX* ssl_ctx, const char* x509privatekey)
+{
+    int result;
+
+    BIO* bio_key = BIO_new_mem_buf((char*)x509privatekey, -1); /*taking off the const from the pointer is needed on older versions of OPENSSL*/
+    if (bio_key == NULL)
+    {
+        log_ERR_get_error("cannot create private key BIO");
+        result = MU_FAILURE;
+    }
+    else
+    {
+        // Get the Private Key type
+        EVP_PKEY* evp_key = PEM_read_bio_PrivateKey(bio_key, NULL, NULL, NULL);
+        if (evp_key == NULL)
+        {
+            log_ERR_get_error("failure creating private key evp_key");
+            result = MU_FAILURE;
+        }
+        else
+        {
+            // Check the type for the EVP key
+            int evp_type = EVP_PKEY_id(evp_key);
+            if (evp_type == EVP_PKEY_RSA || evp_type == EVP_PKEY_RSA2)
+            {
+                if (load_key_RSA(ssl_ctx, evp_key) != 0)
+                {
+                    LogError("failure loading RSA private key cert");
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+            else
+            {
+                if (load_ecc_key(ssl_ctx, evp_key) != 0)
+                {
+                    LogError("failure loading ECC private key cert");
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+            EVP_PKEY_free(evp_key);
+        }
+        BIO_free(bio_key);
+    }
+
+    return result;
+}
+
+int x509_openssl_add_engine_key(SSL_CTX* ssl_ctx, const char* x509privatekey_id, ENGINE* engine)
+{
+    int result;
+
+    // Engine functional reference is short-lived, only within this function.
+    if (!ENGINE_init(engine))
+    {
+        log_ERR_get_error("unable to initialize ENGINE.");
+        result = MU_FAILURE;
+    }
+    else
+    {
+        if (!ENGINE_set_default(engine, ENGINE_METHOD_ALL))
+        {
+            log_ERR_get_error("unable to configure ENGINE.");
+            result = MU_FAILURE;
+        }
+        else
+        {
+            EVP_PKEY* evp_key = ENGINE_load_private_key(engine, x509privatekey_id, NULL, NULL);
+
+            if (evp_key == NULL)
+            {
+                log_ERR_get_error("unable to load private key from ENGINE.");
+                result = MU_FAILURE;
+            }
+            else
+            {
+                if (load_ecc_key(ssl_ctx, evp_key) != 0)
+                {
+                    LogError("unable to configure private key from ENGINE.");
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+
+                EVP_PKEY_free(evp_key);
+            }
+        }
+
+        if (!ENGINE_finish(engine))  // Release functional reference.
+        {
+            log_ERR_get_error("unable to release ENGINE functional reference.");
+            result = MU_FAILURE;
+        }
+    }
+
+    return result;
+}
+
+int x509_openssl_add_credentials(
+    SSL_CTX* ssl_ctx,
+    const char* x509certificate,
+    const char* x509privatekey,
+    OPTION_OPENSSL_KEY_TYPE x509privatekeytype,
+    ENGINE* engine)
 {
     int result;
     if (ssl_ctx == NULL || x509certificate == NULL || x509privatekey == NULL)
     {
         /*Codes_SRS_X509_OPENSSL_02_009: [ Otherwise x509_openssl_add_credentials shall fail and return a non-zero number. ]*/
         LogError("invalid parameter detected: ssl_ctx=%p, x509certificate=%p, x509privatekey=%p", ssl_ctx, x509certificate, x509privatekey);
-        result = __FAILURE__;
+        result = MU_FAILURE;
+    }
+    else if ((x509privatekeytype == KEY_TYPE_ENGINE) && (engine == NULL))
+    {
+        LogError("OpenSSL Engine must be configured when KEY_TYPE_ENGINE is used.");
+        result = MU_FAILURE;
     }
     else
     {
-        BIO* bio_key = BIO_new_mem_buf((char*)x509privatekey, -1); /*taking off the const from the pointer is needed on older versions of OPENSSL*/
-        if (bio_key == NULL)
+        // Configure private key.
+        if (x509privatekeytype == KEY_TYPE_DEFAULT)
         {
-            log_ERR_get_error("cannot create private key BIO");
-            result = __FAILURE__;
+            result = x509_openssl_add_pem_file_key(ssl_ctx, x509privatekey);
+        }
+        else if (x509privatekeytype == KEY_TYPE_ENGINE)
+        {
+            result = x509_openssl_add_engine_key(ssl_ctx, x509privatekey, engine);
         }
         else
         {
-            // Get the Private Key type
-            EVP_PKEY* evp_key = PEM_read_bio_PrivateKey(bio_key, NULL, NULL, NULL);
-            if (evp_key == NULL)
-            {
-                log_ERR_get_error("Failure creating private key evp_key");
-                result = __FAILURE__;
-            }
-            else
-            {
-                // Check the type for the EVP key
-                int evp_type = EVP_PKEY_id(evp_key);
-                if (evp_type == EVP_PKEY_RSA || evp_type == EVP_PKEY_RSA2)
-                {
-                    if (load_key_RSA(ssl_ctx, evp_key) != 0)
-                    {
-                        LogError("failure loading RSA private key cert");
-                        result = __FAILURE__;
-                    }
-                    else
-                    {
-                        result = 0;
-                    }
-                }
-                else
-                {
-                    if (load_ecc_key(ssl_ctx, evp_key) != 0)
-                    {
-                        LogError("failure loading ECC private key cert");
-                        result = __FAILURE__;
-                    }
-                    else
-                    {
-                        result = 0;
-                    }
-                }
+            result = 0;
+        }
 
-                if (result == 0)
-                {
-                    // Load the certificate chain
-                    if (load_certificate_chain(ssl_ctx, x509certificate) != 0)
-                    {
-                        LogError("failure loading private key cert");
-                        result = __FAILURE__;
-                    }
-                    else
-                    {
-                        result = 0;
-                    }
-                }
-                EVP_PKEY_free(evp_key);
+        if (result == 0)
+        {
+            if (load_certificate_chain(ssl_ctx, x509certificate) != 0)
+            {
+                LogError("failure loading public cert or chain");
+                result = MU_FAILURE;
             }
-            BIO_free(bio_key);
         }
     }
+
     return result;
 }
 
@@ -249,8 +330,8 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
     if ((certificates == NULL) || (ssl_ctx == NULL))
     {
         /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
-        LogError("invalid argument SSL_CTX* ssl_ctx=%p, const char* certificates=%s", ssl_ctx, P_OR_NULL(certificates));
-        result = __FAILURE__;
+        LogError("invalid argument SSL_CTX* ssl_ctx=%p, const char* certificates=%s", ssl_ctx, MU_P_OR_NULL(certificates));
+        result = MU_FAILURE;
     }
     else
     {
@@ -259,7 +340,7 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
         {
             /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
             log_ERR_get_error("failure in SSL_CTX_get_cert_store.");
-            result = __FAILURE__;
+            result = MU_FAILURE;
         }
         else
         {
@@ -274,7 +355,7 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
             {
                 /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
                 log_ERR_get_error("failure in BIO_s_mem");
-                result = __FAILURE__;
+                result = MU_FAILURE;
             }
             else
             {
@@ -284,7 +365,7 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
                 {
                     /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
                     log_ERR_get_error("failure in BIO_new");
-                    result = __FAILURE__;
+                    result = MU_FAILURE;
                 }
                 else
                 {
@@ -294,7 +375,7 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
                     {
                         /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
                         log_ERR_get_error("failure in BIO_puts");
-                        result = __FAILURE__;
+                        result = MU_FAILURE;
                     }
                     else
                     {
@@ -333,7 +414,7 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
                         {
                             /*previous while loop terminated unfortunately*/
                             /*Codes_SRS_X509_OPENSSL_02_018: [ In case of any failure x509_openssl_add_certificates shall fail and return a non-zero value. ]*/
-                            result = __FAILURE__;
+                            result = MU_FAILURE;
                         }
                     }
                     BIO_free(cert_memory_bio);
@@ -342,7 +423,4 @@ int x509_openssl_add_certificates(SSL_CTX* ssl_ctx, const char* certificates)
         }
     }
     return result;
-
-
 }
-

@@ -1,0 +1,298 @@
+name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+resources:
+- repo: self
+  clean: true
+jobs:
+- job: windowsx64debug
+  displayName: 'Build Windows x64 Debug'
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Git submodule update'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule update --init --force'
+
+  - task: BatchScript@1
+    displayName: 'Git submodule clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule foreach --recursive "git clean -xdff"'
+
+  - task: BatchScript@1
+    displayName: 'Git clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'clean -xdff'
+
+  - powershell: |
+     $url = "https://github.com/KindDragon/vld/releases/download/v2.5.1/vld-2.5.1-setup.exe"
+     $outpath = "$(System.ArtifactsDirectory)/vld-2.5.1-setup.exe"
+   
+     $wc = New-Object System.Net.WebClient
+     $wc.DownloadFile($url, $outpath)
+    displayName: 'Download VLD'
+
+  - task: BatchScript@1
+    displayName: 'Install VLD'
+    inputs:
+      filename: '$(System.ArtifactsDirectory)/vld-2.5.1-setup.exe'
+      arguments: '/suppressmsgboxes /verysilent /norestart'
+      modifyEnvironment: true
+
+  - task: BatchScript@1
+    displayName: 'Set VLD path'
+    inputs:
+      filename: 'set_vld_vars.bat'
+      modifyEnvironment: true
+
+  - task: BatchScript@1
+    displayName: 'Setup VS Vars'
+    inputs:
+      filename: '"c:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: CMake@1
+    displayName: 'CMake .. -Drun_unittests:bool=ON -Drun_int_tests:bool=ON -Duse_cppunittest:bool=OFF -G "Visual Studio 15 2017 Win64"'
+    inputs:
+      workingDirectory: 'build_x64'
+      cmakeArgs: '.. -Drun_unittests:bool=ON -Drun_int_tests:bool=ON -Duse_cppunittest:bool=OFF -G "Visual Studio 15 2017 Win64"'
+
+  - task: VSBuild@1
+    displayName: 'Build solution build_x64\*.sln'
+    inputs:
+      solution: 'build_x64\*.sln'
+      msbuildArgs: '/p:ForceImportBeforeCppTargets=$(Build.SourcesDirectory)/vld.props'
+      platform: x64
+      configuration: Debug
+      maximumCpuCount: true
+
+  - task: CmdLine@1
+    displayName: 'Run ctest'
+    inputs:
+      filename: ctest
+      arguments: '-C "Debug" -V --output-on-failure'
+      workingFolder: 'build_x64'
+
+- job: windowsx64relwithdebinfo
+  displayName: 'Build Windows x86 RelWithDebInfo'
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+    - vstest
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Git submodule update'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule update --init --force'
+
+  - task: BatchScript@1
+    displayName: 'Git submodule clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule foreach --recursive "git clean -xdff"'
+
+  - task: BatchScript@1
+    displayName: 'Git clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'clean -xdff'
+
+  - task: BatchScript@1
+    displayName: 'Setup VS Vars'
+    inputs:
+      filename: '"c:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: CMake@1
+    displayName: 'CMake .. -Drun_unittests:bool=ON -Drun_int_tests:bool=ON -Duse_cppunittest:bool=ON'
+    inputs:
+      workingDirectory: 'build_x64'
+      cmakeArgs: '.. -Drun_unittests:bool=ON -Drun_int_tests:bool=ON -Duse_cppunittest:bool=ON'
+
+  - task: VSBuild@1
+    displayName: 'Build solution build_x64\*.sln'
+    inputs:
+      solution: 'build_x64\*.sln'
+      platform: Win32
+      configuration: RelWithDebInfo
+      maximumCpuCount: true
+
+  - task: VSTest@2
+    displayName: 'VsTest - testAssemblies'
+    inputs:
+      testAssemblyVer2: |
+          **\*test*.dll
+          !**\obj\**
+      vsTestVersion: 15.0
+      runTestsInIsolation: true
+
+- job: windowsx86debug
+  displayName: 'Build Windows x86 Debug'
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Git submodule update'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule update --init --force'
+
+  - task: BatchScript@1
+    displayName: 'Git submodule clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule foreach --recursive "git clean -xdff"'
+
+  - task: BatchScript@1
+    displayName: 'Git clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'clean -xdff'
+
+  - powershell: |
+     $url = "https://github.com/KindDragon/vld/releases/download/v2.5.1/vld-2.5.1-setup.exe"
+     $outpath = "$(System.ArtifactsDirectory)/vld-2.5.1-setup.exe"
+     
+     $wc = New-Object System.Net.WebClient
+     $wc.DownloadFile($url, $outpath)
+    displayName: 'Download VLD'
+
+  - task: BatchScript@1
+    displayName: 'Install VLD copy'
+    inputs:
+      filename: '$(System.ArtifactsDirectory)/vld-2.5.1-setup.exe'
+      arguments: '/suppressmsgboxes /verysilent /norestart'
+      modifyEnvironment: true
+
+  - task: BatchScript@1
+    displayName: 'Set VLD path'
+    inputs:
+      filename: 'set_vld_vars.bat'
+      modifyEnvironment: true
+
+  - task: BatchScript@1
+    displayName: 'Setup VS Vars'
+    inputs:
+      filename: '"c:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: CMake@1
+    displayName: CMake
+    inputs:
+      workingDirectory: 'build_x86'
+      cmakeArgs: '.. -Drun_unittests:bool=ON -Drun_int_tests:bool=ON -Drun_e2e_tests:bool=ON'
+
+  - task: VSBuild@1
+    displayName: 'Build solution build_x86\*.sln'
+    inputs:
+      solution: 'build_x86\*.sln'
+      platform: Win32
+      configuration: Debug
+      maximumCpuCount: true
+
+  - task: CmdLine@1
+    displayName: 'Run ctest'
+    inputs:
+      filename: ctest
+      arguments: '-C "Debug" -V --output-on-failure'
+      workingFolder: 'build_x86'
+
+- job: linuxubuntu
+  displayName: 'Build Linux Ubuntu 16.04'
+  pool:
+    name: Hosted Ubuntu 1604
+
+  steps:
+  - bash: |
+      sudo apt-get update
+      sudo apt-get install build-essential pkg-config git cmake uuid-dev valgrind
+    displayName: 'Bash Script'
+
+  - bash: |
+     pushd $(Build.Repository.LocalPath)
+     git submodule update --init
+     git submodule foreach --recursive "git clean -xdff"
+     git clean -xdff
+     popd
+    workingDirectory: '$(Build.Repository.LocalPath)'
+    displayName: 'git submodule update and clean'
+
+  - task: Bash@3
+    displayName: 'Build and run tests'
+    inputs:
+      targetType: filePath
+      filePath: './build/linux/build_linux.sh'
+      arguments: '$(Build.Repository.LocalPath)'
+      workingDirectory: '$(Build.Repository.LocalPath)'
+
+- job: Traceability
+  pool:
+    name: Hosted VS2017
+    demands:
+    - Cmd
+    - msbuild
+    - visualstudio
+  condition: false
+
+  steps:
+  - task: BatchScript@1
+    displayName: 'Git submodule update'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule update --init --force deps/azure-c-build-tools'
+
+  - task: BatchScript@1
+    displayName: 'Git submodule clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'submodule foreach --recursive "git clean -xdff"'
+
+  - task: BatchScript@1
+    displayName: 'Git clean'
+    inputs:
+      filename: 'C:\Program Files\Git\bin\git.exe'
+      arguments: 'clean -xdff'
+
+  - task: BatchScript@1
+    displayName: 'Setup VS Vars'
+    inputs:
+      filename: '"c:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\Tools\VsDevCmd.bat"'
+      modifyEnvironment: true
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: deps/azure-c-build-tools/traceabilitytool/traceabilitytool.sln
+
+  - task: VSBuild@1
+    displayName: 'Build solution deps/azure-c-build-tools/traceabilitytool/traceabilitytool.sln'
+    inputs:
+      solution: deps/azure-c-build-tools/traceabilitytool/traceabilitytool.sln
+      platform: 'Any CPU'
+      configuration: Release
+      maximumCpuCount: true
+      
+  - task: BatchScript@1
+    displayName: 'Run traceability tool'
+    inputs:
+      filename: 'deps/azure-c-build-tools/traceabilitytool/traceability_tool/bin/Release/traceabilitytool.exe'
+      arguments: '-i $(Build.SourcesDirectory) -buildcheck -e deps'
+      modifyEnvironment: false
+      workingFolder: '$(Build.SourcesDirectory)'

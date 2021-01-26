@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #endif
 
+#include "azure_macro_utils/macro_utils.h"
 #include "testrunnerswitcher.h"
 
 static size_t currentmalloc_call = 0;
@@ -43,8 +44,8 @@ void my_gballoc_free(void* ptr)
     free(ptr);
 }
 
-#include "umock_c.h"
-#include "umocktypes_bool.h"
+#include "umock_c/umock_c.h"
+#include "umock_c/umocktypes_bool.h"
 #include "azure_c_shared_utility/singlylinkedlist.h"
 
 #define ENABLE_MOCKS
@@ -61,13 +62,11 @@ static TEST_MUTEX_HANDLE test_serialize_mutex;
 
 #define TEST_CONTEXT ((const void*)0x4242)
 
-DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
+MU_DEFINE_ENUM_STRINGS(UMOCK_C_ERROR_CODE, UMOCK_C_ERROR_CODE_VALUES)
 
 static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 {
-    char temp_str[256];
-    (void)snprintf(temp_str, sizeof(temp_str), "umock_c reported error :%s", ENUM_TO_STRING(UMOCK_C_ERROR_CODE, error_code));
-    ASSERT_FAIL(temp_str);
+    ASSERT_FAIL("umock_c reported error :%" PRI_MU_ENUM "", MU_ENUM_VALUE(UMOCK_C_ERROR_CODE, error_code));
 }
 
 BEGIN_TEST_SUITE(singlylinkedlist_unittests)

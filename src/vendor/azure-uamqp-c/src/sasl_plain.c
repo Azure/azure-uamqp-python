@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "azure_c_shared_utility/optimize_size.h"
+#include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_uamqp_c/sasl_plain.h"
@@ -57,7 +57,7 @@ CONCRETE_SASL_MECHANISM_HANDLE saslplain_create(void* config)
             else
             {
                 /* Codes_SRS_SASL_PLAIN_01_001: [`saslplain_create` shall return on success a non-NULL handle to a new SASL plain mechanism.] */
-                result = (SASL_PLAIN_INSTANCE*)malloc(sizeof(SASL_PLAIN_INSTANCE));
+                result = (SASL_PLAIN_INSTANCE*)calloc(1, sizeof(SASL_PLAIN_INSTANCE));
                 if (result == NULL)
                 {
                     /* Codes_SRS_SASL_PLAIN_01_002: [If allocating the memory needed for the saslplain instance fails then `saslplain_create` shall return NULL.] */
@@ -132,7 +132,7 @@ int saslplain_get_init_bytes(CONCRETE_SASL_MECHANISM_HANDLE sasl_mechanism_concr
         /* Codes_SRS_SASL_PLAIN_01_009: [If any argument is NULL, `saslplain_get_init_bytes` shall return a non-zero value.] */
         LogError("Bad arguments: sasl_mechanism_concrete_handle = %p, init_bytes = %p",
             sasl_mechanism_concrete_handle, init_bytes);
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
@@ -180,7 +180,7 @@ int saslplain_challenge(CONCRETE_SASL_MECHANISM_HANDLE concrete_sasl_mechanism, 
     {
         LogError("Bad arguments: concrete_sasl_mechanism = %p, response_bytes = %p",
             concrete_sasl_mechanism, response_bytes);
-        result = __FAILURE__;
+        result = MU_FAILURE;
     }
     else
     {
