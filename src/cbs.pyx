@@ -25,7 +25,6 @@ _logger = logging.getLogger(__name__)
 
 cpdef create_sas_token(const char* key, const char* scope, const char* keyname, size_t expiry):
     cdef c_strings.STRING_HANDLE str_value
-    #cdef const char* c_string
     str_value = c_utils.SASToken_CreateString(key, scope, keyname, expiry)
 
     if <void*>str_value == NULL:
