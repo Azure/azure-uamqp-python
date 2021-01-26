@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.14 (Unreleased)
++++++++++++++++++++
+
+- Updated Azure uAMQP C and Azure C Shared Utility dependencies.
+
 1.2.13 (2021-01-06)
 +++++++++++++++++++
 
