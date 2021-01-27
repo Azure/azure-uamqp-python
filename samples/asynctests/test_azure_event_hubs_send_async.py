@@ -159,16 +159,16 @@ async def test_event_hubs_send_timeout_async(live_eventhub_config):
 
 @pytest.mark.asyncio
 async def test_event_hubs_custom_end_point():
-    sas_token = authentication.SASTokenAsync("fake_audience", "fake_uri", "fake_token", expires_in=timedelta(10), hostname="123.45.67.89")
+    sas_token = authentication.SASTokenAsync("fake_audience", "fake_uri", "fake_token", expires_in=timedelta(10), custom_endpoint_hostname="123.45.67.89")
     assert sas_token.hostname == b"123.45.67.89"
 
-    sas_token = authentication.SASTokenAsync.from_shared_access_key("fake_uri", "fake_key_name", "fake_key", hostname="123.45.67.89")
+    sas_token = authentication.SASTokenAsync.from_shared_access_key("fake_uri", "fake_key_name", "fake_key", custom_endpoint_hostname="123.45.67.89")
     assert sas_token.hostname == b"123.45.67.89"
 
     async def fake_get_token():
         return "fake get token"
 
-    jwt_token = authentication.JWTTokenAsync("fake_audience", "fake_uri", fake_get_token, hostname="123.45.67.89")
+    jwt_token = authentication.JWTTokenAsync("fake_audience", "fake_uri", fake_get_token, custom_endpoint_hostname="123.45.67.89")
     assert jwt_token.hostname == b"123.45.67.89"
 
 

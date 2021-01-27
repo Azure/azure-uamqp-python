@@ -264,7 +264,7 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = (kwargs.get("hostname") or parsed.hostname).encode(self._encoding)
+        self.hostname = (kwargs.get("custom_endpoint_hostname") or parsed.hostname).encode(self._encoding)
 
         is_coroutine(get_token)
 

@@ -238,7 +238,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = (kwargs.get("hostname") or parsed.hostname).encode(self._encoding)
+        self.hostname = (kwargs.get("custom_endpoint_hostname") or parsed.hostname).encode(self._encoding)
         self.username = compat.unquote_plus(parsed.username) if parsed.username else None  # pylint: disable=no-member
         self.password = compat.unquote_plus(parsed.password) if parsed.password else None  # pylint: disable=no-member
 
@@ -406,7 +406,7 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = (kwargs.get("hostname") or parsed.hostname).encode(self._encoding)
+        self.hostname = (kwargs.get("custom_endpoint_hostname") or parsed.hostname).encode(self._encoding)
 
         if not get_token or not callable(get_token):
             raise ValueError("get_token must be a callable object.")
