@@ -340,7 +340,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
             http_proxy=http_proxy,
             transport_type=transport_type,
             encoding=encoding,
-            hostname=kwargs.pop("hostname", None))
+            custom_endpoint_hostname=kwargs.pop("custom_endpoint_hostname", None))
 
 
 class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
