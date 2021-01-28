@@ -28,7 +28,7 @@ jobs:
 
       - script: |
           python --version
-          python -m pip install --upgrade pip --user
+          python -m pip install --upgrade pip --trusted-host pypi.org --user
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -107,7 +107,7 @@ jobs:
 
       - script: |
           $(PythonBin) --version
-          $(PythonBin) -m pip install --upgrade pip --user
+          $(PythonBin) -m pip install --upgrade pip --trusted-host pypi.org --user
           $(PythonBin) -m pip --version
           $(PythonBin) -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -207,7 +207,7 @@ jobs:
 
       - powershell: |
           python --version
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip --trusted-host pypi.org
           python -m pip --version
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -275,7 +275,7 @@ jobs:
 
       - script: |
           python --version
-          python -m pip install --upgrade pip --user
+          python -m pip install --upgrade pip --trusted-host pypi.org --user
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
