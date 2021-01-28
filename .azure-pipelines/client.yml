@@ -8,7 +8,6 @@ variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
-  GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
   - job: 'sdist'
@@ -29,7 +28,7 @@ jobs:
 
       - script: |
           python --version
-          curl -sS $(GetPip) | python - --user
+          python -m pip install --upgrade pip --user
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -55,11 +54,9 @@ jobs:
         Python 2.7:
           PythonBin: 'python2'
           PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/2.7/get-pip.py'
         Python 3.5:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/3.5/get-pip.py'
         Python 3.6:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion36)'
@@ -110,7 +107,7 @@ jobs:
 
       - script: |
           $(PythonBin) --version
-          curl -sS $(GetPip) | $(PythonBin) - --user
+          $(PythonBin) -m pip install --upgrade pip --user
           $(PythonBin) -m pip --version
           $(PythonBin) -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -161,11 +158,9 @@ jobs:
         x64 Python 2.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/2.7/get-pip.py'
         x64 Python 3.5:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/3.5/get-pip.py'
         x64 Python 3.6:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion36)'
@@ -181,11 +176,9 @@ jobs:
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/2.7/get-pip.py'
         x86 Python 3.5:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/3.5/get-pip.py'
         x86 Python 3.6:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion36)'
@@ -214,7 +207,7 @@ jobs:
 
       - powershell: |
           python --version
-          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+          python -m pip install --upgrade pip
           python -m pip --version
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
@@ -259,10 +252,8 @@ jobs:
       matrix:
         Python 2.7:
           PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/2.7/get-pip.py'
         Python 3.5:
           PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/3.5/get-pip.py'
         Python 3.6:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
@@ -284,7 +275,7 @@ jobs:
 
       - script: |
           python --version
-          curl -sS $(GetPip) | python - --user
+          python -m pip install --upgrade pip --user
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
