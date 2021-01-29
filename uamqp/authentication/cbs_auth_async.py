@@ -249,21 +249,22 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
                  get_token,
                  expires_in=datetime.timedelta(seconds=constants.AUTH_EXPIRATION_SECS),
                  expires_at=None,
-                 port=constants.DEFAULT_AMQPS_PORT,
+                 port=None,
                  timeout=10,
                  retry_policy=TokenRetryPolicy(),
                  verify=None,
                  token_type=b"jwt",
                  http_proxy=None,
                  transport_type=TransportType.Amqp,
-                 encoding='UTF-8'):  # pylint: disable=no-member
+                 encoding='UTF-8',
+                 **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
         self.cert_file = verify
-        self.hostname = parsed.hostname.encode(self._encoding)
+        self.hostname = (kwargs.get("custom_endpoint_hostname") or parsed.hostname).encode(self._encoding)
 
         is_coroutine(get_token)
 
