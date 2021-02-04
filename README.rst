@@ -28,14 +28,14 @@ If you are running a Linux distro that does not support `ManyLinux1 <https://www
 
     $ apt-get update
     $ apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config python3-dev python3-pip
-    $ pip3 install uamqp --no-binary all
+    $ pip3 install uamqp --no-binary :all:
 
 If you are running Alpine, you can install from source:
 
 .. code:: shell
 
     $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl-dev build-base
-    $ pip3 install uamqp --no-binary all
+    $ pip3 install uamqp --no-binary :all:
 
 
 Documentation
