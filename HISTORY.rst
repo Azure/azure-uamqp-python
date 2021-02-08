@@ -3,10 +3,11 @@
 Release History
 ===============
 
-1.2.14 (Unreleased)
+1.2.14 (2021-02-01)
 +++++++++++++++++++
 
 - Updated Azure uAMQP C and Azure C Shared Utility dependencies.
+- Fixed memory leak with SAS Token creation.
 
 1.2.13 (2021-01-06)
 +++++++++++++++++++
