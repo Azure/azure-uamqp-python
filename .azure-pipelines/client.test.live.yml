@@ -72,7 +72,7 @@ jobs:
 
       - powershell: |
           python --version
-          python -m pip install --upgrade pip --trusted-host pypi.python.org
+          Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py | Select-Object -ExpandProperty Content | python - "pip < 21.0"
           python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
         env:
@@ -186,7 +186,7 @@ jobs:
 
       - script: |
           $(PythonBin) --version
-          $(PythonBin) -m pip install --upgrade pip --trusted-host pypi.python.org --user
+          curl -sS https://bootstrap.pypa.io/get-pip.py | $(PythonBin) - "pip < 21.0"
           $(PythonBin) -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
@@ -274,7 +274,7 @@ jobs:
 
       - script: |
           python --version
-          python -m pip install --upgrade pip --trusted-host pypi.python.org --user
+          curl -sS https://bootstrap.pypa.io/get-pip.py | python - "pip < 21.0"
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
