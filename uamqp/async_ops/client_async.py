@@ -424,6 +424,11 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
+     To create an desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_properties: Metadata to be sent in the Link ATTACH frame.
@@ -507,6 +512,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 properties=self._link_properties,
                 error_policy=self._error_policy,
                 encoding=self._encoding,
+                desired_capabilities=self._desired_capabilities,
                 loop=self.loop)
             await asyncio.shield(self.message_handler.open_async(), loop=self.loop)
             return False
