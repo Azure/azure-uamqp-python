@@ -48,6 +48,12 @@ class Connection(object):
     :type idle_timeout: int
     :param properties: Connection properties.
     :type properties: dict
+    :param desired_capabilities: The extension capabilities desired from the peer
+     endpoint to be sent in the connection OPEN frame.
+     To create a desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
      idle time for Connections with no activity. Value must be between
      0.0 and 1.0 inclusive. Default is 0.5.
@@ -66,6 +72,7 @@ class Connection(object):
                  channel_max=None,
                  idle_timeout=None,
                  properties=None,
+                 desired_capabilities=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  error_policy=None,
                  debug=False,
@@ -102,6 +109,8 @@ class Connection(object):
             self.properties = properties
         if remote_idle_timeout_empty_frame_send_ratio:
             self._conn.remote_idle_timeout_empty_frame_send_ratio = remote_idle_timeout_empty_frame_send_ratio
+        if desired_capabilities:
+            self.desired_capabilities = desired_capabilities
 
     def __enter__(self):
         """Open the Connection in a context manager."""
@@ -309,6 +318,17 @@ class Connection(object):
         if not isinstance(value, dict):
             raise TypeError("Connection properties must be a dictionary.")
         self._conn.properties = utils.data_factory(value, encoding=self._encoding)
+
+    @property
+    def desired_capabilities(self):
+        return self._conn.desired_capabilities
+
+    @desired_capabilities.setter
+    def desired_capabilities(self, value):
+        if not isinstance(value, uamqp.c_uamqp.AMQPValue):
+            raise TypeError("Connection desired capabilities must be type of uamqp.c_uamqp.AMQPValue.\
+                Please use uamqp.utils.data_factory method to encode desired capabilities first")
+        self._conn.desired_capabilities = value
 
     @property
     def remote_max_frame_size(self):

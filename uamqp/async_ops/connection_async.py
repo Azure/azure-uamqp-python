@@ -46,6 +46,12 @@ class ConnectionAsync(connection.Connection):
     :type idle_timeout: int
     :param properties: Connection properties.
     :type properties: dict
+    :param desired_capabilities: The extension capabilities desired from the peer
+     endpoint to be sent in the connection OPEN frame.
+     To create a desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
      idle time for Connections with no activity. Value must be between
      0.0 and 1.0 inclusive. Default is 0.5.
@@ -66,6 +72,7 @@ class ConnectionAsync(connection.Connection):
                  channel_max=None,
                  idle_timeout=None,
                  properties=None,
+                 desired_capabilities=None,
                  remote_idle_timeout_empty_frame_send_ratio=None,
                  error_policy=None,
                  debug=False,
@@ -79,6 +86,7 @@ class ConnectionAsync(connection.Connection):
             channel_max=channel_max,
             idle_timeout=idle_timeout,
             properties=properties,
+            desired_capabilities=desired_capabilities,
             remote_idle_timeout_empty_frame_send_ratio=remote_idle_timeout_empty_frame_send_ratio,
             error_policy=error_policy,
             debug=debug,
