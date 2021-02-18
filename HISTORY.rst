@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.2.15 (Unreleased)
++++++++++++++++++++
+
+- Added desired-capabilities for `SendClient(Async)` and `MessageSender(Async)` as part of the AMQP protocol.
+- Added types for AMQPShort and AMQPuShort for explicit handling of short and unsigned short encoding.
+
 1.2.14 (2021-02-01)
 +++++++++++++++++++
 
