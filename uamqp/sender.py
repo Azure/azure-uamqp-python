@@ -50,6 +50,11 @@ class MessageSender(object):
      will assume successful receipt of the message and clear it from the queue. The
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
+    :param desired_capabilities: The extension capabilities desired from the peer endpoint.
+     To create a desired_capabilities object, please do as follows:
+        - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
+        - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
+    :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
     :param max_message_size: The maximum allowed message size negotiated for the Link.
     :type max_message_size: int
     :param link_credit: The sender Link credit that determines how many
@@ -77,7 +82,8 @@ class MessageSender(object):
                  properties=None,
                  error_policy=None,
                  debug=False,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 desired_capabilities=None):
         # pylint: disable=protected-access
         if name:
             self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
@@ -105,6 +111,8 @@ class MessageSender(object):
             self.receive_settle_mode = receive_settle_mode
         if max_message_size:
             self.max_message_size = max_message_size
+        if desired_capabilities:
+            self._link.set_desired_capabilities(desired_capabilities)
 
         self._sender = c_uamqp.create_message_sender(self._link, self)
         self._sender.set_trace(debug)

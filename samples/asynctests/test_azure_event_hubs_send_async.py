@@ -13,7 +13,7 @@ import sys
 import types
 
 import uamqp
-from uamqp import authentication
+from uamqp import types as uamqp_types, utils, authentication
 
 
 def get_logger(level):
@@ -172,6 +172,46 @@ async def test_event_hubs_custom_end_point():
     assert jwt_token.hostname == b"123.45.67.89"
 
 
+@pytest.mark.asyncio
+async def test_event_hubs_idempotent_producer(live_eventhub_config):
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+
+    symbol_array = [uamqp_types.AMQPSymbol(b"com.microsoft:idempotent-producer")]
+    desired_capabilities = utils.data_factory(uamqp_types.AMQPArray(symbol_array))
+
+    link_properties = {
+        uamqp_types.AMQPSymbol(b"com.microsoft:timeout"): uamqp_types.AMQPLong(int(60 * 1000))
+    }
+
+    def on_attach(attach_source, attach_target, properties, error):
+        if str(attach_target) == target:
+            on_attach.owner_level = properties.get(b"com.microsoft:producer-epoch")
+            on_attach.producer_group_id = properties.get(b"com.microsoft:producer-id")
+            on_attach.starting_sequence_number = properties.get(b"com.microsoft:producer-sequence-number")
+
+    send_client = uamqp.SendClientAsync(
+        target,
+        auth=sas_auth,
+        desired_capabilities=desired_capabilities,
+        link_properties=link_properties,
+        on_attach=on_attach,
+        debug=True
+    )
+    await send_client.open_async()
+    while not await send_client.client_ready_async():
+        await asyncio.sleep(0.05)
+
+    assert on_attach.owner_level is not None
+    assert on_attach.producer_group_id is not None
+    assert on_attach.starting_sequence_number is not None
+    await send_client.close_async()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -182,4 +222,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_send_timeout_async(config))
+    loop.run_until_complete(test_event_hubs_idempotent_producer(config))
