@@ -440,7 +440,7 @@ class SendClient(AMQPClient):
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param desired_capabilities: The extension capabilities desired from the peer endpoint.
-     To create an desired_capabilities object, please do as follows:
+     To create a desired_capabilities object, please do as follows:
         - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
         - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
     :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
@@ -838,7 +838,7 @@ class ReceiveClient(AMQPClient):
      default is `PeekLock`.
     :type receive_settle_mode: ~uamqp.constants.ReceiverSettleMode
     :param desired_capabilities: The extension capabilities desired from the peer endpoint.
-     To create an desired_capabilities object, please do as follows:
+     To create a desired_capabilities object, please do as follows:
         - 1. Create an array of desired capability symbols: `capabilities_symbol_array = [types.AMQPSymbol(string)]`
         - 2. Transform the array to AMQPValue object: `utils.data_factory(types.AMQPArray(capabilities_symbol_array))`
     :type desired_capabilities: ~uamqp.c_uamqp.AMQPValue
