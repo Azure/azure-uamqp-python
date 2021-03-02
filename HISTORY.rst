@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.2.15 (Unreleased)
+1.2.15 (2021-03-02)
 +++++++++++++++++++
 
 - Added desired-capabilities for `SendClient(Async)` and `MessageSender(Async)` as part of the AMQP protocol.
