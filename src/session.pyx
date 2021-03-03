@@ -149,6 +149,8 @@ cdef bint on_link_attached(
         except Exception as e:
             _logger.info("Failed to process link ATTACH frame: %r", e)
         finally:
+            if <void*>wrapped_props != NULL:
+                c_amqpvalue.amqpvalue_destroy(wrapped_props)
             c_amqpvalue.amqpvalue_destroy(cloned_source)
             c_amqpvalue.amqpvalue_destroy(cloned_target)
     return True
