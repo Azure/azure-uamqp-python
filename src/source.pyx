@@ -65,11 +65,13 @@ cdef class cSource(StructBase):
     @property
     def address(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE _cloned_value
         if c_amqp_definitions.source_get_address(self._c_value, &_value) != 0:
             self._value_error("Failed to get source address")
         if <void*>_value == NULL:
             return None
-        return value_factory(_value).value
+        _cloned_value = c_amqpvalue.amqpvalue_clone(_value)
+        return value_factory(_cloned_value).value
 
     @address.setter
     def address(self, AMQPValue value):
