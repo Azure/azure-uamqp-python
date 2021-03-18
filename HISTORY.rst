@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.2.16 (Unreleased)
++++++++++++++++++++
+
+- Fixed bug that sending message of large size triggering segmentation fault when the underlying socket connection is lost.
+
 1.2.15 (2021-03-02)
 +++++++++++++++++++
 
