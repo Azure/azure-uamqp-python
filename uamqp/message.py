@@ -1145,7 +1145,7 @@ class SequenceBody(MessageBody):
                 if isinstance(d, six.binary_type):
                     output_unicode += d.decode(self._encoding)
                 else:
-                    output_unicode += unicode(self.d)  # pylint: disable=undefined-variable
+                    output_unicode += unicode(d)  # pylint: disable=undefined-variable
         return output_unicode
 
     def __bytes__(self):
