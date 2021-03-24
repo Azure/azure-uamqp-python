@@ -82,8 +82,8 @@ class Message(object):
                  message=None,
                  settler=None,
                  delivery_no=None,
-                 body_type=None,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 body_type=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.retries = 0
