@@ -48,7 +48,7 @@ class Message(object):
     :type header: ~uamqp.message.MessageHeader
     :param msg_format: A custom message format. Default is 0.
     :type msg_format: int
-    :param body_type: The AMQP body type used to construct the body section of an amqp message.
+    :param body_type: The AMQP body type used to specify the type of the body section of an amqp message.
      By default is None which means depending on the nature of the data,
      different body encoding will be used. If the data is str or bytes,
      a single part DataBody will be sent. If the data is a list of str/bytes,

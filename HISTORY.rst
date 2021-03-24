@@ -6,11 +6,11 @@ Release History
 1.3.0 (Unreleased)
 
 - Added support for AMQP Sequence as the body type of the message.
-- Added new class `uamqp.MessageBodyType` to denote the body type of an amqp message, including:
+- Added new class `uamqp.MessageBodyType` to represent the body type of an amqp message, including:
   - `DataType`: The body consists of one or more data sections and each section contains opaque binary data.
   - `SequenceType`: The body consists of one or more sequence sections and each section contains an arbitrary number of structured data elements.
   - `ValueType`: The body consists of one amqp-value section and the section contains a single AMQP value.
-- Added new parameter `body_type` to the constructor of `uamqp.Message` which takes `uamqp.MessageBodyType` to denote the body type of an amqp message.
+- Added new parameter `body_type` to the constructor of `uamqp.Message` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
 
 
 1.2.15 (2021-03-02)
