@@ -388,7 +388,7 @@ jobs:
         displayName: 'Build and test with Docker'
         inputs:
           azureContainerRegistry: azuresdkimages.azurecr.io
-          azureSubscriptionEndpoint: 'Azure SDK Images'
+          azureSubscriptionEndpoint: 'Azure SDK ACR'
           command: 'Run an image'
           containerCommand: '/data/build_many_linux.sh'
           envVars: |
