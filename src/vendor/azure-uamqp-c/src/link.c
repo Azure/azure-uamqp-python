@@ -432,9 +432,6 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 bool more;
                 bool is_error;
 
-                link_instance->current_link_credit--;
-                link_instance->delivery_count++;
-
                 more = false;
                 /* Attempt to get more flag, default to false */
                 (void)transfer_get_more(transfer_handle, &more);
