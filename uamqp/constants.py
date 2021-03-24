@@ -185,6 +185,6 @@ class MessageBodyType(Enum):
     http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format
     for further information on the message body type.
     """
-    DataType = c_uamqp.MessageBodyType.DataType
-    ValueType = c_uamqp.MessageBodyType.ValueType
-    SequenceType = c_uamqp.MessageBodyType.SequenceType
+    Data = c_uamqp.MessageBodyType.DataType
+    Value = c_uamqp.MessageBodyType.ValueType
+    Sequence = c_uamqp.MessageBodyType.SequenceType

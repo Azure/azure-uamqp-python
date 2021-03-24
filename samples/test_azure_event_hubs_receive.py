@@ -638,7 +638,7 @@ def event_hubs_send_different_amqp_body_type_sync(live_eventhub_config):
     send_client.queue_message(data_body_message_1)
 
     data_body_2 = b'data1'
-    data_body_message_2 = uamqp.message.Message(body=data_body_2, body_type=MessageBodyType.DataType)
+    data_body_message_2 = uamqp.message.Message(body=data_body_2, body_type=MessageBodyType.Data)
     data_body_message_2.application_properties = {'body_type': 'data_body_2'}
     send_client.queue_message(data_body_message_2)
 
@@ -648,17 +648,17 @@ def event_hubs_send_different_amqp_body_type_sync(live_eventhub_config):
     send_client.queue_message(value_body_message_1)
 
     value_body_2 = {b'key1': {b'sub_key': b'sub_value'}, b'key2': b'value', 3: -1.23}
-    value_body_message_2 = uamqp.message.Message(body=value_body_2, body_type=MessageBodyType.ValueType)
+    value_body_message_2 = uamqp.message.Message(body=value_body_2, body_type=MessageBodyType.Value)
     value_body_message_2.application_properties = {'body_type': 'value_body_2'}
     send_client.queue_message(value_body_message_2)
 
     sequence_body_1 = [b'data1', -1.23, True, {b'key': b'value'}, [b'a', 1.23, True]]
-    sequence_body_message_1 = uamqp.message.Message(body=sequence_body_1, body_type=MessageBodyType.SequenceType)
+    sequence_body_message_1 = uamqp.message.Message(body=sequence_body_1, body_type=MessageBodyType.Sequence)
     sequence_body_message_1.application_properties = {'body_type': 'sequence_body_1'}
     send_client.queue_message(sequence_body_message_1)
 
     sequence_body_2 = [[1, 2, 3], [b'aa', b'bb', b'cc'], [True, False, True], [{b'key1': b'value'}, {b'key2': 123}]]
-    sequence_body_message_2 = uamqp.message.Message(body=sequence_body_2, body_type=MessageBodyType.SequenceType)
+    sequence_body_message_2 = uamqp.message.Message(body=sequence_body_2, body_type=MessageBodyType.Sequence)
     sequence_body_message_2.application_properties = {'body_type': 'sequence_body_2'}
     send_client.queue_message(sequence_body_message_2)
 

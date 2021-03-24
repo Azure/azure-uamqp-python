@@ -281,38 +281,38 @@ class Message(object):
         """
         if isinstance(body, (six.text_type, six.binary_type)) or \
                 (isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body])):
-            return constants.MessageBodyType.DataType
-        return constants.MessageBodyType.ValueType
+            return constants.MessageBodyType.Data
+        return constants.MessageBodyType.Value
 
     @staticmethod
     def _validate_body_and_body_type(body, body_type):
-        if body_type == constants.MessageBodyType.DataType:
+        if body_type == constants.MessageBodyType.Data:
             if not (isinstance(body, (six.text_type, six.binary_type)) or
                     (isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]))):
                 raise TypeError(
-                    "For MessageBodyType.DataType, the body"
+                    "For MessageBodyType.Data, the body"
                     " must be str or bytes or list of str or bytes.")
-        elif body_type == constants.MessageBodyType.SequenceType:
+        elif body_type == constants.MessageBodyType.Sequence:
             if not (isinstance(body, list) or
                     (isinstance(body, list) and all([isinstance(b, list) for b in body]))):
                 raise TypeError(
-                    "For MessageBodyType.SequenceType, the body"
+                    "For MessageBodyType.Sequence, the body"
                     " must be list or list of lists.")
-        elif body_type == constants.MessageBodyType.ValueType:
-            # For MessageBodyType.ValueType, the body could by any type.
+        elif body_type == constants.MessageBodyType.Value:
+            # For MessageBodyType.Value, the body could by any type.
             pass
         else:
             raise ValueError("Unsupported MessageBodyType: {}".format(body_type))
 
     def _set_body_by_body_type(self, body, body_type):
-        if body_type == constants.MessageBodyType.DataType:
+        if body_type == constants.MessageBodyType.Data:
             self._body = DataBody(self._message)
             if isinstance(body, (six.text_type, six.binary_type)):
                 self._body.append(body)
             elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
                 for value in body:
                     self._body.append(value)
-        elif body_type == constants.MessageBodyType.SequenceType:
+        elif body_type == constants.MessageBodyType.Sequence:
             self._body = SequenceBody(self._message)
             if isinstance(body, list) and all([isinstance(b, list) for b in body]):
                 for value in body:
