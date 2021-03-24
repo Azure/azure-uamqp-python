@@ -282,8 +282,7 @@ class Message(object):
         if isinstance(body, (six.text_type, six.binary_type)) or \
                 (isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body])):
             return constants.MessageBodyType.DataType
-        else:
-            return constants.MessageBodyType.ValueType
+        return constants.MessageBodyType.ValueType
 
     @staticmethod
     def _validate_body_and_body_type(body, body_type):
@@ -1146,7 +1145,7 @@ class SequenceBody(MessageBody):
                 if isinstance(d, six.binary_type):
                     output_unicode += d.decode(self._encoding)
                 else:
-                    output_unicode += unicode(self.d)
+                    output_unicode += unicode(self.d)  # pylint: disable=undefined-variable
         return output_unicode
 
     def __bytes__(self):
