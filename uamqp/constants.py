@@ -176,9 +176,10 @@ class MessageBodyType(Enum):
     """AMQP message body type
     The body of an amqp message consists of either: one or more data sections, one or more amqp-sequence sections,
     or a single amqp-value section:
-     AMQP Data: A data section contains opaque binary data.
-     AMQP Sequence: A sequence section contains an arbitrary number of structured data elements.
-     AMQP Value: An amqp-value section contains a single AMQP value.
+    `DataType`: The body consists of one or more data sections and each section contains opaque binary data.
+    `SequenceType`: The body consists of one or more sequence sections and each section contains an arbitrary
+     number of structured data elements.
+    `ValueType`: The body consists of one amqp-value section and the section contains a single AMQP value.
 
     Please refer to the AMQP spec:
     http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format
