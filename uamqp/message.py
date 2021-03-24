@@ -113,9 +113,10 @@ class Message(object):
         else:
             self._message = c_uamqp.create_message()
             # if body_type is not given, we detect the body type by checking the type of the object
-            body_type = body_type or self._get_body_type(body)
-            self._validate_body_and_body_type(body, body_type)
-            self._set_body_by_body_type(body, body_type)
+            if not body_type:
+                self._auto_set_body(body)
+            else:
+                self._set_body_by_body_type(body, body_type)
 
             if msg_format:
                 self._message.message_format = msg_format
@@ -272,37 +273,22 @@ class Message(object):
             return False
         return True
 
-    @staticmethod
-    def _get_body_type(body):
+    def _auto_set_body(self, body):
         """
-        Automatically detect the MessageBodyType when no body type information is provided.
+        Automatically detect the MessageBodyType and set data when no body type information is provided.
         We categorize object of type list/list of lists into ValueType (not into SequenceType) due to
         compatibility with old uamqp version.
         """
-        if isinstance(body, (six.text_type, six.binary_type)) or \
-                (isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body])):
-            return constants.MessageBodyType.Data
-        return constants.MessageBodyType.Value
-
-    @staticmethod
-    def _validate_body_and_body_type(body, body_type):
-        if body_type == constants.MessageBodyType.Data:
-            if not (isinstance(body, (six.text_type, six.binary_type)) or
-                    (isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]))):
-                raise TypeError(
-                    "For MessageBodyType.Data, the body"
-                    " must be str or bytes or list of str or bytes.")
-        elif body_type == constants.MessageBodyType.Sequence:
-            if not (isinstance(body, list) or
-                    (isinstance(body, list) and all([isinstance(b, list) for b in body]))):
-                raise TypeError(
-                    "For MessageBodyType.Sequence, the body"
-                    " must be list or list of lists.")
-        elif body_type == constants.MessageBodyType.Value:
-            # For MessageBodyType.Value, the body could by any type.
-            pass
+        if isinstance(body, (six.text_type, six.binary_type)):
+            self._body = DataBody(self._message)
+            self._body.append(body)
+        elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+            self._body = DataBody(self._message)
+            for value in body:
+                self._body.append(value)
         else:
-            raise ValueError("Unsupported MessageBodyType: {}".format(body_type))
+            self._body = ValueBody(self._message)
+            self._body.set(body)
 
     def _set_body_by_body_type(self, body, body_type):
         if body_type == constants.MessageBodyType.Data:
@@ -312,16 +298,26 @@ class Message(object):
             elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
                 for value in body:
                     self._body.append(value)
+            else:
+                raise TypeError(
+                    "For MessageBodyType.Data, the body"
+                    " must be str or bytes or list of str or bytes.")
         elif body_type == constants.MessageBodyType.Sequence:
             self._body = SequenceBody(self._message)
             if isinstance(body, list) and all([isinstance(b, list) for b in body]):
                 for value in body:
                     self._body.append(value)
-            else:
+            elif isinstance(body, list):
                 self._body.append(body)
-        else:  # ValueType
+            else:
+                raise TypeError(
+                    "For MessageBodyType.Sequence, the body"
+                    " must be list or list of lists.")
+        elif body_type == constants.MessageBodyType.Value:
             self._body = ValueBody(self._message)
             self._body.set(body)
+        else:
+            raise ValueError("Unsupported MessageBodyType: {}".format(body_type))
 
     def _populate_message_attributes(self, c_message):
         if self.properties:
