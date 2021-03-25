@@ -286,10 +286,13 @@ cdef class cMessage(StructBase):
 
     cpdef get_body_sequence(self, size_t index):
         cdef c_amqpvalue.AMQP_VALUE _value
-        if c_message.message_get_body_amqp_sequence_in_place(self._c_value, index, &_value) == 0:
-            return value_factory(_value)
-        else:
+        cdef c_amqpvalue.AMQP_VALUE cloned
+        if c_message.message_get_body_amqp_sequence_in_place(self._c_value, index, &_value) != 0:
             self._value_error()
+        cloned = c_amqpvalue.amqpvalue_clone(_value)
+        if <void*>cloned == NULL:
+            self._value_error()
+        return value_factory(cloned)
 
     cpdef count_body_sequence(self):
         cdef size_t body_count

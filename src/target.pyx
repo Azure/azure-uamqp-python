@@ -65,11 +65,15 @@ cdef class cTarget(StructBase):
     @property
     def address(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.target_get_address(self._c_value, &_value) != 0:
             self._value_error("Failed to get target address")
         if <void*>_value == NULL:
             return None
-        return value_factory(_value).value
+        cloned = c_amqpvalue.amqpvalue_clone(_value)
+        if <void*>cloned == NULL:
+            return None
+        return value_factory(cloned).value
 
     @address.setter
     def address(self, AMQPValue value):
