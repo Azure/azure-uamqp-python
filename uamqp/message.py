@@ -122,16 +122,13 @@ class Message(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if state["_body"].data:
-            body = list(state["_body"].data)
-        else:
-            body = ""
-        state["_body"] = body
+        state["_body"] = list(state["_body"].data) if state["_body"].data else ""
 
         state["state"] = None
         state["delivery_no"] = None
         state["delivery_tag"] = None
-        state["_response"] = None
+        # need _response for settled property
+        state["_response"] = self.settled
         state["_settler"] = None
         state["on_send_complete"] = None
         state["_message"] = None
@@ -154,6 +151,10 @@ class Message(object):
         else:
             self._body = ValueBody(self._message)
             self._body.set(body)
+
+        # update response with arbitrary error, for settled property
+        if self._response:
+            self._response = errors.MessageAccepted()
 
     @property
     def properties(self):
