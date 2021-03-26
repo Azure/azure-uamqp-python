@@ -12,7 +12,8 @@ import sys
 import time
 
 import uamqp
-from uamqp import address, types, utils, authentication
+from uamqp import address, types, utils, authentication, MessageBodyType
+from uamqp.message import DataBody, ValueBody, SequenceBody
 
 
 def get_logger(level):
@@ -497,6 +498,101 @@ async def test_event_hubs_not_receive_events_during_connection_establishment_asy
         await receive_client.close_async()
 
 
+@pytest.mark.asyncio
+async def event_hubs_send_different_amqp_body_type_async(live_eventhub_config):
+
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClientAsync(target, auth=sas_auth, debug=False)
+
+    data_body_1 = [b'data1', b'data2']
+    data_body_message_1 = uamqp.message.Message(body=data_body_1)
+    data_body_message_1.application_properties = {'body_type': 'data_body_1'}
+    send_client.queue_message(data_body_message_1)
+
+    data_body_2 = b'data1'
+    data_body_message_2 = uamqp.message.Message(body=data_body_2, body_type=MessageBodyType.Data)
+    data_body_message_2.application_properties = {'body_type': 'data_body_2'}
+    send_client.queue_message(data_body_message_2)
+
+    value_body_1 = [b'data1', -1.23, True, {b'key': b'value'}, [1, False, 1.23, b'4']]
+    value_body_message_1 = uamqp.message.Message(body=value_body_1)
+    value_body_message_1.application_properties = {'body_type': 'value_body_1'}
+    send_client.queue_message(value_body_message_1)
+
+    value_body_2 = {b'key1': {b'sub_key': b'sub_value'}, b'key2': b'value', 3: -1.23}
+    value_body_message_2 = uamqp.message.Message(body=value_body_2, body_type=MessageBodyType.Value)
+    value_body_message_2.application_properties = {'body_type': 'value_body_2'}
+    send_client.queue_message(value_body_message_2)
+
+    sequence_body_1 = [b'data1', -1.23, True, {b'key': b'value'}, [b'a', 1.23, True]]
+    sequence_body_message_1 = uamqp.message.Message(body=sequence_body_1, body_type=MessageBodyType.Sequence)
+    sequence_body_message_1.application_properties = {'body_type': 'sequence_body_1'}
+    send_client.queue_message(sequence_body_message_1)
+
+    sequence_body_2 = [[1, 2, 3], [b'aa', b'bb', b'cc'], [True, False, True], [{b'key1': b'value'}, {b'key2': 123}]]
+    sequence_body_message_2 = uamqp.message.Message(body=sequence_body_2, body_type=MessageBodyType.Sequence)
+    sequence_body_message_2.application_properties = {'body_type': 'sequence_body_2'}
+    send_client.queue_message(sequence_body_message_2)
+
+    results = await send_client.send_all_messages_async(close_on_done=False)
+    assert not [m for m in results if m == uamqp.constants.MessageState.SendFailed]
+
+    sas_auth = authentication.SASTokenAsync.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
+        live_eventhub_config['hostname'],
+        live_eventhub_config['event_hub'],
+        live_eventhub_config['consumer_group'],
+        0)
+
+    result_dic = {}
+    receive_client = uamqp.ReceiveClientAsync(source, auth=sas_auth, timeout=5000, debug=False, prefetch=10)
+    gen = receive_client.receive_messages_iter_async()
+    async for message in gen:
+        if message.application_properties and message.application_properties.get(b'body_type'):
+            if message.application_properties.get(b'body_type') == b'data_body_1':
+                check_list = [data for data in message.get_data()]
+                assert isinstance(message._body, DataBody)
+                assert check_list == data_body_1
+                result_dic['data_body_1'] = 1
+            elif message.application_properties.get(b'body_type') == b'data_body_2':
+                check_list = [data for data in message.get_data()]
+                assert isinstance(message._body, DataBody)
+                assert check_list == [data_body_2]
+                result_dic['data_body_2'] = 1
+            elif message.application_properties.get(b'body_type') == b'value_body_1':
+                assert message.get_data() == value_body_1
+                assert isinstance(message._body, ValueBody)
+                result_dic['value_body_1'] = 1
+            elif message.application_properties.get(b'body_type') == b'value_body_2':
+                assert message.get_data() == value_body_2
+                assert isinstance(message._body, ValueBody)
+                result_dic['value_body_2'] = 1
+            elif message.application_properties.get(b'body_type') == b'sequence_body_1':
+                check_list = [data for data in message.get_data()]
+                assert check_list == [sequence_body_1]
+                assert isinstance(message._body, SequenceBody)
+                result_dic['sequence_body_1'] = 1
+            elif message.application_properties.get(b'body_type') == b'sequence_body_2':
+                check_list = [data for data in message.get_data()]
+                assert check_list == sequence_body_2
+                assert isinstance(message._body, SequenceBody)
+                result_dic['sequence_body_2'] = 1
+
+            log.info(message.annotations.get(b'x-opt-sequence-number'))
+            log.info(str(message))
+
+
+    await send_client.close_async()
+    await receive_client.close_async()
+    assert len(results) == 6
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -507,4 +603,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_not_receive_events_during_connection_establishment_async(config))
+    loop.run_until_complete(event_hubs_send_different_amqp_body_type_async(config))

@@ -19,7 +19,7 @@ from uamqp.session import Session
 from uamqp.client import AMQPClient, SendClient, ReceiveClient
 from uamqp.sender import MessageSender
 from uamqp.receiver import MessageReceiver
-from uamqp.constants import TransportType
+from uamqp.constants import TransportType, MessageBodyType
 
 try:
     from uamqp.async_ops import ConnectionAsync
@@ -35,7 +35,7 @@ except (SyntaxError, ImportError):
     pass  # Async not supported.
 
 
-__version__ = "1.2.16"
+__version__ = "1.3.0"
 
 
 _logger = logging.getLogger(__name__)

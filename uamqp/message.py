@@ -17,12 +17,16 @@ _logger = logging.getLogger(__name__)
 class Message(object):
     """An AMQP message.
 
-    When sending, depending on the nature of the data,
+    When sending, if body type information is not provided,
+    then depending on the nature of the data,
     different body encoding will be used. If the data is str or bytes,
     a single part DataBody will be sent. If the data is a list of str/bytes,
     a multipart DataBody will be sent. Any other type of list or any other
     type of data will be sent as a ValueBody.
     An empty payload will also be sent as a ValueBody.
+    If body type information is provided, then the Message will use the given
+    body type to encode the data or raise error if the data doesn't match the body type.
+
 
     :ivar on_send_complete: A custom callback to be run on completion of
      the send operation of this message. The callback must take two parameters,
@@ -58,6 +62,16 @@ class Message(object):
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
+    :param body_type: The AMQP body type used to specify the type of the body section of an amqp message.
+     By default is None which means depending on the nature of the data,
+     different body encoding will be used. If the data is str or bytes,
+     a single part DataBody will be sent. If the data is a list of str/bytes,
+     a multipart DataBody will be sent. Any other type of list or any other
+     type of data will be sent as a ValueBody. An empty payload will also be sent as a ValueBody.
+     Please check class ~uamqp.MessageBodyType for usage information of each body type.
+    :type body_type: ~uamqp.MessageBodyType
+    :param footer: The message footer.
+    :type footer: dict
     """
 
     def __init__(self,
@@ -70,7 +84,9 @@ class Message(object):
                  message=None,
                  settler=None,
                  delivery_no=None,
-                 encoding='UTF-8'):
+                 encoding='UTF-8',
+                 body_type=None,
+                 footer=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.retries = 0
@@ -99,22 +115,19 @@ class Message(object):
             self._parse_message_body(message)
         else:
             self._message = c_uamqp.create_message()
-            if isinstance(body, (six.text_type, six.binary_type)):
-                self._body = DataBody(self._message)
-                self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
-                self._body = DataBody(self._message)
-                for value in body:
-                    self._body.append(value)
+            # if body_type is not given, we detect the body type by checking the type of the object
+            if not body_type:
+                self._auto_set_body(body)
             else:
-                self._body = ValueBody(self._message)
-                self._body.set(body)
+                self._set_body_by_body_type(body, body_type)
+
             if msg_format:
                 self._message.message_format = msg_format
             self._properties = properties
             self._application_properties = application_properties
             self._annotations = annotations
             self._header = header
+            self._footer = footer
 
     @property
     def properties(self):
@@ -252,7 +265,7 @@ class Message(object):
         elif body_type == c_uamqp.MessageBodyType.DataType:
             self._body = DataBody(self._message)
         elif body_type == c_uamqp.MessageBodyType.SequenceType:
-            raise TypeError("Message body type Sequence not supported.")
+            self._body = SequenceBody(self._message)
         else:
             self._body = ValueBody(self._message)
         self._need_further_parse = True
@@ -263,6 +276,52 @@ class Message(object):
         if self.settled:
             return False
         return True
+
+    def _auto_set_body(self, body):
+        """
+        Automatically detect the MessageBodyType and set data when no body type information is provided.
+        We categorize object of type list/list of lists into ValueType (not into SequenceType) due to
+        compatibility with old uamqp version.
+        """
+        if isinstance(body, (six.text_type, six.binary_type)):
+            self._body = DataBody(self._message)
+            self._body.append(body)
+        elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+            self._body = DataBody(self._message)
+            for value in body:
+                self._body.append(value)
+        else:
+            self._body = ValueBody(self._message)
+            self._body.set(body)
+
+    def _set_body_by_body_type(self, body, body_type):
+        if body_type == constants.MessageBodyType.Data:
+            self._body = DataBody(self._message)
+            if isinstance(body, (six.text_type, six.binary_type)):
+                self._body.append(body)
+            elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+                for value in body:
+                    self._body.append(value)
+            else:
+                raise TypeError(
+                    "For MessageBodyType.Data, the body"
+                    " must be str or bytes or list of str or bytes.")
+        elif body_type == constants.MessageBodyType.Sequence:
+            self._body = SequenceBody(self._message)
+            if isinstance(body, list) and all([isinstance(b, list) for b in body]):
+                for value in body:
+                    self._body.append(value)
+            elif isinstance(body, list):
+                self._body.append(body)
+            else:
+                raise TypeError(
+                    "For MessageBodyType.Sequence, the body"
+                    " must be list or list of lists.")
+        elif body_type == constants.MessageBodyType.Value:
+            self._body = ValueBody(self._message)
+            self._body.set(body)
+        else:
+            raise ValueError("Unsupported MessageBodyType: {}".format(body_type))
 
     def _populate_message_attributes(self, c_message):
         if self.properties:
@@ -292,7 +351,6 @@ class Message(object):
             footer = c_uamqp.create_footer(
                 utils.data_factory(self.footer, encoding=self._encoding))
             c_message.footer = footer
-
 
     @property
     def settled(self):
@@ -1052,6 +1110,73 @@ class ValueBody(MessageBody):
         if _value:
             return _value.value
         return None
+
+
+class SequenceBody(MessageBody):
+    """An AMQP message body of type Sequence. This represents
+    a list of sequence sections.
+
+    :ivar type: The body type. This should always be SequenceType
+    :vartype type: uamqp.c_uamqp.MessageBodyType
+    :ivar data: The data contained in the message body. This returns
+     a generator to iterate over each section in the body, where
+     each section will be a list of objects.
+    :vartype data: Generator[List[object]]
+    """
+
+    def __str__(self):
+        if six.PY3:
+            output_str = ""
+            for sequence_section in self.data:
+                for d in sequence_section:
+                    if isinstance(d, six.binary_type):
+                        output_str += d.decode(self._encoding)
+                    else:
+                        output_str += str(d)
+            return output_str
+
+        return "".join(str(d) for sequence_section in self.data for d in sequence_section)
+
+    def __unicode__(self):
+        output_unicode = u""
+
+        for sequence_section in self.data:
+            for d in sequence_section:
+                if isinstance(d, six.binary_type):
+                    output_unicode += d.decode(self._encoding)
+                else:
+                    output_unicode += unicode(d)  # pylint: disable=undefined-variable
+        return output_unicode
+
+    def __bytes__(self):
+        return b"".join(bytes(d) for sequence_section in self.data for d in sequence_section)
+
+    def __len__(self):
+        return self._message.count_body_sequence()
+
+    def __getitem__(self, index):
+        if index >= len(self):
+            raise IndexError("Index is out of range.")
+        data = self._message.get_body_sequence(index)
+        return data.value
+
+    def append(self, data):
+        """Append a sequence section to the body. The data
+        should be a list of objects. The object in the list
+        can be any Python data type and it will be automatically
+        encoded into an AMQP type. If a specific AMQP type
+        is required, a `types.AMQPType` can be used.
+
+        :param data: The list of objects to append.
+        :type data: list[~uamqp.types.AMQPType]
+        """
+        data = utils.data_factory(data)
+        self._message.add_body_sequence(data)
+
+    @property
+    def data(self):
+        for i in range(len(self)):
+            yield self._message.get_body_sequence(i).value
 
 
 class MessageHeader(object):
