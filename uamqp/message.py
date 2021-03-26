@@ -48,14 +48,6 @@ class Message(object):
     :type header: ~uamqp.message.MessageHeader
     :param msg_format: A custom message format. Default is 0.
     :type msg_format: int
-    :param body_type: The AMQP body type used to specify the type of the body section of an amqp message.
-     By default is None which means depending on the nature of the data,
-     different body encoding will be used. If the data is str or bytes,
-     a single part DataBody will be sent. If the data is a list of str/bytes,
-     a multipart DataBody will be sent. Any other type of list or any other
-     type of data will be sent as a ValueBody. An empty payload will also be sent as a ValueBody.
-     Please check class ~uamqp.MessageBodyType for usage information of each body type.
-    :type body_type: ~uamqp.MessageBodyType
     :param message: Internal only. This is used to wrap an existing message
      that has been received from an AMQP service. If specified, all other
      parameters will be ignored.
@@ -70,6 +62,16 @@ class Message(object):
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
+    :param body_type: The AMQP body type used to specify the type of the body section of an amqp message.
+     By default is None which means depending on the nature of the data,
+     different body encoding will be used. If the data is str or bytes,
+     a single part DataBody will be sent. If the data is a list of str/bytes,
+     a multipart DataBody will be sent. Any other type of list or any other
+     type of data will be sent as a ValueBody. An empty payload will also be sent as a ValueBody.
+     Please check class ~uamqp.MessageBodyType for usage information of each body type.
+    :type body_type: ~uamqp.MessageBodyType
+    :param footer: The message footer.
+    :type footer: dict
     """
 
     def __init__(self,
@@ -83,7 +85,8 @@ class Message(object):
                  settler=None,
                  delivery_no=None,
                  encoding='UTF-8',
-                 body_type=None):
+                 body_type=None,
+                 footer=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.retries = 0
@@ -124,6 +127,7 @@ class Message(object):
             self._application_properties = application_properties
             self._annotations = annotations
             self._header = header
+            self._footer = footer
 
     @property
     def properties(self):
