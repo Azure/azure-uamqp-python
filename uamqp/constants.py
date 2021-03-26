@@ -170,3 +170,21 @@ class TransportType(Enum):
     """
     Amqp = 1
     AmqpOverWebsocket = 2
+
+
+class MessageBodyType(Enum):
+    """AMQP message body type
+    The body of an amqp message consists of either: one or more data sections, one or more amqp-sequence sections,
+    or a single amqp-value section:
+    `DataType`: The body consists of one or more data sections and each section contains opaque binary data.
+    `SequenceType`: The body consists of one or more sequence sections and each section contains an arbitrary
+     number of structured data elements.
+    `ValueType`: The body consists of one amqp-value section and the section contains a single AMQP value.
+
+    Please refer to the AMQP spec:
+    http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format
+    for further information on the message body type.
+    """
+    Data = c_uamqp.MessageBodyType.DataType
+    Value = c_uamqp.MessageBodyType.ValueType
+    Sequence = c_uamqp.MessageBodyType.SequenceType
