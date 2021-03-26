@@ -218,6 +218,50 @@ static void decode_message_value_callback(void* context, AMQP_VALUE decoded_valu
             }
         }
     }
+    else if (is_amqp_sequence_type_by_descriptor(descriptor))
+    {
+        MESSAGE_BODY_TYPE body_type;
+        if (message_get_body_type(decoded_message, &body_type) != 0)
+        {
+            LogError("Error getting message body type");
+            message_receiver->decode_error = true;
+        }
+        else
+        {
+            if ((body_type != MESSAGE_BODY_TYPE_NONE) &&
+                (body_type != MESSAGE_BODY_TYPE_SEQUENCE))
+            {
+                LogError("Message body type already set to something different than AMQP SEQUENCE");
+                message_receiver->decode_error = true;
+            }
+            else
+            {
+                AMQP_VALUE body_amqp_sequence = amqpvalue_get_inplace_described_value(decoded_value);
+                if (body_amqp_sequence == NULL)
+                {
+                    LogError("Error getting body AMQP sequence");
+                    message_receiver->decode_error = true;
+                }
+                else
+                {
+                    AMQP_VALUE sequence_value;
+                    if (amqpvalue_get_amqp_sequence(body_amqp_sequence, &sequence_value) != 0)
+                    {
+                        LogError("Error getting body SEQUENCE AMQP value");
+                        message_receiver->decode_error = true;
+                    }
+                    else
+                    {
+                        if (message_add_body_amqp_sequence(decoded_message, sequence_value) != 0)
+                        {
+                            LogError("Error setting body AMQP sequence on received message");
+                            message_receiver->decode_error = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
     else
     {
         LogError("Failed decoding descriptor");
