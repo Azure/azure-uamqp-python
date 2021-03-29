@@ -259,7 +259,7 @@ def test_event_hubs_send_large_message_after_socket_lost(live_eventhub_config):
         # or "Failure: sending socket failed. errno=104" on linux which indicates the socket is lost
         time.sleep(350)
 
-        with pytest.raises(uamqp.errors.ConnectionClose):
+        with pytest.raises(uamqp.errors.AMQPConnectionError):
             send_client.send_message(uamqp.message.Message(b't'*1024*700))
     finally:
         send_client.close()

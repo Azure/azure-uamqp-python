@@ -232,7 +232,7 @@ async def test_event_hubs_send_large_message_after_socket_lost(live_eventhub_con
         # or "Failure: sending socket failed. errno=104" on linux which indicates the socket is lost
         await asyncio.sleep(350)
 
-        with pytest.raises(uamqp.errors.ConnectionClose):
+        with pytest.raises(uamqp.errors.AMQPConnectionError):
             await send_client.send_message_async(uamqp.message.Message(b't'*1024*700))
     finally:
         await send_client.close_async()
