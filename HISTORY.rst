@@ -12,9 +12,10 @@ This version will be the last version to officially support Python 3.5, future v
   - `Data`: The body consists of one or more data sections and each section contains opaque binary data.
   - `Sequence`: The body consists of one or more sequence sections and each section contains an arbitrary number of structured data elements.
   - `Value`: The body consists of one amqp-value section and the section contains a single AMQP value.
-- Added new parameter `body_type` to the constructor of `uamqp.Message` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
-- Added new parameter `footer` to the constructor of  `uamqp.Message` which takes a dict to set the footer of an amqp message.
-- Added new parameter `delivery_annotations` to the constructor of  `uamqp.Message` which takes a dict to set the delivery annotations of an amqp message.
+- Added new parameters to the constructor of `uamqp.Message`:
+  - `body_type` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
+  - `footer` which takes a dict to set the footer of an amqp message.
+  - `delivery_annotations` which takes a dict to set the delivery annotations of an amqp message.
 
 1.2.15 (2021-03-02)
 +++++++++++++++++++
