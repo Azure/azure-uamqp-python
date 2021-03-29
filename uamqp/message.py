@@ -72,6 +72,8 @@ class Message(object):
     :type body_type: ~uamqp.MessageBodyType
     :param footer: The message footer.
     :type footer: dict
+    :param delivery_annotations: Service specific delivery annotations.
+    :type delivery_annotations: dict
     """
 
     def __init__(self,
@@ -86,7 +88,8 @@ class Message(object):
                  delivery_no=None,
                  encoding='UTF-8',
                  body_type=None,
-                 footer=None):
+                 footer=None,
+                 delivery_annotations=None):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
         self.retries = 0
@@ -126,6 +129,7 @@ class Message(object):
             self._properties = properties
             self._application_properties = application_properties
             self._annotations = annotations
+            self._delivery_annotations = delivery_annotations
             self._header = header
             self._footer = footer
 
