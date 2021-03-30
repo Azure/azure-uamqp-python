@@ -148,4 +148,7 @@ cdef bint on_link_attached(
                 context_obj._attach_received(source_factory(wrapped_source), target_factory(wrapped_target), attach_properties, None)
         except Exception as e:
             _logger.info("Failed to process link ATTACH frame: %r", e)
+        finally:
+            c_amqpvalue.amqpvalue_destroy(cloned_source)
+            c_amqpvalue.amqpvalue_destroy(cloned_target)
     return True

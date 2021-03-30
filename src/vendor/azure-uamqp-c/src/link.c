@@ -432,9 +432,6 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 bool more;
                 bool is_error;
 
-                link_instance->current_link_credit--;
-                link_instance->delivery_count++;
-
                 more = false;
                 /* Attempt to get more flag, default to false */
                 (void)transfer_get_more(transfer_handle, &more);
@@ -473,6 +470,8 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                         const unsigned char* indicate_payload_bytes;
                         uint32_t indicate_payload_size;
 
+                        link_instance->current_link_credit--;
+                        link_instance->delivery_count++;
                         /* if no previously stored chunks then simply report the current payload */
                         if (link_instance->received_payload_size > 0)
                         {

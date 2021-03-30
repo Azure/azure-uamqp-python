@@ -175,7 +175,8 @@ class Connection(object):
                 _new_state = c_uamqp.ConnectionState.UNKNOWN
             self._state = _new_state
             _logger.info("Connection %r state changed from %r to %r", self.container_id, _previous_state, _new_state)
-            if _new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD:
+            if (_new_state == c_uamqp.ConnectionState.END and _previous_state != c_uamqp.ConnectionState.CLOSE_RCVD) or\
+                _new_state == c_uamqp.ConnectionState.ERROR:
                 if not self._closing and not self._error:
                     _logger.info("Connection with ID %r unexpectedly in an error state. Closing: %r, Error: %r",
                                  self.container_id, self._closing, self._error)

@@ -286,10 +286,13 @@ cdef class cMessage(StructBase):
 
     cpdef get_body_sequence(self, size_t index):
         cdef c_amqpvalue.AMQP_VALUE _value
-        if c_message.message_get_body_amqp_sequence_in_place(self._c_value, index, &_value) == 0:
-            return value_factory(_value)
-        else:
+        cdef c_amqpvalue.AMQP_VALUE cloned
+        if c_message.message_get_body_amqp_sequence_in_place(self._c_value, index, &_value) != 0:
             self._value_error()
+        cloned = c_amqpvalue.amqpvalue_clone(_value)
+        if <void*>cloned == NULL:
+            self._value_error()
+        return value_factory(cloned)
 
     cpdef count_body_sequence(self):
         cdef size_t body_count
@@ -421,12 +424,15 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
         cdef c_amqpvalue.AMQP_VALUE footer = <c_amqpvalue.AMQP_VALUE>NULL
         cdef c_amqpvalue.AMQP_VALUE delivery_annotations = <c_amqpvalue.AMQP_VALUE>NULL
         cdef c_amqpvalue.AMQP_VALUE message_body_amqp_value
+        cdef c_amqpvalue.AMQP_VALUE message_body_amqp_sequence
         cdef c_message.BINARY_DATA binary_data
         cdef c_amqpvalue.AMQP_VALUE body_amqp_data
+        cdef c_amqpvalue.AMQP_VALUE body_amqp_sequence
         cdef c_amqpvalue.amqp_binary binary_value
         cdef size_t encoded_size
         cdef size_t total_encoded_size = 0
         cdef size_t body_data_count = 0
+        cdef size_t body_sequence_count = 0
 
         # message format
         if (c_message.message_get_body_type(c_msg, &message_body_type) != 0) or (c_message.message_get_message_format(c_msg, &message_format) != 0):
@@ -584,6 +590,43 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
                         total_encoded_size += encoded_size
                     c_amqpvalue.amqpvalue_destroy(body_amqp_data)
 
+        # sequence body
+        if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_SEQUENCE:
+            if c_message.message_get_body_amqp_sequence_count(c_msg, &body_sequence_count) != 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
+                raise ValueError("Cannot get body AMQP sequence count")
+            if body_sequence_count == 0:
+                destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                    properties, properties_amqp_value, application_properties, application_properties_value,
+                    body_amqp_value)
+                raise ValueError("Body sequence count is zero")
+            for i in range(body_sequence_count):
+                if c_message.message_get_body_amqp_sequence_in_place(c_msg, i, &message_body_amqp_sequence) != 0:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
+                    raise ValueError("Cannot get body AMQP sequence {}".format(i))
+
+                body_amqp_sequence = c_amqp_definitions.amqpvalue_create_amqp_sequence(message_body_amqp_sequence);
+                if <void*> body_amqp_sequence == NULL:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
+                    raise MemoryError("Cannot create body AMQP sequence")
+                else:
+                    if c_amqpvalue.amqpvalue_get_encoded_size(body_amqp_sequence, &encoded_size) != 0:
+                        _logger.debug("Cannot get body AMQP sequence encoded size")
+                        destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                            properties, properties_amqp_value, application_properties, application_properties_value,
+                            body_amqp_value)
+                        c_amqpvalue.amqpvalue_destroy(body_amqp_sequence)
+                        raise ValueError("Cannot get body AMQP sequence encoded size")
+                    else:
+                        total_encoded_size += encoded_size
+                    c_amqpvalue.amqpvalue_destroy(body_amqp_sequence)
+
         # encode
         if <void*>header != NULL:
             if c_amqpvalue.amqpvalue_encode(
@@ -675,6 +718,31 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
                         c_amqpvalue.amqpvalue_destroy(body_amqp_data)
                         raise ValueError("Cannot encode body AMQP value")
                     c_amqpvalue.amqpvalue_destroy(body_amqp_data)
+        if message_body_type == c_message.MESSAGE_BODY_TYPE_TAG.MESSAGE_BODY_TYPE_SEQUENCE:
+            for i in range(body_sequence_count):
+                if c_message.message_get_body_amqp_sequence_in_place(c_msg, i, &message_body_amqp_sequence) != 0:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
+                    raise ValueError("Cannot get body AMQP sequence {}".format(i))
+
+                body_amqp_sequence = c_amqp_definitions.amqpvalue_create_amqp_sequence(message_body_amqp_sequence);
+                if <void*> body_amqp_sequence == NULL:
+                    destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                        properties, properties_amqp_value, application_properties, application_properties_value,
+                        body_amqp_value)
+                    raise MemoryError("Cannot create body AMQP sequence")
+                else:
+                    if c_amqpvalue.amqpvalue_encode(
+                            body_amqp_sequence,
+                            <c_amqpvalue.AMQPVALUE_ENCODER_OUTPUT>encode_bytes_callback,
+                            <void*>encoded_data) != 0:
+                        destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
+                            properties, properties_amqp_value, application_properties, application_properties_value,
+                            body_amqp_value)
+                        c_amqpvalue.amqpvalue_destroy(body_amqp_sequence)
+                        raise ValueError("Cannot get body AMQP sequence encoded size")
+                    c_amqpvalue.amqpvalue_destroy(body_amqp_sequence)
 
         destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
             properties, properties_amqp_value, application_properties, application_properties_value,
