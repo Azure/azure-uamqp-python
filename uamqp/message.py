@@ -138,7 +138,12 @@ class Message(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state["_body"] = list(state["_body"].data) if state["_body"].data else ""
+
+        state["_body_type"] = self._body.type.value if self._body else None
+        if isinstance(self._body, (DataBody, SequenceBody)):
+            state["_body"] = list(self._body.data)
+        elif isinstance(self._body, ValueBody):
+            state["_body"] = self._body.data
 
         state["state"] = None
         state["delivery_no"] = None
@@ -153,20 +158,15 @@ class Message(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        body = state["_body"]
+        body = state.get("_body")
+        body_type = constants.BODY_TYPE_C_PYTHON_MAP.get(state.get("_body_type"))
         self._message = c_uamqp.create_message()
-        if isinstance(body, (six.text_type, six.binary_type)):
-            self._body = DataBody(self._message)
-            self._body.append(body)
-        elif isinstance(body, list) and all(
-            [isinstance(b, (six.text_type, six.binary_type)) for b in body]
-        ):
-            self._body = DataBody(self._message)
-            for value in body:
-                self._body.append(value)
-        else:
-            self._body = ValueBody(self._message)
-            self._body.set(body)
+        self._body = None
+        if body:
+            if not body_type:
+                self._auto_set_body(body)
+            else:
+                self._set_body_by_body_type(body, body_type)
 
         # update response with arbitrary error, for settled property
         if self._response:

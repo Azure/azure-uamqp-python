@@ -35,6 +35,7 @@ def test_message_properties():
     properties.user_id = 'werid/0\0\1\t\n'
     assert properties.user_id == b'werid/0\0\1\t\n'
 
+
 def test_message_pickle():
     properties = MessageProperties()
     properties.message_id = '2'
@@ -58,11 +59,33 @@ def test_message_pickle():
     header.durable = True
     header.priority = 4
 
+    data_message = Message(body=[b'testmessage1', b'testmessage2'])
+    pickled = pickle.loads(pickle.dumps(data_message))
+    body = list(pickled.get_data())
+    assert len(body) == 2
+    assert body == [b'testmessage1', b'testmessage2']
 
-    message = Message(properties=properties, header=header)
+    sequence_message = Message(
+        body=[[1234.56, b'testmessage2', True], [-1234.56, {b'key': b'value'}, False]],
+        body_type=MessageBodyType.Sequence
+    )
+    pickled = pickle.loads(pickle.dumps(sequence_message))
+    body = list(pickled.get_data())
+    assert len(body) == 2
+    assert body == [[1234.56, b'testmessage2', True], [-1234.56, {b'key': b'value'}, False]]
+
+    value_message = Message(
+        body={b'key': [1, b'str', False]},
+        body_type=MessageBodyType.Value
+    )
+    pickled = pickle.loads(pickle.dumps(value_message))
+    body = pickled.get_data()
+    assert body == {b'key': [1, b'str', False]}
+
+    message = Message(body="test", properties=properties, header=header)
     message.footer = {'a':2}
     pickled = pickle.loads(pickle.dumps(message))
-
+    assert list(message.get_data()) == [b"test"]
     assert message.footer == pickled.footer
     assert message.application_properties == pickled.application_properties
     assert message.annotations == pickled.annotations

@@ -188,3 +188,10 @@ class MessageBodyType(Enum):
     Data = c_uamqp.MessageBodyType.DataType
     Value = c_uamqp.MessageBodyType.ValueType
     Sequence = c_uamqp.MessageBodyType.SequenceType
+
+
+BODY_TYPE_C_PYTHON_MAP = {
+    c_uamqp.MessageBodyType.DataType.value: MessageBodyType.Data,
+    c_uamqp.MessageBodyType.SequenceType.value: MessageBodyType.Sequence,
+    c_uamqp.MessageBodyType.ValueType.value: MessageBodyType.Value
+}
