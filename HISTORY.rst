@@ -4,6 +4,7 @@ Release History
 ===============
 
 1.3.0 (Unreleased)
++++++++++++++++++++
 
 - Added support for AMQP Sequence as the body type of an amqp message.
 - Added new class `uamqp.MessageBodyType` to represent the body type of an amqp message, including:
@@ -12,6 +13,9 @@ Release History
   - `Value`: The body consists of one amqp-value section and the section contains a single AMQP value.
 - Added new parameter `body_type` to the constructor of `uamqp.Message` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
 - Added new parameter `footer` to the constructor of  `uamqp.Message` which takes a dict to set the footer of an amqp message.
+- Fixed bug that sending message of large size triggering segmentation fault when the underlying socket connection is lost.
+- Fixed bug in link flow control where link credit and delivery count should be calculated based on per message instead of per transfer frame.
+- Fixed memory leaks in the process of link attach where source and target cython objects are not properly deallocated.
 
 1.2.15 (2021-03-02)
 +++++++++++++++++++
