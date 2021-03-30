@@ -567,6 +567,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         await self.message_handler.work_async()
+        await asyncio.shield(self._connection.work_async(), loop=self.loop)
         self._waiting_messages = 0
         async with self._pending_messages_lock:
             self._pending_messages = await self._filter_pending_async()
@@ -574,7 +575,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             _logger.info("Client told to backoff - sleeping for %r seconds", self._backoff)
             await self._connection.sleep_async(self._backoff)
             self._backoff = 0
-        await asyncio.shield(self._connection.work_async(), loop=self.loop)
         return True
 
     async def redirect_async(self, redirect, auth):

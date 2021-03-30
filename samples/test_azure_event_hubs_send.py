@@ -240,6 +240,30 @@ def test_event_hubs_idempotent_producer(live_eventhub_config):
     send_client.close()
 
 
+def test_event_hubs_send_large_message_after_socket_lost(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = authentication.SASTokenAuth.from_shared_access_key(
+        uri, live_eventhub_config['key_name'], live_eventhub_config['access_key'])
+
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    send_client = uamqp.SendClient(target, auth=sas_auth, debug=True)
+    try:
+        send_client.open()
+        while not send_client.client_ready():
+            send_client.do_work()
+        # the connection idle timeout setting on the EH service is 240s, after 240s no activity
+        # on the connection, the service would send detach to the client, the underlying socket on the client
+        # is still able to work to receive the frame.
+        # HOWEVER, after no activity on the client socket > 300s, the underlying socket would get completely lost:
+        # the socket reports "Failure: sending socket failed 10054" on windows
+        # or "Failure: sending socket failed. errno=104" on linux which indicates the socket is lost
+        time.sleep(350)
+
+        with pytest.raises(uamqp.errors.AMQPConnectionError):
+            send_client.send_message(uamqp.message.Message(b't'*1024*700))
+    finally:
+        send_client.close()
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -249,4 +273,4 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    test_event_hubs_idempotent_producer(config)
+    test_event_hubs_send_large_message_after_socket_lost(config)
