@@ -137,27 +137,43 @@ class Message(object):
             self._footer = footer
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-
+        state = {}
+        state["delivery_no"] = self.delivery_no
+        state["delivery_tag"] = self.delivery_tag
+        state["properties"] = self.properties
+        state["application_properties"] = self.application_properties
+        state["annotations"] = self.annotations
+        state["header"] = self.header
+        state["footer"] = self.footer
+        state["delivery_annotations"] = self._delivery_annotations
+        state["_response"] = str(type(self._response).__name__) if self._response else None
         state["_body_type"] = self._body.type.value if self._body else None
         if isinstance(self._body, (DataBody, SequenceBody)):
             state["_body"] = list(self._body.data)
         elif isinstance(self._body, ValueBody):
             state["_body"] = self._body.data
 
-        state["state"] = None
-        state["delivery_no"] = None
-        state["delivery_tag"] = None
-        # need _response for settled property
-        state["_response"] = self.settled
-        state["_settler"] = None
-        state["on_send_complete"] = None
-        state["_message"] = None
-
         return state
 
     def __setstate__(self, state):
+        state["state"] = constants.MessageState.WaitingToBeSent
+        state["idle_time"] = 0
+        state["retries"] = 0
+        state["_settler"] = None
+        state["_encoding"] = "UTF-8"
+        state["on_send_complete"] = None
+        state["_need_further_parse"] = False
+        state["_properties"] = state.pop("properties")
+        state["_application_properties"] = state.pop("application_properties")
+        state["_annotations"] = state.pop("annotations")
+        state["_header"] = state.pop("header")
+        state["_footer"] = state.pop("footer")
+        state["_delivery_annotations"] = state.pop("delivery_annotations")
         self.__dict__.update(state)
+
+        if self._response:
+            self._response = getattr(errors, self._response)()
+
         body = state.get("_body")
         body_type = constants.BODY_TYPE_C_PYTHON_MAP.get(state.get("_body_type"))
         self._message = c_uamqp.create_message()
@@ -166,10 +182,6 @@ class Message(object):
                 self._auto_set_body(body)
             else:
                 self._set_body_by_body_type(body, body_type)
-
-        # update response with arbitrary error, for settled property
-        if self._response:
-            self._response = errors.MessageAccepted()
 
     @property
     def properties(self):

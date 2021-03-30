@@ -1,4 +1,4 @@
-from uamqp.message import MessageProperties, MessageHeader, Message
+from uamqp.message import MessageProperties, MessageHeader, Message, errors
 import pickle
 import pytest
 
@@ -84,6 +84,8 @@ def test_message_pickle():
 
     message = Message(body="test", properties=properties, header=header)
     message.footer = {'a':2}
+    message._response = errors.MessageAccepted()
+
     pickled = pickle.loads(pickle.dumps(message))
     assert list(message.get_data()) == [b"test"]
     assert message.footer == pickled.footer
