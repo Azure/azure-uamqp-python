@@ -157,11 +157,11 @@ class Message(object):
         return state
 
     def __setstate__(self, state):
+        state["_body"] = None
         self.__dict__.update(state)
         body = state.get("_body")
         body_type = constants.BODY_TYPE_C_PYTHON_MAP.get(state.get("_body_type"))
         self._message = c_uamqp.create_message()
-        self._body = None
         if body:
             if not body_type:
                 self._auto_set_body(body)
@@ -687,9 +687,9 @@ class BatchMessage(Message):
             message_size = new_message.get_message_encoded_size() + self.size_offset
             body_size = 0
             if unappended_message_bytes:
-                new_message._body.append(
+                new_message._body.append(  # pylint: disable=protected-access
                     unappended_message_bytes
-                )  # pylint: disable=protected-access
+                )
                 body_size += len(unappended_message_bytes)
             try:
                 for data in self._body_gen:
@@ -722,9 +722,9 @@ class BatchMessage(Message):
                         unappended_message_bytes = message_bytes
                         yield new_message
                         raise StopIteration()
-                    new_message._body.append(
+                    new_message._body.append(  # pylint: disable=protected-access
                         message_bytes
-                    )  # pylint: disable=protected-access
+                    )
             except StopIteration:
                 _logger.debug("Sent partial message.")
                 continue
