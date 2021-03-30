@@ -617,7 +617,7 @@ cpdef size_t get_encoded_message_size(cMessage message, encoded_data):
                     raise MemoryError("Cannot create body AMQP sequence")
                 else:
                     if c_amqpvalue.amqpvalue_get_encoded_size(body_amqp_sequence, &encoded_size) != 0:
-                        _logger.debug("Cannot get body AMQP data encoded size")
+                        _logger.debug("Cannot get body AMQP sequence encoded size")
                         destroy_amqp_objects_in_get_encoded_message_size(header, header_amqp_value, msg_annotations, footer, delivery_annotations,
                             properties, properties_amqp_value, application_properties, application_properties_value,
                             body_amqp_value)
