@@ -78,20 +78,20 @@ class Message(object):
 
 
     def __init__(
-        self,
-        body=None,
-        properties=None,
-        application_properties=None,
-        annotations=None,
-        header=None,
-        msg_format=None,
-        message=None,
-        settler=None,
-        delivery_no=None,
-        encoding='UTF-8',
-        body_type=None,
-        footer=None,
-        delivery_annotations=None
+            self,
+            body=None,
+            properties=None,
+            application_properties=None,
+            annotations=None,
+            header=None,
+            msg_format=None,
+            message=None,
+            settler=None,
+            delivery_no=None,
+            encoding='UTF-8',
+            body_type=None,
+            footer=None,
+            delivery_annotations=None
     ):
         self.state = constants.MessageState.WaitingToBeSent
         self.idle_time = 0
@@ -157,7 +157,6 @@ class Message(object):
         return state
 
     def __setstate__(self, state):
-        state["_body"] = None
         self.__dict__.update(state)
         body = state.get("_body")
         body_type = constants.BODY_TYPE_C_PYTHON_MAP.get(state.get("_body_type"))
@@ -637,14 +636,14 @@ class BatchMessage(Message):
     size_offset = 0
 
     def __init__(
-        self,
-        data=None,
-        properties=None,
-        application_properties=None,
-        annotations=None,
-        header=None,
-        multi_messages=False,
-        encoding="UTF-8",
+            self,
+            data=None,
+            properties=None,
+            application_properties=None,
+            annotations=None,
+            header=None,
+            multi_messages=False,
+            encoding="UTF-8",
     ):
         # pylint: disable=super-init-not-called
         self._multi_messages = multi_messages
@@ -703,8 +702,8 @@ class BatchMessage(Message):
                     try:
                         # uamqp Message
                         if (
-                            not internal_uamqp_message.application_properties
-                            and self.application_properties
+                                not internal_uamqp_message.application_properties
+                                and self.application_properties
                         ):
                             internal_uamqp_message.application_properties = (
                                 self.application_properties
@@ -759,8 +758,8 @@ class BatchMessage(Message):
             try:
                 # uamqp Message
                 if (
-                    not internal_uamqp_message.application_properties
-                    and self.application_properties
+                        not internal_uamqp_message.application_properties
+                        and self.application_properties
                 ):
                     internal_uamqp_message.application_properties = (
                         self.application_properties
@@ -820,22 +819,22 @@ class MessageProperties(object):
     """
 
     def __init__(
-        self,
-        message_id=None,
-        user_id=None,
-        to=None,
-        subject=None,
-        reply_to=None,
-        correlation_id=None,
-        content_type=None,
-        content_encoding=None,
-        absolute_expiry_time=None,
-        creation_time=None,
-        group_id=None,
-        group_sequence=None,
-        reply_to_group_id=None,
-        properties=None,
-        encoding="UTF-8",
+            self,
+            message_id=None,
+            user_id=None,
+            to=None,
+            subject=None,
+            reply_to=None,
+            correlation_id=None,
+            content_type=None,
+            content_encoding=None,
+            absolute_expiry_time=None,
+            creation_time=None,
+            group_id=None,
+            group_sequence=None,
+            reply_to_group_id=None,
+            properties=None,
+            encoding="UTF-8",
     ):
         self._encoding = encoding
         if properties:
