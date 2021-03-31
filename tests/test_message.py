@@ -1,4 +1,4 @@
-from uamqp.message import MessageProperties, MessageHeader, Message, errors
+from uamqp.message import MessageProperties, MessageHeader, Message, constants
 import pickle
 import pytest
 
@@ -84,15 +84,17 @@ def test_message_pickle():
 
     message = Message(body="test", properties=properties, header=header)
     message.footer = {'a':2}
-    message._response = errors.MessageAccepted()
+    message.state = constants.MessageState.ReceivedSettled
 
     pickled = pickle.loads(pickle.dumps(message))
     assert list(message.get_data()) == [b"test"]
     assert message.footer == pickled.footer
+    assert message.state == pickled.state
     assert message.application_properties == pickled.application_properties
     assert message.annotations == pickled.annotations
     assert message.delivery_annotations == pickled.delivery_annotations
-    assert message.settled == pickled.settled
+    # settled will not be tested, undecided about serializing _response
+    # assert message.settled == pickled.settled
     assert message.properties.message_id == pickled.properties.message_id
     assert message.properties.user_id == pickled.properties.user_id
     assert message.properties.to == pickled.properties.to

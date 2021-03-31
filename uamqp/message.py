@@ -146,7 +146,7 @@ class Message(object):
         state["header"] = self.header
         state["footer"] = self.footer
         state["delivery_annotations"] = self._delivery_annotations
-        state["_response"] = str(type(self._response).__name__) if self._response else None
+        state["state"] = self.state.value
         state["_body_type"] = self._body.type.value if self._body else None
         if isinstance(self._body, (DataBody, SequenceBody)):
             state["_body"] = list(self._body.data)
@@ -156,9 +156,10 @@ class Message(object):
         return state
 
     def __setstate__(self, state):
-        state["state"] = constants.MessageState.WaitingToBeSent
+        state["state"] = constants.MessageState(state.get("state"))
         state["idle_time"] = 0
         state["retries"] = 0
+        state["_response"] = None
         state["_settler"] = None
         state["_encoding"] = "UTF-8"
         state["on_send_complete"] = None
@@ -170,9 +171,6 @@ class Message(object):
         state["_footer"] = state.pop("footer")
         state["_delivery_annotations"] = state.pop("delivery_annotations")
         self.__dict__.update(state)
-
-        if self._response:
-            self._response = getattr(errors, self._response)()
 
         body = state.get("_body")
         body_type = constants.BODY_TYPE_C_PYTHON_MAP.get(state.get("_body_type"))
