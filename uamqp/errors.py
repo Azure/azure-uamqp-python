@@ -259,6 +259,9 @@ class MessageAlreadySettled(MessageResponse):
         response = "Invalid operation: this message is already settled."
         super(MessageAlreadySettled, self).__init__(response)
 
+    def __reduce__(self):
+        return (self.__class__, ())
+
 
 class MessageAccepted(MessageResponse):
     pass
@@ -267,6 +270,8 @@ class MessageAccepted(MessageResponse):
 class MessageRejected(MessageResponse):
 
     def __init__(self, condition=None, description=None, encoding='UTF-8', info=None):
+        self._encoding = encoding
+        self._info = info
         if condition:
             self.error_condition = condition.encode(encoding) if isinstance(condition, six.text_type) else condition
         else:
@@ -282,6 +287,9 @@ class MessageRejected(MessageResponse):
         self.error_info = utils.data_factory(info, encoding=encoding) if info else None
         super(MessageRejected, self).__init__()
 
+    def __reduce__(self):
+        return (self.__class__, (self.error_condition, self.error_description, self._encoding, self._info))
+
 
 class MessageReleased(MessageResponse):
     pass
@@ -292,10 +300,15 @@ class MessageModified(MessageResponse):
     def __init__(self, failed, undeliverable, annotations=None, encoding='UTF-8'):
         self.failed = failed
         self.undeliverable = undeliverable
+        self._encoding = encoding
+        self._annotations = annotations
         if annotations and not isinstance(annotations, dict):
             raise TypeError("Disposition annotations must be a dictionary.")
         self.annotations = utils.data_factory(annotations, encoding=encoding) if annotations else None
         super(MessageModified, self).__init__()
+
+    def __reduce__(self):
+        return (self.__class__, (self.failed, self.undeliverable, self._annotations, self._encoding))
 
 
 class ErrorResponse(object):

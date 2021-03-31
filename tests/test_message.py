@@ -1,4 +1,4 @@
-from uamqp.message import MessageProperties, MessageHeader, Message, constants
+from uamqp.message import MessageProperties, MessageHeader, Message, constants, errors, c_uamqp
 import pickle
 import pytest
 
@@ -34,6 +34,12 @@ def test_message_properties():
     properties = MessageProperties()
     properties.user_id = 'werid/0\0\1\t\n'
     assert properties.user_id == b'werid/0\0\1\t\n'
+
+def send_complete_callback(result, error):
+    # helper for test below not in test, b/c results in:
+    # AttributeError: Can't pickle local object
+    print(result)
+    print(error)
 
 
 def test_message_pickle():
@@ -82,7 +88,12 @@ def test_message_pickle():
     body = pickled.get_data()
     assert body == {b'key': [1, b'str', False]}
 
+    error = errors.MessageModified(False, False, {b'key': b'value'})
+    pickled_error = pickle.loads(pickle.dumps(error))
+    assert pickled_error._annotations == {b'key': b'value'} # pylint: disable=protected-access
+
     message = Message(body="test", properties=properties, header=header)
+    message.on_send_complete = send_complete_callback
     message.footer = {'a':2}
     message.state = constants.MessageState.ReceivedSettled
 
@@ -93,8 +104,7 @@ def test_message_pickle():
     assert message.application_properties == pickled.application_properties
     assert message.annotations == pickled.annotations
     assert message.delivery_annotations == pickled.delivery_annotations
-    # settled will not be tested, undecided about serializing _response
-    # assert message.settled == pickled.settled
+    assert message.settled == pickled.settled
     assert message.properties.message_id == pickled.properties.message_id
     assert message.properties.user_id == pickled.properties.user_id
     assert message.properties.to == pickled.properties.to
@@ -113,6 +123,29 @@ def test_message_pickle():
     assert message.header.first_acquirer == pickled.header.first_acquirer
     assert message.header.durable == pickled.header.durable
     assert message.header.priority == pickled.header.priority
+
+    # send with message param
+    settler = errors.MessageAlreadySettled
+    internal_message = c_uamqp.create_message()
+    internal_message.add_body_data(b"hi")
+    message_w_message_param = Message(
+        message=internal_message,
+        settler=settler,
+        delivery_no=1
+    )
+    pickled = pickle.loads(pickle.dumps(message_w_message_param))
+    message_data = str(message_w_message_param.get_data())
+    pickled_data = str(pickled.get_data())
+
+    assert message_data == pickled_data
+    assert message_w_message_param.footer == pickled.footer
+    assert message_w_message_param.state == pickled.state
+    assert message_w_message_param.application_properties == pickled.application_properties
+    assert message_w_message_param.annotations == pickled.annotations
+    assert message_w_message_param.delivery_annotations == pickled.delivery_annotations
+    assert message_w_message_param.settled == pickled.settled
+    assert pickled.delivery_no == 1
+    assert type(pickled._settler()) == type(settler())  # pylint: disable=protected-access
 
 def test_message_auto_body_type():
     single_data = b'!@#$%^&*()_+1234567890'

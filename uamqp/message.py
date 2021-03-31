@@ -137,16 +137,9 @@ class Message(object):
             self._footer = footer
 
     def __getstate__(self):
-        state = {}
-        state["delivery_no"] = self.delivery_no
-        state["delivery_tag"] = self.delivery_tag
-        state["properties"] = self.properties
-        state["application_properties"] = self.application_properties
-        state["annotations"] = self.annotations
-        state["header"] = self.header
-        state["footer"] = self.footer
-        state["delivery_annotations"] = self._delivery_annotations
+        state = self.__dict__.copy()
         state["state"] = self.state.value
+        state["_message"] = None
         state["_body_type"] = self._body.type.value if self._body else None
         if isinstance(self._body, (DataBody, SequenceBody)):
             state["_body"] = list(self._body.data)
@@ -157,19 +150,6 @@ class Message(object):
 
     def __setstate__(self, state):
         state["state"] = constants.MessageState(state.get("state"))
-        state["idle_time"] = 0
-        state["retries"] = 0
-        state["_response"] = None
-        state["_settler"] = None
-        state["_encoding"] = "UTF-8"
-        state["on_send_complete"] = None
-        state["_need_further_parse"] = False
-        state["_properties"] = state.pop("properties")
-        state["_application_properties"] = state.pop("application_properties")
-        state["_annotations"] = state.pop("annotations")
-        state["_header"] = state.pop("header")
-        state["_footer"] = state.pop("footer")
-        state["_delivery_annotations"] = state.pop("delivery_annotations")
         self.__dict__.update(state)
 
         body = state.get("_body")
