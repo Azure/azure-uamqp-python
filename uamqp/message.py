@@ -1344,23 +1344,6 @@ class MessageHeader(object):
             }
         )
 
-    def __getstate__(self):
-        state = self._get_properties_dict()
-        return state
-
-    def __setstate__(self, state):
-        for key, val in state.items():
-            self.__setattr__(key, val)
-
-    def _get_properties_dict(self):
-        return {
-            "delivery_count": self.delivery_count,
-            "time_to_live": self.time_to_live,
-            "first_acquirer": self.first_acquirer,
-            "durable": self.durable,
-            "priority": self.priority,
-        }
-
     def get_header_obj(self):
         """Get the underlying C reference from this object.
 
