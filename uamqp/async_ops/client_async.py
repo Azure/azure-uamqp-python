@@ -12,7 +12,7 @@ import collections.abc
 import logging
 import uuid
 
-from uamqp import address, authentication, client, constants, errors, compat
+from uamqp import address, authentication, client, constants, errors, compat, c_uamqp
 from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
@@ -568,6 +568,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         # pylint: disable=protected-access
         await self.message_handler.work_async()
         await asyncio.shield(self._connection.work_async(), loop=self.loop)
+        if self._connection._state == c_uamqp.ConnectionState.DISCARDING:
+            raise errors.ConnectionClose(constants.ErrorCodes.InternalServerError)
         self._waiting_messages = 0
         async with self._pending_messages_lock:
             self._pending_messages = await self._filter_pending_async()
