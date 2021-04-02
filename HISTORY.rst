@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.3.0 (Unreleased)
+1.3.0 (2021-04-05)
 +++++++++++++++++++
 
 This version will be the last version to officially support Python 3.5, future versions will require Python 2.7 or Python 3.6+.
@@ -17,6 +17,7 @@ This version will be the last version to officially support Python 3.5, future v
   - `body_type` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
   - `footer` which takes a dict to set the footer of an amqp message.
   - `delivery_annotations` which takes a dict to set the delivery annotations of an amqp message.
+- Added support for pickling `uamqp.Message`.
 - Fixed bug that sending message of large size triggering segmentation fault when the underlying socket connection is lost.
 - Fixed bug in link flow control where link credit and delivery count should be calculated based on per message instead of per transfer frame.
 
