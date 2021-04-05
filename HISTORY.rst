@@ -10,13 +10,17 @@ This version will be the last version to officially support Python 3.5, future v
 
 - Added support for AMQP Sequence as the body type of an amqp message.
 - Added new class `uamqp.MessageBodyType` to represent the body type of an amqp message, including:
-  - `Data`: The body consists of one or more data sections and each section contains opaque binary data.
-  - `Sequence`: The body consists of one or more sequence sections and each section contains an arbitrary number of structured data elements.
-  - `Value`: The body consists of one amqp-value section and the section contains a single AMQP value.
+
+    - `Data`: The body consists of one or more data sections and each section contains opaque binary data.
+    - `Sequence`: The body consists of one or more sequence sections and each section contains an arbitrary number of structured data elements.
+    - `Value`: The body consists of one amqp-value section and the section contains a single AMQP value.
+
 - Added new parameters to the constructor of `uamqp.Message`:
-  - `body_type` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
-  - `footer` which takes a dict to set the footer of an amqp message.
-  - `delivery_annotations` which takes a dict to set the delivery annotations of an amqp message.
+
+    - `body_type` which takes `uamqp.MessageBodyType` to specify the body type of an amqp message.
+    - `footer` which takes a dict to set the footer of an amqp message.
+    - `delivery_annotations` which takes a dict to set the delivery annotations of an amqp message.
+
 - Added support for pickling `uamqp.Message`.
 - Fixed bug that sending message of large size triggering segmentation fault when the underlying socket connection is lost.
 - Fixed bug in link flow control where link credit and delivery count should be calculated based on per message instead of per transfer frame.
