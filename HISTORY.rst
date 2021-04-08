@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.3.1 (Unreleased)
++++++++++++++++++++
+
+- Fixed memory leaks in the process of link attach where source and target cython objects are not properly deallocated.
+
 1.3.0 (2021-04-05)
 +++++++++++++++++++
 
