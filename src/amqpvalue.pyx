@@ -891,7 +891,7 @@ cdef class CompositeValue(AMQPValue):
         if index >= self.size:
             raise IndexError("Index is out of range.")
         cdef c_amqpvalue.AMQP_VALUE value
-        value = c_amqpvalue.amqpvalue_get_composite_item_in_place(self._c_value, index)
+        value = c_amqpvalue.amqpvalue_get_composite_item(self._c_value, index)
         if <void*>value == NULL:
             self._value_error()
         try:
