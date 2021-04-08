@@ -1,9 +1,9 @@
 cython==0.29.21
 setuptools>=27.1.2
 wheel>=0.32.0
-pytest==5.4.1; python_version >= '3.5'
+pytest==5.4.1; python_version >= '3.6'
 pytest==4.6.9; python_version == '2.7'
-pytest-asyncio==0.10.0; python_version >= '3.5'
+pytest-asyncio==0.10.0; python_version >= '3.6
 docutils>=0.14
 pygments>=2.2.0
 pylint==2.3.1; python_version >= '3.4'
