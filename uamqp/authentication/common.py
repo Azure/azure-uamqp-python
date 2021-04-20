@@ -70,13 +70,13 @@ class AMQPAuth(object):
             if proxy_client_cert or proxy_client_private_key and not all((proxy_client_cert, proxy_client_private_key)):
                 raise ValueError("Client cert and key must both present.")
 
-            underlying_xio.set_option("use_tls_http_proxy", True)
+            underlying_xio.set_bool_value_option(b"use_tls_http_proxy", True)
 
             if proxy_server_cert:
                 with open(proxy_server_cert, 'rb') as proxy_server_cert_handle:
                     proxy_server_cert_data = proxy_server_cert_handle.read()
                     try:
-                        underlying_xio.set_option("tls_http_proxy_TrustedCerts", proxy_server_cert_data)
+                        underlying_xio.set_bytes_value_option(b"tls_http_proxy_TrustedCerts", proxy_server_cert_data)
                     except ValueError:
                         _logger.warning('Unable to set external proxy certificates.')
 
@@ -84,7 +84,7 @@ class AMQPAuth(object):
                 with open(proxy_client_cert, 'rb') as proxy_client_cert_handle:
                     proxy_client_cert_data = proxy_client_cert_handle.read()
                     try:
-                        underlying_xio.set_option("tls_http_proxy_x509certificate", proxy_client_cert_data)
+                        underlying_xio.set_bytes_value_option(b"tls_http_proxy_x509certificate", proxy_client_cert_data)
                     except ValueError:
                         _logger.warning('Unable to set external proxy x509certificates.')
 
@@ -92,7 +92,7 @@ class AMQPAuth(object):
                 with open(proxy_client_private_key, 'rb') as proxy_client_private_key_handle:
                     proxy_client_private_key_data = proxy_client_private_key_handle.read()
                     try:
-                        underlying_xio.set_option("tls_http_proxy_x509privatekey", proxy_client_private_key_data)
+                        underlying_xio.set_bytes_value_option(b"tls_http_proxy_x509privatekey", proxy_client_private_key_data)
                     except ValueError:
                         _logger.warning('Unable to set external x509privatekey.')
 
@@ -130,7 +130,9 @@ class AMQPAuth(object):
             proxy_server_cert = http_proxy.get("proxy_verify")
             # TODO: allow passing a tuple of client cert/key files, order matters
             # check content to see if it's a key or cert file?
-            proxy_client_cert, proxy_client_private_key = http_proxy.get("proxy_cert")
+            proxy_cert = http_proxy.get("proxy_cert")
+            if proxy_cert is not None:
+                proxy_client_cert, proxy_client_private_key = proxy_cert
             use_tls_http_proxy = any((proxy_server_cert, proxy_client_cert, proxy_client_private_key))
             _tlsio_config.set_proxy_config(proxy_config)
 
