@@ -65,6 +65,37 @@ class AMQPAuth(object):
     def _encode(self, value):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
+    @staticmethod
+    def _configure_tls_http_proxy(underlying_xio, proxy_server_cert=None, proxy_client_cert=None, proxy_client_private_key=None):
+            if proxy_client_cert or proxy_client_private_key and not all((proxy_client_cert, proxy_client_private_key)):
+                raise ValueError("Client cert and key must both present.")
+
+            underlying_xio.set_option("use_tls_http_proxy", True)
+
+            if proxy_server_cert:
+                with open(proxy_server_cert, 'rb') as proxy_server_cert_handle:
+                    proxy_server_cert_data = proxy_server_cert_handle.read()
+                    try:
+                        underlying_xio.set_option("tls_http_proxy_TrustedCerts", proxy_server_cert_data)
+                    except ValueError:
+                        _logger.warning('Unable to set external proxy certificates.')
+
+            if proxy_client_cert:
+                with open(proxy_client_cert, 'rb') as proxy_client_cert_handle:
+                    proxy_client_cert_data = proxy_client_cert_handle.read()
+                    try:
+                        underlying_xio.set_option("tls_http_proxy_x509certificate", proxy_client_cert_data)
+                    except ValueError:
+                        _logger.warning('Unable to set external proxy x509certificates.')
+
+            if proxy_client_private_key:
+                with open(proxy_client_private_key, 'rb') as proxy_client_private_key_handle:
+                    proxy_client_private_key_data = proxy_client_private_key_handle.read()
+                    try:
+                        underlying_xio.set_option("tls_http_proxy_x509privatekey", proxy_client_private_key_data)
+                    except ValueError:
+                        _logger.warning('Unable to set external x509privatekey.')
+
     def set_io(self, hostname, port, http_proxy, transport_type):
         if transport_type == TransportType.AmqpOverWebsocket or http_proxy is not None:
             self.set_wsio(hostname, port or constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
@@ -89,13 +120,31 @@ class AMQPAuth(object):
         _tlsio_config.hostname = hostname
         _tlsio_config.port = port
 
+        proxy_server_cert = None
+        proxy_client_cert = None
+        proxy_client_private_key = None
+        use_tls_http_proxy = False
+
         if http_proxy:
             proxy_config = self._build_proxy_config(hostname, port, http_proxy)
+            proxy_server_cert = http_proxy.get("proxy_verify")
+            # TODO: allow passing a tuple of client cert/key files, order matters
+            # check content to see if it's a key or cert file?
+            proxy_client_cert, proxy_client_private_key = http_proxy.get("proxy_cert")
+            use_tls_http_proxy = any((proxy_server_cert, proxy_client_cert, proxy_client_private_key))
             _tlsio_config.set_proxy_config(proxy_config)
 
         _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
 
         _underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
+
+        if http_proxy and use_tls_http_proxy:
+            self._configure_tls_http_proxy(
+                _underlying_xio,
+                proxy_server_cert,
+                proxy_client_cert,
+                proxy_client_private_key
+            )
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:
