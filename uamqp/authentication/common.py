@@ -67,7 +67,7 @@ class AMQPAuth(object):
 
     @staticmethod
     def _configure_tls_http_proxy(underlying_xio, proxy_server_cert=None, proxy_client_cert=None, proxy_client_private_key=None):
-            if proxy_client_cert or proxy_client_private_key and not all((proxy_client_cert, proxy_client_private_key)):
+            if any((proxy_client_cert, proxy_client_private_key)) and (not all((proxy_client_cert, proxy_client_private_key))):
                 raise ValueError("Client cert and key must both present.")
 
             underlying_xio.set_bool_value_option(b"use_tls_http_proxy", True)
