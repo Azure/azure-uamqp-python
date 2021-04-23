@@ -137,12 +137,14 @@ class AMQPAuth(object):
         if http_proxy:
             proxy_config = self._build_proxy_config(hostname, port, http_proxy)
             proxy_server_cert = http_proxy.get("proxy_verify")
-            # TODO: allow passing a tuple of client cert/key files, order matters
-            # assuming the first one is client certificate, the second is the client private key
-            # should we 1. be smart and check content to see if it's a key or cert file? follow requests
-            # 2. or split the argument to proxy_cert_certificates/proxy_cert_private_key
             proxy_cert = http_proxy.get("proxy_cert")
             if proxy_cert is not None:
+                if not (isinstance(proxy_cert, tuple) and len(proxy_cert) == 2):
+                    raise ValueError(
+                        "proxy_cert must be a tuple containing both of certificate and private key file path",
+                        ", and certificate file path must be put in front of the private key file path. ",
+                        "E.g. proxy_cert=(<cert_file_path>, <private_key_path>)"
+                    )
                 proxy_client_cert, proxy_client_private_key = proxy_cert
             use_tls_http_proxy = any((proxy_server_cert, proxy_client_cert, proxy_client_private_key))
             _tlsio_config.set_proxy_config(proxy_config)
