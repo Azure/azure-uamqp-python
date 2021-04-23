@@ -65,6 +65,46 @@ class AMQPAuth(object):
     def _encode(self, value):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
+    @staticmethod
+    def _configure_tls_http_proxy(
+            underlying_xio,
+            proxy_server_cert=None,
+            proxy_client_cert=None,
+            proxy_client_private_key=None
+    ):
+        if any((proxy_client_cert, proxy_client_private_key)) and\
+            (not all((proxy_client_cert, proxy_client_private_key))):
+            raise ValueError("Client cert and key must both present.")
+
+        underlying_xio.set_bool_value_option(b"use_tls_http_proxy", True)
+
+        proxy_server_cert = proxy_server_cert or certifi.where()
+        with open(proxy_server_cert, 'rb') as proxy_server_cert_handle:
+            proxy_server_cert_data = proxy_server_cert_handle.read()
+            try:
+                underlying_xio.set_bytes_value_option(b"tls_http_proxy_TrustedCerts", proxy_server_cert_data)
+            except ValueError:
+                _logger.warning('Unable to set external proxy certificates.')
+
+        if proxy_client_cert:
+            with open(proxy_client_cert, 'rb') as proxy_client_cert_handle:
+                proxy_client_cert_data = proxy_client_cert_handle.read()
+                try:
+                    underlying_xio.set_bytes_value_option(b"tls_http_proxy_x509certificate", proxy_client_cert_data)
+                except ValueError:
+                    _logger.warning('Unable to set external proxy x509certificates.')
+
+        if proxy_client_private_key:
+            with open(proxy_client_private_key, 'rb') as proxy_client_private_key_handle:
+                proxy_client_private_key_data = proxy_client_private_key_handle.read()
+                try:
+                    underlying_xio.set_bytes_value_option(
+                        b"tls_http_proxy_x509privatekey",
+                        proxy_client_private_key_data
+                    )
+                except ValueError:
+                    _logger.warning('Unable to set external x509privatekey.')
+
     def set_io(self, hostname, port, http_proxy, transport_type):
         if transport_type == TransportType.AmqpOverWebsocket or http_proxy is not None:
             self.set_wsio(hostname, port or constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
@@ -89,13 +129,37 @@ class AMQPAuth(object):
         _tlsio_config.hostname = hostname
         _tlsio_config.port = port
 
+        proxy_server_cert = None
+        proxy_client_cert = None
+        proxy_client_private_key = None
+        use_tls_http_proxy = False
+
         if http_proxy:
             proxy_config = self._build_proxy_config(hostname, port, http_proxy)
+            proxy_server_cert = http_proxy.get("proxy_verify")
+            proxy_cert = http_proxy.get("proxy_cert")
+            if proxy_cert is not None:
+                if not (isinstance(proxy_cert, tuple) and len(proxy_cert) == 2):
+                    raise ValueError(
+                        "proxy_cert must be a tuple containing both of certificate and private key file path",
+                        ", and certificate file path must be put in front of the private key file path. ",
+                        "E.g. proxy_cert=(<cert_file_path>, <private_key_path>)"
+                    )
+                proxy_client_cert, proxy_client_private_key = proxy_cert
+            use_tls_http_proxy = any((proxy_server_cert, proxy_client_cert, proxy_client_private_key))
             _tlsio_config.set_proxy_config(proxy_config)
 
         _wsio_config.set_tlsio_config(_default_tlsio, _tlsio_config)
 
         _underlying_xio = c_uamqp.xio_from_wsioconfig(_wsio_config)  # pylint: disable=attribute-defined-outside-init
+
+        if http_proxy and use_tls_http_proxy:
+            self._configure_tls_http_proxy(
+                _underlying_xio,
+                proxy_server_cert,
+                proxy_client_cert,
+                proxy_client_private_key
+            )
 
         cert = self.cert_file or certifi.where()
         with open(cert, 'rb') as cert_handle:

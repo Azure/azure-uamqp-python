@@ -9,11 +9,18 @@
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xio.h"
 #include "azure_c_shared_utility/socketio.h"
+#include "azure_c_shared_utility/tlsio.h"
+#include "azure_c_shared_utility/platform.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/http_proxy_io.h"
 #include "azure_c_shared_utility/azure_base64.h"
+#include "azure_c_shared_utility/shared_util_options.h"
 
 static const char* const OPTION_UNDERLYING_IO_OPTIONS = "underlying_io_options";
+static const char* const OPTION_USE_TLS_HTTP_PROXY = "use_tls_http_proxy";
+static const char* const OPTION_TLS_HTTP_PROXY_TRUSTED_CERT = "tls_http_proxy_TrustedCerts";
+static const char* const OPTION_TLS_HTTP_PROXY_X509_CERT = "tls_http_proxy_x509certificate";
+static const char* const OPTION_TLS_HTTP_PROXY_X509_PRIVATE_KEY = "tls_http_proxy_x509privatekey";
 
 typedef enum HTTP_PROXY_IO_STATE_TAG
 {
@@ -45,6 +52,7 @@ typedef struct HTTP_PROXY_IO_INSTANCE_TAG
     XIO_HANDLE underlying_io;
     unsigned char* receive_buffer;
     size_t receive_buffer_size;
+    bool use_tls_http_proxy;
 } HTTP_PROXY_IO_INSTANCE;
 
 static CONCRETE_IO_HANDLE http_proxy_io_create(void* io_create_parameters)
@@ -188,6 +196,7 @@ static CONCRETE_IO_HANDLE http_proxy_io_create(void* io_create_parameters)
                                         result->receive_buffer = NULL;
                                         result->receive_buffer_size = 0;
                                         result->http_proxy_io_state = HTTP_PROXY_IO_STATE_CLOSED;
+                                        result->use_tls_http_proxy = false;
                                     }
                                 }
                             }
@@ -918,6 +927,110 @@ static int http_proxy_io_set_option(CONCRETE_IO_HANDLE http_proxy_io, const char
                 result = 0;
             }
         }
+        else if (strcmp(option_name, OPTION_USE_TLS_HTTP_PROXY) == 0)
+        {
+            bool use_tls_http_proxy = *((bool*)value);
+            if(http_proxy_io_instance->use_tls_http_proxy)
+            {
+                LogError("use tls http proxy has already been specified");
+                result = MU_FAILURE;
+            }
+            else
+            {
+                if(use_tls_http_proxy)
+                {
+                    // close and desotry the original socket io
+                    (void)xio_close(http_proxy_io_instance->underlying_io, NULL, NULL);
+                    xio_destroy(http_proxy_io_instance->underlying_io);
+                    http_proxy_io_instance->use_tls_http_proxy = true;
+                    const IO_INTERFACE_DESCRIPTION* underlying_io_interface;
+                    underlying_io_interface = platform_get_default_tlsio();
+                    // create a new tls io
+                    TLSIO_CONFIG tls_io_config;
+                    XIO_HANDLE tls_io;
+                    tls_io_config.hostname = http_proxy_io_instance->proxy_hostname;
+                    tls_io_config.port = http_proxy_io_instance->proxy_port;
+                    tls_io_config.underlying_io_interface = NULL;
+                    tls_io_config.underlying_io_parameters = NULL;
+                    tls_io = xio_create(underlying_io_interface, &tls_io_config);
+                    if (tls_io == NULL)
+                    {
+                        LogError("xio_create failed");
+                        result = MU_FAILURE;
+                    }
+                    else
+                    {
+                        http_proxy_io_instance->underlying_io = tls_io;
+                        result = 0;
+                    }
+                }
+                else
+                {
+                    // setting false to false, do nothing
+                    result = 0;
+                }
+            }
+        }
+        else if (strcmp(option_name, OPTION_TLS_HTTP_PROXY_TRUSTED_CERT) == 0)
+        {
+            if (!http_proxy_io_instance->use_tls_http_proxy)
+            {
+                LogError("Invalid option %s", option_name);
+                result = MU_FAILURE;
+            }
+            else
+            {
+                if (xio_setoption(http_proxy_io_instance->underlying_io, OPTION_TRUSTED_CERT, value) != 0)
+                {
+                    LogError("Setting option %s failed", option_name);
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+        }
+        else if (strcmp(option_name, OPTION_TLS_HTTP_PROXY_X509_CERT) == 0)
+        {
+            if (!http_proxy_io_instance->use_tls_http_proxy)
+            {
+                LogError("Invalid option %s", option_name);
+                result = MU_FAILURE;
+            }
+            else
+            {
+                if (xio_setoption(http_proxy_io_instance->underlying_io, SU_OPTION_X509_CERT, value) != 0)
+                {
+                    LogError("Setting option %s failed", option_name);
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+        }
+        else if (strcmp(option_name, OPTION_TLS_HTTP_PROXY_X509_PRIVATE_KEY) == 0)
+        {
+            if (!http_proxy_io_instance->use_tls_http_proxy)
+            {
+                LogError("Invalid option %s", option_name);
+                result = MU_FAILURE;
+            }
+            else
+            {
+                if (xio_setoption(http_proxy_io_instance->underlying_io, SU_OPTION_X509_PRIVATE_KEY, value) != 0)
+                {
+                    LogError("Setting option %s failed", option_name);
+                    result = MU_FAILURE;
+                }
+                else
+                {
+                    result = 0;
+                }
+            }
+        }
         /* Codes_SRS_HTTP_PROXY_IO_01_043: [ If the option_name argument indicates an option that is not handled by http_proxy_io_set_option, then xio_setoption shall be called on the underlying IO created in http_proxy_io_create, passing the option name and value to it. ]*/
         /* Codes_SRS_HTTP_PROXY_IO_01_056: [ The value argument shall be allowed to be NULL. ]*/
         else if (xio_setoption(http_proxy_io_instance->underlying_io, option_name, value) != 0)
@@ -949,7 +1062,7 @@ static void* http_proxy_io_clone_option(const char* name, const void* value)
     }
     else
     {
-        if (strcmp(name, OPTION_UNDERLYING_IO_OPTIONS) == 0)
+        if (strcmp(name, OPTION_UNDERLYING_IO_OPTIONS) == 0 || (strcmp(name, OPTION_USE_TLS_HTTP_PROXY) == 0))
         {
             result = (void*)value;
         }
