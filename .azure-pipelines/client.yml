@@ -415,7 +415,7 @@ jobs:
       Umaqp27Path: 'uamqp-winx64-$(Pythonversion27)-whl'
     steps:
       - script: |
-          git clone https://github.com/Azure/azure-sdk-for-python.git --branch master --single-branch
+          git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
         displayName: 'Clone azure-sdk-for-python'
       - task: DownloadPipelineArtifact@2
         inputs:
