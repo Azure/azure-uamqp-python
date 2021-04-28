@@ -208,6 +208,11 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                                         status_description = NULL;
                                                     }
                                                 }
+                                                else
+                                                {
+                                                    /* Codes_SRS_AMQP_MANAGEMENT_01_125: [ If status description is not found, NULL shall be passed to the user callback as `status_description` argument. ]*/
+                                                    status_description = NULL;
+                                                }
                                             }
                                             else
                                             {
