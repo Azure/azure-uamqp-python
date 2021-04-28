@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.3.1 (Unreleased)
+1.4.0 (Unreleased)
 +++++++++++++++++++
 
 This version and all future versions will require Python 2.7 or Python 3.6+, Python 3.5 is no longer supported.
