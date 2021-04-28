@@ -69,7 +69,7 @@ jobs:
           versionSpec: '$(PythonVersion)'
 
       - powershell: |
-          Invoke-WebRequest -UseBasicParsing -Uri $(python-uamqp-client-build-win-py27-compiler) -OutFile VCForPython27.msi
+          Invoke-WebRequest -UseBasicParsing -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
           Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
           Get-Content VCForPython27.log
         displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
