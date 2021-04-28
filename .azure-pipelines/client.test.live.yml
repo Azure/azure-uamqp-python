@@ -3,7 +3,6 @@ trigger:
 
 variables:
   PythonVersion27: '2.7'
-  PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
@@ -25,10 +24,6 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x64 Python 3.5:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         x64 Python 3.6:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion36)'
@@ -45,10 +40,6 @@ jobs:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x86 Python 3.5:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         x86 Python 3.6:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion36)'
@@ -140,10 +131,6 @@ jobs:
           PythonBin: 'python2'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.5:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         Python 3.6:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion36)'
@@ -161,7 +148,6 @@ jobs:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
       PythonVersion27: '2.7.17'
-      PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
@@ -261,9 +247,6 @@ jobs:
         Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.5:
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         Python 3.6:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
