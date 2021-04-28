@@ -198,11 +198,15 @@ static AMQP_VALUE on_message_received(const void* context, MESSAGE_HANDLE messag
                                             desc_value = amqpvalue_get_map_value(map, desc_key);
                                             if (desc_value != NULL)
                                             {
-                                                /* Codes_SRS_AMQP_MANAGEMENT_01_134: [ The status description value shall be extracted from the value found in the map by using `amqpvalue_get_string`. ]*/
-                                                if (amqpvalue_get_string(desc_value, &status_description) != 0)
+                                                AMQP_TYPE amqp_type = amqpvalue_get_type(desc_value);
+                                                if (amqp_type == AMQP_TYPE_STRING)
                                                 {
-                                                    /* Codes_SRS_AMQP_MANAGEMENT_01_125: [ If status description is not found, NULL shall be passed to the user callback as `status_description` argument. ]*/
-                                                    status_description = NULL;
+                                                    /* Codes_SRS_AMQP_MANAGEMENT_01_134: [ The status description value shall be extracted from the value found in the map by using `amqpvalue_get_string`. ]*/
+                                                    if (amqpvalue_get_string(desc_value, &status_description) != 0)
+                                                    {
+                                                        /* Codes_SRS_AMQP_MANAGEMENT_01_125: [ If status description is not found, NULL shall be passed to the user callback as `status_description` argument. ]*/
+                                                        status_description = NULL;
+                                                    }
                                                 }
                                             }
                                             else
