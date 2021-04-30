@@ -329,29 +329,33 @@ jobs:
   #        artifactName: uamqp-linux-$(PythonVersion)-whl
   #        pathToPublish: 'dist'
 
-  - job: 'EventHub LiveTest windows2019_27'
+  - job: 'EventHub_LiveTest_windows2019_27'
     pool:
       name: 'azsdk-pool-mms-win-2019-general'
       vmImage: 'MMS2019'
     variables:
       DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
-      Umaqp27Path: 'uamqp-winx64-$(Pythonversion27)-whl'
+      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl/*.whl'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
     steps:
       - script: |
           git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
         displayName: 'Clone azure-sdk-for-python'
       - task: DownloadPipelineArtifact@2
+        displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactPattern)'
         inputs:
-          source: current
-          artifactName: '$(Uamqp27Path)'
+          patterns: '$(DownloadArtifactPattern)'
       - pwsh: |
           Add-Content $(DevReqsPath) "`n$(Pipeline.Workspace)/$(Uamqp27Path)/*.whl"
           echo "Appending $(Pipeline.Workspace)/$(Uamqp27Path)/*.whl to $(DevReqsPath)"
         displayName: 'Append latest uamqp version to dev requirements'
       - script: |
-          python -m pip install --user --ignore-installed $(SdkPath)
-          pytest $(SdkPath)/tests --doctest-modules --junitxml=junit/test-results-live.xml
+          cd $(SdkPath)
+          python -m pip install --user --ignore-installed .
+          python -m pip install --user -r .\dev_requirements.txt
+          python -m pip uninstall --user uamqp
+          python -m pip install --user --find-links=../../../../files/uamqp-winx64-2.7-whl uamqp
+          pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
           AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
