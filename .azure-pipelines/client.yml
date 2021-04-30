@@ -3,7 +3,6 @@ trigger:
 
 variables:
   PythonVersion27: '2.7'
-  PythonVersion35: '3.5'
   PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
@@ -56,10 +55,6 @@ jobs:
           PythonBin: 'python2'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.5:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         Python 3.6:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion36)'
@@ -77,7 +72,6 @@ jobs:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
       PythonVersion27: '2.7.17'
-      PythonVersion35: '3.5.4'
       PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
@@ -162,10 +156,6 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x64 Python 3.5:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         x64 Python 3.6:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion36)'
@@ -182,10 +172,6 @@ jobs:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x86 Python 3.5:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         x86 Python 3.6:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion36)'
@@ -205,8 +191,8 @@ jobs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
 
-      - powershell: |
-          Invoke-WebRequest -UseBasicParsing -Uri https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi -OutFile VCForPython27.msi
+      - pwsh: |
+          Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
           Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
           Get-Content VCForPython27.log
         displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
@@ -260,9 +246,6 @@ jobs:
         Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.5:
-          PythonVersion: '$(PythonVersion35)'
-          GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         Python 3.6:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
@@ -334,10 +317,6 @@ jobs:
           ContainerImage: 'manylinux_crypto_x64'
           PythonVersion: 'cp27-cp27mu'
           Platform: 'manylinux1_x86_64'
-        Python35m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp35-cp35m'
-          Platform: 'manylinux1_x86_64'
         Python36m-manylinux1:
           ContainerImage: 'manylinux_crypto_x64'
           PythonVersion: 'cp36-cp36m'
@@ -361,10 +340,6 @@ jobs:
         Python27mu-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
           PythonVersion: 'cp27-cp27mu'
-          Platform: 'manylinux2010_x86_64'
-        Python35m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp35-cp35m'
           Platform: 'manylinux2010_x86_64'
         Python36m-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
