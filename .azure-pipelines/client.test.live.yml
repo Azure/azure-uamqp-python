@@ -339,16 +339,12 @@ jobs:
         displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactPattern)'
         inputs:
           patterns: '$(DownloadArtifactPattern)'
-      - pwsh: |
-          Add-Content $(DevReqsPath) "`n$(Pipeline.Workspace)/$(Uamqp27Path)/*.whl"
-          echo "Appending $(Pipeline.Workspace)/$(Uamqp27Path)/*.whl to $(DevReqsPath)"
-        displayName: 'Append latest uamqp version to dev requirements'
       - script: |
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
           python -m pip install --user -r .\dev_requirements.txt
           python -m pip uninstall --user uamqp
-          python -m pip install --user --find-links=../../../../files/uamqp-winx64-2.7-whl uamqp
+          python -m pip install --user --find-links=../../../../$(Pipeline.Workspace)/uamqp-winx64-2.7-whl uamqp
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
