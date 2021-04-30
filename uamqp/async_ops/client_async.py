@@ -1007,7 +1007,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
 
 
 class AsyncMessageIter(collections.abc.AsyncIterator):  # pylint: disable=no-member
-    """Python 3.5 and 3.6 compatible asynchronous generator.
+    """Python 3.6 compatible asynchronous generator.
 
     :param recv_client: The receiving client.
     :type recv_client: ~uamqp.async_ops.client_async.ReceiveClientAsync
