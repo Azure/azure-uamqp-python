@@ -408,27 +408,3 @@ jobs:
         inputs:
           artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
           pathToPublish: 'wheelhouse'
-
-  - job: 'EventHub LiveTest windows2019_27'
-    variables:
-      DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
-      Umaqp27Path: 'uamqp-winx64-$(Pythonversion27)-whl'
-    steps:
-      - script: |
-          git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
-        displayName: 'Clone azure-sdk-for-python'
-      - task: DownloadPipelineArtifact@2
-        inputs:
-          source: current
-          artifactName: '$(Uamqp27Path)'
-      - pwsh: |
-          Add-Content $(DevReqsPath) "`n$(Pipeline.Workspace)/$(Uamqp27Path)/*.whl"
-          echo "Appending $(Pipeline.Workspace)/$(Uamqp27Path)/*.whl to $(DevReqsPath)"
-        displayName: 'Append latest uamqp version to dev requirements'
-      - template: /azure-sdk-for-python/sdk/eventhub/tests.yml
-        parameters:
-          TestSamples: false
-          DeployArmTemplate: false
-          MatrixFilters:
-            - PythonVersion=$(PythonVersion27)
-            - Agent='windows-2019'
