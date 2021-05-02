@@ -340,14 +340,12 @@ jobs:
         displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactPattern)'
         inputs:
           patterns: '$(DownloadArtifactPattern)'
-      - script: dir $(Pipeline.Workspace)
-        displayName: 'Check downloads'
       - script: |
+          dir $(Pipeline.Workspace)\uamqp-winx64-2.7-whl
+          python -m pip install --find-links=$(Pipeline.Workspace)\uamqp-winx64-2.7-whl uamqp
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
-          python -m pip install --user -r .\dev_requirements.txt
-          python -m pip uninstall -y uamqp
-          python -m pip install --find-links=../../../../$(Pipeline.Workspace)/uamqp-winx64-2.7-whl uamqp
+          python -m pip show uamqp
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
