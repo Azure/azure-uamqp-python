@@ -338,7 +338,7 @@ jobs:
         displayName: 'Clone azure-sdk-for-python'
       - script: |
           $DownloadArtifactWhl = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
-          echo "##vso[task.setvariable variable=DownloadArtifactWhl]$DownloadArtifactWhl"
+          echo "##vso[task.setvariable variable=DownloadArtifactWhl]$(DownloadArtifactWhl)"
         displayName: 'Get name of whl file'
       - task: DownloadPipelineArtifact@2
         displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)'
