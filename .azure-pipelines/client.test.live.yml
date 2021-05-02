@@ -330,23 +330,29 @@ jobs:
       vmImage: 'MMS2019'
     variables:
       DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
-      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl'
+      DownloadArtifactFolder: 'uamqp-winx64-$(Pythonversion27)-whl'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
     steps:
       - script: |
           git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
         displayName: 'Clone azure-sdk-for-python'
-      - task: DownloadPipelineArtifact@2
-        displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactPattern)'
-        inputs:
-          patterns: '$(DownloadArtifactPattern)'
       - script: |
-          dir $(Pipeline.Workspace)\uamqp-winx64-2.7-whl
-          dir dist
-          python -m pip install --find-links=$(Pipeline.Workspace)\uamqp-winx64-2.7-whl uamqp
+          $DownloadArtifactWhl = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+          echo "##vso[task.setvariable variable=DownloadArtifactWhl]$DownloadArtifactWhl"
+        displayName: 'Get name of whl file'
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)'
+        inputs:
+          source: 'current'
+          patterns: '$(DownloadArtifactFolder)/$(DownloadArtifactWhl)'
+      - script: |
+          dir $(Pipeline.Workspace)\$(DownloadArtifactFolder)
+          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
           python -m pip show uamqp
+          python --version
+          python -m pip install pytest
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Install Uamqp and Run tests'
         env:
