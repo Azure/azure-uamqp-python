@@ -330,7 +330,7 @@ jobs:
       vmImage: 'MMS2019'
     variables:
       DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
-      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl/*.whl'
+      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
     steps:
       - script: |
@@ -343,7 +343,6 @@ jobs:
       - script: |
           dir $(Pipeline.Workspace)\uamqp-winx64-2.7-whl
           dir dist
-          python -m pip install --ignore-installed ./dist/$whlfile
           python -m pip install --find-links=$(Pipeline.Workspace)\uamqp-winx64-2.7-whl uamqp
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
