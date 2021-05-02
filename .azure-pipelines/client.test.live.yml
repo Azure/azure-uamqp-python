@@ -330,7 +330,7 @@ jobs:
       vmImage: 'MMS2019'
     variables:
       DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
-      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl/*.whl'
+      DownloadArtifactPattern: 'uamqp-winx64-$(Pythonversion27)-whl'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
     steps:
       - script: |
@@ -347,7 +347,7 @@ jobs:
           python -m pip install --user --ignore-installed .
           python -m pip show uamqp
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
+        displayName: 'Install Uamqp and Run tests'
         env:
           AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
           AZURE_TENANT_ID: $(python-eh-livetest-event-hub-aad-tenant-id)
