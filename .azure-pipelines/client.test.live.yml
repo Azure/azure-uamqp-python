@@ -343,7 +343,6 @@ jobs:
       - script: |
           dir $(Pipeline.Workspace)\uamqp-winx64-2.7-whl
           dir dist
-        #  $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
           python -m pip install --find-links=$(Pipeline.Workspace)\uamqp-winx64-2.7-whl uamqp
           cd $(SdkPath)
