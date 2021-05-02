@@ -342,7 +342,7 @@ jobs:
           $whlfile = Get-ChildItem -Filter *.whl $(Build.ArtifactStagingDirectory)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
           echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
         displayName: 'Get name of whl file'
-      - task: DownloadBuildArtifact@1
+      - task: DownloadPipelineArtifact@2
         displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)'
         inputs:
           source: 'current'
