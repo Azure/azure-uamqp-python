@@ -359,14 +359,15 @@ jobs:
         displayName: 'Get name of whl file to install'
       - script: |
           python --version
+          python -m pip install pytest
           echo "Installing $DownloadArtifactWhl"
-          python -m pip install --user $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
           cd $(SdkPath)
-          python -m pip install --user --ignore-installed .
-          python -m pip install --user -r dev_requirements.txt
+          python -m pip install --ignore-installed .
+          python -m pip install -r dev_requirements.txt
         displayName: 'Install dependencies'
       - script: |
-          python -m pip list --user
+          python -m pip list
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
