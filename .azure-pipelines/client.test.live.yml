@@ -346,10 +346,8 @@ jobs:
           echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
           echo "artifact whl name"
           echo "$whlfile"
-          echo "$(whlfile)"
           echo "d.art.whl"
           echo "$DownloadArtifactWhl"
-          echo "$(DownloadArtifactWhl)"
           echo "workspace"
           dir $(Pipeline.Workspace)
           echo "dir download artifact folder - check downloaded whl"
