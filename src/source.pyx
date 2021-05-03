@@ -65,11 +65,15 @@ cdef class cSource(StructBase):
     @property
     def address(self):
         cdef c_amqpvalue.AMQP_VALUE _value
+        cdef c_amqpvalue.AMQP_VALUE cloned
         if c_amqp_definitions.source_get_address(self._c_value, &_value) != 0:
             self._value_error("Failed to get source address")
         if <void*>_value == NULL:
             return None
-        return value_factory(_value).value
+        cloned = c_amqpvalue.amqpvalue_clone(_value)
+        if <void*>cloned == NULL:
+            return None
+        return value_factory(cloned).value
 
     @address.setter
     def address(self, AMQPValue value):
@@ -163,11 +167,15 @@ cdef class cSource(StructBase):
     @property
     def filter_set(self):
         cdef c_amqp_definitions.filter_set _value
+        cdef c_amqp_definitions.filter_set clone
         if c_amqp_definitions.source_get_filter(self._c_value, &_value) != 0:
             self._value_error("Failed to get source filter_set")
         if <void*>_value == NULL:
             return None
-        return value_factory(_value)
+        cloned = c_amqpvalue.amqpvalue_clone(_value)
+        if <void*>cloned == NULL:
+            return None
+        return value_factory(cloned)
 
     @filter_set.setter
     def filter_set(self, AMQPValue value):

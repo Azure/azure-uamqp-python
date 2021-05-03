@@ -3,11 +3,12 @@
 Release History
 ===============
 
-1.4.0 (Unreleased)
+1.4.0 (2021-05-03)
 +++++++++++++++++++
 
 This version and all future versions will require Python 2.7 or Python 3.6+, Python 3.5 is no longer supported.
 
+- Fixed memory leaks in the process of link attach where source and target cython objects are not properly deallocated (azure-sdk-for-python issue #15747).
 - Improved management operation callback not to parse description value of non AMQP_TYPE_STRING type as string (azure-sdk-for-python issue #18361).
 
 1.3.0 (2021-04-05)
