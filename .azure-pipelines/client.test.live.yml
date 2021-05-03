@@ -359,11 +359,14 @@ jobs:
         displayName: 'Get name of whl file to install'
       - script: |
           python --version
-          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+          python -m pip install --user pytest
+          python -m pip install --user $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
-          python -m pip show uamqp
-          python -m pip install pytest
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
+      - script: |
+          python -m pip list --user
           pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
         env:
