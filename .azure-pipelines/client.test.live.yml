@@ -340,12 +340,17 @@ jobs:
         displayName: 'Downloading $(Pipeline.Workspace)/$(DownloadArtifactFolder)'
         inputs:
           source: 'current'
-          patterns: '$(DownloadArtifactFolder)'
+          patterns: '$(DownloadArtifactFolder)/*.whl'
       - pwsh: |
-          dir $(Pipeline.Workspace)
-          dir $(Build.ArtifactStagingDirectory)
           $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
           echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+          echo "artifact whl name"
+          echo "$DownloadArtifactWhl"
+          echo "worskpace"
+          dir $(Pipeline.Workspace)
+          echo "Build.ArtifactStagingDirectory"
+          dir $(Build.ArtifactStagingDirectory)
+          dir $(Build.ArtifactStagingDirectory)/$(DownloadArtifactFolder)
         displayName: 'Get name of whl file'
       - script: |
           dir $(Pipeline.Workspace)\$(DownloadArtifactFolder)
