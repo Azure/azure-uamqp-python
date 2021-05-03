@@ -366,8 +366,7 @@ jobs:
           python -m pip install --ignore-installed .
           python -m pip install -r dev_requirements.txt
           python -m pip list
-          echo "Running tests"
-          pytest tests --doctest-modules --junitxml=junit/test-results-live.xml
+          pytest tests -v --doctest-modules --ignore=tests/perfstress_tests --junitxml=junit/eventhub/azure-eventhub/test-results-live.xml
         displayName: 'Run tests'
         env:
           AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
@@ -379,6 +378,6 @@ jobs:
         displayName: 'Publish test results'
         condition: succeededOrFailed()
         inputs:
-          testResultsFiles: '**/test-results-*.xml'
+          testResultsFiles: '**/azure-eventhub/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'win$(PythonArchitecture) Python $(PythonVersion)'
