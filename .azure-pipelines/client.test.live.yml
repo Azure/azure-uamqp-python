@@ -359,7 +359,7 @@ jobs:
         displayName: 'Get name of whl file to install'
       - script: |
           python --version
-          python -m pip install --user pytest
+          echo "Installing $DownloadArtifactWhl"
           python -m pip install --user $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
           cd $(SdkPath)
           python -m pip install --user --ignore-installed .
