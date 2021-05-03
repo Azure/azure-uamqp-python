@@ -339,6 +339,10 @@ jobs:
       DownloadArtifactFolder: 'uamqp-$(PythonArchitecture)-$(PythonVersion)-whl'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
     steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
       - script: |
           git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
         displayName: 'Clone azure-sdk-for-python'
