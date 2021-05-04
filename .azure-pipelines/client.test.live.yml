@@ -327,6 +327,7 @@ jobs:
           pathToPublish: 'dist'
 
   #- job: 'EventHub_LiveTest_windows2019_27'
+  #  timeoutInMinutes: 120
   #  dependsOn: 'Windows'
   #  pool:
   #    name: 'azsdk-pool-mms-win-2019-general'
@@ -386,6 +387,7 @@ jobs:
   #        testRunTitle: 'win$(PythonArchitecture) Python $(PythonVersion)'
   
   #- job: 'EventHub_LiveTest_macOS1015_36'
+  #  timeoutInMinutes: 120
   #  dependsOn: 'MacOS'
   #  pool:
   #    name: 'Azure Pipelines'
@@ -445,6 +447,7 @@ jobs:
   #        testRunTitle: 'macosx$(MacOSXDeploymentTarget) Python $(PythonVersion368)'
 
   #- job: 'EventHub_LiveTest_ubuntu1804_37'
+  #  timeoutInMinutes: 120
   #  dependsOn: 'Linux'
   #  pool:
   #    name: 'azsdk-pool-mms-ubuntu-1804-general'
@@ -501,6 +504,7 @@ jobs:
   #        testRunTitle: 'Linux Python $(PythonVersion)'
       
   #- job: 'EventHub_LiveTest_windows2019_38'
+  #  timeoutInMinutes: 120
   #  dependsOn: 'Windows'
   #  pool:
   #    name: 'azsdk-pool-mms-win-2019-general'
@@ -559,6 +563,7 @@ jobs:
   #        testRunTitle: 'win$(PythonArchitecture) Python $(PythonVersion)'
 
   #- job: 'EventHub_LiveTest_ubuntu1804_39'
+  #  timeoutInMinutes: 120
   #  dependsOn: 'Linux'
   #  pool:
   #    name: 'azsdk-pool-mms-ubuntu-1804-general'
@@ -615,6 +620,7 @@ jobs:
   #        testRunTitle: 'Linux Python $(PythonVersion)'
 
   - job: 'ServiceBus_LiveTest_windows2019_27'
+    timeoutInMinutes: 300
     dependsOn: 'Windows'
     pool:
       name: 'azsdk-pool-mms-win-2019-general'
@@ -674,6 +680,7 @@ jobs:
           testRunTitle: 'win$(PythonArchitecture) Python $(PythonVersion)'
   
   - job: 'ServiceBus_LiveTest_ubuntu1804_39'
+    timeoutInMinutes: 300
     dependsOn: 'Linux'
     pool:
       name: 'azsdk-pool-mms-ubuntu-1804-general'
