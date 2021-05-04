@@ -27,12 +27,12 @@ jobs:
         #x64 Python 3.6:
         #  PythonArchitecture: 'x64'
         #  PythonVersion: '$(PythonVersion36)'
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-        #x64 Python 3.8:
+        #x64 Python 3.7:
         #  PythonArchitecture: 'x64'
-        #  PythonVersion: '$(PythonVersion38)'
+        #  PythonVersion: '$(PythonVersion37)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
         #x64 Python 3.9:
         #  PythonArchitecture: 'x64'
         #  PythonVersion: '$(PythonVersion39)'
@@ -57,69 +57,66 @@ jobs:
         #  PythonArchitecture: 'x86'
         #  PythonVersion: '$(PythonVersion39)'
     steps:
-      - script: |
-          echo "in windows"
-        displayName: 'Placeholder'
-      #- template: /.azure-pipelines/use-python-version.yml
-      #  parameters:
-      #    architecture: '$(PythonArchitecture)'
-      #    versionSpec: '$(PythonVersion)'
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
 
-      #- pwsh: |
-      #    Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
-      #    Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
-      #    Get-Content VCForPython27.log
-      #  displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
-      #  condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
+      - pwsh: |
+          Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
+          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
+          Get-Content VCForPython27.log
+        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
+        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
 
-      #- powershell: |
-      #    python --version
-      #    Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-      #    python -m pip --version
-      #    python -m pip install -r dev_requirements.txt
-      #  displayName: 'Install dependencies'
-      #  env:
-      #    PYTHONWARNINGS: ignore:DEPRECATION
+      - powershell: |
+          python --version
+          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+          python -m pip --version
+          python -m pip install -r dev_requirements.txt
+        displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
 
-      #- script: python setup.py bdist_wheel
-      #  displayName: 'Build uAMQP Wheel'
-      #  env:
-      #    UAMQP_REBUILD_PYX: 'True'
+      - script: python setup.py bdist_wheel
+        displayName: 'Build uAMQP Wheel'
+        env:
+          UAMQP_REBUILD_PYX: 'True'
 
-      #- script: dir dist
-      #  displayName: 'Check output'
+      - script: dir dist
+        displayName: 'Check output'
 
-      #- powershell: |
-      #    $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-      #    python -m pip install --ignore-installed ./dist/$whlfile
-      #    pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-      #    pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-      #  displayName: 'Run tests'
-      #  env:
-      #    EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-      #    EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-      #    EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-      #    EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-      #    IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-      #    IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-      #    IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-      #    IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-      #    IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-      #    IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      - powershell: |
+          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+          python -m pip install --ignore-installed ./dist/$whlfile
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      #- task: PublishTestResults@2
-      #  displayName: 'Publish test results'
-      #  condition: succeededOrFailed()
-      #  inputs:
-      #    testResultsFiles: '**/test-results-*.xml'
-      #    testResultsFormat: 'JUnit'
-      #    testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-      #- task: PublishBuildArtifacts@1
-      #  displayName: 'Publish wheel artifact'
-      #  inputs:
-      #    artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-      #    pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
   - job: 'MacOS'
 
@@ -266,12 +263,12 @@ jobs:
         #  GetPip: 'https://bootstrap.pypa.io/pip/3.5/get-pip.py'
         #Python 3.6:
         #  PythonVersion: '$(PythonVersion36)'
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
+        #Python 3.7:
+        #  PythonVersion: '$(PythonVersion37)'
         #Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #Python 3.9:
-        #  PythonVersion: '$(PythonVersion39)'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -447,7 +444,121 @@ jobs:
   #        testResultsFormat: 'JUnit'
   #        testRunTitle: 'macosx$(MacOSXDeploymentTarget) Python $(PythonVersion368)'
 
-  - job: 'EventHub_LiveTest_ubuntu1804_37'
+  #- job: 'EventHub_LiveTest_ubuntu1804_37'
+  #  dependsOn: 'Linux'
+  #  pool:
+  #    name: 'azsdk-pool-mms-ubuntu-1804-general'
+  #    vmImage: 'MMSUbuntu18.04'
+  #  strategy:
+  #    maxParallel: 1
+  #    matrix:
+  #      Python 3.7:
+  #        PythonVersion: '$(PythonVersion37)'
+  #  variables:
+  #    DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
+  #    SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+  #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+  #  steps:
+  #    - template: /.azure-pipelines/use-python-version.yml
+  #      parameters:
+  #        versionSpec: '$(PythonVersion)'
+  #    - script: |
+  #        git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
+  #      displayName: 'Clone azure-sdk-for-python'
+  #    - task: DownloadPipelineArtifact@2
+  #      displayName: 'Downloading artifact'
+  #      inputs:
+  #        source: 'current'
+  #        patterns: '$(DownloadArtifactFolder)/*.whl'
+  #    - pwsh: |
+  #        $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+  #        echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+  #        dir $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+  #      displayName: 'Get name of whl file to install'
+  #    - script: |
+  #        python --version
+  #        python -m pip install pytest
+  #        echo "Installing $DownloadArtifactWhl"
+  #        python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+  #        cd $(SdkPath)
+  #        python -m pip install --ignore-installed .
+  #        python -m pip install -r dev_requirements.txt
+  #        python -m pip list
+  #        pytest tests -v --doctest-modules --ignore=tests/perfstress_tests --junitxml=junit/eventhub/azure-eventhub/test-results-live.xml
+  #      displayName: 'Run tests'
+  #      env:
+  #        AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
+  #        AZURE_TENANT_ID: $(python-eh-livetest-event-hub-aad-tenant-id)
+  #        AZURE_CLIENT_SECRET: $(python-eh-livetest-event-hub-aad-secret)
+  #        AZURE_SUBSCRIPTION_ID: $(python-eh-livetest-event-hub-subscription-id)
+  #        AZURE_TEST_RUN_LIVE: 'true'
+  #    - task: PublishTestResults@2
+  #      displayName: 'Publish test results'
+  #      condition: succeededOrFailed()
+  #      inputs:
+  #        testResultsFiles: '**/azure-eventhub/test-results-*.xml'
+  #        testResultsFormat: 'JUnit'
+  #        testRunTitle: 'linux Python $(PythonVersion)'
+      
+  - job: 'EventHub_LiveTest_windows2019_38'
+    dependsOn: 'Windows'
+    pool:
+      name: 'azsdk-pool-mms-win-2019-general'
+      vmImage: 'MMS2019'
+    strategy:
+      maxParallel: 1
+      matrix:
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+    variables:
+      DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
+      DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
+      SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
+      - script: |
+          git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
+        displayName: 'Clone azure-sdk-for-python'
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Downloading artifact'
+        inputs:
+          source: 'current'
+          patterns: '$(DownloadArtifactFolder)/*.whl'
+      - pwsh: |
+          $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+          echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+          dir $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+        displayName: 'Get name of whl file to install'
+      - script: |
+          python --version
+          python -m pip install pytest
+          echo "Installing $DownloadArtifactWhl"
+          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+          cd $(SdkPath)
+          python -m pip install --ignore-installed .
+          python -m pip install -r dev_requirements.txt
+          python -m pip list
+          pytest tests -v --doctest-modules --ignore=tests/perfstress_tests --junitxml=junit/eventhub/azure-eventhub/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
+          AZURE_TENANT_ID: $(python-eh-livetest-event-hub-aad-tenant-id)
+          AZURE_CLIENT_SECRET: $(python-eh-livetest-event-hub-aad-secret)
+          AZURE_SUBSCRIPTION_ID: $(python-eh-livetest-event-hub-subscription-id)
+          AZURE_TEST_RUN_LIVE: 'true'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/azure-eventhub/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'win$(PythonArchitecture) Python $(PythonVersion)'
+
+  - job: 'EventHub_LiveTest_ubuntu1804_39'
     dependsOn: 'Linux'
     pool:
       name: 'azsdk-pool-mms-ubuntu-1804-general'
@@ -455,8 +566,8 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
     variables:
       DevReqsPath: './azure-sdk-for-python/sdk/eventhub/azure-eventhub/dev_requirements.txt'
       SdkPath: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
@@ -502,4 +613,3 @@ jobs:
           testResultsFiles: '**/azure-eventhub/test-results-*.xml'
           testResultsFormat: 'JUnit'
           testRunTitle: 'linux Python $(PythonVersion)'
-      
