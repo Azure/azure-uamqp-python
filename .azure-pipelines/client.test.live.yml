@@ -721,7 +721,7 @@ jobs:
           python -m pip install --ignore-installed .
           python -m pip install -r dev_requirements.txt
           python -m pip list
-          pytest tests -v --doctest-modules --ignore=tests/perfstress_tests --junitxml=junit/servicebus/azure-servicebus/test-results-live.xml
+          pytest tests -v --doctest-modules --ignore=tests/perf_tests --ignore=tests/stress_tests --junitxml=junit/servicebus/azure-servicebus/test-results-live.xml
         displayName: 'Run tests'
         env:
           AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
