@@ -658,7 +658,7 @@ jobs:
           python --version
           python -m pip install pytest
           echo "Installing $DownloadArtifactWhl"
-          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+          python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
           cd $(SdkPath)
           python -m pip install --ignore-installed .
           python -m pip install -r dev_requirements.txt
@@ -715,7 +715,7 @@ jobs:
           python --version
           python -m pip install pytest
           echo "Installing $DownloadArtifactWhl"
-          python -m pip install $(Pipeline.Workspace)\$(DownloadArtifactFolder)\$(DownloadArtifactWhl)
+          python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
           cd $(SdkPath)
           python -m pip install --ignore-installed .
           python -m pip install -r dev_requirements.txt
