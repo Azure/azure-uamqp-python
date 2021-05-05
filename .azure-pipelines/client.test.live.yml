@@ -737,62 +737,62 @@ jobs:
           testResultsFormat: 'JUnit'
           testRunTitle: 'macosx$(MacOSXDeploymentTarget) Python $(PythonVersion368)'
 
-  #- job: 'ServiceBus_LiveTest_ubuntu1804_37'
-  #  timeoutInMinutes: 300
-  #  dependsOn: 'Linux'
-  #  pool:
-  #    name: 'azsdk-pool-mms-ubuntu-1804-general'
-  #    vmImage: 'MMSUbuntu18.04'
-  #  strategy:
-  #    maxParallel: 1
-  #    matrix:
-  #      Python 3.7:
-  #        PythonVersion: '$(PythonVersion37)'
-  #  variables:
-  #    DevReqsPath: './azure-sdk-for-python/sdk/servicebus/azure-servicebus/dev_requirements.txt'
-  #    SdkPath: 'azure-sdk-for-python/sdk/servicebus/azure-servicebus'
-  #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-  #  steps:
-  #    - template: /.azure-pipelines/use-python-version.yml
-  #      parameters:
-  #        versionSpec: '$(PythonVersion)'
-  #    - script: |
-  #        git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
-  #      displayName: 'Clone azure-sdk-for-python'
-  #    - task: DownloadPipelineArtifact@2
-  #      displayName: 'Downloading artifact'
-  #      inputs:
-  #        source: 'current'
-  #        patterns: '$(DownloadArtifactFolder)/*.whl'
-  #    - pwsh: |
-  #        $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
-  #        echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
-  #        dir $(Pipeline.Workspace)/$(DownloadArtifactFolder)
-  #      displayName: 'Get name of whl file to install'
-  #    - script: |
-  #        python --version
-  #        python -m pip install pytest
-  #        echo "Installing $DownloadArtifactWhl"
-  #        python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
-  #        cd $(SdkPath)
-  #        python -m pip install --ignore-installed .
-  #        python -m pip install -r dev_requirements.txt
-  #        python -m pip list
-  #        pytest tests -v --doctest-modules --ignore=tests/perf_tests --ignore=tests/stress_tests --junitxml=junit/servicebus/azure-servicebus/test-results-live.xml
-  #      displayName: 'Run tests'
-  #      env:
-  #        AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
-  #        AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
-  #        AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
-  #        AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
-  #        AZURE_TEST_RUN_LIVE: 'true'
-  #    - task: PublishTestResults@2
-  #      displayName: 'Publish test results'
-  #      condition: succeededOrFailed()
-  #      inputs:
-  #        testResultsFiles: '**/azure-servicebus/test-results-*.xml'
-  #        testResultsFormat: 'JUnit'
-  #        testRunTitle: 'Linux Python $(PythonVersion)'
+  - job: 'ServiceBus_LiveTest_ubuntu1804_37'
+    timeoutInMinutes: 300
+    dependsOn: 'Linux'
+    pool:
+      name: 'azsdk-pool-mms-ubuntu-1804-general'
+      vmImage: 'MMSUbuntu18.04'
+    strategy:
+      maxParallel: 1
+      matrix:
+        Python 3.7:
+          PythonVersion: '$(PythonVersion37)'
+    variables:
+      DevReqsPath: './azure-sdk-for-python/sdk/servicebus/azure-servicebus/dev_requirements.txt'
+      SdkPath: 'azure-sdk-for-python/sdk/servicebus/azure-servicebus'
+      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+      - script: |
+          git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
+        displayName: 'Clone azure-sdk-for-python'
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Downloading artifact'
+        inputs:
+          source: 'current'
+          patterns: '$(DownloadArtifactFolder)/*.whl'
+      - pwsh: |
+          $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+          echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+          dir $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+        displayName: 'Get name of whl file to install'
+      - script: |
+          python --version
+          python -m pip install pytest
+          echo "Installing $DownloadArtifactWhl"
+          python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
+          cd $(SdkPath)
+          python -m pip install --ignore-installed .
+          python -m pip install -r dev_requirements.txt
+          python -m pip list
+          pytest tests -v --doctest-modules --ignore=tests/perf_tests --ignore=tests/stress_tests --junitxml=junit/servicebus/azure-servicebus/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
+          AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
+          AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
+          AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
+          AZURE_TEST_RUN_LIVE: 'true'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/azure-servicebus/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Linux Python $(PythonVersion)'
   
   - job: 'ServiceBus_LiveTest_windows2019_38'
     timeoutInMinutes: 300
