@@ -1,0 +1,56 @@
+variables:
+  - name: SdkPath
+    ${{ if eq(variables['SDK'], 'EventHub')}}
+      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+    ${{ if eq(variables['SDK'], 'ServiceBus')}}
+      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+  - name: TestResultsPath
+    ${{ if eq(variables['SDK'], 'EventHub')}}
+      value: 'eventhub/azure-eventhub/test-results-live.xml'
+    ${{ if eq(variables['SDK'], 'ServiceBus')}}
+      value: 'servicebus/azure-servicebus/test-results-live.xml'
+  - name: IgnoreTests
+    ${{ if eq(variables['SDK'], 'EventHub')}}
+      value: '--ignore=tests/perfstress_tests'
+    ${{ if eq(variables['SDK'], 'ServiceBus')}}
+      value: '--ignore=tests/perf_tests --ignore=tests/stress_tests'
+
+steps:
+  - script: |
+      git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
+    displayName: 'Clone azure-sdk-for-python'
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Downloading artifact'
+    inputs:
+      source: 'current'
+      patterns: '$(DownloadArtifactFolder)/*.whl'
+  - pwsh: |
+      $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+      echo "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+      dir $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+    displayName: 'Get name of whl file to install'
+  - script: |
+      python --version
+      python -m pip install pytest
+      echo "Installing $DownloadArtifactWhl"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
+      cd $(SdkPath)
+      python -m pip install futures
+      python -m pip install --ignore-installed .
+      python -m pip install -r dev_requirements.txt
+      python -m pip list
+      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+    displayName: 'Run tests'
+    env:
+      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
+      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
+      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
+      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
+      AZURE_TEST_RUN_LIVE: 'true'
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/$(TestResultsPath)'
+      testResultsFormat: 'JUnit'
+      testRunTitle: '$(SDK) Python $(PythonVersion)'
