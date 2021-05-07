@@ -1,20 +1,3 @@
-variables:
-  - name: SdkPath
-    ${{ if eq(variables['SDK'], 'EventHub')}}
-      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
-    ${{ if eq(variables['SDK'], 'ServiceBus')}}
-      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
-  - name: TestResultsPath
-    ${{ if eq(variables['SDK'], 'EventHub')}}
-      value: 'eventhub/azure-eventhub/test-results-live.xml'
-    ${{ if eq(variables['SDK'], 'ServiceBus')}}
-      value: 'servicebus/azure-servicebus/test-results-live.xml'
-  - name: IgnoreTests
-    ${{ if eq(variables['SDK'], 'EventHub')}}
-      value: '--ignore=tests/perfstress_tests'
-    ${{ if eq(variables['SDK'], 'ServiceBus')}}
-      value: '--ignore=tests/perf_tests --ignore=tests/stress_tests'
-
 steps:
   - script: |
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1

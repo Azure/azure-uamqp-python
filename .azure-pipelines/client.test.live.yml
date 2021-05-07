@@ -338,6 +338,7 @@ jobs:
     variables:
       PythonArchitecture: 'x64'
       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
+      - template: /.azure-pipelines/eh-sb-vars.yml 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
@@ -363,6 +364,7 @@ jobs:
       MacOSXDeploymentTarget: '10.9'
       PythonVersion368: '3.6.8'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion368)-whl'
+      - template: /.azure-pipelines/eh-sb-vars.yml 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
@@ -391,6 +393,7 @@ jobs:
   #        SDK: 'ServiceBus'
   #  variables:
   #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+  #    - template: /.azure-pipelines/eh-sb-vars.yml 
   #  steps:
   #    - template: /.azure-pipelines/use-python-version.yml
   #      parameters:
