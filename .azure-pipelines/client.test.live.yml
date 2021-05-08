@@ -338,13 +338,14 @@ jobs:
     variables:
       PythonArchitecture: 'x64'
       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
-      - template: /.azure-pipelines/eh-sb-vars.yml 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
+        variables:
+          - template: /.azure-pipelines/eh-sb-vars.yml 
 
   - job: 'SDK_LiveTest_macOS1015_36'
     timeoutInMinutes: 300
@@ -364,12 +365,13 @@ jobs:
       MacOSXDeploymentTarget: '10.9'
       PythonVersion368: '3.6.8'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion368)-whl'
-      - template: /.azure-pipelines/eh-sb-vars.yml 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
+        variables:
+          - template: /.azure-pipelines/eh-sb-vars.yml 
 
   #- job: 'SDK_LiveTest_ubuntu1804_37'
   #  timeoutInMinutes: 300
@@ -393,7 +395,6 @@ jobs:
   #        SDK: 'ServiceBus'
   #  variables:
   #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-  #    - template: /.azure-pipelines/eh-sb-vars.yml 
   #  steps:
   #    - template: /.azure-pipelines/use-python-version.yml
   #      parameters:
