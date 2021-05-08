@@ -331,7 +331,7 @@ jobs:
         #  SDK: 'EventHub'
         ServiceBus x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
-          SDK: 'ServiceBus'
+          SDKName: 'ServiceBus'
         #ServiceBus x64 Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
         #  SDK: 'ServiceBus'
@@ -344,8 +344,8 @@ jobs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
-        variables:
-          - template: /.azure-pipelines/eh-sb-vars.yml 
+        parameters:
+          SDK: '$(SDKName)'
 
   - job: 'SDK_LiveTest_macOS1015_36'
     timeoutInMinutes: 300
@@ -370,8 +370,8 @@ jobs:
         parameters:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
-        variables:
-          - template: /.azure-pipelines/eh-sb-vars.yml 
+        parameters:
+          SDK: '$(SDKName)'
 
   #- job: 'SDK_LiveTest_ubuntu1804_37'
   #  timeoutInMinutes: 300

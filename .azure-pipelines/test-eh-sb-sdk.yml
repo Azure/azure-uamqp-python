@@ -1,3 +1,19 @@
+parameters:
+  - name: SdkPath
+    ${{ if eq(${{ parameters.SDK }}, 'EventHub')}}
+      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+    ${{ if eq(${{ parameters.SDK }}, 'ServiceBus')}}
+      value: 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+  - name: TestResultsPath
+    ${{ if eq(${{ parameters.SDK }}, 'EventHub')}}
+      value: 'eventhub/azure-eventhub/test-results-live.xml'
+    ${{ if eq(${{ parameters.SDK }}, 'ServiceBus')}}
+      value: 'servicebus/azure-servicebus/test-results-live.xml'
+  - name: IgnoreTests
+    ${{ if eq(${{ parameters.SDK }}, 'EventHub')}}
+      value: '--ignore=tests/perfstress_tests'
+    ${{ if eq(${{ parameters.SDK }}, 'ServiceBus')}}
+      value: '--ignore=tests/perf_tests --ignore=tests/stress_tests'
 steps:
   - script: |
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
@@ -17,12 +33,12 @@ steps:
       python -m pip install pytest
       echo "Installing $DownloadArtifactWhl"
       python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
-      cd $(SdkPath)
+      cd ${{ parameters.SdkPath }}
       python -m pip install futures
       python -m pip install --ignore-installed .
       python -m pip install -r dev_requirements.txt
       python -m pip list
-      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+      python -m pytest tests -v --doctest-modules ${{ parameters.IgnoreTests }} --junitxml=junit/${{ parameters.TestResultsPath }}
     displayName: 'Run tests'
     env:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
@@ -34,6 +50,6 @@ steps:
     displayName: 'Publish test results'
     condition: succeededOrFailed()
     inputs:
-      testResultsFiles: '**/$(TestResultsPath)'
+      testResultsFiles: '**/${{ parameters.TestResultsPath }}'
       testResultsFormat: 'JUnit'
       testRunTitle: '$(SDK) Python $(PythonVersion)'
