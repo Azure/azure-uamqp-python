@@ -38,12 +38,12 @@ steps:
       python -m pip install pytest
       echo "Installing $DownloadArtifactWhl"
       python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
-      cd ${{ parameters.SdkPath }}
+      cd $(SdkPath)
       python -m pip install futures
       python -m pip install --ignore-installed .
       python -m pip install -r dev_requirements.txt
       python -m pip list
-      python -m pytest tests -v --doctest-modules ${{ parameters.IgnoreTests }} --junitxml=junit/${{ parameters.TestResultsPath }}
+      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
     displayName: 'Run tests'
     env:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
