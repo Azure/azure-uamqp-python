@@ -325,16 +325,16 @@ jobs:
       matrix:
         EventHub x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
-          SDK: 'EventHub'
+          SDKName: 'EventHub'
         #EventHub x64 Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #  SDK: 'EventHub'
+        #  SDKName: 'EventHub'
         ServiceBus x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           SDKName: 'ServiceBus'
         #ServiceBus x64 Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #  SDK: 'ServiceBus'
+        #  SDKName: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
@@ -356,9 +356,9 @@ jobs:
     strategy:
       matrix:
         EventHub Python 3.6:
-          SDK: 'EventHub'
+          SDKName: 'EventHub'
         ServiceBus Python 3.6:
-          SDK: 'ServiceBus'
+          SDKName: 'ServiceBus'
     variables:
       PythonBin: 'python3'
       PythonVersion: '$(PythonVersion36)'
@@ -383,16 +383,16 @@ jobs:
   #    matrix:
   #      EventHub Python 3.7:
   #        PythonVersion: '$(PythonVersion37)'
-  #        SDK: 'EventHub'
+  #        SDKName: 'EventHub'
   #      EventHub Python 3.9:
   #        PythonVersion: '$(PythonVersion39)'
-  #        SDK: 'EventHub'
+  #        SDKName: 'EventHub'
   #      ServiceBus Python 3.7:
   #        PythonVersion: '$(PythonVersion37)'
-  #        SDK: 'ServiceBus'
+  #        SDKName: 'ServiceBus'
   #      ServiceBus Python 3.9:
   #        PythonVersion: '$(PythonVersion39)'
-  #        SDK: 'ServiceBus'
+  #        SDKName: 'ServiceBus'
   #  variables:
   #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
   #  steps:

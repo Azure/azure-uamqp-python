@@ -15,7 +15,7 @@ steps:
       echo "##vso[task.setvariable variable=SdkPath]$SBSdkPath"
       echo "##vso[task.setvariable variable=TestResultsPath]$SBTestResultsPath"
       echo "##vso[task.setvariable variable=IgnoreTests]$SBIgnoreTests"
-    condition: eq(${{ parameters.SDK }}, 'ServiceBus')
+    condition: eq('${{ parameters.SDK }}', 'ServiceBus')
     displayName: 'Get variables if ServiceBus'
   - script: |
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
