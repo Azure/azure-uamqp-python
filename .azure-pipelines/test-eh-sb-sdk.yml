@@ -3,6 +3,9 @@ steps:
       $EHSdkPath = 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
       $EHTestResultsPath = 'eventhub/azure-eventhub/test-results-live.xml'
       $EHIgnoreTests = '--ignore=tests/perfstress_tests'
+      EHSDK='hi'
+      echo "$EHSDK"
+      echo "$(EHSDK)"
       echo "##vso[task.setvariable variable=SdkPath]$EHSdkPath"
       echo "##vso[task.setvariable variable=TestResultsPath]$EHTestResultsPath"
       echo "##vso[task.setvariable variable=IgnoreTests]$EHIgnoreTests"

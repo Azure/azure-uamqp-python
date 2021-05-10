@@ -53,66 +53,68 @@ jobs:
         #  PythonArchitecture: 'x86'
         #  PythonVersion: '$(PythonVersion39)'
     steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
+      - script: |
+          echo "windows"
+      #- template: /.azure-pipelines/use-python-version.yml
+      #  parameters:
+      #    architecture: '$(PythonArchitecture)'
+      #    versionSpec: '$(PythonVersion)'
 
-      - pwsh: |
-          Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
-          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
-          Get-Content VCForPython27.log
-        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
+      #- pwsh: |
+      #    Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
+      #    Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
+      #    Get-Content VCForPython27.log
+      #  displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
+      #  condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
 
-      - powershell: |
-          python --version
-          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-          python -m pip --version
-          python -m pip install -r dev_requirements.txt
-        displayName: 'Install dependencies'
-        env:
-          PYTHONWARNINGS: ignore:DEPRECATION
+      #- powershell: |
+      #    python --version
+      #    Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+      #    python -m pip --version
+      #    python -m pip install -r dev_requirements.txt
+      #  displayName: 'Install dependencies'
+      #  env:
+      #    PYTHONWARNINGS: ignore:DEPRECATION
 
-      - script: python setup.py bdist_wheel
-        displayName: 'Build uAMQP Wheel'
-        env:
-          UAMQP_REBUILD_PYX: 'True'
+      #- script: python setup.py bdist_wheel
+      #  displayName: 'Build uAMQP Wheel'
+      #  env:
+      #    UAMQP_REBUILD_PYX: 'True'
 
-      - script: dir dist
-        displayName: 'Check output'
+      #- script: dir dist
+      #  displayName: 'Check output'
 
-      - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-          python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      #- powershell: |
+      #    $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+      #    python -m pip install --ignore-installed ./dist/$whlfile
+      #    pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+      #    pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+      #  displayName: 'Run tests'
+      #  env:
+      #    EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+      #    EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+      #    EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+      #    EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+      #    IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+      #    IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+      #    IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+      #    IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+      #    IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+      #    IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+      #- task: PublishTestResults@2
+      #  displayName: 'Publish test results'
+      #  condition: succeededOrFailed()
+      #  inputs:
+      #    testResultsFiles: '**/test-results-*.xml'
+      #    testResultsFormat: 'JUnit'
+      #    testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+      #- task: PublishBuildArtifacts@1
+      #  displayName: 'Publish wheel artifact'
+      #  inputs:
+      #    artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+      #    pathToPublish: 'dist'
 
   - job: 'MacOS'
 
@@ -155,83 +157,83 @@ jobs:
     steps:
       - script: |
           echo "mac"
-      - task: DownloadPipelineArtifact@1
-        displayName: 'Download OpenSSL artifact'
-        inputs:
-          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
-          buildType: specific
-          buildVersionToDownload: latest
-          downloadPath: $(Agent.BuildDirectory)
-          pipeline: 119 # azure-uamqp-python - openssl
-          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
+      #- task: DownloadPipelineArtifact@1
+      #  displayName: 'Download OpenSSL artifact'
+      #  inputs:
+      #    artifactName: openssl-macosx$(MacOSXDeploymentTarget)
+      #    buildType: specific
+      #    buildVersionToDownload: latest
+      #    downloadPath: $(Agent.BuildDirectory)
+      #    pipeline: 119 # azure-uamqp-python - openssl
+      #    project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
-      - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
-        displayName: 'Select Xcode 11.3.1'
+      #- script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
+      #  displayName: 'Select Xcode 11.3.1'
 
-      - script: source ./install_python_osx.sh
-        displayName: 'Install Official Python'
+      #- script: source ./install_python_osx.sh
+      #  displayName: 'Install Official Python'
 
-      - script: |
-          echo "Prepending PATH environment variable with directory: /usr/local/bin"
-          echo "##vso[task.prependpath]/usr/local/bin"
-          export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
-          echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-          echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-        displayName: 'Prepare PATH'
+      #- script: |
+      #    echo "Prepending PATH environment variable with directory: /usr/local/bin"
+      #    echo "##vso[task.prependpath]/usr/local/bin"
+      #    export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
+      #    echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+      #    echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+      #  displayName: 'Prepare PATH'
 
-      - script: |
-          $(PythonBin) --version
-          curl -sS $(GetPip) | $(PythonBin) - --user
-          python -m pip --version
-          $(PythonBin) -m pip install --user -r dev_requirements.txt
-        displayName: 'Install dependencies'
+      #- script: |
+      #    $(PythonBin) --version
+      #    curl -sS $(GetPip) | $(PythonBin) - --user
+      #    python -m pip --version
+      #    $(PythonBin) -m pip install --user -r dev_requirements.txt
+      #  displayName: 'Install dependencies'
 
-      - script: $(PythonBin) setup.py bdist_wheel
-        displayName: 'Build uAMQP Wheel'
-        env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
-          CMAKE_OSX_ARCHITECTURES: 'x86_64'
-          CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
-          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
-          OPENSSL_ROOT_DIR: $(OpenSSLDir)
-          UAMQP_REBUILD_PYX: 'True'
-          UAMQP_USE_OPENSSL: 'True'
+      #- script: $(PythonBin) setup.py bdist_wheel
+      #  displayName: 'Build uAMQP Wheel'
+      #  env:
+      #    CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
+      #    CMAKE_OSX_ARCHITECTURES: 'x86_64'
+      #    CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
+      #    LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
+      #    MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
+      #    OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
+      #    OPENSSL_ROOT_DIR: $(OpenSSLDir)
+      #    UAMQP_REBUILD_PYX: 'True'
+      #    UAMQP_USE_OPENSSL: 'True'
 
-      - script: ls ./dist
-        displayName: 'Check output'
+      #- script: ls ./dist
+      #  displayName: 'Check output'
 
-      - script: |
-          $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      #- script: |
+      #    $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+      #    pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+      #    pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+      #  displayName: 'Run tests'
+      #  env:
+      #    EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+      #    EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+      #    EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+      #    EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+      #    IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+      #    IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+      #    IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+      #    IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+      #    IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+      #    IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'MacOS Python $(PythonVersion)'
+      #- task: PublishTestResults@2
+      #  displayName: 'Publish test results'
+      #  condition: succeededOrFailed()
+      #  inputs:
+      #    testResultsFiles: '**/test-results-*.xml'
+      #    testResultsFormat: 'JUnit'
+      #    testRunTitle: 'MacOS Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+      #- task: PublishBuildArtifacts@1
+      #  displayName: 'Publish wheel artifact'
+      #  inputs:
+      #    artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
+      #    pathToPublish: 'dist'
 
   - job: 'Linux'
 
