@@ -55,6 +55,6 @@ steps:
     displayName: 'Publish test results'
     condition: succeededOrFailed()
     inputs:
-      testResultsFiles: '**/${{ parameters.TestResultsPath }}'
+      testResultsFiles: '**/$(TestResultsPath)'
       testResultsFormat: 'JUnit'
       testRunTitle: '$(SDK) Python $(PythonVersion)'
