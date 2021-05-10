@@ -325,16 +325,16 @@ jobs:
       matrix:
         EventHub x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
-          SDKName: 'EventHub'
+          SDK: 'EventHub'
         #EventHub x64 Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #  SDKName: 'EventHub'
+        #  SDK: 'EventHub'
         ServiceBus x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
-          SDKName: 'ServiceBus'
+          SDK: 'ServiceBus'
         #ServiceBus x64 Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #  SDKName: 'ServiceBus'
+        #  SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
@@ -344,8 +344,6 @@ jobs:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
-        parameters:
-          SDK: '$(SDKName)'
 
   - job: 'SDK_LiveTest_macOS1015_36'
     timeoutInMinutes: 300
@@ -356,9 +354,9 @@ jobs:
     strategy:
       matrix:
         EventHub Python 3.6:
-          SDKName: 'EventHub'
+          SDK: 'EventHub'
         ServiceBus Python 3.6:
-          SDKName: 'ServiceBus'
+          SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
       PythonVersion: '$(PythonVersion36)'
@@ -370,8 +368,6 @@ jobs:
         parameters:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
-        parameters:
-          SDK: '$(SDKName)'
 
   #- job: 'SDK_LiveTest_ubuntu1804_37'
   #  timeoutInMinutes: 300
@@ -383,16 +379,16 @@ jobs:
   #    matrix:
   #      EventHub Python 3.7:
   #        PythonVersion: '$(PythonVersion37)'
-  #        SDKName: 'EventHub'
+  #        SDK: 'EventHub'
   #      EventHub Python 3.9:
   #        PythonVersion: '$(PythonVersion39)'
-  #        SDKName: 'EventHub'
+  #        SDK: 'EventHub'
   #      ServiceBus Python 3.7:
   #        PythonVersion: '$(PythonVersion37)'
-  #        SDKName: 'ServiceBus'
+  #        SDK: 'ServiceBus'
   #      ServiceBus Python 3.9:
   #        PythonVersion: '$(PythonVersion39)'
-  #        SDKName: 'ServiceBus'
+  #        SDK: 'ServiceBus'
   #  variables:
   #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
   #  steps:

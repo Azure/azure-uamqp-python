@@ -1,6 +1,3 @@
-parameters:
-  SDK: ''
-
 steps:
   - script: |
       $EHSdkPath = 'azure-sdk-for-python/sdk/eventhub/azure-eventhub'
