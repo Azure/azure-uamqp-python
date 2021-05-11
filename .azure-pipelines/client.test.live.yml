@@ -30,9 +30,9 @@ jobs:
         #x64 Python 3.7:
         #  PythonArchitecture: 'x64'
         #  PythonVersion: '$(PythonVersion37)'
-        #x64 Python 3.8:
-        #  PythonArchitecture: 'x64'
-        #  PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
         #x64 Python 3.9:
         #  PythonArchitecture: 'x64'
         #  PythonVersion: '$(PythonVersion39)'
@@ -252,66 +252,64 @@ jobs:
           PythonVersion: '$(PythonVersion37)'
         #Python 3.8:
         #  PythonVersion: '$(PythonVersion38)'
-        #Python 3.9:
-        #  PythonVersion: '$(PythonVersion39)'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
 
     steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+
       - script: |
-          echo "ubuntu"
-      #- template: /.azure-pipelines/use-python-version.yml
-      #  parameters:
-      #    versionSpec: '$(PythonVersion)'
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
 
-      #- script: |
-      #    echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
-      #    echo "##vso[task.prependpath]$HOME/.local/bin"
-      #  displayName: 'Prepare PATH'
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
 
-      #- script: |
-      #    python --version
-      #    curl -sS $(GetPip) | python - --user
-      #    python -m pip --version
-      #    python -m pip install --user -r dev_requirements.txt
-      #  displayName: 'Install dependencies'
+      - script: python setup.py bdist_wheel
+        displayName: 'Build uAMQP Wheel'
+        env:
+          UAMQP_REBUILD_PYX: 'True'
 
-      #- script: python setup.py bdist_wheel
-      #  displayName: 'Build uAMQP Wheel'
-      #  env:
-      #    UAMQP_REBUILD_PYX: 'True'
+      - script: ls ./dist
+        displayName: 'Check output'
 
-      #- script: ls ./dist
-      #  displayName: 'Check output'
+      - script: |
+          python -m pip install --user --ignore-installed ./dist/*.whl
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      #- script: |
-      #    python -m pip install --user --ignore-installed ./dist/*.whl
-      #    pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-      #    pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-      #  displayName: 'Run tests'
-      #  env:
-      #    EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-      #    EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-      #    EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-      #    EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-      #    IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-      #    IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-      #    IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-      #    IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-      #    IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-      #    IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Linux Python $(PythonVersion)'
 
-      #- task: PublishTestResults@2
-      #  displayName: 'Publish test results'
-      #  condition: succeededOrFailed()
-      #  inputs:
-      #    testResultsFiles: '**/test-results-*.xml'
-      #    testResultsFormat: 'JUnit'
-      #    testRunTitle: 'Linux Python $(PythonVersion)'
-
-      #- task: PublishBuildArtifacts@1
-      #  displayName: 'Publish wheel artifact'
-      #  inputs:
-      #    artifactName: uamqp-linux-$(PythonVersion)-whl
-      #    pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-linux-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
   - job: 'SDK_LiveTest_windows2019_27'
     timeoutInMinutes: 300
@@ -324,15 +322,15 @@ jobs:
         EventHub x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           SDK: 'EventHub'
-        #EventHub x64 Python 3.8:
-        #  PythonVersion: '$(PythonVersion38)'
-        #  SDK: 'EventHub'
-        ServiceBus x64 Python 2.7:
-          PythonVersion: '$(PythonVersion27)'
-          SDK: 'ServiceBus'
-        #ServiceBus x64 Python 3.8:
-        #  PythonVersion: '$(PythonVersion38)'
+        EventHub x64 Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
+          SDK: 'EventHub'
+        #ServiceBus x64 Python 2.7:
+        #  PythonVersion: '$(PythonVersion27)'
         #  SDK: 'ServiceBus'
+        ServiceBus x64 Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
+          SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
@@ -367,30 +365,30 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  #- job: 'SDK_LiveTest_ubuntu1804_37'
-  #  timeoutInMinutes: 300
-  #  dependsOn: 'Linux'
-  #  pool:
-  #    name: 'azsdk-pool-mms-ubuntu-1804-general'
-  #    vmImage: 'MMSUbuntu18.04'
-  #  strategy:
-  #    matrix:
-  #      EventHub Python 3.7:
-  #        PythonVersion: '$(PythonVersion37)'
-  #        SDK: 'EventHub'
-  #      EventHub Python 3.9:
-  #        PythonVersion: '$(PythonVersion39)'
-  #        SDK: 'EventHub'
-  #      ServiceBus Python 3.7:
-  #        PythonVersion: '$(PythonVersion37)'
-  #        SDK: 'ServiceBus'
-  #      ServiceBus Python 3.9:
-  #        PythonVersion: '$(PythonVersion39)'
-  #        SDK: 'ServiceBus'
-  #  variables:
-  #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-  #  steps:
-  #    - template: /.azure-pipelines/use-python-version.yml
-  #      parameters:
-  #        versionSpec: '$(PythonVersion)'
-  #    - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  - job: 'SDK_LiveTest_ubuntu1804_37'
+    timeoutInMinutes: 300
+    dependsOn: 'Linux'
+    pool:
+      name: 'azsdk-pool-mms-ubuntu-1804-general'
+      vmImage: 'MMSUbuntu18.04'
+    strategy:
+      matrix:
+        EventHub Python 3.7:
+          PythonVersion: '$(PythonVersion37)'
+          SDK: 'EventHub'
+        EventHub Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
+          SDK: 'EventHub'
+        ServiceBus Python 3.7:
+          PythonVersion: '$(PythonVersion37)'
+          SDK: 'ServiceBus'
+        ServiceBus Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
+          SDK: 'ServiceBus'
+    variables:
+      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+      - template: /.azure-pipelines/test-eh-sb-sdk.yml
