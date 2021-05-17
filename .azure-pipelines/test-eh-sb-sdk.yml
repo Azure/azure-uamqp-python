@@ -56,4 +56,4 @@ steps:
     inputs:
       testResultsFiles: '**/$(TestResultsPath)'
       testResultsFormat: 'JUnit'
-      testRunTitle: '$(SDK) Python $(PythonVersion)'
+      testRunTitle: '$(OSArch) $(SDK) Python $(PythonVersion)'
