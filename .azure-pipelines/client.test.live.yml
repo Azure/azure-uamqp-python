@@ -325,9 +325,9 @@ jobs:
         EventHub x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'EventHub'
-        #ServiceBus x64 Python 2.7:
-        #  PythonVersion: '$(PythonVersion27)'
-        #  SDK: 'ServiceBus'
+        ServiceBus x64 Python 2.7:
+          PythonVersion: '$(PythonVersion27)'
+          SDK: 'ServiceBus'
         ServiceBus x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'ServiceBus'
