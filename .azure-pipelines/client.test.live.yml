@@ -52,6 +52,7 @@ jobs:
         x86 Python 3.9:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion39)'
+
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
