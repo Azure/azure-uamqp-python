@@ -1,0 +1,59 @@
+steps:
+  - pwsh: |
+      $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+      $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
+      $EHIgnoreTests='--ignore=tests/perfstress_tests'
+      Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
+      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$EHTestResultsPath"
+      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$EHIgnoreTests"
+    condition: eq(variables['SDK'], 'EventHub')
+    displayName: 'Get variables if EventHub'
+  - pwsh: |
+      $SBSdkPath='azure-sdk-for-python/sdk/servicebus/azure-servicebus'
+      $SBTestResultsPath='servicebus/azure-servicebus/test-results-live.xml'
+      $SBIgnoreTests='--ignore=tests/perf_tests --ignore=tests/stress_tests'
+      Write-Output "##vso[task.setvariable variable=SdkPath;]$SBSdkPath"
+      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$SBTestResultsPath"
+      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$SBIgnoreTests"
+    condition: eq(variables['SDK'], 'ServiceBus')
+    displayName: 'Get variables if ServiceBus'
+  - script: |
+      echo "SDKPath: $(SdkPath)"
+      echo "Tests: $(TestResultsPath)"
+      git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
+    displayName: 'Clone azure-sdk-for-python'
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Downloading artifact'
+    inputs:
+      source: 'current'
+      patterns: '$(DownloadArtifactFolder)/*.whl'
+  - pwsh: |
+      $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+      Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+      Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+    displayName: 'Get name of whl file to install'
+  - script: |
+      python --version
+      python -m pip install pytest
+      echo "Installing $DownloadArtifactWhl"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
+      cd $(SdkPath)
+      python -m pip install futures
+      python -m pip install --ignore-installed .
+      python -m pip install -r dev_requirements.txt
+      python -m pip list
+      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+    displayName: 'Run tests'
+    env:
+      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
+      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
+      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
+      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
+      AZURE_TEST_RUN_LIVE: 'true'
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/$(TestResultsPath)'
+      testResultsFormat: 'JUnit'
+      testRunTitle: '$(OSArch) $(SDK) Python $(PythonVersion)'
