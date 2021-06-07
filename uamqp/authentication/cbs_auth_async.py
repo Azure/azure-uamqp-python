@@ -54,9 +54,6 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         self._connection = connection
         self._session = SessionAsync(connection, loop=self.loop, **kwargs)
 
-        if self.token_type == b'jwt':  # Async initialize the jwt token
-            await self.update_token()
-
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
@@ -277,6 +274,10 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
         self.retries = 0
         self.sasl = _SASL()
         self.set_io(self.hostname, port, http_proxy, transport_type)
+
+    async def create_authenticator_async(self, connection, debug=False, loop=None, **kwargs):
+        await self.update_token()
+        await super(JWTTokenAuth, self).create_authenticator_async(connection, debug, loop, **kwargs)
 
     async def update_token(self):
         access_token = await self.get_token()

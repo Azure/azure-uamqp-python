@@ -62,9 +62,6 @@ class CBSAuthMixin(object):
         self._connection = connection
         self._session = Session(connection, **kwargs)
 
-        if self.token_type == b'jwt':  # Initialize the jwt token
-            self.update_token()
-
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
                 self.audience,
@@ -420,6 +417,10 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
         self.retries = 0
         self.sasl = _SASL()
         self.set_io(self.hostname, port, http_proxy, transport_type)
+
+    def create_authenticator(self, connection, debug=False, **kwargs):
+        self.update_token()
+        super(JWTTokenAuth, self).create_authenticator(connection, debug, **kwargs)
 
     def update_token(self):
         access_token = self.get_token()
