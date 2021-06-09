@@ -22,7 +22,7 @@ async def get_token():
     return AccessToken(token, expires_on)
 
 
-async def main():
+async def authenticate_client_by_jwt():
     # Create the JWTTokenAsync object
     auth_uri = "<amqp endpoint uri for authentication>"  # The AMQP endpoint URI for authentication.
     token_audience = "<token audience>"  # The token audience field.
@@ -42,5 +42,6 @@ async def main():
     await send_client.close_async()
 
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(authenticate_client_by_jwt())
