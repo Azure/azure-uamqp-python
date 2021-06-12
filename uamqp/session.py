@@ -15,7 +15,6 @@ from .constants import (
     ConnectionState,
     SessionState,
     SessionTransferState,
-    ManagementOpenResult,
     Role
 )
 from .endpoints import Source, Target
@@ -31,8 +30,6 @@ from .performatives import (
     TransferFrame,
     DispositionFrame
 )
-from .error import AMQPConnectionError
-from .mgmt_operation import MgmtOperation
 
 _LOGGER = logging.getLogger(__name__)
 
