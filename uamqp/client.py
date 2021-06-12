@@ -19,7 +19,9 @@ from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
-from .constants import SenderSettleMode, ReceiverSettleMode
+from .constants import SenderSettleMode, ReceiverSettleMode, ManagementOpenResult
+from .error import AMQPConnectionError
+from .mgmt_operation import MgmtOperation
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
