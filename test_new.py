@@ -1,6 +1,4 @@
 
-
-
 import certifi
 import ssl
 import os
