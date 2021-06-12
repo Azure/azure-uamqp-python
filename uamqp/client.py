@@ -6,6 +6,7 @@
 
 # pylint: disable=too-many-lines
 
+from collections import namedtuple
 import logging
 import threading
 import time
@@ -19,11 +20,22 @@ from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
-from .constants import SenderSettleMode, ReceiverSettleMode
+from .constants import MessageSendResult, MessageState, SenderSettleMode, ReceiverSettleMode, LinkDeliverySettleReason
+from uamqp import constants
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
 
+
+MessageDelivery = namedtuple(
+    "MessageDelivery",
+    [
+        "message",
+        "idle_time",
+        "message_state",
+        "send_result"
+    ]
+)
 
 class AMQPClient(object):
     """An AMQP client.
@@ -233,6 +245,97 @@ class AMQPClient(object):
         if not self.client_ready():
             return True
         return self._client_run(**kwargs)
+
+
+class SendClient(AMQPClient):
+    def __init__(self, hostname, target, auth=None, **kwargs):
+        self.target = target
+        self._pending_message = None
+        # Sender and Link settings
+        self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
+        self._link_properties = kwargs.pop('link_properties', None)
+        self._link_credit = kwargs.pop('link_credit', None)
+        super(SendClient, self).__init__(hostname, auth=auth, **kwargs)
+
+    def _client_ready(self):
+        """Determine whether the client is ready to start receiving messages.
+        To be ready, the connection must be open and authentication complete,
+        The Session, Link and MessageReceiver must be open and in non-errored
+        states.
+
+        :rtype: bool
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageReceiver
+         goes into an error state.
+        """
+        # pylint: disable=protected-access
+        if not self._link:
+            self._link = self._session.create_sender_link(
+                target_address=self.target,
+                link_credit=self._link_credit,
+                send_settle_mode=self._send_settle_mode,
+                rcv_settle_mode=self._receive_settle_mode,
+                max_message_size=self._max_message_size,
+                properties=self._link_properties)
+            self._link.attach()
+            return False
+        if self._link.state.value != 3:  # ATTACHED
+            return False
+        return True
+
+    def _client_run(self, **kwargs):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+
+        :rtype: bool
+        """
+        try:
+            self._connection.listen(wait=self._socket_timeout, **kwargs)
+        except ValueError:
+            _logger.info("Timeout reached, closing sender.")
+            self._shutdown = True
+            return False
+        return True
+
+    def _filter_pending(self):
+        state = self._pending_message.state
+        if state in constants.DONE_STATES:
+            # set message send succeed state
+            pass
+        elif state == constants.MessageState.WaitingForSendAck:
+            self._wait_messages += 1
+        elif state == constants.MessageState.WaitingToBeSent:
+            self._pending_messages[message] = constants.MessageState.WaitingForSendAck
+
+    def _transfer_message(self, message, timeout=0):
+        delivery = self._link.send_transfer(
+            message,
+            on_send_complete=self._on_send_complete,
+            timeout=timeout
+        )
+        if not delivery.sent:
+            raise RuntimeError("Message is not sent.")
+
+    def _on_send_complete(self, message, reason, state):
+        if state == LinkDeliverySettleReason.Settled:
+            #TODO
+            pass
+
+    def send_message(self, message, timeout=0):
+        message_delivery = MessageDelivery(
+            message,
+            time.time(),
+            MessageState.WaitingToBeSent
+        )
+        self._pending_message = message_delivery
+        self.open()
+        running = True
+        while running and message_delivery.state not in constants.DONE_STATES:
+            running = self.do_work()
+        if message_delivery.send_result in (MessageSendResult.Error, MessageSendResult.Timeout):
+            # TODO: Client Error
+            raise Exception()
 
 
 class ReceiveClient(AMQPClient):

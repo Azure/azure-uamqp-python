@@ -231,3 +231,24 @@ class SASLCode(object):
     SysPerm = 3
     #: Connection authentication failed due to a transient system error.
     SysTemp = 4
+
+
+class MessageSendState(object):
+    WaitingToBeSent = 0
+    WaitingForSendAck = 1
+    Ok = 0
+    Error = 1
+    Timeout = 2
+    Cancelled = 3
+
+
+class MessageState(object):
+    WaitingToBeSent = 0
+    WaitingForSendAck = 1
+    SendComplete = 2
+    SendFailed = 3
+    ReceivedUnsettled = 4
+    ReceivedSettled = 5
+
+
+DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
