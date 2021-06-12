@@ -320,4 +320,3 @@ class Session(object):
             endpoint,
             network_trace=kwargs.pop('network_trace', self.network_trace),
             **kwargs)
-

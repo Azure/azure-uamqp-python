@@ -19,7 +19,9 @@ from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
-from .constants import SenderSettleMode, ReceiverSettleMode
+from .constants import SenderSettleMode, ReceiverSettleMode, ManagementOpenResult
+from .error import AMQPConnectionError
+from .mgmt_operation import MgmtOperation
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
@@ -328,6 +330,7 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = False
         self._received_messages = queue.Queue()
         self._message_received_callback = None
+        self._mgmt_links = {}
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -444,3 +447,33 @@ class ReceiveClient(AMQPClient):
             if timeout and time.time() > timeout:
                 expired = True
         return batch
+
+    def mgmt_request(self, message, operation=None, operation_type=None, node='$management', **kwargs):
+        """
+        TODO: Move optional params to kwargs and document.
+        """
+        timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
+        try:
+            mgmt_link = self._mgmt_links[node]
+        except KeyError:
+            mgmt_link = MgmtOperation(self._session, endpoint=node, **kwargs)
+            self._mgmt_links[node] = mgmt_link
+            mgmt_link.open()
+            while not mgmt_link.mgmt_link_open_status and not mgmt_link.mgmt_error:
+                self._connection.listen(wait=False)
+            if mgmt_link.mgmt_error:
+                raise mgmt_link.mgmt_error
+            if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
+                raise AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status))
+        operation_type = operation_type or b'empty'
+        status, response, description = mgmt_link.execute(
+            message,
+            operation=operation,
+            operation_type=operation_type,
+            timeout=timeout
+        )
+        if parse_response:
+            return parse_response(status, response, description)
+        return response
+    
