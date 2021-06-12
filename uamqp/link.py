@@ -192,6 +192,9 @@ class Link(object):
 
     def _incoming_flow(self, frame):
         pass
+    
+    def _incoming_disposition(self, frame):
+        pass
 
     def _outgoing_detach(self, close=False, error=None):
         detach_frame = DetachFrame(handle=self.handle, closed=close, error=error)

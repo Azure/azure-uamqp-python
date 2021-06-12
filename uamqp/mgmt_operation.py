@@ -19,14 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MgmtOperation(object):
-    def __init__(
-            self,
-            session,
-            endpoint='$management',
-            status_code_field=b'statusCode',
-            status_description_field=b'statusDescription',
-            encoding='UTF-8'
-    ):
+    def __init__(self, session, endpoint='$management', **kwargs):
         self.mgmt_link_open_status = None
 
         self._session = session
@@ -35,10 +28,8 @@ class MgmtOperation(object):
             endpoint=endpoint,
             on_amqp_management_open_complete=self._on_amqp_management_open_complete,
             on_amqp_management_error=self._on_amqp_management_error,
-            status_code_field=status_code_field,
-            status_description_field=status_description_field
+            **kwargs
         )  # type: ManagementLink
-        self._encoding = encoding
         self._responses = {}
         self.mgmt_error = None
 
@@ -53,6 +44,7 @@ class MgmtOperation(object):
 
     def _on_amqp_management_error(self):
         """Callback run if an error occurs in the send/receive links."""
+        # TODO: This probably shouldn't be ValueError
         self.mgmt_error = ValueError("Management Operation error ocurred.")
 
     def execute(self, message, operation=None, operation_type=None, timeout=0):

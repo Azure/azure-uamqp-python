@@ -241,17 +241,10 @@ class TokenAuthFailure(AuthenticationException):
     """
 
     """
-    def __init__(self, status_code, status_description, encoding="UTF-8"):
-        self._encoding = encoding
+    def __init__(self, status_code, status_description):
         self.status_code = status_code
         self.status_description = status_description
         message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
         if self.description:
-            if isinstance(self.status_description, six.text_type):
-                message += u"\nDescription: {}".format(self.status_description)
-            else:
-                message += u"\nDescription: {}".format(self.status_description.decode(self._encoding))
+            message += u"\nDescription: {}".format(self.status_description.decode('utf-8'))
         super(TokenAuthFailure, self).__init__(message)
-
-
-#TODO: Compat timeout exception

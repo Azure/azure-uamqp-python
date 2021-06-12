@@ -28,14 +28,7 @@ class ManagementLink(object):
     """
 
     """
-    def __init__(
-            self,
-            session,
-            endpoint,
-            status_code_field=b'statusCode',
-            status_description_field=b'statusDescription',
-            **kwargs
-    ):
+    def __init__(self, session, endpoint, **kwargs):
         self.next_message_id = 0
         self.state = ManagementLinkState.IDLE
         self._pending_operations = []
@@ -56,8 +49,8 @@ class ManagementLink(object):
         self._on_amqp_management_error = kwargs.get('on_amqp_management_error')
         self._on_amqp_management_open_complete = kwargs.get('on_amqp_management_open_complete')
 
-        self._status_code_field = status_code_field
-        self._status_description_field = status_description_field
+        self._status_code_field = kwargs.pop(status_code_field, b'statusCode')
+        self._status_description_field = kwargs.pop(status_description_field, b'statusDescription')
 
         self._sender_connected = False
         self._receiver_connected = False

@@ -73,7 +73,6 @@ class Session(object):
         self.network_trace_params['session'] = self.name
 
         self.links = {}
-        self._mgmt_links = {}
         self._connection = connection
         self._output_handles = {}
         self._input_handles = {}
@@ -243,8 +242,7 @@ class Session(object):
 
     def _incoming_disposition(self, frame):
         for link in self._input_handles.values():
-            if hasattr(link, '_incoming_disposition'):
-                link._incoming_disposition(frame)
+            link._incoming_disposition(frame)
 
     def _outgoing_detach(self, frame):
         self._connection._process_outgoing_frame(self.channel, frame)
@@ -325,31 +323,3 @@ class Session(object):
             endpoint,
             network_trace=kwargs.pop('network_trace', self.network_trace),
             **kwargs)
-
-    def mgmt_request(self, message, operation=None, operation_type=None, node='$management', **kwargs):
-        timeout = kwargs.pop('timeout', None) or 0
-        parse_response = kwargs.pop('callback', None)
-        try:
-            mgmt_link = self._mgmt_links[node]
-        except KeyError:
-            mgmt_link = MgmtOperation(self, endpoint=node, **kwargs)
-            self._mgmt_links[node] = mgmt_link
-            mgmt_link.open()
-            while not mgmt_link.mgmt_link_open_status and not mgmt_link.mgmt_error:
-                self._connection.listen(wait=False)
-            if mgmt_link.mgmt_error:
-                raise mgmt_link.mgmt_error
-            if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
-                raise AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status))
-        operation_type = operation_type or b'empty'
-        status, response, description = mgmt_link.execute(
-            message,
-            operation=operation,
-            operation_type=operation_type,
-            timeout=timeout
-        )
-        if parse_response:
-            return parse_response(status, response, description)
-        return response
-
-

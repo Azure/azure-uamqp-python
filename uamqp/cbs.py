@@ -198,6 +198,6 @@ class CbsAuth(object):
         elif self.auth_state == CbsAuthState.Error:
             raise TokenAuthFailure(self._token_status_code, self._token_status_description, self._encoding)
         elif self.auth_state == CbsAuthState.Timeout:
-            raise TimeoutError("Authorization timeout.")  # TODO: compat 2.7 timeout error
+            raise TimeoutError("Authentication attempt timed-out.")  # TODO: compat 2.7 timeout error?
         elif self.auth_state == CbsAuthState.Expired:
             raise TokenExpired("CBS Authentication Expired.")
