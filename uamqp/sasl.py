@@ -7,7 +7,7 @@
 import struct
 from enum import Enum
 
-from ._transport import SSLTransport
+from ._transport import SSLTransport, AMQPS_PORT
 from .types import AMQPTypes, TYPE, VALUE
 from .constants import FIELD, SASLCode, SASL_HEADER_FRAME
 from .performatives import (
@@ -71,17 +71,17 @@ class SASLExternalCredential(object):
 
 class SASLTransport(SSLTransport):
 
-    def __init__(self, host, credential, connect_timeout=None, ssl=None, **kwargs):
+    def __init__(self, host, credential, port=AMQPS_PORT, connect_timeout=None, ssl=None, **kwargs):
         self.credential = credential
         ssl = ssl or True
-        super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
+        super(SASLTransport, self).__init__(host, port=port, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
     def negotiate(self):
         with self.block():
             self.write(SASL_HEADER_FRAME)
             _, returned_header = self.receive_frame()
             if returned_header[1] != SASL_HEADER_FRAME:
-                raise ValueError("Mismatching AMQP header protocol. Excpected: {}, received: {}".format(
+                raise ValueError("Mismatching AMQP header protocol. Expected: {}, received: {}".format(
                     SASL_HEADER_FRAME, returned_header[1]))
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)

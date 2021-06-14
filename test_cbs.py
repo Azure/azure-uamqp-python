@@ -1,16 +1,22 @@
 
+
+
 import certifi
 import ssl
 import os
 import logging
 import sys
 import time
+import functools
+from collections import namedtuple
 
 from uamqp import Connection
 from uamqp.sasl import SASLTransport, SASLAnonymousCredential, SASLPlainCredential
 from uamqp.endpoints import Source, Target
 from uamqp.message import Message
 from uamqp.constants import SenderSettleMode, ReceiverSettleMode
+from uamqp.cbs import CbsAuth
+from uamqp.utils import generate_sas_token
 
 from legacy_test.live_settings import config
 
@@ -26,27 +32,56 @@ def get_logger(level):
 
 log = get_logger(logging.DEBUG)
 
+AccessToken = namedtuple("AccessToken", ['token', 'expires_on'])
+
+
+def generate_token(auth_audience, key_name, access_key, duration):
+    abs_exipry = int(time.time() + duration)
+    token = generate_sas_token(auth_audience, key_name, access_key, abs_exipry)
+    return AccessToken(token, abs_exipry)
+
+
 def message_send_complete(message, reason, state):
     print("MESSAGE SEND COMPLETE", reason, state)
+
 
 def message_received(message):
     print("MESSAGE RECEIVED", message['data'])
 
+
 def main():
-    creds = SASLPlainCredential(authcid=config['key_name'], passwd=config['access_key'])
+    creds = SASLAnonymousCredential()
     with Connection(
         "amqps://" + config['hostname'],
         transport=SASLTransport(config['hostname'], creds, ssl={'ca_certs':certifi.where()}),
         network_trace=True,
         max_frame_size=65536,
         channel_max=65535,
-        idle_timeout=10) as c:
+        idle_timeout=20) as c:
         c.listen()
         with c.create_session(
             incoming_window=500,
             outgoing_window=500) as session:
             c.listen()
             target = "amqps://{}/{}/Partitions/0".format(config['hostname'], config['event_hub'])
+
+            auth_audience = "sb://{}/{}".format(config['hostname'], config['event_hub'])
+            get_token = functools.partial(generate_token, auth_audience, config['key_name'], config['access_key'], 3600)
+            cbs = CbsAuth(
+                session=session,
+                auth_audience=auth_audience,
+                get_token=get_token
+            )
+
+            cbs.open()
+            while cbs.state.value != 2:  # OPEN
+                c.listen()
+
+            cbs.handle_token()
+
+            while cbs.auth_state.value != 0:  # OK
+                c.listen()
+
             with session.create_sender_link(
                 target_address=target,
                 send_settle_mode=SenderSettleMode.Unsettled,

@@ -51,6 +51,7 @@ _LOGGER = logging.getLogger(__name__)
 _UNAVAIL = {errno.EAGAIN, errno.EINTR, errno.ENOENT, errno.EWOULDBLOCK}
 
 AMQP_PORT = 5672
+AMQPS_PORT = 5671
 AMQP_FRAME = memoryview(b'AMQP')
 EMPTY_BUFFER = bytes()
 SIGNED_INT_MAX = 0x7FFFFFFF
@@ -86,9 +87,8 @@ def get_errno(exc):
     return 0
 
 
-def to_host_port(host, default=AMQP_PORT):
+def to_host_port(host, port=AMQP_PORT):
     """Convert hostname:port string to host, port tuple."""
-    port = default
     m = IPV6_LITERAL.match(host)
     if m:
         host = m.group(1)
@@ -104,17 +104,18 @@ def to_host_port(host, default=AMQP_PORT):
 class UnexpectedFrame(Exception):
     pass
 
+
 class _AbstractTransport(object):
     """Common superclass for TCP and SSL transports."""
 
-    def __init__(self, host, connect_timeout=None,
+    def __init__(self, host, port=AMQP_PORT, connect_timeout=None,
                  read_timeout=None, write_timeout=None,
                  socket_settings=None, raise_on_initial_eintr=True, **kwargs):
         self.connected = False
         self.sock = None
         self.raise_on_initial_eintr = raise_on_initial_eintr
         self._read_buffer = BytesIO()
-        self.host, self.port = to_host_port(host)
+        self.host, self.port = to_host_port(host, port)
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.write_timeout = write_timeout
@@ -425,11 +426,15 @@ class _AbstractTransport(object):
 class SSLTransport(_AbstractTransport):
     """Transport that works over SSL."""
 
-    def __init__(self, host, connect_timeout=None, ssl=None, **kwargs):
+    def __init__(self, host, port=AMQPS_PORT, connect_timeout=None, ssl=None, **kwargs):
         self.sslopts = ssl if isinstance(ssl, dict) else {}
         self._read_buffer = BytesIO()
         super(SSLTransport, self).__init__(
-            host, connect_timeout=connect_timeout, **kwargs)
+            host,
+            port=port,
+            connect_timeout=connect_timeout,
+            **kwargs
+        )
 
     def _setup_transport(self):
         """Wrap the socket in an SSL object."""
