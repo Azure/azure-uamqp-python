@@ -49,8 +49,8 @@ class ManagementLink(object):
         self._on_amqp_management_error = kwargs.get('on_amqp_management_error')
         self._on_amqp_management_open_complete = kwargs.get('on_amqp_management_open_complete')
 
-        self._status_code_field = kwargs.pop(status_code_field, b'statusCode')
-        self._status_description_field = kwargs.pop(status_description_field, b'statusDescription')
+        self._status_code_field = kwargs.pop("status_code_field", b'statusCode')
+        self._status_description_field = kwargs.pop("status_description_field", b'statusDescription')
 
         self._sender_connected = False
         self._receiver_connected = False
