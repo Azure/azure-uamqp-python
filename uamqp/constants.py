@@ -280,22 +280,19 @@ class SASLCode(object):
     SysTemp = 4
 
 
-class MessageSendState(object):
+class MessageDeliveryState(object):
+
     WaitingToBeSent = 0
     WaitingForSendAck = 1
-    Ok = 0
-    Error = 1
-    Timeout = 2
-    Cancelled = 3
+    Ok = 2
+    Error = 3
+    Timeout = 4
+    Cancelled = 5
 
 
-class MessageState(object):
-    WaitingToBeSent = 0
-    WaitingForSendAck = 1
-    SendComplete = 2
-    SendFailed = 3
-    ReceivedUnsettled = 4
-    ReceivedSettled = 5
-
-
-DONE_STATES = (MessageState.SendComplete, MessageState.SendFailed)
+MESSAGE_DELIVERY_DONE_STATES = (
+    MessageDeliveryState.Ok,
+    MessageDeliveryState.Error,
+    MessageDeliveryState.Timeout,
+    MessageDeliveryState.Cancelled
+)

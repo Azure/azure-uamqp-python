@@ -13,6 +13,7 @@ import time
 import uuid
 import certifi
 import queue
+from functools import partial
 
 from ._connection import Connection
 from .session import Session
@@ -22,12 +23,13 @@ from .sasl import SASLTransport
 from .endpoints import Source, Target
 
 from .constants import (
-    MessageSendResult,
-    MessageState,
+    MessageDeliveryState,
     SenderSettleMode,
     ReceiverSettleMode,
     LinkDeliverySettleReason,
-    ManagementOpenResult
+    ManagementOpenResult,
+    SEND_DISPOSITION_ACCEPT,
+    SEND_DISPOSITION_REJECT
 )
 from uamqp import constants
 from .error import AMQPConnectionError
@@ -38,15 +40,14 @@ _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
 
 
-MessageDelivery = namedtuple(
-    "MessageDelivery",
-    [
-        "message",
-        "idle_time",
-        "message_state",
-        "send_result"
-    ]
-)
+class _MessageDelivery:
+    def __init__(self, message, state=MessageDeliveryState.WaitingToBeSent, expiry=None):
+        self.message = message
+        self.state = state
+        self.expiry = expiry
+        self.reason = None
+        self.delivery = None
+
 
 class AMQPClient(object):
     """An AMQP client.
@@ -129,6 +130,7 @@ class AMQPClient(object):
         self._channel_max = kwargs.pop('channel_max', None) or 65535
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
+        self._network_trace = kwargs.pop("network_trace", False)
 
         # Session settings
         self._outgoing_window = kwargs.pop('outgoing_window', None) or _MAX_FRAME_SIZE_BYTES
@@ -185,7 +187,9 @@ class AMQPClient(object):
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
-            properties=self._properties)
+            properties=self._properties,
+            network_trace=self._network_trace
+        )
         self._connection.open()
         self._session = self._connection.create_session(
             incoming_window=self._incoming_window,
@@ -261,7 +265,6 @@ class AMQPClient(object):
 class SendClient(AMQPClient):
     def __init__(self, hostname, target, auth=None, **kwargs):
         self.target = target
-        self._pending_message = None
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
@@ -309,44 +312,47 @@ class SendClient(AMQPClient):
             return False
         return True
 
-    def _filter_pending(self):
-        state = self._pending_message.state
-        if state in constants.DONE_STATES:
-            # set message send succeed state
-            pass
-        elif state == constants.MessageState.WaitingForSendAck:
-            self._wait_messages += 1
-        elif state == constants.MessageState.WaitingToBeSent:
-            self._pending_messages[message] = constants.MessageState.WaitingForSendAck
-
-    def _transfer_message(self, message, timeout=0):
+    def _transfer_message(self, message_delivery, timeout=0):
+        message_delivery.state = MessageDeliveryState.WaitingForSendAck
+        on_send_complete = partial(self._on_send_complete, message_delivery)
         delivery = self._link.send_transfer(
-            message,
-            on_send_complete=self._on_send_complete,
+            message_delivery.message,
+            on_send_complete=on_send_complete,
             timeout=timeout
         )
         if not delivery.sent:
             raise RuntimeError("Message is not sent.")
 
-    def _on_send_complete(self, message, reason, state):
-        if state == LinkDeliverySettleReason.Settled:
-            #TODO
-            pass
+    def _on_send_complete(self, message_delivery, message, reason, state):
+        if SEND_DISPOSITION_ACCEPT in state:
+            message_delivery.state = MessageDeliveryState.Ok
+        else:
+            # TODO: sending disposition state could only be rejected/accepted?
+            message_delivery.state = MessageDeliveryState.Error
+            message_delivery.reason = reason
 
-    def send_message(self, message, timeout=0):
-        message_delivery = MessageDelivery(
-            message,
-            time.time(),
-            MessageState.WaitingToBeSent
-        )
-        self._pending_message = message_delivery
+    def send_message(self, message, timeout=0, **kwargs):
+        """
+        :param ~uamqp.message.Message message:
+        :param int timeout: timeout in seconds
+        """
+        expire_time = (time.time() + timeout) if timeout else None
         self.open()
+        message_delivery = _MessageDelivery(
+            message,
+            MessageDeliveryState.WaitingToBeSent,
+            expire_time
+        )
+        self._transfer_message(message_delivery, timeout)
+
         running = True
-        while running and message_delivery.state not in constants.DONE_STATES:
+        while running and message_delivery.state not in constants.MESSAGE_DELIVERY_DONE_STATES:
             running = self.do_work()
-        if message_delivery.send_result in (MessageSendResult.Error, MessageSendResult.Timeout):
-            # TODO: Client Error
-            raise Exception()
+            if message_delivery.expiry and time.time() > message_delivery.expiry:
+                message_delivery.state = MessageDeliveryState.Timeout
+        if message_delivery.state in \
+                (MessageDeliveryState.Error, MessageDeliveryState.Timeout, MessageDeliveryState.Cancelled):
+            raise Exception()  # TODO: Raise proper error
 
 
 class ReceiveClient(AMQPClient):
@@ -588,4 +594,3 @@ class ReceiveClient(AMQPClient):
         if parse_response:
             return parse_response(status, response, description)
         return response
-    
