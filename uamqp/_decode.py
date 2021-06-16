@@ -280,7 +280,7 @@ def decode_frame(data):
         count = data[5]  # data[4] is size, data[5] is count
         buffer = data[6:]
     elif compound_list_type == 0xd0:  # list32 0xd0
-        _, count = _decode_int_large(data[8:12])  # data[4:8] is size, data[8:12] is count
+        count = _decode_int_large(data[8:12])[1]  # data[4:8] is size, data[8:12] is count
         buffer = data[12:]
     else:  # list0 0x45
         count = 0

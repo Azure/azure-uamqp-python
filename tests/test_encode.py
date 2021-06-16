@@ -539,6 +539,12 @@ def test_encode_list():
     output = encode.encode_list(b"", [None for i in range(255)])
     assert output == b"\xD0\x00\x00\x01\x03\x00\x00\x00\xFF" + b"\x40" * 255
 
+    output = encode.encode_list(b"", [b"a"] * 1024 * 256)
+    assert output == b"\xD0\x00\x0C\x00\x04\x00\x04\x00\x00" + b"\xA0\x01a" * 1024 * 256
+
+    output = encode.encode_list(b"", [b"xyz~!@123"] * 128)
+    assert output == b"\xD0\x00\x00\x05\x84\x00\x00\x00\x80" + b"\xA0\txyz~!@123" * 128
+
     output = encode.encode_list(b"", [bytearray([66]), None])
     assert output == b"\xC0\x05\x02\xA0\x01\x42\x40"
 

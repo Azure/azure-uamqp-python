@@ -462,6 +462,15 @@ def test_decode_list():
     assert output == [None] * 256
     assert not out_buffer
 
+    buffer = memoryview(b"\xD0\x00\x0C\x00\x04\x00\x04\x00\x00" + b"\xA0\x01a" * 1024 * 256)
+    out_buffer, output = decode_value(buffer)
+    assert output == [b"a"] * 1024 * 256
+    assert not out_buffer
+
+    buffer = memoryview(b"\xD0\x00\x00\x05\x84\x00\x00\x00\x80" + b"\xA0\txyz~!@123" * 128)
+    out_buffer, output = decode_value(buffer)
+    assert output == [b"xyz~!@123"] * 128
+    assert not out_buffer
 
 def test_decode_map():
     buffer = memoryview(b"\xC1\x01\x00")

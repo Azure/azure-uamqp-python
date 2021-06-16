@@ -16,6 +16,7 @@ import queue
 from functools import partial
 
 from ._connection import Connection
+from .message import _MessageDelivery
 from .session import Session
 from .sender import SenderLink
 from .receiver import ReceiverLink
@@ -38,15 +39,6 @@ from .mgmt_operation import MgmtOperation
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
-
-
-class _MessageDelivery:
-    def __init__(self, message, state=MessageDeliveryState.WaitingToBeSent, expiry=None):
-        self.message = message
-        self.state = state
-        self.expiry = expiry
-        self.reason = None
-        self.delivery = None
 
 
 class AMQPClient(object):
@@ -331,11 +323,12 @@ class SendClient(AMQPClient):
             message_delivery.state = MessageDeliveryState.Error
             message_delivery.reason = reason
 
-    def send_message(self, message, timeout=0, **kwargs):
+    def send_message(self, message, **kwargs):
         """
         :param ~uamqp.message.Message message:
         :param int timeout: timeout in seconds
         """
+        timeout = kwargs.pop("timeout", 0)
         expire_time = (time.time() + timeout) if timeout else None
         self.open()
         message_delivery = _MessageDelivery(
