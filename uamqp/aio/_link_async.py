@@ -236,4 +236,4 @@ class Link(object):
             await self._set_state(LinkState.DETACHED)
         elif self.state == LinkState.ATTACHED:
             await self._outgoing_detach(close=close, error=error)
-            await self._set_state(LinkState.ATTACH_SENT)
+            await self._set_state(LinkState.DETACH_SENT)
