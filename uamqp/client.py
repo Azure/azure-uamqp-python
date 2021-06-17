@@ -6,22 +6,36 @@
 
 # pylint: disable=too-many-lines
 
+from collections import namedtuple
 import logging
 import threading
 import time
 import uuid
 import certifi
 import queue
+from functools import partial
 
 from ._connection import Connection
+from .message import _MessageDelivery
 from .session import Session
 from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
-from .constants import SenderSettleMode, ReceiverSettleMode, ManagementOpenResult
+
+from .constants import (
+    MessageDeliveryState,
+    SenderSettleMode,
+    ReceiverSettleMode,
+    LinkDeliverySettleReason,
+    ManagementOpenResult,
+    SEND_DISPOSITION_ACCEPT,
+    SEND_DISPOSITION_REJECT
+)
+from uamqp import constants
 from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
+
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
@@ -108,6 +122,7 @@ class AMQPClient(object):
         self._channel_max = kwargs.pop('channel_max', None) or 65535
         self._idle_timeout = kwargs.pop('idle_timeout', None)
         self._properties = kwargs.pop('properties', None)
+        self._network_trace = kwargs.pop("network_trace", False)
 
         # Session settings
         self._outgoing_window = kwargs.pop('outgoing_window', None) or _MAX_FRAME_SIZE_BYTES
@@ -164,7 +179,9 @@ class AMQPClient(object):
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
             idle_timeout=self._idle_timeout,
-            properties=self._properties)
+            properties=self._properties,
+            network_trace=self._network_trace
+        )
         self._connection.open()
         self._session = self._connection.create_session(
             incoming_window=self._incoming_window,
@@ -235,6 +252,102 @@ class AMQPClient(object):
         if not self.client_ready():
             return True
         return self._client_run(**kwargs)
+
+
+class SendClient(AMQPClient):
+    def __init__(self, hostname, target, auth=None, **kwargs):
+        self.target = target
+        # Sender and Link settings
+        self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
+        self._link_properties = kwargs.pop('link_properties', None)
+        self._link_credit = kwargs.pop('link_credit', None)
+        super(SendClient, self).__init__(hostname, auth=auth, **kwargs)
+
+    def _client_ready(self):
+        """Determine whether the client is ready to start receiving messages.
+        To be ready, the connection must be open and authentication complete,
+        The Session, Link and MessageReceiver must be open and in non-errored
+        states.
+
+        :rtype: bool
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageReceiver
+         goes into an error state.
+        """
+        # pylint: disable=protected-access
+        if not self._link:
+            self._link = self._session.create_sender_link(
+                target_address=self.target,
+                link_credit=self._link_credit,
+                send_settle_mode=self._send_settle_mode,
+                rcv_settle_mode=self._receive_settle_mode,
+                max_message_size=self._max_message_size,
+                properties=self._link_properties)
+            self._link.attach()
+            return False
+        if self._link.state.value != 3:  # ATTACHED
+            return False
+        return True
+
+    def _client_run(self, **kwargs):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+
+        :rtype: bool
+        """
+        try:
+            self._connection.listen(wait=self._socket_timeout, **kwargs)
+        except ValueError:
+            _logger.info("Timeout reached, closing sender.")
+            self._shutdown = True
+            return False
+        return True
+
+    def _transfer_message(self, message_delivery, timeout=0):
+        message_delivery.state = MessageDeliveryState.WaitingForSendAck
+        on_send_complete = partial(self._on_send_complete, message_delivery)
+        delivery = self._link.send_transfer(
+            message_delivery.message,
+            on_send_complete=on_send_complete,
+            timeout=timeout
+        )
+        if not delivery.sent:
+            raise RuntimeError("Message is not sent.")
+
+    def _on_send_complete(self, message_delivery, message, reason, state):
+        # TODO: check whether the callback would be called in case of message expiry or link going down
+        # and if so handle the state in the callback
+        if SEND_DISPOSITION_ACCEPT in state:
+            message_delivery.state = MessageDeliveryState.Ok
+        else:
+            # TODO: sending disposition state could only be rejected/accepted?
+            message_delivery.state = MessageDeliveryState.Error
+            message_delivery.reason = reason
+
+    def send_message(self, message, **kwargs):
+        """
+        :param ~uamqp.message.Message message:
+        :param int timeout: timeout in seconds
+        """
+        timeout = kwargs.pop("timeout", 0)
+        expire_time = (time.time() + timeout) if timeout else None
+        self.open()
+        message_delivery = _MessageDelivery(
+            message,
+            MessageDeliveryState.WaitingToBeSent,
+            expire_time
+        )
+        self._transfer_message(message_delivery, timeout)
+
+        running = True
+        while running and message_delivery.state not in constants.MESSAGE_DELIVERY_DONE_STATES:
+            running = self.do_work()
+            if message_delivery.expiry and time.time() > message_delivery.expiry:
+                message_delivery.state = MessageDeliveryState.Timeout
+        if message_delivery.state in \
+                (MessageDeliveryState.Error, MessageDeliveryState.Timeout, MessageDeliveryState.Cancelled):
+            raise Exception()  # TODO: Raise proper error
 
 
 class ReceiveClient(AMQPClient):
@@ -476,4 +589,3 @@ class ReceiveClient(AMQPClient):
         if parse_response:
             return parse_response(status, response, description)
         return response
-    

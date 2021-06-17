@@ -274,9 +274,17 @@ def decode_frame(data):
     # Ignore the first two bytes, they will always be the constructors for
     # described type then ulong.
     frame_type = data[2]
-    # Ignore the next 2 bytes, they will always be list constructor, size.
-    count = data[5]
-    buffer = data[6:]
+    compound_list_type = data[3]
+    buffer = None
+    compound_list_type = data[3]
+    if compound_list_type == 0xd0:
+        # list32 0xd0: data[4:8] is size, data[8:12] is count
+        count = c_signed_int.unpack(data[8:12])[0]
+        buffer = data[12:]
+    else:
+        # list8 0xc0: data[4] is size, data[5] is count
+        count = data[5]
+        buffer = data[6:]
     fields = [None] * count
     for i in range(count):
         buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
