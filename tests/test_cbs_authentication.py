@@ -9,7 +9,7 @@ import logging
 import os
 
 from uamqp import ReceiveClient
-from uamqp.cbs import SASTokenAuth
+from uamqp.authentication import SASTokenAuth
 
 
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +34,9 @@ def receive_messages(live_eventhub_config):
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
-    receive_client.receive_message_batch(max_batch_size=1)
+    meassages = receive_client.receive_message_batch(max_batch_size=1)
+    logging.info(len(meassages))
+    logging.info(meassages[0])
     receive_client.close()
 
 

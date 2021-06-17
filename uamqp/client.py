@@ -22,7 +22,8 @@ from .endpoints import Source, Target
 from .constants import SenderSettleMode, ReceiverSettleMode, ManagementOpenResult
 from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
-from .cbs import CBSAuthenticator, CBSAuth
+from .cbs import CBSAuthenticator
+from .authentication import _CBSAuth
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
@@ -158,10 +159,9 @@ class AMQPClient(object):
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
-        sasl_credential = self._auth.sasl if isinstance(self._auth, CBSAuth) else self._auth
         self._connection = Connection(
             "amqps://" + self._hostname,
-            sasl_credential=sasl_credential,
+            sasl_credential=self._auth.sasl,
             ssl={'ca_certs':certifi.where()},
             container_id=self._name,
             max_frame_size=self._max_frame_size,
@@ -174,7 +174,7 @@ class AMQPClient(object):
             outgoing_window=self._outgoing_window
         )
         self._session.begin()
-        if isinstance(self._auth, CBSAuth):
+        if isinstance(self._auth, _CBSAuth):
             self._cbs_authenticator = CBSAuthenticator(
                 session=self._session,
                 auth_audience=self._auth.auth_audience,
@@ -202,6 +202,9 @@ class AMQPClient(object):
         if self._link:
             self._link.detach(close=True)
             self._link = None
+        if self._cbs_authenticator:
+            self._cbs_authenticator.close()
+            self._cbs_authenticator = None
         self._session.end()
         self._session = None
         if not self._external_connection:

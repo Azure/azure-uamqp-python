@@ -6,15 +6,7 @@
 
 import logging
 from datetime import datetime
-import time
-import urllib
-import hmac
-import hashlib
-import base64
-from collections import namedtuple
-from functools import partial
 
-from .sasl import SASLAnonymousCredential
 from .utils import utc_now, utc_from_timestamp
 from .management_link import ManagementLink
 from .message import Message, Properties
@@ -33,21 +25,11 @@ from .constants import (
     CBS_OPERATION,
     ManagementExecuteOperationResult,
     ManagementOpenResult,
-    AUTH_DEFAULT_EXPIRATION_SECONDS,
     AUTH_TIMEOUT,
-    TOKEN_TYPE_JWT,
     TOKEN_TYPE_SASTOKEN
 )
 
-try:
-    from urlparse import urlparse
-    from urllib import quote_plus  # type: ignore
-except ImportError:
-    from urllib.parse import urlparse, quote_plus
-
-
 _LOGGER = logging.getLogger(__name__)
-AccessToken = namedtuple("AccessToken", ["token", "expires_on"])
 
 
 class CBSAuthenticator(object):
@@ -223,80 +205,3 @@ class CBSAuthenticator(object):
             raise TimeoutError("Authentication attempt timed-out.")  # TODO: compat 2.7 timeout error?
         elif self.auth_state == CbsAuthState.Expired:
             raise TokenExpired("CBS Authentication Expired.")
-
-
-def _generate_sas_token(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS):
-    auth_uri = urllib.parse.quote_plus(auth_uri)
-    sas = sas_key.encode("utf-8")
-    expires_on = int(time.time() + expiry_in)
-    string_to_sign = (auth_uri + '\n' + str(expires_on)).encode('utf-8')
-    signed_hmac_sha256 = hmac.HMAC(sas, string_to_sign, hashlib.sha256)
-    signature = urllib.parse.quote(base64.b64encode(signed_hmac_sha256.digest()))
-    return AccessToken(
-        "SharedAccessSignature sr={}&sig={}&se={}&skn={}".format(auth_uri, signature, str(expires_on), sas_name),
-        expires_on
-    )
-
-
-class CBSAuth(object):
-    def __init__(
-        self,
-        uri,
-        auth_audience,
-        token_type,
-        get_token,
-        expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
-        expires_on=None,
-        auth_timeout=AUTH_TIMEOUT,
-    ):
-        self.sasl = SASLAnonymousCredential()
-        self.uri = uri
-        self.auth_audience = auth_audience
-        self.token_type = token_type
-        self.auth_timeout = auth_timeout
-        self.get_token = get_token
-        self.expires_in = expires_in
-        self.expires_on = expires_on
-
-
-class JWTTokenAuth(CBSAuth):
-    def __init__(
-        self,
-        uri,
-        audience,
-        get_token,
-        expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
-        expires_on=None,
-        auth_timeout=AUTH_TIMEOUT,
-        token_type=TOKEN_TYPE_JWT,
-        **kwargs
-    ):
-        super(JWTTokenAuth, self).__init__(uri, audience, token_type, expires_in, expires_on, auth_timeout)
-        self.get_token = get_token
-
-
-class SASTokenAuth(CBSAuth):
-    def __init__(
-        self,
-        uri,
-        audience,
-        username,
-        password,
-        expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
-        expires_on=None,
-        auth_timeout=AUTH_TIMEOUT,
-        token_type=TOKEN_TYPE_SASTOKEN,
-        **kwargs
-    ):
-        self.username = username
-        self.password = password
-        self.get_token = partial(_generate_sas_token, uri, username, password, expires_in)
-        super(SASTokenAuth, self).__init__(
-            uri,
-            audience,
-            token_type,
-            self.get_token,
-            expires_in,
-            expires_on,
-            auth_timeout
-        )
