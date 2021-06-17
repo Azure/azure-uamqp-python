@@ -22,6 +22,7 @@ from .endpoints import Source, Target
 from .constants import SenderSettleMode, ReceiverSettleMode, ManagementOpenResult
 from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
+from .cbs import CBSAuthenticator, CBSAuth
 
 _logger = logging.getLogger(__name__)
 _MAX_FRAME_SIZE_BYTES = 64 * 1024
@@ -102,6 +103,7 @@ class AMQPClient(object):
         self._link = None
         self._socket_timeout = False
         self._external_connection = False
+        self._cbs_authenticator = None
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -156,9 +158,10 @@ class AMQPClient(object):
         if self._session:
             return  # already open.
         _logger.debug("Opening client connection.")
+        sasl_credential = self._auth.sasl if isinstance(self._auth, CBSAuth) else self._auth
         self._connection = Connection(
             "amqps://" + self._hostname,
-            sasl_credential=self._auth,
+            sasl_credential=sasl_credential,
             ssl={'ca_certs':certifi.where()},
             container_id=self._name,
             max_frame_size=self._max_frame_size,
@@ -171,6 +174,15 @@ class AMQPClient(object):
             outgoing_window=self._outgoing_window
         )
         self._session.begin()
+        if isinstance(self._auth, CBSAuth):
+            self._cbs_authenticator = CBSAuthenticator(
+                session=self._session,
+                auth_audience=self._auth.auth_audience,
+                get_token=self._auth.get_token,
+                token_type=self._auth.token_type,
+                auth_timeout=self._auth.auth_timeout
+            )
+            self._cbs_authenticator.open()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -201,6 +213,11 @@ class AMQPClient(object):
 
         :rtype: bool
         """
+        if self._cbs_authenticator:
+            if self._cbs_authenticator.state.value != 2 or not self._cbs_authenticator.handle_token():
+                # cbs mgmt link not opened yet or token not handled yet
+                self._connection.listen(wait=self._socket_timeout)
+                return False
         return True
 
     def client_ready(self):
@@ -476,4 +493,3 @@ class ReceiveClient(AMQPClient):
         if parse_response:
             return parse_response(status, response, description)
         return response
-    

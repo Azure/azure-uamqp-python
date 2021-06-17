@@ -15,7 +15,7 @@ from uamqp.sasl import SASLTransport, SASLAnonymousCredential, SASLPlainCredenti
 from uamqp.endpoints import Source, Target
 from uamqp.message import Message
 from uamqp.constants import SenderSettleMode, ReceiverSettleMode
-from uamqp.cbs import CbsAuth
+from uamqp.cbs import CBSAuthenticator
 from uamqp.utils import generate_sas_token
 
 from legacy_test.live_settings import config
@@ -67,7 +67,7 @@ def main():
 
             auth_audience = "sb://{}/{}".format(config['hostname'], config['event_hub'])
             get_token = functools.partial(generate_token, auth_audience, config['key_name'], config['access_key'], 3600)
-            cbs = CbsAuth(
+            cbs = CBSAuthenticator(
                 session=session,
                 auth_audience=auth_audience,
                 get_token=get_token
