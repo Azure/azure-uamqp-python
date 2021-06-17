@@ -54,7 +54,7 @@ class CBSAuthenticator(object):
             raise ValueError("get_token must be a callable object.")
 
         self._auth = auth
-        self._auth_audience = self._auth.auth_audience
+        self._audience = self._auth.audience
         self._get_token = self._auth.get_token
         self._token_type = self._auth.token_type
         self._encoding = encoding
@@ -180,7 +180,7 @@ class CBSAuthenticator(object):
         self._refresh_window = int(float(self._expires_in) * 0.1)
         self._token = access_token.token
         self._token_put_time = int(utc_now().timestamp())
-        self._put_token(self._token, self._token_type, self._auth_audience, utc_from_timestamp(self._expires_on))
+        self._put_token(self._token, self._token_type, self._audience, utc_from_timestamp(self._expires_on))
 
     def handle_token(self):
         self._update_status()

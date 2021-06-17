@@ -51,15 +51,32 @@ class _CBSAuth(object):
     def __init__(
         self,
         uri,
-        auth_audience,
+        audience,
         token_type,
         get_token,
         expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
         expires_on=None,
     ):
+        """
+        CBS authentication using JWT tokens.
+
+        :param uri: The AMQP endpoint URI. This must be provided as
+         a decoded string.
+        :type uri: str
+        :param audience: The token audience field. For SAS tokens
+         this is usually the URI.
+        :type audience: str
+        :param get_token: The callback function used for getting and refreshing
+         tokens. It should return a valid jwt token each time it is called.
+        :type get_token: callable object
+        :param token_type: The type field of the token request.
+         Default value is `"jwt"`.
+        :type token_type: str
+
+        """
         self.sasl = SASLAnonymousCredential()
         self.uri = uri
-        self.auth_audience = auth_audience
+        self.audience = audience
         self.token_type = token_type
         self.get_token = get_token
         self.expires_in = expires_in
@@ -87,6 +104,23 @@ class JWTTokenAuth(_CBSAuth):
         token_type=TOKEN_TYPE_JWT,
         **kwargs
     ):
+        """
+        CBS authentication using JWT tokens.
+
+        :param uri: The AMQP endpoint URI. This must be provided as
+         a decoded string.
+        :type uri: str
+        :param audience: The token audience field. For SAS tokens
+         this is usually the URI.
+        :type audience: str
+        :param get_token: The callback function used for getting and refreshing
+         tokens. It should return a valid jwt token each time it is called.
+        :type get_token: callable object
+        :param token_type: The type field of the token request.
+         Default value is `"jwt"`.
+        :type token_type: str
+
+        """
         super(JWTTokenAuth, self).__init__(uri, audience, token_type)
         self.get_token = get_token
 
@@ -103,6 +137,32 @@ class SASTokenAuth(_CBSAuth):
         token_type=TOKEN_TYPE_SASTOKEN,
         **kwargs
     ):
+        """
+        CBS authentication using SAS tokens.
+
+        :param uri: The AMQP endpoint URI. This must be provided as
+         a decoded string.
+        :type uri: str
+        :param audience: The token audience field. For SAS tokens
+         this is usually the URI.
+        :type audience: str
+        :param username: The SAS token username, also referred to as the key
+         name or policy name. This can optionally be encoded into the URI.
+        :type username: str
+        :param password: The SAS token password, also referred to as the key.
+         This can optionally be encoded into the URI.
+        :type password: str
+        :param expires_in: The total remaining seconds until the token
+         expires.
+        :type expires_in: int
+        :param expires_on: The timestamp at which the SAS token will expire
+         formatted as seconds since epoch.
+        :type expires_on: float
+        :param token_type: The type field of the token request.
+         Default value is `"servicebus.windows.net:sastoken"`.
+        :type token_type: str
+
+        """
         self.username = username
         self.password = password
         expires_in, expires_on = self._set_expiry(expires_in, expires_on)
