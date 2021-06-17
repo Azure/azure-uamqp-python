@@ -7,7 +7,7 @@
 from collections import namedtuple
 
 from .types import AMQPTypes, FieldDefinition
-from .constants import FIELD
+from .constants import FIELD, MessageDeliveryState
 from .performatives import _CAN_ADD_DOCSTRING
 
 
@@ -250,3 +250,12 @@ if _CAN_ADD_DOCSTRING:
         signatures and encryption details). A registry of deﬁned footers and their meanings can be found
         here: http://www.amqp.org/specification/1.0/footer.
     """
+
+
+class _MessageDelivery:
+    def __init__(self, message, state=MessageDeliveryState.WaitingToBeSent, expiry=None):
+        self.message = message
+        self.state = state
+        self.expiry = expiry
+        self.reason = None
+        self.delivery = None
