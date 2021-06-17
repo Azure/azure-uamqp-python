@@ -275,15 +275,14 @@ def decode_frame(data):
     # described type then ulong.
     frame_type = data[2]
     compound_list_type = data[3]
-    buffer = None
-    if compound_list_type == 0xc0:  # list8 0xc0
-        count = data[5]  # data[4] is size, data[5] is count
-        buffer = data[6:]
-    elif compound_list_type == 0xd0:  # list32 0xd0
-        count = c_signed_int.unpack(data[8:12])[0]  # data[4:8] is size, data[8:12] is count
+    if compound_list_type == 0xd0:
+        # list32 0xd0: data[4:8] is size, data[8:12] is count
+        count = c_signed_int.unpack(data[8:12])[0]
         buffer = data[12:]
-    else:  # list0 0x45
-        count = 0
+    else:
+        # list8 0xc0: data[4] is size, data[5] is count
+        count = data[5]
+        buffer = data[6:]
     fields = [None] * count
     for i in range(count):
         buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
