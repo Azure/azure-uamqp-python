@@ -77,6 +77,8 @@ class AMQPClient(object):
     :param idle_timeout: Timeout in milliseconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
+    :param auth_timeout: Timeout in seconds for authentication
+    :type auth_timeout: int
     :param properties: Connection properties.
     :type properties: dict
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
@@ -119,6 +121,7 @@ class AMQPClient(object):
         self._socket_timeout = False
         self._external_connection = False
         self._cbs_authenticator = None
+        self._auth_timeout = kwargs.pop("auth_timeout", constants.AUTH_TIMEOUT)
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -194,10 +197,8 @@ class AMQPClient(object):
         if isinstance(self._auth, _CBSAuth):
             self._cbs_authenticator = CBSAuthenticator(
                 session=self._session,
-                auth_audience=self._auth.auth_audience,
-                get_token=self._auth.get_token,
-                token_type=self._auth.token_type,
-                auth_timeout=self._auth.auth_timeout
+                auth=self._auth,
+                auth_timeout=self._auth_timeout
             )
             self._cbs_authenticator.open()
 

@@ -36,9 +36,7 @@ class CBSAuthenticator(object):
     def __init__(
         self,
         session,
-        auth_audience,
-        get_token,
-        token_type=TOKEN_TYPE_SASTOKEN,
+        auth,
         auth_timeout=AUTH_TIMEOUT,
         encoding='UTF-8'
     ):
@@ -51,15 +49,16 @@ class CBSAuthenticator(object):
             status_code_field=b'status-code',
             status_description_field=b'status-description'
         )  # type: ManagementLink
-        self._auth_audience = auth_audience
-        self._encoding = encoding
-        self._auth_timeout = auth_timeout
 
-        if not get_token or not callable(get_token):
+        if not auth.get_token or not callable(auth.get_token):
             raise ValueError("get_token must be a callable object.")
 
-        self._get_token = get_token
-        self._token_type = token_type
+        self._auth = auth
+        self._auth_audience = self._auth.auth_audience
+        self._get_token = self._auth.get_token
+        self._token_type = self._auth.token_type
+        self._encoding = encoding
+        self._auth_timeout = auth_timeout
         self._token_put_time = None
         self._expires_in = None
         self._expires_on = None

@@ -16,7 +16,6 @@ from .sasl import SASLAnonymousCredential, SASLPlainCredential
 
 from .constants import (
     AUTH_DEFAULT_EXPIRATION_SECONDS,
-    AUTH_TIMEOUT,
     TOKEN_TYPE_JWT,
     TOKEN_TYPE_SASTOKEN
 )
@@ -57,13 +56,11 @@ class _CBSAuth(object):
         get_token,
         expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
         expires_on=None,
-        auth_timeout=AUTH_TIMEOUT,
     ):
         self.sasl = SASLAnonymousCredential()
         self.uri = uri
         self.auth_audience = auth_audience
         self.token_type = token_type
-        self.auth_timeout = auth_timeout
         self.get_token = get_token
         self.expires_in = expires_in
         self.expires_on = expires_on
@@ -87,11 +84,10 @@ class JWTTokenAuth(_CBSAuth):
         uri,
         audience,
         get_token,
-        auth_timeout=AUTH_TIMEOUT,
         token_type=TOKEN_TYPE_JWT,
         **kwargs
     ):
-        super(JWTTokenAuth, self).__init__(uri, audience, token_type, auth_timeout)
+        super(JWTTokenAuth, self).__init__(uri, audience, token_type)
         self.get_token = get_token
 
 
@@ -104,7 +100,6 @@ class SASTokenAuth(_CBSAuth):
         password,
         expires_in=AUTH_DEFAULT_EXPIRATION_SECONDS,
         expires_on=None,
-        auth_timeout=AUTH_TIMEOUT,
         token_type=TOKEN_TYPE_SASTOKEN,
         **kwargs
     ):
@@ -119,5 +114,4 @@ class SASTokenAuth(_CBSAuth):
             self.get_token,
             expires_in,
             expires_on,
-            auth_timeout
         )
