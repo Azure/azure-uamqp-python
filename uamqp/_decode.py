@@ -275,8 +275,6 @@ def decode_frame(data):
     # described type then ulong.
     frame_type = data[2]
     compound_list_type = data[3]
-    buffer = None
-    compound_list_type = data[3]
     if compound_list_type == 0xd0:
         # list32 0xd0: data[4:8] is size, data[8:12] is count
         count = c_signed_int.unpack(data[8:12])[0]
