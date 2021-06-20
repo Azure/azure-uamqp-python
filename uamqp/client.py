@@ -30,7 +30,8 @@ from .constants import (
     LinkDeliverySettleReason,
     ManagementOpenResult,
     SEND_DISPOSITION_ACCEPT,
-    SEND_DISPOSITION_REJECT
+    SEND_DISPOSITION_REJECT,
+    AUTH_TYPE_CBS
 )
 from uamqp import constants
 from .error import AMQPConnectionError
@@ -77,7 +78,8 @@ class AMQPClient(object):
     :param idle_timeout: Timeout in milliseconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
-    :param auth_timeout: Timeout in seconds for authentication
+    :param auth_timeout: Timeout in seconds for CBS authentication. Otherwise this value will be ignored.
+     Default value is 60s.
     :type auth_timeout: int
     :param properties: Connection properties.
     :type properties: dict
@@ -121,7 +123,7 @@ class AMQPClient(object):
         self._socket_timeout = False
         self._external_connection = False
         self._cbs_authenticator = None
-        self._auth_timeout = kwargs.pop("auth_timeout", constants.AUTH_TIMEOUT)
+        self._auth_timeout = kwargs.pop("auth_timeout", constants.DEFAULT_AUTH_TIMEOUT)
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -194,7 +196,7 @@ class AMQPClient(object):
             outgoing_window=self._outgoing_window
         )
         self._session.begin()
-        if isinstance(self._auth, _CBSAuth):
+        if self._auth._auth_type == AUTH_TYPE_CBS:
             self._cbs_authenticator = CBSAuthenticator(
                 session=self._session,
                 auth=self._auth,
@@ -234,11 +236,9 @@ class AMQPClient(object):
 
         :rtype: bool
         """
-        if self._cbs_authenticator:
-            if self._cbs_authenticator.state.value != 2 or not self._cbs_authenticator.handle_token():
-                # cbs mgmt link not opened yet or token not handled yet
-                self._connection.listen(wait=self._socket_timeout)
-                return False
+        if self._cbs_authenticator and not self._cbs_authenticator.handle_token():
+            self._connection.listen(wait=self._socket_timeout)
+            return False
         return True
 
     def client_ready(self):

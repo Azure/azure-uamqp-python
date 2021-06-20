@@ -25,8 +25,7 @@ from .constants import (
     CBS_OPERATION,
     ManagementExecuteOperationResult,
     ManagementOpenResult,
-    AUTH_TIMEOUT,
-    TOKEN_TYPE_SASTOKEN
+    DEFAULT_AUTH_TIMEOUT
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,8 +36,7 @@ class CBSAuthenticator(object):
         self,
         session,
         auth,
-        auth_timeout=AUTH_TIMEOUT,
-        encoding='UTF-8'
+        **kwargs
     ):
         self._session = session
         self._connection = self._session._connection
@@ -54,11 +52,8 @@ class CBSAuthenticator(object):
             raise ValueError("get_token must be a callable object.")
 
         self._auth = auth
-        self._audience = self._auth.audience
-        self._get_token = self._auth.get_token
-        self._token_type = self._auth.token_type
-        self._encoding = encoding
-        self._auth_timeout = auth_timeout
+        self._encoding = 'UTF-8'
+        self._auth_timeout = kwargs.pop('auth_timeout', DEFAULT_AUTH_TIMEOUT)
         self._token_put_time = None
         self._expires_in = None
         self._expires_on = None
@@ -164,6 +159,15 @@ class CBSAuthenticator(object):
         else:
             return False
 
+    def _cbs_link_ready(self):
+        if self.state == CbsState.OPEN:
+            return True
+        if self.state != CbsState.OPEN:
+            return False
+        if self.state in (CbsState.CLOSED, CbsState.ERROR):
+            # TODO: raise proper error type
+            raise AuthenticationException("CBS authentication link is in broken status, please recreate the cbs link.")
+
     def open(self):
         self.state = CbsState.OPENING
         self._mgmt_link.open()
@@ -174,15 +178,17 @@ class CBSAuthenticator(object):
 
     def update_token(self):
         self.auth_state = CbsAuthState.InProgress
-        access_token = self._get_token()
+        access_token = self._auth.get_token()
         self._expires_on = access_token.expires_on
         self._expires_in = self._expires_on - int(utc_now().timestamp())
         self._refresh_window = int(float(self._expires_in) * 0.1)
         self._token = access_token.token
         self._token_put_time = int(utc_now().timestamp())
-        self._put_token(self._token, self._token_type, self._audience, utc_from_timestamp(self._expires_on))
+        self._put_token(self._token, self._auth.token_type, self._auth.audience, utc_from_timestamp(self._expires_on))
 
     def handle_token(self):
+        if not self._cbs_link_ready():
+            return False
         self._update_status()
         if self.auth_state == CbsAuthState.Idle:
             self.update_token()

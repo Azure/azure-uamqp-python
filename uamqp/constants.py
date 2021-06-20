@@ -52,7 +52,7 @@ DEFAULT_LINK_CREDIT = 10000
 FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
 
 
-AUTH_TIMEOUT = 60
+DEFAULT_AUTH_TIMEOUT = 60
 AUTH_DEFAULT_EXPIRATION_SECONDS = 3600
 TOKEN_TYPE_JWT = "jwt"
 TOKEN_TYPE_SASTOKEN = "servicebus.windows.net:sastoken"
@@ -64,6 +64,9 @@ CBS_EXPIRATION = "expiration"
 
 SEND_DISPOSITION_ACCEPT = "accepted"
 SEND_DISPOSITION_REJECT = "rejected"
+
+AUTH_TYPE_SASL_PLAIN = "AUTH_SASL_PLAIN"
+AUTH_TYPE_CBS = "AUTH_CBS"
 
 
 class ConnectionState(Enum):
