@@ -269,8 +269,9 @@ if _CAN_ADD_DOCSTRING:
 class BatchMessage(Message):
     _code = 0x80013700
     # TODO: put add message method on the batch?
-    #  add a message to the encode message first and then append the bytes to the data section of the batch message
-    #  currently _encode has a dependency on Message, which would then introduce circular import problem
+    #  we need to encode single message first and then append the bytes to the data section of the batch message
+    #  currently _encode.py has a dependency on message.py, which would then introduce circular import problem if
+    #  we want to do encode here
     #  might want to revisit the encode design, e.g. move encode_payload to message.py
 
 
