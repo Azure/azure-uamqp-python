@@ -163,32 +163,46 @@ if _CAN_ADD_DOCSTRING:
         This is a client-speciﬁc id that is used so that client can send replies to this message to a speciﬁc group.
     """
 
-Message = namedtuple(
-    'message',
-    [
-        'header',
-        'delivery_annotations',
-        'message_annotations',
-        'properties',
-        'application_properties',
-        'data',
-        'sequence',
-        'value',
-        'footer',
-    ])
-Message.__new__.__defaults__ = (None,) * len(Message._fields)
-Message._code = 0
-Message._definition = (
-    (0x00000070, FIELD("header", Header, False, None, False)),
-    (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
-    (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
-    (0x00000073, FIELD("properties", Properties, False, None, False)),
-    (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
-    (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
-    (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, False)),
-    (0x00000077, FIELD("value", None, False, None, False)),
-    (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
+
+class Message(object):
+
+    _code = 0
+    _definition = (
+        (0x00000070, FIELD("header", Header, False, None, False)),
+        (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
+        (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
+        (0x00000073, FIELD("properties", Properties, False, None, False)),
+        (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
+        (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
+        (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, True)),
+        (0x00000077, FIELD("value", None, False, None, False)),
+        (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
+
+    def __init__(
+        self,
+        header=None,
+        delivery_annotations=None,
+        message_annotations=None,
+        properties=None,
+        application_properties=None,
+        data=None,
+        sequence=None,
+        value=None,
+        footer=None,
+    ):
+        self.header = header
+        self.delivery_annotations = delivery_annotations
+        self.message_annotations = message_annotations
+        self.properties = properties
+        self.application_properties = application_properties
+        self.data = data
+        self.sequence = sequence
+        self.value = value
+        self.footer = footer
+
+
 if _CAN_ADD_DOCSTRING:
+
     Message.__doc__ = """
     An annotated message consists of the bare message plus sections for annotation at the head and tail
     of the bare message.
@@ -196,7 +210,7 @@ if _CAN_ADD_DOCSTRING:
     There are two classes of annotations: annotations that travel with the message indeﬁnitely, and
     annotations that are consumed by the next node.
     The exact structure of a message, together with its encoding, is deﬁned by the message format. This document
-    deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
+    defines the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
     following sections:
 
         - Zero or one header.
@@ -250,6 +264,14 @@ if _CAN_ADD_DOCSTRING:
         signatures and encryption details). A registry of deﬁned footers and their meanings can be found
         here: http://www.amqp.org/specification/1.0/footer.
     """
+
+
+class BatchMessage(Message):
+    _code = 0x80013700
+    # TODO: put add message method on the batch?
+    #  add a message to the encode message first and then append the bytes to the data section of the batch message
+    #  currently _encode has a dependency on Message, which would then introduce circular import problem
+    #  might want to revisit the encode design, e.g. move encode_payload to message.py
 
 
 class _MessageDelivery:

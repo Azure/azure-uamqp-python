@@ -694,8 +694,9 @@ def describe_performative(performative):
 
 
 def encode_payload(output, payload):
-    # type: (Message) -> Tuple(bytes, bytes)
-    for index, value in enumerate(payload):
+    # type: (bytes, Message) -> bytes
+    for index, name in enumerate(payload.__dict__):
+        value = payload.__dict__[name]
         if value is None:
             continue
         section_code, definition = Message._definition[index]
@@ -713,13 +714,26 @@ def encode_payload(output, payload):
                 )
             })
         else:
-            output = encode_value(output, {
-                TYPE: AMQPTypes.described,
-                VALUE: (
-                    {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                    {TYPE: definition.type, VALUE: value}
+            if name == 'data' or name == 'sequence':
+                output = b''.join(
+                    [
+                        encode_value(output, {
+                            TYPE: AMQPTypes.described,
+                            VALUE: (
+                                {TYPE: AMQPTypes.ulong, VALUE: section_code},
+                                {TYPE: definition.type, VALUE: item_value}
+                            )
+                        }) for item_value in value
+                    ]
                 )
-            })
+            else:
+                output = encode_value(output, {
+                    TYPE: AMQPTypes.described,
+                    VALUE: (
+                        {TYPE: AMQPTypes.ulong, VALUE: section_code},
+                        {TYPE: definition.type, VALUE: value}
+                    )
+                })
     return output
 
 

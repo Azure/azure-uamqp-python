@@ -17,6 +17,9 @@ except ImportError:
     from urllib.parse import urlparse, unquote_plus, urlencode, quote_plus
 import time
 
+from ._encode import encode_payload
+from .message import BatchMessage
+
 
 class UTC(datetime.tzinfo):
     """Time Zone info for handling UTC"""
@@ -81,3 +84,10 @@ def generate_sas_token(audience, policy, key, expiry=None):
     if policy:
         result['skn'] = encoded_policy
     return 'SharedAccessSignature ' + urlencode(result)
+
+
+def add_batch(batch, message):
+    # Add a message to a batch
+    if not batch.data:
+        batch.data = []
+    batch.data.append(encode_payload(b"", message))
