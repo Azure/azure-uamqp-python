@@ -1,5 +1,5 @@
 branches:
-  on:
+  only:
     - master
     - pyproto
 language: python
