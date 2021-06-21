@@ -163,7 +163,7 @@ if _CAN_ADD_DOCSTRING:
         This is a client-speciﬁc id that is used so that client can send replies to this message to a speciﬁc group.
     """
 
-
+# TODO: should be a class, namedtuple or dataclass, immutability vs performance, need to collect performance data
 Message = namedtuple(
     'message',
     [
@@ -189,10 +189,7 @@ Message._definition = (
     (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, False)),
     (0x00000077, FIELD("value", None, False, None, False)),
     (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
-
-
 if _CAN_ADD_DOCSTRING:
-
     Message.__doc__ = """
     An annotated message consists of the bare message plus sections for annotation at the head and tail
     of the bare message.
@@ -258,11 +255,6 @@ if _CAN_ADD_DOCSTRING:
 
 class BatchMessage(Message):
     _code = 0x80013700
-    # TODO: put add message method on the batch?
-    #  we need to encode single message first and then append the bytes to the data section of the batch message
-    #  currently _encode.py has a dependency on message.py, which would then introduce circular import problem if
-    #  we want to do encode here
-    #  might want to revisit the encode design, e.g. move encode_payload to message.py
 
 
 class _MessageDelivery:
