@@ -45,6 +45,8 @@ def _generate_sas_token(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPI
 
 
 class SASLPlainAuth(object):
+    # TODO:
+    #  1. naming decision, suffix with Auth vs Credential
     auth_type = AUTH_TYPE_SASL_PLAIN
 
     def __init__(self, authcid, passwd, authzid=None):
@@ -52,6 +54,8 @@ class SASLPlainAuth(object):
 
 
 class _CBSAuth(object):
+    # TODO:
+    #  1. naming decision, suffix with Auth vs Credential
     auth_type = AUTH_TYPE_CBS
 
     def __init__(
@@ -101,6 +105,8 @@ class _CBSAuth(object):
 
 
 class JWTTokenAuth(_CBSAuth):
+    # TODO:
+    #  1. naming decision, suffix with Auth vs Credential
     def __init__(
         self,
         uri,
@@ -130,6 +136,8 @@ class JWTTokenAuth(_CBSAuth):
 
 
 class SASTokenAuth(_CBSAuth):
+    # TODO:
+    #  1. naming decision, suffix with Auth vs Credential
     def __init__(
         self,
         uri,
