@@ -1,7 +1,7 @@
 branches:
   only:
-    - master
-    - pyproto
+  - master
+  - pyproto
 language: python
 cache: pip
 dist: xenial
