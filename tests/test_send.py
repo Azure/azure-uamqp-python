@@ -59,6 +59,37 @@ def send_message_to_partition_sas_auth(live_eventhub_config):
     send_client.close()
 
 
+def send_message_with_properties_to_partition_sas_auth(live_eventhub_config):
+    hostname = live_eventhub_config['hostname']
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    sas_auth = SASTokenAuth(
+        uri=uri,
+        audience=uri,
+        username=live_eventhub_config['key_name'],
+        password=live_eventhub_config['access_key']
+    )
+    send_client = SendClient(hostname, target, auth=sas_auth, idle_timeout=10, network_trace=True)
+    send_client.open()
+    while not send_client.client_ready():
+        time.sleep(0.05)
+
+    # TODO: it seems like the event hubs service doesn't support delivery_annotations
+    #  we need to check with the service team in the future
+    # send_client.send_message(Message(data=[b'Test'], delivery_annotations={"my_key": "my_value"},
+    #                                  message_annotations={"msganno": "msganno"},
+    #                                  application_properties={"testapp": "testappvalue"}))
+
+    send_client.send_message(
+        Message(
+            data=[b'Test'],
+            message_annotations={"msganno": "msganno"},
+            application_properties={"testapp": "testappvalue"}
+        )
+    )
+    send_client.close()
+
+
 def send_batch_message_to_partition_sas_auth(live_eventhub_config):
     hostname = config['hostname']
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
@@ -74,7 +105,7 @@ def send_batch_message_to_partition_sas_auth(live_eventhub_config):
     while not send_client.client_ready():
         time.sleep(0.05)
 
-    batch_message = BatchMessage()
+    batch_message = BatchMessage(data=[])
     for _ in range(10):
         add_batch(batch_message, Message(data=[b'Test']))
     send_client.send_message(batch_message)
@@ -94,3 +125,4 @@ if __name__ == '__main__':
     send_single_message_to_target_partition_sasl_plain_auth(config)
     send_message_to_partition_sas_auth(config)
     send_batch_message_to_partition_sas_auth(config)
+    send_message_with_properties_to_partition_sas_auth(config)

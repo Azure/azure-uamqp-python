@@ -88,6 +88,4 @@ def generate_sas_token(audience, policy, key, expiry=None):
 
 def add_batch(batch, message):
     # Add a message to a batch
-    if not batch.data:
-        batch.data = []
     batch.data.append(encode_payload(b"", message))

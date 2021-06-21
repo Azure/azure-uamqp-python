@@ -468,11 +468,11 @@ def encode_annotations(value):
     fields = {TYPE: AMQPTypes.map, VALUE:[]}
     for key, data in value.items():
         if isinstance(key, int):
-            fields[VALUE].append(({TYPE: AMQPTypes.ulong, VALUE: key}, data))
+            fields[VALUE].append(({TYPE: AMQPTypes.ulong, VALUE: key}, {TYPE: None, VALUE: data}))
         else:
             if isinstance(key, six.text_type):
                 key = key.encode('utf-8')
-            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, data))
+            fields[VALUE].append(({TYPE: AMQPTypes.symbol, VALUE: key}, {TYPE: None, VALUE: data}))
     return fields
 
 
@@ -695,45 +695,84 @@ def describe_performative(performative):
 
 def encode_payload(output, payload):
     # type: (bytes, Message) -> bytes
-    for index, name in enumerate(payload.__dict__):
-        value = payload.__dict__[name]
-        if value is None:
-            continue
-        section_code, definition = Message._definition[index]
-        if definition.type in _MESSAGE_PERFORMATIVES:
-            # TODO: Header and Properties encoding can be optimized to
-            #  1. not encoding trailing None fields
-            #  2. encoding bool without constructor
-            output = encode_value(output, describe_performative(value))
-        elif isinstance(definition.type, FieldDefinition):
+
+    if payload[0]:  # header
+        # TODO: Header and Properties encoding can be optimized to
+        #  1. not encoding trailing None fields
+        #  2. encoding bool without constructor
+        output = encode_value(output, describe_performative(payload[0]))
+
+    if payload[1]:  # delivery annotations
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000071},
+                encode_annotations(payload[1]),
+            )
+        })
+
+    if payload[2]:  # message annotations
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000072},
+                encode_annotations(payload[2]),
+            )
+        })
+
+    if payload[3]:  # properties
+        # TODO: Header and Properties encoding can be optimized to
+        #  1. not encoding trailing None fields
+        #  2. encoding bool without constructor
+        output = encode_value(output, describe_performative(payload[3]))
+
+    if payload[4]:  # application properties
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000074},
+                {TYPE: AMQPTypes.map, VALUE: payload[4]}
+            )
+        })
+
+    if payload[5]:  # data
+        for item_value in payload[5]:
             output = encode_value(output, {
                 TYPE: AMQPTypes.described,
                 VALUE: (
-                    {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                    _FIELD_DEFINITIONS[definition.type].encode(value)
+                    {TYPE: AMQPTypes.ulong, VALUE: 0x00000075},
+                    {TYPE: AMQPTypes.binary, VALUE: item_value}
                 )
             })
-        else:
-            if name == 'data' or name == 'sequence':
-                output = b''.join(
-                    [
-                        encode_value(output, {
-                            TYPE: AMQPTypes.described,
-                            VALUE: (
-                                {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                                {TYPE: definition.type, VALUE: item_value}
-                            )
-                        }) for item_value in value
-                    ]
+
+    if payload[6]:  # sequence
+        for item_value in payload[6]:
+            output = encode_value(output, {
+                TYPE: AMQPTypes.described,
+                VALUE: (
+                    {TYPE: AMQPTypes.ulong, VALUE: 0x00000076},
+                    {TYPE: None, VALUE: item_value}
                 )
-            else:
-                output = encode_value(output, {
-                    TYPE: AMQPTypes.described,
-                    VALUE: (
-                        {TYPE: AMQPTypes.ulong, VALUE: section_code},
-                        {TYPE: definition.type, VALUE: value}
-                    )
-                })
+            })
+
+    if payload[7]:  # value
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000077},
+                {TYPE: None, VALUE: payload[7]}
+            )
+        })
+
+    if payload[8]:  # footer
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000078},
+                encode_annotations(payload[8]),
+            )
+        })
+
     return output
 
 

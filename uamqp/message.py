@@ -164,41 +164,31 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-class Message(object):
-
-    _code = 0
-    _definition = (
-        (0x00000070, FIELD("header", Header, False, None, False)),
-        (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
-        (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
-        (0x00000073, FIELD("properties", Properties, False, None, False)),
-        (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
-        (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
-        (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, True)),
-        (0x00000077, FIELD("value", None, False, None, False)),
-        (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
-
-    def __init__(
-        self,
-        header=None,
-        delivery_annotations=None,
-        message_annotations=None,
-        properties=None,
-        application_properties=None,
-        data=None,
-        sequence=None,
-        value=None,
-        footer=None,
-    ):
-        self.header = header
-        self.delivery_annotations = delivery_annotations
-        self.message_annotations = message_annotations
-        self.properties = properties
-        self.application_properties = application_properties
-        self.data = data
-        self.sequence = sequence
-        self.value = value
-        self.footer = footer
+Message = namedtuple(
+    'message',
+    [
+        'header',
+        'delivery_annotations',
+        'message_annotations',
+        'properties',
+        'application_properties',
+        'data',
+        'sequence',
+        'value',
+        'footer',
+    ])
+Message.__new__.__defaults__ = (None,) * len(Message._fields)
+Message._code = 0
+Message._definition = (
+    (0x00000070, FIELD("header", Header, False, None, False)),
+    (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
+    (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
+    (0x00000073, FIELD("properties", Properties, False, None, False)),
+    (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
+    (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
+    (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, False)),
+    (0x00000077, FIELD("value", None, False, None, False)),
+    (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
 
 
 if _CAN_ADD_DOCSTRING:
