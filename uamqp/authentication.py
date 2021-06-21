@@ -45,14 +45,14 @@ def _generate_sas_token(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPI
 
 
 class SASLPlainAuth(object):
-    _auth_type = AUTH_TYPE_SASL_PLAIN
+    auth_type = AUTH_TYPE_SASL_PLAIN
 
     def __init__(self, authcid, passwd, authzid=None):
         self.sasl = SASLPlainCredential(authcid, passwd, authzid)
 
 
 class _CBSAuth(object):
-    _auth_type = AUTH_TYPE_CBS
+    auth_type = AUTH_TYPE_CBS
 
     def __init__(
         self,

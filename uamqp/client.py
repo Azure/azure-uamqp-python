@@ -196,7 +196,7 @@ class AMQPClient(object):
             outgoing_window=self._outgoing_window
         )
         self._session.begin()
-        if self._auth._auth_type == AUTH_TYPE_CBS:
+        if self._auth.auth_type == AUTH_TYPE_CBS:
             self._cbs_authenticator = CBSAuthenticator(
                 session=self._session,
                 auth=self._auth,
