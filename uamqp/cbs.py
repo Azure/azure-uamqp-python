@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
-import six
+#-------------------------------------------------------------------------
+
 import logging
 from datetime import datetime
 
-from .utils import utc_now, utc_from_timestamp, encode
+from .utils import utc_now, utc_from_timestamp
 from .management_link import ManagementLink
 from .message import Message, Properties
 from .error import (
@@ -18,29 +18,25 @@ from .error import (
 from .constants import (
     CbsState,
     CbsAuthState,
-    AUTH_TIMEOUT,
-    TOKEN_TYPE_SASTOKEN,
     CBS_PUT_TOKEN,
     CBS_EXPIRATION,
     CBS_NAME,
     CBS_TYPE,
     CBS_OPERATION,
     ManagementExecuteOperationResult,
-    ManagementOpenResult
+    ManagementOpenResult,
+    DEFAULT_AUTH_TIMEOUT
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class CbsAuth(object):
+class CBSAuthenticator(object):
     def __init__(
-            self,
-            session,
-            auth_audience,
-            get_token,
-            token_type=TOKEN_TYPE_SASTOKEN,
-            auth_timeout=AUTH_TIMEOUT,
-            encoding='UTF-8'
+        self,
+        session,
+        auth,
+        **kwargs
     ):
         self._session = session
         self._connection = self._session._connection
@@ -51,18 +47,16 @@ class CbsAuth(object):
             status_code_field=b'status-code',
             status_description_field=b'status-description'
         )  # type: ManagementLink
-        self._auth_audience = auth_audience
-        self._encoding = encoding
-        self._auth_timeout = auth_timeout
 
-        if not get_token or not callable(get_token):
+        if not auth.get_token or not callable(auth.get_token):
             raise ValueError("get_token must be a callable object.")
 
-        self._get_token = get_token
-        self._token_type = token_type
+        self._auth = auth
+        self._encoding = 'UTF-8'
+        self._auth_timeout = kwargs.pop('auth_timeout', DEFAULT_AUTH_TIMEOUT)
         self._token_put_time = None
         self._expires_in = None
-        self._expires_at = None
+        self._expires_on = None
         self._token = None
 
         self._refresh_window = None
@@ -73,7 +67,7 @@ class CbsAuth(object):
         self.state = CbsState.CLOSED
         self.auth_state = CbsAuthState.Idle
 
-    def _put_token(self, token, token_type, audience, expiration_at=None):
+    def _put_token(self, token, token_type, audience, expires_on=None):
         # type: (str, str, str, datetime) -> None
         message = Message(
             value=token,
@@ -82,7 +76,7 @@ class CbsAuth(object):
                 CBS_NAME: audience,
                 CBS_OPERATION: CBS_PUT_TOKEN,
                 CBS_TYPE: token_type,
-                CBS_EXPIRATION: expiration_at
+                CBS_EXPIRATION: expires_on
             }
         )
         self._mgmt_link.execute_operation(
@@ -155,8 +149,8 @@ class CbsAuth(object):
 
     def _check_expiration_and_refresh_status(self):
         seconds_since_epoc = int(utc_now().timestamp())
-        is_expired = seconds_since_epoc >= self._expires_at
-        is_refresh_required = (self._expires_at - seconds_since_epoc) <= self._refresh_window
+        is_expired = seconds_since_epoc >= self._expires_on
+        is_refresh_required = (self._expires_on - seconds_since_epoc) <= self._refresh_window
         return is_expired, is_refresh_required
 
     def _check_put_timeout_status(self):
@@ -164,6 +158,15 @@ class CbsAuth(object):
             return (int(utc_now().timestamp()) - self._token_put_time) >= self._auth_timeout
         else:
             return False
+
+    def _cbs_link_ready(self):
+        if self.state == CbsState.OPEN:
+            return True
+        if self.state != CbsState.OPEN:
+            return False
+        if self.state in (CbsState.CLOSED, CbsState.ERROR):
+            # TODO: raise proper error type
+            raise AuthenticationException("CBS authentication link is in broken status, please recreate the cbs link.")
 
     def open(self):
         self.state = CbsState.OPENING
@@ -175,24 +178,30 @@ class CbsAuth(object):
 
     def update_token(self):
         self.auth_state = CbsAuthState.InProgress
-        access_token = self._get_token()
-        self._expires_at = access_token.expires_on
-        self._expires_in = self._expires_at - int(utc_now().timestamp())
+        access_token = self._auth.get_token()
+        self._expires_on = access_token.expires_on
+        self._expires_in = self._expires_on - int(utc_now().timestamp())
         self._refresh_window = int(float(self._expires_in) * 0.1)
         self._token = access_token.token
         self._token_put_time = int(utc_now().timestamp())
-        self._put_token(self._token, self._token_type, self._auth_audience, utc_from_timestamp(self._expires_at))
+        self._put_token(self._token, self._auth.token_type, self._auth.audience, utc_from_timestamp(self._expires_on))
 
     def handle_token(self):
+        if not self._cbs_link_ready():
+            return False
         self._update_status()
         if self.auth_state == CbsAuthState.Idle:
             self.update_token()
-        elif self.auth_state in (CbsAuthState.Ok, CbsAuthState.InProgress):
-            pass
+            return False
+        elif self.auth_state == CbsAuthState.InProgress:
+            return False
+        elif self.auth_state == CbsAuthState.Ok:
+            return True
         elif self.auth_state == CbsAuthState.RefreshRequired:
             _LOGGER.info("Token on connection %r will expire soon - attempting to refresh.",
                          self._connection._container_id)
             self.update_token()
+            return False
         elif self.auth_state == CbsAuthState.Failure:
             raise AuthenticationException("Failed to open CBS authentication link.")
         elif self.auth_state == CbsAuthState.Error:
