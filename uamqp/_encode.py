@@ -20,7 +20,6 @@ from . import endpoints
 from . import error
 
 
-_MESSAGE_PERFORMATIVES = [Header, Properties]
 _FRAME_OFFSET = b"\x02"
 _FRAME_TYPE = b'\x00'
 
@@ -702,15 +701,6 @@ def encode_payload(output, payload):
         #  2. encoding bool without constructor
         output = encode_value(output, describe_performative(payload[0]))
 
-    if payload[1]:  # delivery annotations
-        output = encode_value(output, {
-            TYPE: AMQPTypes.described,
-            VALUE: (
-                {TYPE: AMQPTypes.ulong, VALUE: 0x00000071},
-                encode_annotations(payload[1]),
-            )
-        })
-
     if payload[2]:  # message annotations
         output = encode_value(output, {
             TYPE: AMQPTypes.described,
@@ -770,6 +760,20 @@ def encode_payload(output, payload):
             VALUE: (
                 {TYPE: AMQPTypes.ulong, VALUE: 0x00000078},
                 encode_annotations(payload[8]),
+            )
+        })
+
+    # TODO:
+    #  currently the delivery annotations must be finally encoded instead of being encoded at the 2nd position
+    #  otherwise the event hubs service would ignore the delivery annotations
+    #  -- received message doesn't have it populated
+    #  check with service team?
+    if payload[1]:  # delivery annotations
+        output = encode_value(output, {
+            TYPE: AMQPTypes.described,
+            VALUE: (
+                {TYPE: AMQPTypes.ulong, VALUE: 0x00000071},
+                encode_annotations(payload[1]),
             )
         })
 

@@ -9,7 +9,7 @@ import logging
 import os
 
 from uamqp import SendClient
-from uamqp.message import Message, BatchMessage
+from uamqp.message import Message, BatchMessage, Header, Properties
 from uamqp.utils import add_batch
 from uamqp.authentication import SASLPlainAuth, SASTokenAuth
 
@@ -74,19 +74,10 @@ def send_message_with_properties_to_partition_sas_auth(live_eventhub_config):
     while not send_client.client_ready():
         time.sleep(0.05)
 
-    # TODO: it seems like the event hubs service doesn't support delivery_annotations
-    #  we need to check with the service team in the future
-    # send_client.send_message(Message(data=[b'Test'], delivery_annotations={"my_key": "my_value"},
-    #                                  message_annotations={"msganno": "msganno"},
-    #                                  application_properties={"testapp": "testappvalue"}))
+    send_client.send_message(Message(data=[b'Test'], delivery_annotations={"my_key": "my_value"},
+                                     message_annotations={"msganno": "msganno"},
+                                     application_properties={"testapp": "testappvalue"}))
 
-    send_client.send_message(
-        Message(
-            data=[b'Test'],
-            message_annotations={"msganno": "msganno"},
-            application_properties={"testapp": "testappvalue"}
-        )
-    )
     send_client.close()
 
 
