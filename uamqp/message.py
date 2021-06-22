@@ -163,6 +163,7 @@ if _CAN_ADD_DOCSTRING:
         This is a client-speciﬁc id that is used so that client can send replies to this message to a speciﬁc group.
     """
 
+# TODO: should be a class, namedtuple or dataclass, immutability vs performance, need to collect performance data
 Message = namedtuple(
     'message',
     [
@@ -196,7 +197,7 @@ if _CAN_ADD_DOCSTRING:
     There are two classes of annotations: annotations that travel with the message indeﬁnitely, and
     annotations that are consumed by the next node.
     The exact structure of a message, together with its encoding, is deﬁned by the message format. This document
-    deﬁnes the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
+    defines the structure and semantics of message format 0 (MESSAGE-FORMAT). Altogether a message consists of the
     following sections:
 
         - Zero or one header.
@@ -250,6 +251,10 @@ if _CAN_ADD_DOCSTRING:
         signatures and encryption details). A registry of deﬁned footers and their meanings can be found
         here: http://www.amqp.org/specification/1.0/footer.
     """
+
+
+class BatchMessage(Message):
+    _code = 0x80013700
 
 
 class _MessageDelivery:
