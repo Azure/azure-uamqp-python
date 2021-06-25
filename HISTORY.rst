@@ -6,6 +6,7 @@ Release History
 1.4.1 (Unreleased)
 +++++++++++++++++++
 
+- Fixed bug that JWTTokenAuth and JWTTokenAsync do not initialize token for token types other than b'jwt'.
 - Fixed bug that attibutes `creation_time`, `absolute_expiry_time` and `group_sequence` on `MessageProperties` should be compatible with integer types on Python 2.7.
 
 1.4.0 (2021-05-03)
