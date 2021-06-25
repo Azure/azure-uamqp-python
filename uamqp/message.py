@@ -1003,7 +1003,7 @@ class MessageProperties(object):
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        if value is not None and not isinstance(value, int):
+        if value is not None and not isinstance(value, six.integer_types):
             raise TypeError("absolute_expiry_time must be an integer.")
         self._absolute_expiry_time = value
 
@@ -1013,7 +1013,7 @@ class MessageProperties(object):
 
     @creation_time.setter
     def creation_time(self, value):
-        if value is not None and not isinstance(value, int):
+        if value is not None and not isinstance(value, six.integer_types):
             raise TypeError("creation_time must be an integer.")
         self._creation_time = value
 
@@ -1035,7 +1035,7 @@ class MessageProperties(object):
 
     @group_sequence.setter
     def group_sequence(self, value):
-        if value is not None and not isinstance(value, int):
+        if value is not None and not isinstance(value, six.integer_types):
             raise TypeError("group_sequence must be an integer.")
         self._group_sequence = value
 
