@@ -277,7 +277,7 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
 
     async def create_authenticator_async(self, connection, debug=False, loop=None, **kwargs):
         await self.update_token()
-        await super(JWTTokenAsync, self).create_authenticator_async(connection, debug, loop, **kwargs)
+        return await super(JWTTokenAsync, self).create_authenticator_async(connection, debug, loop, **kwargs)
 
     async def update_token(self):
         access_token = await self.get_token()

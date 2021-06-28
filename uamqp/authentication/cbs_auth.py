@@ -420,7 +420,7 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
 
     def create_authenticator(self, connection, debug=False, **kwargs):
         self.update_token()
-        super(JWTTokenAuth, self).create_authenticator(connection, debug, **kwargs)
+        return super(JWTTokenAuth, self).create_authenticator(connection, debug, **kwargs)
 
     def update_token(self):
         access_token = self.get_token()
