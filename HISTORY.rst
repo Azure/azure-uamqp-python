@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.4.1 (Unreleased)
+1.4.1 (2021-06-28)
 +++++++++++++++++++
 
 - Fixed bug that JWTTokenAuth and JWTTokenAsync do not initialize token for token types other than b'jwt'.
