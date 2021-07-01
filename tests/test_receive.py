@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def receive_messages_sasl_plain(live_eventhub_config):
-    hostname = config['hostname']
+    hostname = live_eventhub_config['hostname']
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],
@@ -39,7 +39,7 @@ def receive_messages_sasl_plain(live_eventhub_config):
 
 
 def receive_messages_sas_auth(live_eventhub_config):
-    hostname = config['hostname']
+    hostname = live_eventhub_config['hostname']
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],

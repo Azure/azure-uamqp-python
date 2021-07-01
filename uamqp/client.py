@@ -274,6 +274,35 @@ class AMQPClient(object):
             return True
         return self._client_run(**kwargs)
 
+    def mgmt_request(self, message, operation=None, operation_type=None, node='$management', **kwargs):
+        """
+        TODO: Move optional params to kwargs and document.
+        """
+        timeout = kwargs.pop('timeout', None) or 0
+        parse_response = kwargs.pop('callback', None)
+        try:
+            mgmt_link = self._mgmt_links[node]
+        except KeyError:
+            mgmt_link = MgmtOperation(self._session, endpoint=node, **kwargs)
+            self._mgmt_links[node] = mgmt_link
+            mgmt_link.open()
+            while not mgmt_link.mgmt_link_open_status and not mgmt_link.mgmt_error:
+                self._connection.listen(wait=False)
+            if mgmt_link.mgmt_error:
+                raise mgmt_link.mgmt_error
+            if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
+                raise AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status))
+        operation_type = operation_type or b'empty'
+        status, response, description = mgmt_link.execute(
+            message,
+            operation=operation,
+            operation_type=operation_type,
+            timeout=timeout
+        )
+        if parse_response:
+            return parse_response(status, response, description)
+        return response
+
 
 class SendClient(AMQPClient):
     def __init__(self, hostname, target, auth=None, **kwargs):
@@ -581,32 +610,3 @@ class ReceiveClient(AMQPClient):
             if timeout and time.time() > timeout:
                 expired = True
         return batch
-
-    def mgmt_request(self, message, operation=None, operation_type=None, node='$management', **kwargs):
-        """
-        TODO: Move optional params to kwargs and document.
-        """
-        timeout = kwargs.pop('timeout', None) or 0
-        parse_response = kwargs.pop('callback', None)
-        try:
-            mgmt_link = self._mgmt_links[node]
-        except KeyError:
-            mgmt_link = MgmtOperation(self._session, endpoint=node, **kwargs)
-            self._mgmt_links[node] = mgmt_link
-            mgmt_link.open()
-            while not mgmt_link.mgmt_link_open_status and not mgmt_link.mgmt_error:
-                self._connection.listen(wait=False)
-            if mgmt_link.mgmt_error:
-                raise mgmt_link.mgmt_error
-            if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
-                raise AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status))
-        operation_type = operation_type or b'empty'
-        status, response, description = mgmt_link.execute(
-            message,
-            operation=operation,
-            operation_type=operation_type,
-            timeout=timeout
-        )
-        if parse_response:
-            return parse_response(status, response, description)
-        return response
