@@ -13,7 +13,7 @@ variables:
 
 jobs:
   - job: 'Build and Test'
-    timeoutInMinuts: 90
+    timeoutInMinutes: 90
 
     pool:
       name: azsdk-pool-mms-ubuntu-2004-general
