@@ -17,7 +17,7 @@ variables:
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
-  - job: 'Build and Test'
+  - job: 'BuildandTest'
     timeoutInMinutes: 90
 
     pool:
