@@ -1,0 +1,70 @@
+pr:
+  branches:
+    include:
+    - pyproto
+
+variables:
+  PythonVersion27: '2.7'
+  PythonVersion36: '3.6'
+  PythonVersion37: '3.7'
+  PythonVersion38: '3.8'
+  PythonVersion39: '3.9'
+  GetPip: 'https://bootstrap.pypa.io/get-pip.py'
+
+jobs:
+  - job: 'Build and Test'
+    timeoutInMinuts: 90
+
+    pool:
+      name: azsdk-pool-mms-ubuntu-2004-general
+      vmImage: MMSUbuntu20.04
+    
+    strategy:
+      matrix:
+        x64 Python 2.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        x86 Python 2.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        x64 Python 3.6:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion36)'
+        x86 Python 3.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion37)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.9:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion39)'
+
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
+
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
+      
+      - script: |
+          ls
+          python -m pip install --user --ignore-installed .
+          python -m pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+        displayName: 'Run tests'
+      
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
