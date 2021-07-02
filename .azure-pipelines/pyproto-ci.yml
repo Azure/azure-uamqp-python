@@ -26,31 +26,22 @@ jobs:
     
     strategy:
       matrix:
-        x64 Python 2.7:
-          PythonArchitecture: 'x64'
+        Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x86 Python 2.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x64 Python 3.6:
-          PythonArchitecture: 'x64'
+        Python 3.6:
           PythonVersion: '$(PythonVersion36)'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
+        Python 3.7:
           PythonVersion: '$(PythonVersion37)'
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
+        Python 3.8:
           PythonVersion: '$(PythonVersion38)'
-        x86 Python 3.9:
-          PythonArchitecture: 'x86'
+        Python 3.9:
           PythonVersion: '$(PythonVersion39)'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
-          architecture: '$(PythonArchitecture)'
+          architecture: 'x64'
           versionSpec: '$(PythonVersion)'
 
       - script: |
