@@ -1,3 +1,8 @@
+trigger:
+  branches:
+    include:
+    - pyproto
+
 pr:
   branches:
     include:
