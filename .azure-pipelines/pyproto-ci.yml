@@ -15,6 +15,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
+  PythonArchitecture: 'x64'
 
 jobs:
   - job: 'BuildandTest'
@@ -27,20 +28,15 @@ jobs:
     strategy:
       matrix:
         Python 2.7:
-          PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion27)'
           GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
         Python 3.6:
-          PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
-          PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
         Python 3.8:
-          PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
         Python 3.9:
-          PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion39)'
 
     steps:
