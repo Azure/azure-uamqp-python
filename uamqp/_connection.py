@@ -7,7 +7,10 @@
 import uuid
 import logging
 import time
-from urllib.parse import urlparse
+try:
+    from urllib.parse import urlparse
+except:
+    from urlparse import urlparse
 
 from ._transport import Transport
 from .sasl import SASLTransport
