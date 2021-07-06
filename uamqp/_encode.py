@@ -455,7 +455,7 @@ def encode_annotations(value):
     # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
     """The annotations type is a map where the keys are restricted to be of type symbol or of type ulong.
 
-    All ulong keys, and all symbolic keys except those beginning with ”x-” are reserved.
+    All ulong keys, and all symbolic keys except those beginning with "x-" are reserved.
     On receiving an annotations map containing keys or values which it does not recognize, and for which the
     key does not begin with the string 'x-opt-' an AMQP container MUST detach the link with the not-implemented
     amqp-error.
