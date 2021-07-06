@@ -483,7 +483,7 @@ def encode_application_properties(value):
         <descriptor name="amqp:application-properties:map" code="0x00000000:0x00000074"/>
     </type>
 
-    Intermediaries may use the data within this structure for the purposes of ﬁltering or routing.
+    Intermediaries may use the data within this structure for the purposes of filtering or routing.
     The keys of this map are restricted to be of type string (which excludes the possibility of a null key)
     and the values are restricted to be of simple types only, that is (excluding map, list, and array types).
     """
