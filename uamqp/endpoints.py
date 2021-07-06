@@ -142,6 +142,7 @@ Source = namedtuple(
         'outcomes',
         'capabilities'
     ])
+Source.__new__.__defaults__ = (None,) * len(Source._fields)
 Source._code = 0x00000028
 Source._definition = (
     FIELD("address", AMQPTypes.string, False, None, False),
@@ -227,6 +228,7 @@ Target = namedtuple(
         'capabilities'
     ])
 Target._code = 0x00000029
+Target.__new__.__defaults__ = (None,) * len(Target._fields)
 Target._definition = (
     FIELD("address", AMQPTypes.string, False, None, False),
     FIELD("durable", AMQPTypes.uint, False, "none", False),
