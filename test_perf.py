@@ -12,7 +12,7 @@ except Exception:
 
 import uamqp
 from uamqp import aio
-from uamqp.sasl import SASLPlainCredential
+from uamqp.authentication import SASLPlainAuth
 from legacy_test.live_settings import config as live_eventhub_config
 
 #logging.basicConfig(level=logging.DEBUG)
@@ -82,7 +82,7 @@ async def client_receive_async(args, client, partition):
 
 def create_and_open_receive_client(args, partition, clients_arr=None):
     print("Creating and opening receive client:{}".format(partition))
-    creds = SASLPlainCredential(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+    creds = SASLPlainAuth(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
         live_eventhub_config['hostname'],
         live_eventhub_config['event_hub'],
@@ -193,7 +193,7 @@ async def async_create_and_open_receive_client(args, partition):
 
 
 async def async_receive_messages(args):
-    creds = SASLPlainCredential(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+    creds = SASLPlainAuth(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
     #connection = aio.Connection("amqps://" + live_eventhub_config['hostname'], sasl_credential=creds)
     #await connection.open()
     try:

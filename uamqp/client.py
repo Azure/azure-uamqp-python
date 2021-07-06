@@ -30,11 +30,14 @@ from .constants import (
     LinkDeliverySettleReason,
     ManagementOpenResult,
     SEND_DISPOSITION_ACCEPT,
-    SEND_DISPOSITION_REJECT
+    SEND_DISPOSITION_REJECT,
+    AUTH_TYPE_CBS
 )
 from uamqp import constants
 from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
+from .cbs import CBSAuthenticator
+from .authentication import _CBSAuth
 
 
 _logger = logging.getLogger(__name__)
@@ -75,6 +78,9 @@ class AMQPClient(object):
     :param idle_timeout: Timeout in milliseconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
+    :param auth_timeout: Timeout in seconds for CBS authentication. Otherwise this value will be ignored.
+     Default value is 60s.
+    :type auth_timeout: int
     :param properties: Connection properties.
     :type properties: dict
     :param remote_idle_timeout_empty_frame_send_ratio: Ratio of empty frames to
@@ -116,6 +122,8 @@ class AMQPClient(object):
         self._link = None
         self._socket_timeout = False
         self._external_connection = False
+        self._cbs_authenticator = None
+        self._auth_timeout = kwargs.pop("auth_timeout", constants.DEFAULT_AUTH_TIMEOUT)
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -173,7 +181,7 @@ class AMQPClient(object):
         _logger.debug("Opening client connection.")
         self._connection = Connection(
             "amqps://" + self._hostname,
-            sasl_credential=self._auth,
+            sasl_credential=self._auth.sasl,
             ssl={'ca_certs':certifi.where()},
             container_id=self._name,
             max_frame_size=self._max_frame_size,
@@ -188,6 +196,13 @@ class AMQPClient(object):
             outgoing_window=self._outgoing_window
         )
         self._session.begin()
+        if self._auth.auth_type == AUTH_TYPE_CBS:
+            self._cbs_authenticator = CBSAuthenticator(
+                session=self._session,
+                auth=self._auth,
+                auth_timeout=self._auth_timeout
+            )
+            self._cbs_authenticator.open()
 
     def close(self):
         """Close the client. This includes closing the Session
@@ -207,6 +222,9 @@ class AMQPClient(object):
         if self._link:
             self._link.detach(close=True)
             self._link = None
+        if self._cbs_authenticator:
+            self._cbs_authenticator.close()
+            self._cbs_authenticator = None
         self._session.end()
         self._session = None
         if not self._external_connection:
@@ -218,6 +236,9 @@ class AMQPClient(object):
 
         :rtype: bool
         """
+        if self._cbs_authenticator and not self._cbs_authenticator.handle_token():
+            self._connection.listen(wait=self._socket_timeout)
+            return False
         return True
 
     def client_ready(self):
