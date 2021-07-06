@@ -647,13 +647,13 @@ def test_encode_array():
 
 
 def test_encode_payload():
-    data_body_msg1 = Message(data=b'Abc 123 !@#')
+    data_body_msg1 = Message(data=[b'Abc 123 !@#'])
     output = encode.encode_payload(b"", data_body_msg1)
     assert output == b'\x00Su\xa0\x0bAbc 123 !@#'
 
-    data_body_msg2 = Message(data=b'Abc 123 !@#' * 1024 * 1024)
+    data_body_msg2 = Message(data=[b'Abc 123 !@#' * 1024])  # 11 * 1024 = 11264 bytes in total
     output = encode.encode_payload(b"", data_body_msg2)
-    assert output == b'\x00Su\xb0\x00\xb0\x00\x00' + b'Abc 123 !@#' * 1024 * 1024
+    assert output == b'\x00Su\xb0\x00\x00\x2c\x00' + b'Abc 123 !@#' * 1024  # 0x00002c00 equals to 11264
 
     value_body_msg_1 = Message(value='Abc 123 !@#')
     output = encode.encode_payload(b"", value_body_msg_1)
@@ -668,28 +668,28 @@ def test_encode_payload():
     assert output == b'\x00Sw\xc1\r\x02\xa1\x03key\xa1\x05value'
 
     data_body_with_header_msg1 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         header=Header(durable=True),
     )
     output = encode.encode_payload(b"", data_body_with_header_msg1)
     assert output == b'\x00\x53\x70\xc0\x07\x05\x56\x01\x40\x40\x40\x40\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
 
     data_body_with_header_msg2 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         header=Header(durable=True, ttl=1000, delivery_count=1),
     )
     output = encode.encode_payload(b"", data_body_with_header_msg2)
     assert output == b'\x00\x53\x70\xc0\x0c\x05\x56\x01\x40\x70\x00\x00\x03\xe8\x40\x52\x01\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
 
     data_body_with_header_msg3 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         header=Header(durable=True, priority=1, ttl=1000, first_acquirer=True, delivery_count=1),
     )
     output = encode.encode_payload(b"", data_body_with_header_msg3)
     assert output == b'\x00\x53\x70\xc0\x0e\x05\x56\x01\x50\x01\x70\x00\x00\x03\xe8\x56\x01\x52\x01\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
 
     data_body_with_properties_msg1 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         properties=Properties(
             message_id=b"1",
             user_id=b'user',
@@ -710,7 +710,7 @@ def test_encode_payload():
     assert output == b'\x00\x53\x73\xc0\x3e\x0d\xa0\x01\x31\xa0\x04\x75\x73\x65\x72\xa1\x01\x74\xa1\x01\x73\xa1\x02\x72\x74\xa0\x01\x31\xa3\x02\x63\x74\xa3\x02\x63\x65\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\xa1\x03\x67\x69\x64\x52\x64\xa1\x04\x72\x67\x69\x64\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
 
     data_body_with_properties_msg2 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         properties=Properties(
             message_id=b"1",
             content_encoding=b"ce",
@@ -721,7 +721,7 @@ def test_encode_payload():
     assert output == b'\x00\x53\x73\xc0\x1b\x0d\xa0\x01\x31\x40\x40\x40\x40\x40\x40\xa3\x02\x63\x65\x40\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x40\x40\x40\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
 
     data_body_with_properties_and_header_msg1 = Message(
-        data=b'Abc 123 !@#',
+        data=[b'Abc 123 !@#'],
         header=Header(durable=True, priority=1, ttl=1000, first_acquirer=True, delivery_count=1),
         properties=Properties(
             message_id=b"1",

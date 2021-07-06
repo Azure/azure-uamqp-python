@@ -455,7 +455,7 @@ def encode_annotations(value):
     # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
     """The annotations type is a map where the keys are restricted to be of type symbol or of type ulong.
 
-    All ulong keys, and all symbolic keys except those beginning with ”x-” are reserved.
+    All ulong keys, and all symbolic keys except those beginning with "x-" are reserved.
     On receiving an annotations map containing keys or values which it does not recognize, and for which the
     key does not begin with the string 'x-opt-' an AMQP container MUST detach the link with the not-implemented
     amqp-error.
@@ -483,7 +483,7 @@ def encode_application_properties(value):
         <descriptor name="amqp:application-properties:map" code="0x00000000:0x00000074"/>
     </type>
 
-    Intermediaries may use the data within this structure for the purposes of ﬁltering or routing.
+    Intermediaries may use the data within this structure for the purposes of filtering or routing.
     The keys of this map are restricted to be of type string (which excludes the possibility of a null key)
     and the values are restricted to be of simple types only, that is (excluding map, list, and array types).
     """
@@ -521,17 +521,17 @@ def encode_node_properties(value):
     <type name="node-properties" class="restricted" source="fields"/>
     
     A symbol-keyed map containing properties of a node used when requesting creation or reporting
-    the creation of a dynamic node. The following common properties are deﬁned::
+    the creation of a dynamic node. The following common properties are defined::
     
-        - `lifetime-policy`: The lifetime of a dynamically generated node. Deﬁnitionally, the lifetime will
+        - `lifetime-policy`: The lifetime of a dynamically generated node. Definitionally, the lifetime will
           never be less than the lifetime of the link which caused its creation, however it is possible to extend
           the lifetime of dynamically created node using a lifetime policy. The value of this entry MUST be of a type
-          which provides the lifetime-policy archetype. The following standard lifetime-policies are deﬁned below:
+          which provides the lifetime-policy archetype. The following standard lifetime-policies are defined below:
           delete-on-close, delete-on-no-links, delete-on-no-messages or delete-on-no-links-or-messages.
         
         - `supported-dist-modes`: The distribution modes that the node supports. The value of this entry MUST be one or
           more symbols which are valid distribution-modes. That is, the value MUST be of the same type as would be valid
-          in a ﬁeld deﬁned with the following attributes:
+          in a field defined with the following attributes:
           type="symbol" multiple="true" requires="distribution-mode"
     """
     if not value:
@@ -551,17 +551,17 @@ def encode_node_properties(value):
 
 def encode_filter_set(value):
     # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
-    """A set of predicates to ﬁlter the Messages admitted onto the Link.
+    """A set of predicates to filter the Messages admitted onto the Link.
 
     <type name="filter-set" class="restricted" source="map"/>
 
-    A set of named ﬁlters. Every key in the map MUST be of type symbol, every value MUST be either null or of a
-    described type which provides the archetype ﬁlter. A ﬁlter acts as a function on a message which returns a
-    boolean result indicating whether the message can pass through that ﬁlter or not. A message will pass
-    through a ﬁlter-set if and only if it passes through each of the named ﬁlters. If the value for a given key is
-    null, this acts as if there were no such key present (i.e., all messages pass through the null ﬁlter).
+    A set of named filters. Every key in the map MUST be of type symbol, every value MUST be either null or of a
+    described type which provides the archetype filter. A filter acts as a function on a message which returns a
+    boolean result indicating whether the message can pass through that filter or not. A message will pass
+    through a filter-set if and only if it passes through each of the named filters. If the value for a given key is
+    null, this acts as if there were no such key present (i.e., all messages pass through the null filter).
 
-    Filter types are a deﬁned extension point. The ﬁlter types that a given source supports will be indicated
+    Filter types are a defined extension point. The filter types that a given source supports will be indicated
     by the capabilities of the source.
     """
     if not value:

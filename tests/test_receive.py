@@ -15,7 +15,7 @@ from uamqp.authentication import SASLPlainAuth, SASTokenAuth
 logging.basicConfig(level=logging.INFO)
 
 
-def receive_messages_sasl_plain(live_eventhub_config):
+def test_receive_messages_sasl_plain(live_eventhub_config):
     hostname = live_eventhub_config['hostname']
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
@@ -38,7 +38,7 @@ def receive_messages_sasl_plain(live_eventhub_config):
     receive_client.close()
 
 
-def receive_messages_sas_auth(live_eventhub_config):
+def test_receive_messages_sas_auth(live_eventhub_config):
     hostname = live_eventhub_config['hostname']
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
@@ -72,4 +72,5 @@ if __name__ == '__main__':
     config['consumer_group'] = "$Default"
     config['partition'] = "0"
 
-    receive_messages_sas_auth(config)
+    test_receive_messages_sas_auth(config)
+    test_receive_messages_sasl_plain(config)

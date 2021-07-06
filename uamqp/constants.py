@@ -135,7 +135,7 @@ class SessionState(Enum):
     #: the incoming channel map. The endpoint may send frames, but cannot receive them.
     END_RCVD = 5
     #: The DISCARDING state is a variant of the END_SENT state where the end is triggered by an error. In this
-    #: case any incoming frames on the session MUST be silently discarded until the peer’s end frame is received.
+    #: case any incoming frames on the session MUST be silently discarded until the peer's end frame is received.
     DISCARDING = 6
 
 
