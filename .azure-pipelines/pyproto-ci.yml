@@ -27,9 +27,9 @@ jobs:
     
     strategy:
       matrix:
-        Python 2.7:
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        #Python 2.7:
+        #  PythonVersion: '$(PythonVersion27)'
+        #  GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
         Python 3.6:
           PythonVersion: '$(PythonVersion36)'
         Python 3.7:
