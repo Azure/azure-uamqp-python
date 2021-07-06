@@ -9,9 +9,12 @@ import struct
 import uuid
 import logging
 import time
-from urllib.parse import urlparse
 from enum import Enum
 from io import BytesIO
+try:
+    from urllib.parse import urlparse
+except:
+    from urlparse import urlparse
 
 from .endpoints import Source, Target
 from .constants import (

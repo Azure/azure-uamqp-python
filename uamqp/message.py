@@ -46,17 +46,17 @@ if _CAN_ADD_DOCSTRING:
         Messages with higher priorities MAY be delivered before those with lower priorities. An AMQP intermediary
         implementing distinct priority levels MUST do so in the following manner:
         
-            - If n distinct priorities are implemented and n is less than 10 – priorities 0 to (5 - ceiling(n/2))
-              MUST be treated equivalently and MUST be the lowest effective priority. The priorities (4 + ﬂoor(n/2))
+            - If n distince priorities are implemented and n is less than 10 - priorities 0 to (5 - ceiling(n/2))
+              MUST be treated equivalently and MUST be the lowest effective priority. The priorities (4 + fioor(n/2))
               and above MUST be treated equivalently and MUST be the highest effective priority. The priorities
-              (5 ceiling(n/2)) to (4 + ﬂoor(n/2)) inclusive MUST be treated as distinct priorities.
-            - If n distinct priorities are implemented and n is 10 or greater – priorities 0 to (n - 1) MUST be
+              (5 ceiling(n/2)) to (4 + fioor(n/2)) inclusive MUST be treated as distinct priorities.
+            - If n distinct priorities are implemented and n is 10 or greater - priorities 0 to (n - 1) MUST be
               distinct, and priorities n and above MUST be equivalent to priority (n - 1). Thus, for example, if 2
               distinct priorities are implemented, then levels 0 to 4 are equivalent, and levels 5 to 9 are equivalent
               and levels 4 and 5 are distinct. If 3 distinct priorities are implements the 0 to 3 are equivalent,
               5 to 9 are equivalent and 3, 4 and 5 are distinct. This scheme ensures that if two priorities are distinct
               for a server which implements m separate priority levels they are also distinct for a server which
-              implements n diﬀerent priority levels where n > m.
+              implements n different priority levels where n > m.
 
     :param int ttl: Time to live in ms.
         Duration in milliseconds for which the Message should be considered 'live'. If this is set then a message

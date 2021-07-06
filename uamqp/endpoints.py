@@ -164,9 +164,9 @@ if _CAN_ADD_DOCSTRING:
 
     :param str address: The address of the source.
         The address of the source MUST NOT be set when sent on a attach frame sent by the receiving Link Endpoint
-        where the dynamic ﬂag is set to true (that is where the receiver is requesting the sender to create an
+        where the dynamic fiag is set to true (that is where the receiver is requesting the sender to create an
         addressable node). The address of the source MUST be set when sent on a attach frame sent by the sending
-        Link Endpoint where the dynamic ﬂag is set to true (that is where the sender has created an addressable
+        Link Endpoint where the dynamic fiag is set to true (that is where the sender has created an addressable
         node at the request of the receiver and is now communicating the address of that created node).
         The generated name of the address SHOULD include the link name and the container-id of the remote container
         to allow for ease of identification.
@@ -244,9 +244,9 @@ if _CAN_ADD_DOCSTRING:
 
     :param str address: The address of the source.
         The address of the source MUST NOT be set when sent on a attach frame sent by the receiving Link Endpoint
-        where the dynamic ﬂag is set to true (that is where the receiver is requesting the sender to create an
+        where the dynamic fiag is set to true (that is where the receiver is requesting the sender to create an
         addressable node). The address of the source MUST be set when sent on a attach frame sent by the sending
-        Link Endpoint where the dynamic ﬂag is set to true (that is where the sender has created an addressable
+        Link Endpoint where the dynamic fiag is set to true (that is where the sender has created an addressable
         node at the request of the receiver and is now communicating the address of that created node).
         The generated name of the address SHOULD include the link name and the container-id of the remote container
         to allow for ease of identification.

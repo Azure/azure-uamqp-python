@@ -54,12 +54,12 @@ if _CAN_ADD_DOCSTRING:
         for which all data may not yet have been received.
     :param int section_offset:
         When sent by the Sender this indicates the first byte of the encoded section data of the section given by
-        section-number for which data can be resent (with section-oﬀset 0 being the first byte). Bytes from the
-        same section prior to the given oﬀset section cannot be retransmitted for this delivery. When sent by the
+        section-number for which data can be resent (with section-offset 0 being the first byte). Bytes from the
+        same section prior to the given offset section cannot be retransmitted for this delivery. When sent by the
         Receiver this indicates the first byte of the given section which has not yet been received. Note that if
         a receiver has received all of section number X (which contains N bytes of data), but none of section
-        number X + 1, then it may indicate this by sending either Received(section-number=X, section-oﬀset=N) or
-        Received(section-number=X+1, section-oﬀset=0). The state Received(sectionnumber=0, section-oﬀset=0)
+        number X + 1, then it may indicate this by sending either Received(section-number=X, section-offset=N) or
+        Received(section-number=X+1, section-offset=0). The state Received(sectionnumber=0, section-offset=0)
         indicates that no message data at all has been transferred.
     """
 
@@ -74,7 +74,7 @@ if _CAN_ADD_DOCSTRING:
     At the source the accepted state means that the message has been retired from the node, and transfer of
     payload data will not be able to be resumed if the link becomes suspended. A delivery may become accepted at
     the source even before all transfer frames have been sent, this does not imply that the remaining transfers
-    for the delivery will not be sent - only the aborted ﬂag on the transfer performative can be used to indicate
+    for the delivery will not be sent - only the aborted fiag on the transfer performative can be used to indicate
     a premature termination of the transfer. At the target, the accepted outcome is used to indicate that an
     incoming Message has been successfully processed, and that the receiver of the Message is expecting the sender
     to transition the delivery to the accepted state at the source. The accepted outcome does not increment the
@@ -97,7 +97,7 @@ if _CAN_ADD_DOCSTRING:
 
     :param ~uamqp.error.AMQPError error: The error that caused the message to be rejected.
         The value supplied in this field will be placed in the delivery-annotations of the rejected Message
-        associated with the symbolic key ”rejected”.
+        associated with the symbolic key "rejected".
     """
 
 
@@ -145,7 +145,7 @@ if _CAN_ADD_DOCSTRING:
     upon, and that the message should be modified in the specified ways at the node.
 
     :param bool delivery_failed: Count the transfer as an unsuccessful delivery attempt.
-        If the delivery-failed ﬂag is set, any Messages modified MUST have their deliverycount incremented.
+        If the delivery-failed fiag is set, any Messages modified MUST have their deliverycount incremented.
     :param bool undeliverable_here: Prevent redelivery.
         If the undeliverable-here is set, then any Messages released MUST NOT be redelivered to the modifying
         Link Endpoint.
