@@ -40,7 +40,6 @@ from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
 from .cbs import CBSAuthenticator
 from .authentication import _CBSAuth
-import pdb
 
 
 _logger = logging.getLogger(__name__)
