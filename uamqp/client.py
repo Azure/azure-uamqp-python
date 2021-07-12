@@ -31,9 +31,10 @@ from .constants import (
     ManagementOpenResult,
     SEND_DISPOSITION_ACCEPT,
     SEND_DISPOSITION_REJECT,
-    AUTH_TYPE_CBS
+    AUTH_TYPE_CBS,
+    DEFAULT_AUTH_TIMEOUT,
+    MESSAGE_DELIVERY_DONE_STATES
 )
-from uamqp import constants
 from .error import AMQPConnectionError
 from .mgmt_operation import MgmtOperation
 from .cbs import CBSAuthenticator
@@ -123,7 +124,8 @@ class AMQPClient(object):
         self._socket_timeout = False
         self._external_connection = False
         self._cbs_authenticator = None
-        self._auth_timeout = kwargs.pop("auth_timeout", constants.DEFAULT_AUTH_TIMEOUT)
+        self._auth_timeout = kwargs.pop("auth_timeout", DEFAULT_AUTH_TIMEOUT)
+        self._mgmt_links = {}
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -291,7 +293,8 @@ class AMQPClient(object):
             if mgmt_link.mgmt_error:
                 raise mgmt_link.mgmt_error
             if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
-                raise AMQPConnectionError("Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status))
+                # TODO: update below with correct status code + info
+                raise AMQPConnectionError(400, "Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status), {})
         operation_type = operation_type or b'empty'
         status, response, description = mgmt_link.execute(
             message,
@@ -391,7 +394,7 @@ class SendClient(AMQPClient):
         self._transfer_message(message_delivery, timeout)
 
         running = True
-        while running and message_delivery.state not in constants.MESSAGE_DELIVERY_DONE_STATES:
+        while running and message_delivery.state not in MESSAGE_DELIVERY_DONE_STATES:
             running = self.do_work()
             if message_delivery.expiry and time.time() > message_delivery.expiry:
                 message_delivery.state = MessageDeliveryState.Timeout
@@ -493,7 +496,6 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = False
         self._received_messages = queue.Queue()
         self._message_received_callback = None
-        self._mgmt_links = {}
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or _MAX_FRAME_SIZE_BYTES
@@ -555,9 +557,10 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
-        elif not message.settled:
-            # Message was received with callback processing and wasn't settled.
-            _logger.info("Message was not settled.")
+        # TODO: do we need settled property for a message?
+        #elif not message.settled:     
+        #    # Message was received with callback processing and wasn't settled.
+        #    _logger.info("Message was not settled.")
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
