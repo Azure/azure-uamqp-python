@@ -22,7 +22,6 @@ from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
-from .error import AMQPConnectionError
 
 from .constants import (
     MessageDeliveryState,
@@ -303,10 +302,6 @@ class AMQPClient(object):
             operation_type=operation_type,
             timeout=timeout
         )
-        status_code_field = kwargs.pop('status_code_field', b'statusCode')
-        description_field = kwargs.pop('description_field', b'statusDescription')
-        response.application_properties[status_code_field] = status
-        response.application_properties[description_field] = description
         if parse_response:
             return parse_response(status, response, description)
         return response
@@ -562,6 +557,10 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
+        # TODO: do we need settled property for a message?
+        #elif not message.settled:     
+        #    # Message was received with callback processing and wasn't settled.
+        #    _logger.info("Message was not settled.")
 
     def receive_message_batch(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages. Messages returned in the batch have already been
