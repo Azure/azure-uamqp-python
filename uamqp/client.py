@@ -560,7 +560,7 @@ class ReceiveClient(AMQPClient):
         if not self._streaming_receive:
             self._received_messages.put(message)
         # TODO: do we need settled property for a message?
-        #elif not message.settled:     
+        #elif not message.settled:
         #    # Message was received with callback processing and wasn't settled.
         #    _logger.info("Message was not settled.")
 
