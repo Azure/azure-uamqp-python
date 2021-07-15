@@ -3,6 +3,10 @@
 Release History
 ===============
 
+1.4.2 (Unreleased)
+
+- Fixed memory leaks in socket deallocation on Windows platform (azure-sdk-for-python issue #19777).
+
 1.4.1 (2021-06-28)
 +++++++++++++++++++
 

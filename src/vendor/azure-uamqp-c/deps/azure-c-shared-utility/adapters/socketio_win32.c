@@ -295,6 +295,7 @@ static void destroy_socket_io_instance(SOCKET_IO_INSTANCE* instance)
     }
 
     free(instance->hostname);
+    free(instance->addrInfo->ai_addr);
     free(instance->addrInfo);
 
     if (instance->pending_io_list != NULL)
