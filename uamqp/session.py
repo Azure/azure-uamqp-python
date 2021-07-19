@@ -246,8 +246,8 @@ class Session(object):
                     'payload': payload[start_idx:start_idx+available_frame_size],
                     'delivery_id': self.next_outgoing_id
                 }
-                start_idx += available_frame_size
                 self._connection._process_outgoing_frame(self.channel, TransferFrame(**tmp_delivery_frame))
+                start_idx += available_frame_size
                 remaining_payload_cnt -= available_frame_size
 
             # encode the last frame
@@ -269,7 +269,6 @@ class Session(object):
             self.next_outgoing_id += 1
             self.remote_incoming_window -= 1
             self.outgoing_window -= 1
-
             delivery.transfer_state = SessionTransferState.Okay
 
     def _incoming_transfer(self, frame):
