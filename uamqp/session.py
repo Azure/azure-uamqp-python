@@ -221,6 +221,7 @@ class Session(object):
             delivery.frame['delivery_id'] = self.next_outgoing_id
             # calculate the transfer frame encoding size excluding the payload
             delivery.frame['payload'] = b""
+            # TODO: encoding a frame would be expensive, we might want to improve depending on the perf test results
             encoded_frame = encode_frame(TransferFrame(**delivery.frame))[1]
             transfer_overhead_size = len(encoded_frame)
 
