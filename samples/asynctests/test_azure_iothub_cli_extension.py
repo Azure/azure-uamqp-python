@@ -93,7 +93,7 @@ def executor(target, consumer_group, enqueued_time, device_id=None, properties=N
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    future = asyncio.gather(*coroutines, loop=loop, return_exceptions=True)
+    future = asyncio.gather(*coroutines, return_exceptions=True)
     result = None
 
     try:
@@ -112,7 +112,7 @@ def executor(target, consumer_group, enqueued_time, device_id=None, properties=N
     except KeyboardInterrupt:
         print('Stopping event monitor...')
         remaining_tasks = [t for t in asyncio.Task.all_tasks() if not t.done()]
-        remaining_future = asyncio.gather(*remaining_tasks, loop=loop, return_exceptions=True)
+        remaining_future = asyncio.gather(*remaining_tasks, return_exceptions=True)
         try:
             loop.run_until_complete(asyncio.wait_for(remaining_future, 5))
         except concurrent.futures.TimeoutError:
