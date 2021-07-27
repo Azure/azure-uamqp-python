@@ -4,12 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import sys
 import asyncio
 import logging
 
 import uamqp
 from uamqp import c_uamqp, connection
-from uamqp.utils import get_running_loop
+from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
 
 _logger = logging.getLogger(__name__)
 
@@ -56,8 +57,6 @@ class ConnectionAsync(connection.Connection):
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
-    :param loop: A user specified event loop.
-    :type loop: ~asyncio.AbstractEventLoop
     """
 
     def __init__(self, hostname, sasl,
@@ -71,7 +70,7 @@ class ConnectionAsync(connection.Connection):
                  debug=False,
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         super(ConnectionAsync, self).__init__(
             hostname, sasl,
             container_id=container_id,
@@ -83,7 +82,7 @@ class ConnectionAsync(connection.Connection):
             error_policy=error_policy,
             debug=debug,
             encoding=encoding)
-        self._async_lock = asyncio.Lock(loop=self.loop)
+        self._async_lock = asyncio.Lock(**self._internal_kwargs)
 
     async def __aenter__(self):
         """Open the Connection in an async context manager."""
@@ -105,8 +104,12 @@ class ConnectionAsync(connection.Connection):
         self.auth.close()
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
+    @property
+    async def loop(self):
+        return self._internal_kwargs.get("loop")
+
     async def lock_async(self, timeout=3.0):
-        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, loop=self.loop)
+        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, **self._internal_kwargs)
 
     def release_async(self):
         try:
@@ -135,12 +138,12 @@ class ConnectionAsync(connection.Connection):
             if self._closing:
                 _logger.debug("Connection unlocked but shutting down.")
                 return
-            await asyncio.sleep(0, loop=self.loop)
+            await asyncio.sleep(0, **self._internal_kwargs)
             self._conn.do_work()
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:
-            await asyncio.sleep(0, loop=self.loop)
+            await asyncio.sleep(0, **self._internal_kwargs)
             self.release_async()
 
     async def sleep_async(self, seconds):
@@ -151,7 +154,7 @@ class ConnectionAsync(connection.Connection):
         """
         try:
             await self.lock_async()
-            await asyncio.sleep(seconds, loop=self.loop)
+            await asyncio.sleep(seconds, **self._internal_kwargs)
         except asyncio.TimeoutError:
             _logger.debug("Connection %r timed out while waiting for lock acquisition.", self.container_id)
         finally:

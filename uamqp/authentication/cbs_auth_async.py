@@ -11,9 +11,9 @@ import datetime
 import logging
 
 from uamqp import c_uamqp, compat, constants, errors
-from uamqp.utils import get_running_loop
 from uamqp.async_ops import SessionAsync
 from uamqp.constants import TransportType
+from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
 
 from .cbs_auth import CBSAuthMixin, SASTokenAuth, JWTTokenAuth, TokenRetryPolicy
 
@@ -46,13 +46,12 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
         :param debug: Whether to emit network trace logging events for the
          CBS session. Default is `False`. Logging events are set at INFO level.
         :type debug: bool
-        :param loop: A user specified event loop.
-        :type loop: ~asycnio.AbstractEventLoop
         :rtype: uamqp.c_uamqp.CBSTokenAuth
         """
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         self._connection = connection
-        self._session = SessionAsync(connection, loop=self.loop, **kwargs)
+        kwargs.update(self._internal_kwargs)
+        self._session = SessionAsync(connection, **kwargs)
 
         try:
             self._cbs_auth = c_uamqp.CBSTokenAuth(
@@ -114,7 +113,7 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 _logger.info("Authentication status: %r, description: %r", error_code, error_description)
                 _logger.info("Authentication Put-Token failed. Retrying.")
                 self.retries += 1  # pylint: disable=no-member
-                await asyncio.sleep(self._retry_policy.backoff, loop=self.loop)
+                await asyncio.sleep(self._retry_policy.backoff, **self._internal_kwargs)
                 self._cbs_auth.authenticate()
                 in_progress = True
             elif auth_status == constants.CBSAuthStatus.Failure:
@@ -277,7 +276,8 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
 
     async def create_authenticator_async(self, connection, debug=False, loop=None, **kwargs):
         await self.update_token()
-        return await super(JWTTokenAsync, self).create_authenticator_async(connection, debug, loop, **kwargs)
+        kwargs.update(self._internal_kwargs)
+        return await super(JWTTokenAsync, self).create_authenticator_async(connection, debug, **kwargs)
 
     async def update_token(self):
         access_token = await self.get_token()
