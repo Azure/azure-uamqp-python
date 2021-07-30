@@ -4,6 +4,7 @@ steps:
       curl -sS $(GetPip) | python - --user
       python -m pip --version
       python -m pip install --user -r dev_requirements.txt
+      python -m pip list
     displayName: 'Install dependencies'
   
   - script: |
