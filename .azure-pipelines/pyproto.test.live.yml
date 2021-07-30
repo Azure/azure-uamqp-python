@@ -10,6 +10,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
+  PythonArchitecture: 'x64'
 
 jobs:
   - job: 'Windows2019'
@@ -19,8 +20,9 @@ jobs:
       vmImage: 'MMS2019'
     strategy:
       matrix:
-        x64 Python 2.7:
-          PythonVersion: '$(PythonVersion27)'
+        # TODO: tests/implementation not ready for 2.7
+        #x64 Python 2.7:
+        #  PythonVersion: '$(PythonVersion27)'
         x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
     variables:
@@ -43,7 +45,6 @@ jobs:
         Python 3.6:
           PythonVersion: '$(PythonVersion36)'
           OSArch: 'MacOS'
-          PythonArchitecture: '10.15'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
@@ -63,7 +64,6 @@ jobs:
         Python 3.9:
           PythonVersion: '$(PythonVersion39)'
     variables:
-      PythonArchitecture: '20.04'
       OSArch: 'Linux'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
