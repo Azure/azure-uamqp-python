@@ -8,3 +8,4 @@ pylint==1.8.4; python_version < '3.4'
 anyio; python_version > '3.4'
 azure-mgmt-resource
 azure-mgmt-eventhub
+azure-identity
