@@ -17,10 +17,10 @@ from uamqp.authentication import SASLPlainAuth, SASTokenAuth
 logging.basicConfig(level=logging.INFO)
 
 
-def test_send_single_message_to_target_partition_sasl_plain_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    target = "amqps://{}/{}/Partitions/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'], live_eventhub_config['partition'])
-    auth = SASLPlainAuth(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+def test_send_single_message_to_target_partition_sasl_plain_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=eventhub_config['access_key'])
     send_client = SendClient(hostname, target, auth=auth, idle_timeout=10, network_trace=True)
     send_client.open()
     while not send_client.client_ready():
@@ -29,10 +29,10 @@ def test_send_single_message_to_target_partition_sasl_plain_auth(live_eventhub_c
     send_client.close()
 
 
-def test_send_single_large_message_to_target_partition_sasl_plain_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    target = "amqps://{}/{}/Partitions/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'], live_eventhub_config['partition'])
-    auth = SASLPlainAuth(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+def test_send_single_large_message_to_target_partition_sasl_plain_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=leventhub_config['access_key'])
     send_client = SendClient(hostname, target, auth=auth, idle_timeout=1000, network_trace=True)
     send_client.open()
     while not send_client.client_ready():
@@ -40,11 +40,10 @@ def test_send_single_large_message_to_target_partition_sasl_plain_auth(live_even
     send_client.send_message(Message(data=[b'Test' * 1024 * 128]))
     send_client.close()
 
-
-def test_send_single_message_to_partition_sasl_plain_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    auth = SASLPlainAuth(authcid=live_eventhub_config['key_name'], passwd=live_eventhub_config['access_key'])
+def test_send_single_message_to_partition_sasl_plain_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=eventhub_config['access_key'])
     send_client = SendClient(hostname, target, auth=auth, idle_timeout=10, network_trace=True)
     send_client.open()
     while not send_client.client_ready():
@@ -53,15 +52,15 @@ def test_send_single_message_to_partition_sasl_plain_auth(live_eventhub_config):
     send_client.close()
 
 
-def test_send_message_to_partition_sas_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_send_message_to_partition_sas_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     sas_auth = SASTokenAuth(
         uri=uri,
         audience=uri,
-        username=live_eventhub_config['key_name'],
-        password=live_eventhub_config['access_key']
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
     )
     send_client = SendClient(hostname, target, auth=sas_auth, idle_timeout=10, network_trace=True)
     send_client.open()
@@ -71,15 +70,15 @@ def test_send_message_to_partition_sas_auth(live_eventhub_config):
     send_client.close()
 
 
-def test_send_message_with_properties_to_partition_sas_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_send_message_with_properties_to_partition_sas_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     sas_auth = SASTokenAuth(
         uri=uri,
         audience=uri,
-        username=live_eventhub_config['key_name'],
-        password=live_eventhub_config['access_key']
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
     )
     send_client = SendClient(hostname, target, auth=sas_auth, idle_timeout=10, network_trace=True)
     send_client.open()
@@ -93,15 +92,15 @@ def test_send_message_with_properties_to_partition_sas_auth(live_eventhub_config
     send_client.close()
 
 
-def test_send_batch_message_to_partition_sas_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_send_batch_message_to_partition_sas_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     sas_auth = SASTokenAuth(
         uri=uri,
         audience=uri,
-        username=live_eventhub_config['key_name'],
-        password=live_eventhub_config['access_key']
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
     )
     send_client = SendClient(hostname, target, auth=sas_auth, idle_timeout=10, network_trace=True)
     send_client.open()
@@ -115,15 +114,15 @@ def test_send_batch_message_to_partition_sas_auth(live_eventhub_config):
     send_client.close()
 
 
-def test_send_large_batch_message_to_partition_sas_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    target = "amqps://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_send_large_batch_message_to_partition_sas_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     sas_auth = SASTokenAuth(
         uri=uri,
         audience=uri,
-        username=live_eventhub_config['key_name'],
-        password=live_eventhub_config['access_key']
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
     )
     send_client = SendClient(hostname, target, auth=sas_auth, idle_timeout=10, network_trace=True)
     send_client.open()

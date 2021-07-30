@@ -15,20 +15,20 @@ from uamqp.authentication import SASLPlainAuth, SASTokenAuth
 logging.basicConfig(level=logging.INFO)
 
 
-def test_receive_messages_sasl_plain(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_receive_messages_sasl_plain(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        live_eventhub_config['hostname'],
-        live_eventhub_config['event_hub'],
-        live_eventhub_config['consumer_group'],
-        live_eventhub_config['partition']
+        eventhub_config['hostname'],
+        eventhub_config['event_hub'],
+        eventhub_config['consumer_group'],
+        eventhub_config['partition']
     )
     sas_auth = SASLPlainAuth(
-        authcid=live_eventhub_config['key_name'],
-        passwd=live_eventhub_config['access_key']
+        authcid=eventhub_config['key_name'],
+        passwd=eventhub_config['access_key']
     )
-    receive_client = ReceiveClient(hostname, source, auth=sas_auth, idle_timeout=10, network_trace=True)
+    receive_client = ReceiveClient(hostname, source, sas_auth, idle_timeout=10, network_trace=True)
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
@@ -38,20 +38,20 @@ def test_receive_messages_sasl_plain(live_eventhub_config):
     receive_client.close()
 
 
-def test_receive_messages_sas_auth(live_eventhub_config):
-    hostname = live_eventhub_config['hostname']
-    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+def test_receive_messages_sas_auth(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
-        live_eventhub_config['hostname'],
-        live_eventhub_config['event_hub'],
-        live_eventhub_config['consumer_group'],
-        live_eventhub_config['partition']
+        eventhub_config['hostname'],
+        eventhub_config['event_hub'],
+        eventhub_config['consumer_group'],
+        eventhub_config['partition']
     )
     sas_auth = SASTokenAuth(
         uri=uri,
         audience=uri,
-        username=live_eventhub_config['key_name'],
-        password=live_eventhub_config['access_key']
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
     )
     receive_client = ReceiveClient(hostname, source, auth=sas_auth, idle_timeout=10, network_trace=True)
     receive_client.open()
