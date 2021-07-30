@@ -43,7 +43,10 @@ jobs:
     strategy:
       matrix:
         Python 3.6:
+          PythonBin: 'python3'
           PythonVersion: '$(PythonVersion36)'
+          MacOSXDeploymentTarget: '10.9'
+          PythonVersion368: '3.6.8'
           OSArch: 'MacOS'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
