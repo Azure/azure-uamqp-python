@@ -1,0 +1,27 @@
+steps:
+  - script: |
+      python --version
+      curl -sS $(GetPip) | python - --user
+      python -m pip --version
+      python -m pip install --user -r dev_requirements.txt
+    displayName: 'Install dependencies'
+  
+  - script: |
+      ls
+      python -m pip install --user --ignore-installed .
+      python -m pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+    displayName: 'Run tests'
+    env:
+      EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+      EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+      EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+      EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+      AZURE_TEST_RUN_LIVE: 'true'
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/test-results-*.xml'
+      testResultsFormat: 'JUnit'
+      testRunTitle: '$(OSArch) $(PythonArchitecture) Python $(PythonVersion)'

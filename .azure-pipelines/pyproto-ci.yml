@@ -27,6 +27,7 @@ jobs:
     
     strategy:
       matrix:
+        # TODO: could not find a version that satisfies requirement anyio
         #Python 2.7:
         #  PythonVersion: '$(PythonVersion27)'
         #  GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
@@ -55,7 +56,7 @@ jobs:
       - script: |
           ls
           python -m pip install --user --ignore-installed .
-          python -m pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          python -m pytest tests -sv -m "not liveTest" --doctest-modules --junitxml=junit/test-results-c.xml
         displayName: 'Run tests'
       
       - task: PublishTestResults@2
