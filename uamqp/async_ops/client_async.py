@@ -17,7 +17,7 @@ from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
 from uamqp.async_ops.session_async import SessionAsync
-from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 try:
     TimeoutException = TimeoutError
@@ -521,6 +521,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     async def _transfer_message_async(self, message, timeout):
         sent = await asyncio.shield(
             self.message_handler.send_async(message, self._on_message_sent, timeout=timeout),
+            **self._internal_kwargs
             )
         if not sent:
             _logger.info("Message not sent, raising RuntimeError.")
@@ -560,7 +561,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         await self.message_handler.work_async()
-        await asyncio.shield(self._connection.work_async(), )
+        await asyncio.shield(self._connection.work_async(), **self._internal_kwargs)
         if self._connection._state == c_uamqp.ConnectionState.DISCARDING:
             raise errors.ConnectionClose(constants.ErrorCodes.InternalServerError)
         self._waiting_messages = 0
@@ -815,7 +816,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 encoding=self._encoding,
                 desired_capabilities=self._desired_capabilities,
                 )
-            await asyncio.shield(self.message_handler.open_async(), )
+            await asyncio.shield(self.message_handler.open_async(), **self._internal_kwargs)
             return False
         if self.message_handler.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
@@ -841,7 +842,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:
             # If no messages are coming through, back off a little to keep CPU use low.
-            await asyncio.sleep(0.05, )
+            await asyncio.sleep(0.05, **self._internal_kwargs)
             if self._timeout > 0:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:

@@ -10,7 +10,7 @@ import logging
 
 import uamqp
 from uamqp import c_uamqp, connection
-from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 _logger = logging.getLogger(__name__)
 

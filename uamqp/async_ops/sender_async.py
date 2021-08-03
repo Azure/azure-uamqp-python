@@ -8,7 +8,7 @@ import logging
 import asyncio
 
 from uamqp import constants, errors, sender
-from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 _logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class MessageSenderAsync(sender.MessageSender):
 
     async def work_async(self):
         """Update the link status."""
-        await asyncio.sleep(0, self._internal_kwargs)
+        await asyncio.sleep(0, **self._internal_kwargs)
         self._link.do_work()
 
     async def close_async(self):

@@ -10,7 +10,7 @@ import uuid
 from uamqp import Message, constants, errors
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
-from uamqp.async_ops._shared.utils import get_dict_with_loop_if_needed
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 try:
     TimeoutException = TimeoutError
