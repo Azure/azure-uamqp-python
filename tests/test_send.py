@@ -32,7 +32,7 @@ def test_send_single_message_to_target_partition_sasl_plain_auth(eventhub_config
 def test_send_single_large_message_to_target_partition_sasl_plain_auth(eventhub_config):
     hostname = eventhub_config['hostname']
     target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
-    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=leventhub_config['access_key'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=eventhub_config['access_key'])
     send_client = SendClient(hostname, target, auth=auth, idle_timeout=1000, network_trace=True)
     send_client.open()
     while not send_client.client_ready():

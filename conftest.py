@@ -9,8 +9,8 @@ import time
 import sys
 import uuid
 import warnings
-import pytest
 import datetime
+import pytest
 
 from azure.identity import EnvironmentCredential
 from azure.mgmt.resource import ResourceManagementClient
@@ -198,11 +198,3 @@ def rabbit_mq_config():
         pytest.skip("Live RabbitMQ configuration not found.")
     else:
         return config
-
-# Note: This is duplicated between here and the basic conftest, so that it does not throw warnings if you're
-# running locally to this SDK. (Everything works properly, pytest just makes a bit of noise.)
-def pytest_configure(config):
-    # register an additional marker
-    config.addinivalue_line(
-        "markers", "liveTest: mark test to be a live test only"
-    )
