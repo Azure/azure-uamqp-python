@@ -33,26 +33,25 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/pyproto-live-test-template.yml
 
-  # TODO: fix - OSError: failed to resolve broker hostname
-  #- job: 'MacOS1015'
-  #  timeoutInMinutes: 90
-  #  pool:
-  #    name: 'Azure Pipelines'
-  #    vmImage: 'macOS-10.15'
-  #  strategy:
-  #    matrix:
-  #      Python 3.6:
-  #        PythonBin: 'python3'
-  #        PythonVersion: '$(PythonVersion36)'
-  #        MacOSXDeploymentTarget: '10.9'
-  #        PythonVersion368: '3.6.8'
-  #        OSArch: 'MacOS'
-  #  steps:
-  #    - template: /.azure-pipelines/use-python-version.yml
-  #      parameters:
-  #        architecture: '$(PythonArchitecture)'
-  #        versionSpec: '$(PythonVersion)'
-  #    - template: /.azure-pipelines/pyproto-live-test-template.yml
+  - job: 'MacOS1015'
+    timeoutInMinutes: 90
+    pool:
+      name: 'Azure Pipelines'
+      vmImage: 'macOS-10.15'
+    strategy:
+      matrix:
+        Python 3.6:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion36)'
+          MacOSXDeploymentTarget: '10.9'
+          PythonVersion368: '3.6.8'
+          OSArch: 'MacOS'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
+      - template: /.azure-pipelines/pyproto-live-test-template.yml
 
   - job: 'Ubuntu2004'
     timeoutInMinutes: 90
