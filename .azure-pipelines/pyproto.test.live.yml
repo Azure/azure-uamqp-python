@@ -1,7 +1,5 @@
 trigger:
-  branches:
-    include:
-    - pyproto
+  - pyproto
 
 variables:
   PythonVersion27: '2.7'
