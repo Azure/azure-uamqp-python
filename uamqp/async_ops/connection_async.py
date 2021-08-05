@@ -105,7 +105,7 @@ class ConnectionAsync(connection.Connection):
         _logger.info("Connection shutdown complete %r.", self.container_id)
 
     @property
-    async def loop(self):
+    def loop(self):
         return self._internal_kwargs.get("loop")
 
     async def lock_async(self, timeout=3.0):

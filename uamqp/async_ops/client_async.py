@@ -203,7 +203,7 @@ class AMQPClientAsync(client.AMQPClient):
                 **self._internal_kwargs)
 
     @property
-    async def loop(self):
+    def loop(self):
         return self._internal_kwargs.get("loop")
 
     async def open_async(self, connection=None):

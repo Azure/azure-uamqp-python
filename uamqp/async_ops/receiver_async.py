@@ -111,7 +111,7 @@ class MessageReceiverAsync(receiver.MessageReceiver):
         await self.destroy_async()
 
     @property
-    async def loop(self):
+    def loop(self):
         return self._internal_kwargs.get("loop")
 
     async def destroy_async(self):

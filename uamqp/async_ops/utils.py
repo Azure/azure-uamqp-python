@@ -5,8 +5,11 @@
 #--------------------------------------------------------------------------
 
 import sys
+from uamqp.utils import get_running_loop
 
 def get_dict_with_loop_if_needed(loop):
-    if sys.version_info >= (3, 10) and loop:
-        raise ValueError("Starting Python 3.10, asyncio no longer supports loop as a parameter.")
-    return {'loop': loop} if loop else {}
+    if sys.version_info >= (3, 10):
+        if loop:
+            raise ValueError("Starting Python 3.10, asyncio no longer supports loop as a parameter.")
+        return {}
+    return {'loop': loop} if loop else get_running_loop()
