@@ -18,6 +18,7 @@ steps:
       EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
       EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
       AZURE_TENANT_ID: $(python-eh-livetest-event-hub-aad-tenant-id)
+      AZURE_CLIENT_ID: $(python-eh-livetest-event-hub-aad-client-id)
       AZURE_CLIENT_SECRET: $(python-eh-livetest-event-hub-aad-secret)
       AZURE_SUBSCRIPTION_ID: $(python-eh-livetest-event-hub-subscription-id)
       AZURE_TEST_RUN_LIVE: 'True'
