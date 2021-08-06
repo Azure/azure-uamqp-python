@@ -36,6 +36,10 @@ def is_coroutine(get_token):
 class CBSAsyncAuthMixin(CBSAuthMixin):
     """Mixin to handle sending and refreshing CBS auth tokens asynchronously."""
 
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
+
     async def create_authenticator_async(self, connection, debug=False, loop=None, **kwargs):
         """Create the async AMQP session and the CBS channel with which
         to negotiate the token.

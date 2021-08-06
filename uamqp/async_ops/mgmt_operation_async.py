@@ -61,6 +61,10 @@ class MgmtOperationAsync(MgmtOperation):
             description_fields=description_fields,
             encoding=encoding)
 
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
+
     async def execute_async(self, operation, op_type, message, timeout=0):
         """Execute a request and wait on a response asynchronously.
 

@@ -113,6 +113,10 @@ class MessageSenderAsync(sender.MessageSender):
         """Close the MessageSender when exiting an async context manager."""
         await self.destroy_async()
 
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
+
     async def destroy_async(self):
         """Asynchronously close both the Sender and the Link. Clean up any C objects."""
         self.destroy()

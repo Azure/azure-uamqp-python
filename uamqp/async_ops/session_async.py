@@ -60,6 +60,10 @@ class SessionAsync(session.Session):
         """Close and destroy sesion on exiting  an async context manager."""
         await self.destroy_async()
 
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
+
     async def mgmt_request_async(self, message, operation, op_type=None, node=b'$management', **kwargs):
         """Asynchronously run a request/response operation. These are frequently used
         for management tasks against a $management node, however any node name can be
