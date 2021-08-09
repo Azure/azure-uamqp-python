@@ -2,8 +2,6 @@ import sys
 import pytest
 
 import asyncio
-from uamqp.message import MessageProperties, Message, SequenceBody, DataBody, ValueBody
-from uamqp import MessageBodyType
 from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.authentication.cbs_auth_async import CBSAsyncAuthMixin
@@ -52,11 +50,10 @@ async def test_error_loop_arg_async():
         MessageSenderAsync("fake_addr", "source", "target", loop=asyncio.get_event_loop())
         assert "no longer supports loop" in e
 
-    # TODO: reimplement - failing b/c manylinux python 2.7 builds detech
-    #async def auth_async_loop():
-    #    auth_async = CBSAsyncAuthMixin()
-    #    with pytest.raises(ValueError) as e:
-    #        await auth_async.create_authenticator_async("fake_conn", loop=asyncio.get_event_loop())
-    #        assert "no longer supports loop" in e
-    #loop = asyncio.get_event_loop()
-    #loop.run_until_complete(auth_async_loop())
+    async def auth_async_loop():
+        auth_async = CBSAsyncAuthMixin()
+        with pytest.raises(ValueError) as e:
+            await auth_async.create_authenticator_async("fake_conn", loop=asyncio.get_event_loop())
+            assert "no longer supports loop" in e
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(auth_async_loop())
