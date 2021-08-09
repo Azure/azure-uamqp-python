@@ -15,8 +15,9 @@ from uamqp.async_ops.client_async import (
     ConnectionAsync,
 )
 
+@pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="raise error if loop passed in >=3.10")
-def test_error_loop_arg():
+async def test_error_loop_arg_async():
     with pytest.raises(ValueError) as e:
         AMQPClientAsync("fake_addr", loop=asyncio.get_event_loop())
         assert "no longer supports loop" in e
@@ -51,6 +52,7 @@ def test_error_loop_arg():
         MessageSenderAsync("fake_addr", "source", "target", loop=asyncio.get_event_loop())
         assert "no longer supports loop" in e
 
+    # TODO: reimplement - failing b/c manylinux python 2.7 builds detech
     #async def auth_async_loop():
     #    auth_async = CBSAsyncAuthMixin()
     #    with pytest.raises(ValueError) as e:
