@@ -16,7 +16,7 @@ from uamqp.async_ops.client_async import (
 )
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="raise error if loop passed in >=3.10")
-async def test_error_loop_arg():
+def test_error_loop_arg():
     with pytest.raises(ValueError) as e:
         AMQPClientAsync("fake_addr", loop=asyncio.get_event_loop())
         assert "no longer supports loop" in e
