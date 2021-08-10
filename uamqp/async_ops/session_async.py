@@ -7,8 +7,8 @@
 import logging
 
 from uamqp import constants, errors, session
-from uamqp.utils import get_running_loop
 from uamqp.async_ops.mgmt_operation_async import MgmtOperationAsync
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 _logger = logging.getLogger(__name__)
 
@@ -36,8 +36,6 @@ class SessionAsync(session.Session):
     :param on_attach: A callback function to be run on receipt of an ATTACH frame.
      The function must take 4 arguments: source, target, properties and error.
     :type on_attach: func[~uamqp.address.Source, ~uamqp.address.Target, dict, ~uamqp.errors.AMQPConnectionError]
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     """
 
     def __init__(self, connection,
@@ -46,7 +44,7 @@ class SessionAsync(session.Session):
                  handle_max=None,
                  on_attach=None,
                  loop=None):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         super(SessionAsync, self).__init__(
             connection,
             incoming_window=incoming_window,
@@ -61,6 +59,10 @@ class SessionAsync(session.Session):
     async def __aexit__(self, *args):
         """Close and destroy sesion on exiting  an async context manager."""
         await self.destroy_async()
+
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
 
     async def mgmt_request_async(self, message, operation, op_type=None, node=b'$management', **kwargs):
         """Asynchronously run a request/response operation. These are frequently used
@@ -100,7 +102,8 @@ class SessionAsync(session.Session):
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
-            mgmt_link = MgmtOperationAsync(self, target=node, loop=self.loop, **kwargs)
+            kwargs.update(self._internal_kwargs)
+            mgmt_link = MgmtOperationAsync(self, target=node, **kwargs)
             self._mgmt_links[node] = mgmt_link
             while not mgmt_link.open and not mgmt_link.mgmt_error:
                 await self._connection.work_async()

@@ -13,11 +13,11 @@ import logging
 import uuid
 
 from uamqp import address, authentication, client, constants, errors, compat, c_uamqp
-from uamqp.utils import get_running_loop
 from uamqp.async_ops.connection_async import ConnectionAsync
 from uamqp.async_ops.receiver_async import MessageReceiverAsync
 from uamqp.async_ops.sender_async import MessageSenderAsync
 from uamqp.async_ops.session_async import SessionAsync
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 try:
     TimeoutException = TimeoutError
@@ -43,8 +43,6 @@ class AMQPClientAsync(client.AMQPClient):
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -105,14 +103,7 @@ class AMQPClientAsync(client.AMQPClient):
             keep_alive_interval=None,
             **kwargs):
 
-        if loop:
-            self.loop = loop
-        else:
-            try:
-                if not self.loop:  # from sub class instance
-                    self.loop = get_running_loop()
-            except AttributeError:
-                self.loop = get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
 
         super(AMQPClientAsync, self).__init__(
             remote_address,
@@ -146,9 +137,9 @@ class AMQPClientAsync(client.AMQPClient):
                     _logger.info("Keeping %r connection alive. %r",
                                  self.__class__.__name__,
                                  self._connection.container_id)
-                    await asyncio.shield(self._connection.work_async(), loop=self.loop)
+                    await asyncio.shield(self._connection.work_async(), **self._internal_kwargs)
                     start_time = current_time
-                await asyncio.sleep(1, loop=self.loop)
+                await asyncio.sleep(1, **self._internal_kwargs)
         except Exception as e:  # pylint: disable=broad-except
             _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
@@ -163,7 +154,7 @@ class AMQPClientAsync(client.AMQPClient):
 
     async def _client_run_async(self):
         """Perform a single Connection iteration."""
-        await asyncio.shield(self._connection.work_async(), loop=self.loop)
+        await asyncio.shield(self._connection.work_async(), **self._internal_kwargs)
 
     async def _redirect_async(self, redirect, auth):
         """Redirect the client endpoint using a Link DETACH redirect
@@ -177,7 +168,7 @@ class AMQPClientAsync(client.AMQPClient):
         # pylint: disable=protected-access
         if not self._connection._cbs:
             _logger.info("Closing non-CBS session.")
-            await asyncio.shield(self._session.destroy_async(), loop=self.loop)
+            await asyncio.shield(self._session.destroy_async(), **self._internal_kwargs)
         self._session = None
         self._auth = auth
         self._hostname = self._remote_address.hostname
@@ -197,8 +188,8 @@ class AMQPClientAsync(client.AMQPClient):
                     outgoing_window=self._outgoing_window,
                     handle_max=self._handle_max,
                     on_attach=self._on_attach,
-                    loop=self.loop),
-                loop=self.loop)
+                    **self._internal_kwargs),
+                **self._internal_kwargs)
             self._session = self._auth._session  # pylint: disable=protected-access
         elif self._connection._cbs:
             self._session = self._auth._session  # pylint: disable=protected-access
@@ -209,7 +200,11 @@ class AMQPClientAsync(client.AMQPClient):
                 outgoing_window=self._outgoing_window,
                 handle_max=self._handle_max,
                 on_attach=self._on_attach,
-                loop=self.loop)
+                **self._internal_kwargs)
+
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
 
     async def open_async(self, connection=None):
         """Asynchronously open the client. The client can create a new Connection
@@ -242,10 +237,10 @@ class AMQPClientAsync(client.AMQPClient):
                 remote_idle_timeout_empty_frame_send_ratio=self._remote_idle_timeout_empty_frame_send_ratio,
                 error_policy=self._error_policy,
                 debug=self._debug_trace,
-                loop=self.loop)
+                **self._internal_kwargs)
             await self._build_session_async()
             if self._keep_alive_interval:
-                self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), loop=self.loop)
+                self._keep_alive_thread = asyncio.ensure_future(self._keep_alive_async(), **self._internal_kwargs)
         finally:
             if self._ext_connection:
                 connection.release_async()
@@ -267,13 +262,13 @@ class AMQPClientAsync(client.AMQPClient):
             return  # already closed.
         if not self._connection._cbs:  # pylint: disable=protected-access
             _logger.info("Closing non-CBS session.")
-            await asyncio.shield(self._session.destroy_async(), loop=self.loop)
+            await asyncio.shield(self._session.destroy_async(), **self._internal_kwargs)
         else:
             _logger.info("CBS session pending %r.", self._connection.container_id)
         self._session = None
         if not self._ext_connection:
             _logger.info("Closing exclusive connection %r.", self._connection.container_id)
-            await asyncio.shield(self._connection.destroy_async(), loop=self.loop)
+            await asyncio.shield(self._connection.destroy_async(), **self._internal_kwargs)
         else:
             _logger.info("Shared connection remaining open.")
         self._connection = None
@@ -314,7 +309,7 @@ class AMQPClientAsync(client.AMQPClient):
         :rtype: ~uamqp.message.Message
         """
         while not await self.auth_complete_async():
-            await asyncio.sleep(0.05, loop=self.loop)
+            await asyncio.sleep(0.05, **self._internal_kwargs)
         response = await asyncio.shield(
             self._session.mgmt_request_async(
                 message,
@@ -325,7 +320,7 @@ class AMQPClientAsync(client.AMQPClient):
                 encoding=self._encoding,
                 debug=self._debug_trace,
                 **kwargs),
-            loop=self.loop)
+            **self._internal_kwargs)
         return response
 
     async def auth_complete_async(self):
@@ -396,8 +391,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -474,7 +467,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         client.SendClient.__init__(
             self,
             target,
@@ -488,7 +481,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
 
         # AMQP object settings
         self.sender_type = MessageSenderAsync
-        self._pending_messages_lock = asyncio.Lock(loop=self.loop)
+        self._pending_messages_lock = asyncio.Lock(**self._internal_kwargs)
 
     async def _client_ready_async(self):
         """Determine whether the client is ready to start sending messages.
@@ -513,8 +506,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 desired_capabilities=self._desired_capabilities,
-                loop=self.loop)
-            await asyncio.shield(self.message_handler.open_async(), loop=self.loop)
+                **self._internal_kwargs)
+            await asyncio.shield(self.message_handler.open_async(), **self._internal_kwargs)
             return False
         if self.message_handler.get_state() == constants.MessageSenderState.Error:
             raise errors.MessageHandlerError(
@@ -528,7 +521,8 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
     async def _transfer_message_async(self, message, timeout):
         sent = await asyncio.shield(
             self.message_handler.send_async(message, self._on_message_sent, timeout=timeout),
-            loop=self.loop)
+            **self._internal_kwargs
+            )
         if not sent:
             _logger.info("Message not sent, raising RuntimeError.")
             raise RuntimeError("Message sender failed to add message data to outgoing queue.")
@@ -567,7 +561,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """
         # pylint: disable=protected-access
         await self.message_handler.work_async()
-        await asyncio.shield(self._connection.work_async(), loop=self.loop)
+        await asyncio.shield(self._connection.work_async(), **self._internal_kwargs)
         if self._connection._state == c_uamqp.ConnectionState.DISCARDING:
             raise errors.ConnectionClose(constants.ErrorCodes.InternalServerError)
         self._waiting_messages = 0
@@ -692,8 +686,6 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
     :param client_name: The name for the client, also known as the Container ID.
      If no name is provided, a random GUID will be used.
     :type client_name: str or bytes
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
@@ -782,7 +774,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
             error_policy=None,
             keep_alive_interval=None,
             **kwargs):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         client.ReceiveClient.__init__(
             self,
             source,
@@ -823,8 +815,8 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
                 error_policy=self._error_policy,
                 encoding=self._encoding,
                 desired_capabilities=self._desired_capabilities,
-                loop=self.loop)
-            await asyncio.shield(self.message_handler.open_async(), loop=self.loop)
+                )
+            await asyncio.shield(self.message_handler.open_async(), **self._internal_kwargs)
             return False
         if self.message_handler.get_state() == constants.MessageReceiverState.Error:
             raise errors.MessageHandlerError(
@@ -850,7 +842,7 @@ class ReceiveClientAsync(client.ReceiveClient, AMQPClientAsync):
         now = self._counter.get_current_ms()
         if self._last_activity_timestamp and not self._was_message_received:
             # If no messages are coming through, back off a little to keep CPU use low.
-            await asyncio.sleep(0.05, loop=self.loop)
+            await asyncio.sleep(0.05, **self._internal_kwargs)
             if self._timeout > 0:
                 timespan = now - self._last_activity_timestamp
                 if timespan >= self._timeout:
