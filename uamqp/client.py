@@ -38,7 +38,7 @@ from .constants import (
     DEFAULT_AUTH_TIMEOUT,
     MESSAGE_DELIVERY_DONE_STATES
 )
-from .error import AMQPConnectionError
+from .error import AMQPConnectionError, ErrorResponse
 from .mgmt_operation import MgmtOperation
 from .cbs import CBSAuthenticator
 from .authentication import _CBSAuth
@@ -377,8 +377,17 @@ class SendClient(AMQPClient):
             message_delivery.state = MessageDeliveryState.Ok
         else:
             # TODO: sending disposition state could only be rejected/accepted?
-            message_delivery.state = MessageDeliveryState.Error
-            message_delivery.reason = reason
+            # TODO: error action
+            error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
+            if error_response.condition == b'com.microsoft:server-busy':
+                # TODO: max retries configs
+                time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
+                timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
+                self._transfer_message(message_delivery, timeout)
+                message_delivery.state = MessageDeliveryState.WaitingToBeSent
+            else:
+                message_delivery.state = MessageDeliveryState.Error
+                message_delivery.reason = reason
 
     def send_message(self, message, **kwargs):
         """
