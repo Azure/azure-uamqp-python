@@ -373,11 +373,15 @@ class SendClient(AMQPClient):
     def _on_send_complete(self, message_delivery, message, reason, state):
         # TODO: check whether the callback would be called in case of message expiry or link going down
         # and if so handle the state in the callback
-        if SEND_DISPOSITION_ACCEPT in state:
+        if state and SEND_DISPOSITION_ACCEPT in state:
             message_delivery.state = MessageDeliveryState.Ok
         else:
             # TODO: sending disposition state could only be rejected/accepted?
             # TODO: error action
+            if not state and reason == LinkDeliverySettleReason.NotDelivered:
+                # TODO: message is not delivered
+                message_delivery.state = MessageDeliveryState.Error
+                return
             error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
             if error_response.condition == b'com.microsoft:server-busy':
                 # TODO: max retries configs
