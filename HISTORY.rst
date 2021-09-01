@@ -5,7 +5,7 @@ Release History
 
 1.4.2 (Unreleased)
 
-- Fiexed memory leak in win32 socketio (azure-sdk-for-python issue #19777).
+- Fixed memory leak in win32 tlsio (azure-sdk-for-python issue #19777).
 
 1.4.1 (2021-06-28)
 +++++++++++++++++++
