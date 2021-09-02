@@ -329,10 +329,10 @@ def encode_list(output, value, with_constructor=True, use_smallest=True):
         output.extend(ConstructorBytes.list_0)
         return
     encoded_size = 0
-    encoded_values = []
+    encoded_values = bytearray()
     for item in value:
-        encoded_values.append(encode_value(output, item, with_constructor=True))
-        encoded_size += len(encoded_values[-1])
+        encode_value(encoded_values, item, with_constructor=True)
+    encoded_size += len(encoded_values)
     if use_smallest and count <= 255 and encoded_size < 255:
         output.extend(_construct(ConstructorBytes.list_small, with_constructor))
         output.extend(struct.pack('>B', encoded_size + 1))
@@ -344,7 +344,7 @@ def encode_list(output, value, with_constructor=True, use_smallest=True):
             output.extend(struct.pack('>L', count))
         except struct.error:
             raise ValueError("List is too large or too long to be encoded.")
-    output.extend(b"".join(encoded_values))
+    output.extend(encoded_values)
 
 
 def encode_map(output, value, with_constructor=True, use_smallest=True):
@@ -357,16 +357,15 @@ def encode_map(output, value, with_constructor=True, use_smallest=True):
     """
     count = len(value) * 2
     encoded_size = 0
-    encoded_values = []
+    encoded_values = bytearray()
     try:
         items = value.items()
     except AttributeError:
         items = value
     for key, data in items:
-        encoded_values.append(encode_value(output, key, with_constructor=True))
-        encoded_size += len(encoded_values[-1])
-        encoded_values.append(encode_value(output, data, with_constructor=True))
-        encoded_size += len(encoded_values[-1])
+        encode_value(encoded_values, key, with_constructor=True)
+        encode_value(encoded_values, data, with_constructor=True)
+    encoded_size = len(encoded_values)
     if use_smallest and count <= 255 and encoded_size < 255:
         output.extend(_construct(ConstructorBytes.map_small, with_constructor))
         output.extend(struct.pack('>B', encoded_size + 1))
@@ -378,7 +377,7 @@ def encode_map(output, value, with_constructor=True, use_smallest=True):
             output.extend(struct.pack('>L', count))
         except struct.error:
             raise ValueError("Map is too large or too long to be encoded.")
-    output.extend(b"".join(encoded_values))
+    output.extend(encoded_values)
     return
 
 
