@@ -284,7 +284,7 @@ def encode_string(output, value, with_constructor=True, use_smallest=True):
         return
     try:
         output.extend(_construct(ConstructorBytes.string_large, with_constructor))
-        output.extend(struct.pack('>B', length))
+        output.extend(struct.pack('>L', length))
         output.extend(value)
     except struct.error:
         raise ValueError("String value too long to encode.")
@@ -406,17 +406,17 @@ def encode_array(output, value, with_constructor=True, use_smallest=True):
     """
     count = len(value)
     encoded_size = 0
-    encoded_values = []
+    encoded_values = bytearray()
     first_item = True
     element_type = None
     for item in value:
         element_type = _check_element_type(item, element_type)
-        encoded_values.append(encode_value(output, item, with_constructor=first_item, use_smallest=False))
-        encoded_size += len(encoded_values[-1])
+        encode_value(encoded_values, item, with_constructor=first_item, use_smallest=False)
         first_item = False
         if item is None:
             encoded_size -= 1
             break
+    encoded_size += len(encoded_values)
     if use_smallest and count <= 255 and encoded_size < 255:
         output.extend(_construct(ConstructorBytes.array_small, with_constructor))
         output.extend(struct.pack('>B', encoded_size + 1))
@@ -428,7 +428,7 @@ def encode_array(output, value, with_constructor=True, use_smallest=True):
             output.extend(struct.pack('>L', count))
         except struct.error:
             raise ValueError("Array is too large or too long to be encoded.")
-    output.extend(b"".join(encoded_values))
+    output.extend(encoded_values)
 
 
 def encode_described(output, value, _=None, **kwargs):
