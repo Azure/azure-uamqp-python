@@ -5,10 +5,10 @@
 #--------------------------------------------------------------------------
 
 from enum import Enum
-import six
 from collections import namedtuple
+import six
 
-from .constants import PORT, FIELD
+from .constants import PORT, FIELD, ErrorCodes
 from .types import AMQPTypes, FieldDefinition
 
 
@@ -134,11 +134,11 @@ AMQPError._definition = (
 
 class AMQPException(Exception):
 
-    def __init__(self, condition, description, info):
+    def __init__(self, condition, description, info, message=None):
         self.condition = condition
         self.description = description
         self.info = info
-        super(AMQPException, self).__init__()  # TODO: Pass a message
+        super(AMQPException, self).__init__(message)  # TODO: Pass a message
 
 
 class AMQPDecodeError(AMQPException):
@@ -250,6 +250,40 @@ class TokenAuthFailure(AuthenticationException):
         super(TokenAuthFailure, self).__init__(message)
 
 
+class MessageResponse(AMQPException):
+
+    def __init__(self, message=None):
+        response = message or "Sending {} disposition.".format(self.__class__.__name__)
+        super(MessageResponse, self).__init__(response)
+
+
+class MessageException(AMQPException):
+
+    def __init__(self, condition, description=None, info=None, encoding="UTF-8"):
+        self._encoding = encoding
+        condition = condition
+        self.description = description
+        self.info = info
+        self.action = None
+        message = six.text_type(condition) if isinstance(condition, ErrorCodes) \
+            else condition.decode(encoding)
+        if self.description:
+            if isinstance(self.description, six.text_type):
+                message += u": {}".format(self.description)
+            else:
+                message += u": {}".format(self.description.decode(self._encoding))
+        super(MessageException, self).__init__(
+            condition,
+            description,
+            info,
+            message=message
+        )
+
+
+class MessageSendFailed(MessageException):
+    pass
+
+
 class ErrorResponse(object):
     """
     """
@@ -270,3 +304,78 @@ class ErrorResponse(object):
             self.info = info.value
         except AttributeError:
             self.info = info
+
+
+class ErrorAction(object):
+
+    retry = True
+    fail = False
+
+    def __init__(self, retry, backoff=0, increment_retries=True):
+        self.retry = bool(retry)
+        self.backoff = backoff
+        self.increment_retries = increment_retries
+
+
+class ErrorPolicy(object):
+
+    no_retry = (
+        ErrorCodes.DecodeError,
+        ErrorCodes.LinkMessageSizeExceeded,
+        ErrorCodes.NotFound,
+        ErrorCodes.NotImplemented,
+        ErrorCodes.LinkRedirect,
+        ErrorCodes.NotAllowed,
+        ErrorCodes.UnauthorizedAccess,
+        ErrorCodes.LinkStolen,
+        ErrorCodes.ResourceLimitExceeded,
+        ErrorCodes.ConnectionRedirect,
+        ErrorCodes.PreconditionFailed,
+        ErrorCodes.InvalidField,
+        ErrorCodes.ResourceDeleted,
+        ErrorCodes.IllegalState,
+        ErrorCodes.FrameSizeTooSmall,
+        ErrorCodes.ConnectionFramingError,
+        ErrorCodes.SessionUnattachedHandle,
+        ErrorCodes.SessionHandleInUse,
+        ErrorCodes.SessionErrantLink,
+        ErrorCodes.SessionWindowViolation
+    )
+
+    def __init__(self, max_retries=3, on_error=None):
+        self.max_retries = max_retries
+        self._on_error = on_error
+
+    def on_unrecognized_error(self, error):
+        if self._on_error:
+            return self._on_error(error)
+        return ErrorAction(retry=True)
+
+    def on_message_error(self, error):
+        if error.condition in self.no_retry:
+            return ErrorAction(retry=False)
+        return ErrorAction(retry=True, increment_retries=True)
+
+    def on_link_error(self, error):
+        if error.condition in self.no_retry:
+            return ErrorAction(retry=False)
+        return ErrorAction(retry=True)
+
+    def on_connection_error(self, error):
+        if error.condition in self.no_retry:
+            return ErrorAction(retry=False)
+        if error.condition == ErrorCodes.ConnectionCloseForced:
+            return ErrorAction(retry=True)
+        return ErrorAction(retry=True)
+
+
+def _process_send_error(policy, condition, description=None, info=None):
+    try:
+        amqp_condition = ErrorCodes(condition)
+    except ValueError:
+        exception = MessageException(condition, description, info)
+        exception.action = policy.on_unrecognized_error(exception)
+    else:
+        exception = MessageSendFailed(amqp_condition, description, info)
+        exception.action = policy.on_message_error(exception)
+    return exception

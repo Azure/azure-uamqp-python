@@ -22,6 +22,14 @@ from .sender import SenderLink
 from .receiver import ReceiverLink
 from .sasl import SASLTransport
 from .endpoints import Source, Target
+from .error import (
+    ErrorPolicy,
+    AMQPConnectionError,
+    MessageSendFailed,
+    ErrorResponse,
+    ErrorAction,
+    _process_send_error,
+)
 
 from .constants import (
     MessageDeliveryState,
@@ -36,9 +44,10 @@ from .constants import (
     INCOMING_WINDOW,
     OUTGOING_WIDNOW,
     DEFAULT_AUTH_TIMEOUT,
-    MESSAGE_DELIVERY_DONE_STATES
+    MESSAGE_DELIVERY_DONE_STATES,
+    ErrorCodes
 )
-from .error import AMQPConnectionError, ErrorResponse
+
 from .mgmt_operation import MgmtOperation
 from .cbs import CBSAuthenticator
 from .authentication import _CBSAuth
@@ -145,6 +154,10 @@ class AMQPClient(object):
         self._send_settle_mode = kwargs.pop('send_settle_mode', None) or SenderSettleMode.Unsettled
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', None) or ReceiverSettleMode.Second
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
+
+        # Other settings
+        self._error_policy = kwargs.get("error_policy", ErrorPolicy())
+        self._backoff = 0
 
     def __enter__(self):
         """Run Client in a context manager."""
@@ -296,7 +309,10 @@ class AMQPClient(object):
                 raise mgmt_link.mgmt_error
             if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
                 # TODO: update below with correct status code + info
-                raise AMQPConnectionError(400, "Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status), {})
+                raise AMQPConnectionError(
+                    400,
+                    "Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status), {}
+                )
         operation_type = operation_type or b'empty'
         status, response, description = mgmt_link.execute(
             message,
@@ -357,6 +373,9 @@ class SendClient(AMQPClient):
             _logger.info("Timeout reached, closing sender.")
             self._shutdown = True
             return False
+        if self._backoff:
+            time.sleep(self._backoff)
+            self._backoff = 0
         return True
 
     def _transfer_message(self, message_delivery, timeout=0):
@@ -372,7 +391,7 @@ class SendClient(AMQPClient):
 
     def _on_send_complete(self, message_delivery, message, reason, state):
         # TODO: check whether the callback would be called in case of message expiry or link going down
-        # and if so handle the state in the callback
+        #  and if so handle the state in the callback
         if state and SEND_DISPOSITION_ACCEPT in state:
             message_delivery.state = MessageDeliveryState.Ok
         else:
@@ -381,17 +400,40 @@ class SendClient(AMQPClient):
             if not state and reason == LinkDeliverySettleReason.NotDelivered:
                 # TODO: message is not delivered
                 message_delivery.state = MessageDeliveryState.Error
+                message_delivery.reason = reason
                 return
-            error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
-            if error_response.condition == b'com.microsoft:server-busy':
-                # TODO: max retries configs
-                time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
+
+            if state:
+                error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
+                exception = _process_send_error(
+                    self._error_policy,
+                    error_response.condition,
+                    error_response.description,
+                    error_response.info
+                )
+            else:
+                exception = MessageSendFailed(ErrorCodes.UnknownError)
+                exception.action = ErrorAction(retry=True)
+
+            if exception.action.retry == ErrorAction.retry and\
+                    message_delivery.retries < self._error_policy.max_retries:
+                if exception.action.increment_retries:
+                    message_delivery.retries += 1
+
+                self._backoff = exception.action.backoff
                 timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
                 self._transfer_message(message_delivery, timeout)
                 message_delivery.state = MessageDeliveryState.WaitingToBeSent
+                _logger.debug("Message error, retrying. Attempts: %r, Error: %r", message_delivery.retries, exception)
+                return
+
+            if exception.action.retry == ErrorAction.retry:
+                _logger.info("Message error, %r retries exhausted. Error: %r", message_delivery.retries, exception)
             else:
-                message_delivery.state = MessageDeliveryState.Error
-                message_delivery.reason = reason
+                _logger.info("Message error, not retrying. Error: %r", exception)
+            message_delivery.state = MessageDeliveryState.Error
+            message_delivery.reason = reason
+            # TODO: More error handling
 
     def send_message(self, message, **kwargs):
         """
