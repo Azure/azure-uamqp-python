@@ -401,7 +401,7 @@ class SendClient(AMQPClient):
                 return
 
             if state:
-                error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
+                error_response = ErrorResponse(**state[SEND_DISPOSITION_REJECT])
                 exception = _process_send_error(
                     self._error_policy,
                     error_response.condition,

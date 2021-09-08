@@ -287,12 +287,12 @@ class MessageSendFailed(MessageException):
 class ErrorResponse(object):
     """
     """
-    def __init__(self, error_info=None, condition=None, description=None, info=None):
-        info = None
-        self.condition = condition
-        self.description = description
-        self.info = info
-        self.error = error_info
+    def __init__(self, **kwargs):
+        self.condition = kwargs.get("condition")
+        self.description = kwargs.get("description")
+
+        info = kwargs.get("info")
+        error_info = kwargs.get("error_info")
         if isinstance(error_info, list) and len(error_info) >= 1:
             if isinstance(error_info[0], list) and len(error_info[0]) >= 1:
                 self.condition = error_info[0][0]
@@ -300,10 +300,9 @@ class ErrorResponse(object):
                     self.description = error_info[0][1]
                 if len(error_info[0]) >= 3:
                     info = error_info[0][2]
-        try:
-            self.info = info.value
-        except AttributeError:
-            self.info = info
+
+        self.info = info
+        self.error = error_info
 
 
 class ErrorAction(object):
