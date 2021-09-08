@@ -373,9 +373,6 @@ class SendClient(AMQPClient):
             _logger.info("Timeout reached, closing sender.")
             self._shutdown = True
             return False
-        if self._backoff:
-            time.sleep(self._backoff)
-            self._backoff = 0
         return True
 
     def _transfer_message(self, message_delivery, timeout=0):
@@ -420,7 +417,7 @@ class SendClient(AMQPClient):
                 if exception.action.increment_retries:
                     message_delivery.retries += 1
 
-                self._backoff = exception.action.backoff
+                time.sleep(self._backoff)
                 timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
                 self._transfer_message(message_delivery, timeout)
                 message_delivery.state = MessageDeliveryState.WaitingToBeSent
