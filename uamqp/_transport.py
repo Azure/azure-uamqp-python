@@ -524,7 +524,7 @@ class SSLTransport(_AbstractTransport):
         try:
             while toread:
                 try:
-                    nbytes = self.sock.recv_into(view[nbytes:])
+                    nbytes = self.sock.recv_into(view[length:])
                 except socket.error as exc:
                     # ssl.sock.read may cause a SSLerror without errno
                     # http://bugs.python.org/issue10272
