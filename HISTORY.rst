@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.4.2 (Unreleased)
++++++++++++++++++++
+
+- Fixed memory leak in the process of converting AMQPValue into string.
+
 1.4.1 (2021-06-28)
 +++++++++++++++++++
 
