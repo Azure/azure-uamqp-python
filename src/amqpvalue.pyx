@@ -313,9 +313,7 @@ cdef class AMQPValue(StructBase):
         if <void*>value == NULL:
             self._value_error()
         as_string = c_amqpvalue.amqpvalue_to_string(value)
-        if <void*>as_string == NULL:
-            self._value_error()
-        py_string = copy.deepcopy(as_string)
+        py_string = <bytes> as_string
         free(as_string)
         c_amqpvalue.amqpvalue_destroy(self._c_value)
         return py_string
