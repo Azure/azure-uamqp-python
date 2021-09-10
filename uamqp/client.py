@@ -41,7 +41,6 @@ from .constants import (
     OUTGOING_WIDNOW,
     DEFAULT_AUTH_TIMEOUT,
     MESSAGE_DELIVERY_DONE_STATES,
-    ErrorCodes
 )
 
 from .mgmt_operation import MgmtOperation
@@ -393,7 +392,7 @@ class SendClient(AMQPClient):
                 message_delivery.reason = reason
                 return
 
-            error_response = ErrorResponse(state[SEND_DISPOSITION_REJECT])
+            error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
             if error_response.condition == b'com.microsoft:server-busy':
                 # TODO: customized/configurable error handling logic
                 time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
