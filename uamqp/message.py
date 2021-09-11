@@ -264,4 +264,3 @@ class _MessageDelivery:
         self.expiry = expiry
         self.reason = None
         self.delivery = None
-        self.retries = 0
