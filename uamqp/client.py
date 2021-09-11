@@ -384,15 +384,18 @@ class SendClient(AMQPClient):
         if state and SEND_DISPOSITION_ACCEPT in state:
             message_delivery.state = MessageDeliveryState.Ok
         else:
-            # TODO: sending disposition state could only be rejected/accepted?
-            # TODO: error action
+            # TODO:
+            #  - sending disposition state could only be rejected/accepted?
+            #  - error action
+            #  - whether the state should be None in the case of sending failure/we could give a better default value
+            #   (message is not delivered)
             if not state and reason == LinkDeliverySettleReason.NotDelivered:
-                # TODO: message is not delivered
                 message_delivery.state = MessageDeliveryState.Error
                 message_delivery.reason = reason
                 return
 
             error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
+            # TODO: check error_info structure
             if error_response.condition == b'com.microsoft:server-busy':
                 # TODO: customized/configurable error handling logic
                 time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
