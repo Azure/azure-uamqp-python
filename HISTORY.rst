@@ -3,9 +3,11 @@
 Release History
 ===============
 
-1.4.2 (Unreleased)
+1.4.2 (2021-09-21)
++++++++++++++++++++
 
 - Fixed memory leak in win32 socketio and tlsio (azure-sdk-for-python issue #19777).
+- Fixed memory leak in the process of converting AMQPValue into string (azure-sdk-for-python issue #19777).
 
 1.4.1 (2021-06-28)
 +++++++++++++++++++

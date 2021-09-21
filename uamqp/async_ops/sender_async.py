@@ -8,7 +8,7 @@ import logging
 import asyncio
 
 from uamqp import constants, errors, sender
-from uamqp.utils import get_running_loop
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 _logger = logging.getLogger(__name__)
 
@@ -76,8 +76,6 @@ class MessageSenderAsync(sender.MessageSender):
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     """
 
     def __init__(self, session, source, target,
@@ -92,7 +90,7 @@ class MessageSenderAsync(sender.MessageSender):
                  encoding='UTF-8',
                  desired_capabilities=None,
                  loop=None):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         super(MessageSenderAsync, self).__init__(
             session, source, target,
             name=name,
@@ -114,6 +112,10 @@ class MessageSenderAsync(sender.MessageSender):
     async def __aexit__(self, *args):
         """Close the MessageSender when exiting an async context manager."""
         await self.destroy_async()
+
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
 
     async def destroy_async(self):
         """Asynchronously close both the Sender and the Link. Clean up any C objects."""
@@ -167,7 +169,7 @@ class MessageSenderAsync(sender.MessageSender):
 
     async def work_async(self):
         """Update the link status."""
-        await asyncio.sleep(0, loop=self.loop)
+        await asyncio.sleep(0, **self._internal_kwargs)
         self._link.do_work()
 
     async def close_async(self):

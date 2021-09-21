@@ -8,9 +8,9 @@ import logging
 import uuid
 
 from uamqp import Message, constants, errors
-from uamqp.utils import get_running_loop
 #from uamqp.session import Session
 from uamqp.mgmt_operation import MgmtOperation
+from uamqp.async_ops.utils import get_dict_with_loop_if_needed
 
 try:
     TimeoutException = TimeoutError
@@ -42,8 +42,6 @@ class MgmtOperationAsync(MgmtOperation):
     :param encoding: The encoding to use for parameters supplied as strings.
      Default is 'UTF-8'
     :type encoding: str
-    :param loop: A user specified event loop.
-    :type loop: ~asycnio.AbstractEventLoop
     """
 
     def __init__(self,
@@ -54,7 +52,7 @@ class MgmtOperationAsync(MgmtOperation):
                  description_fields=b'statusDescription',
                  encoding='UTF-8',
                  loop=None):
-        self.loop = loop or get_running_loop()
+        self._internal_kwargs = get_dict_with_loop_if_needed(loop)
         super(MgmtOperationAsync, self).__init__(
             session,
             target=target,
@@ -62,6 +60,10 @@ class MgmtOperationAsync(MgmtOperation):
             status_code_field=status_code_field,
             description_fields=description_fields,
             encoding=encoding)
+
+    @property
+    def loop(self):
+        return self._internal_kwargs.get("loop")
 
     async def execute_async(self, operation, op_type, message, timeout=0):
         """Execute a request and wait on a response asynchronously.
