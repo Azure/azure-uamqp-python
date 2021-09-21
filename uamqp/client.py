@@ -29,6 +29,7 @@ class AMQPClient(object):
         - uamqp.authentication.SASLAnonymous
         - uamqp.authentication.SASLPlain
         - uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.JWTTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
@@ -408,6 +409,7 @@ class SendClient(AMQPClient):
         - uamqp.authentication.SASLAnonymous
         - uamqp.authentication.SASLPlain
         - uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.JWTTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
@@ -798,6 +800,7 @@ class ReceiveClient(AMQPClient):
         - uamqp.authentication.SASLAnonymous
         - uamqp.authentication.SASLPlain
         - uamqp.authentication.SASTokenAuth
+        - uamqp.authentication.JWTTokenAuth
      If no authentication is supplied, SASLAnnoymous will be used by default.
     :type auth: ~uamqp.authentication.common.AMQPAuth
     :param client_name: The name for the client, also known as the Container ID.
