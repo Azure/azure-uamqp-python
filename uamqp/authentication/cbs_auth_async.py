@@ -65,7 +65,9 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
                 self.timeout,
-                self._connection.container_id)
+                self._connection.container_id,
+                self._override_token_refresh_window
+            )
             self._cbs_auth.set_trace(debug)
         except ValueError:
             await self._session.destroy_async()
@@ -132,7 +134,14 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 _logger.info("Token on connection %r will expire soon - attempting to refresh.",
                              self._connection.container_id)
                 await self.update_token()
-                self._cbs_auth.refresh(self.token, int(self.expires_at))
+                if self.token != self._prev_token:
+                    self._cbs_auth.refresh(self.token, int(self.expires_at))
+                else:
+                    # TODO: I don't think putting an old token will provide any value
+                    #  besides, it throttles the service and self._cbs_auth.refresh will set the auth status to AUTH_STATUS_IN_PROGRESS
+                    #  blocking handler flow
+                    _logger.info("The newly acquired token is the same as the previous one, will keep attempting to refresh",
+                             self._connection.container_id)
             elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
@@ -260,6 +269,8 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._override_token_refresh_window = kwargs.pop("override_token_refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -285,4 +296,5 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
     async def update_token(self):
         access_token = await self.get_token()
         self.expires_at = access_token.expires_on
+        self._prev_token = self.token
         self.token = self._encode(access_token.token)

@@ -70,7 +70,9 @@ class CBSAuthMixin(object):
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
                 self.timeout,
-                self._connection.container_id)
+                self._connection.container_id,
+                self._override_token_refresh_window
+            )
             self._cbs_auth.set_trace(debug)
         except ValueError:
             self._session.destroy()
@@ -137,7 +139,14 @@ class CBSAuthMixin(object):
                 _logger.info("Token on connection %r will expire soon - attempting to refresh.",
                              self._connection.container_id)
                 self.update_token()
-                self._cbs_auth.refresh(self.token, int(self.expires_at))
+                if self.token != self._prev_token:
+                    self._cbs_auth.refresh(self.token, int(self.expires_at))
+                else:
+                    # TODO: I don't think putting an old token will provide any value
+                    #  besides, it throttles the service and self._cbs_auth.refresh will set the auth status to AUTH_STATUS_IN_PROGRESS
+                    #  blocking handler flow
+                    _logger.info("The newly acquired token is the same as the previous one, will keep attempting to refresh",
+                             self._connection.container_id)
             elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
@@ -231,6 +240,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._override_token_refresh_window = kwargs.pop("override_token_refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -259,6 +270,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         encoded_uri = compat.quote_plus(self.uri).encode(self._encoding)  # pylint: disable=no-member
         encoded_key = compat.quote_plus(self.username).encode(self._encoding)  # pylint: disable=no-member
         self.expires_at = time.time() + self.expires_in.seconds
+        self._prev_token = self.token
         self.token = utils.create_sas_token(
             encoded_key,
             self.password.encode(self._encoding),
@@ -399,6 +411,8 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._override_token_refresh_window = kwargs.pop("override_token_refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -425,4 +439,5 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     def update_token(self):
         access_token = self.get_token()
         self.expires_at = access_token.expires_on
+        self._prev_token = self.token
         self.token = self._encode(access_token.token)

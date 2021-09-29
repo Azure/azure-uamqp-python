@@ -52,7 +52,7 @@ cdef class CBSTokenAuth(object):
     cdef const char* connection_id
     cdef cSession _session
 
-    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout, const char* connection_id):
+    def __cinit__(self, const char* audience, const char* token_type, const char* token, stdint.uint64_t expires_at, cSession session, stdint.uint64_t timeout, const char* connection_id, stdint.uint64_t override_token_refresh_window):
         self.state = AUTH_STATUS_IDLE
         self.audience = audience
         self.token_type = token_type
@@ -61,9 +61,12 @@ cdef class CBSTokenAuth(object):
         self.auth_timeout = timeout
         self.connection_id = connection_id
         self._token_put_time = 0
-        current_time = int(time.time())
-        remaining_time = expires_at - current_time
-        self._refresh_window = int(float(remaining_time) * 0.1)
+        if override_token_refresh_window > 0:
+            self._refresh_window = override_token_refresh_window
+        else:
+            current_time = int(time.time())
+            remaining_time = expires_at - current_time
+            self._refresh_window = int(float(remaining_time) * 0.1)
         self._cbs_handle = c_cbs.cbs_create(<c_session.SESSION_HANDLE>session._c_value)
         self._session = session
         if <void*>self._cbs_handle == NULL:
