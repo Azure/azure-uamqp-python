@@ -1,4 +1,4 @@
-FROM pyca/cryptography-manylinux2010:x86_64
+FROM ghcr.io/pyca/cryptography-manylinux2010:x86_64
 
 # Build cmake 3.11
 RUN pushd /tmp && \

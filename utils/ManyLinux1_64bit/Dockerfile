@@ -1,4 +1,4 @@
-FROM pyca/cryptography-manylinux1:x86_64
+FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Build cmake 3.11
 RUN pushd /tmp && \
@@ -19,3 +19,7 @@ RUN pushd /tmp && \
     make && \
     make install && \
     popd
+
+# RUN apt-get install software-properties-common git --yes
+# RUN add-apt-repository ppa:deadsnakes/ppa -y
+# RUN apt install python3.10 -y
