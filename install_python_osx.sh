@@ -6,7 +6,7 @@ if [[ "$PYTHONVERSION" =~ ^3.5 ]]; then
   PACKAGE_TYPE="macosx10.6"
 fi
 if [[ "$PYTHONVERSION" =~ ^3.10 ]]; then
-  PACKAGE_TYPE="macosx11"
+  PACKAGE_TYPE="macos11"
 fi
 
 
