@@ -1,15 +1,18 @@
 FROM azuresdkimages.azurecr.io/manylinux_crypto_x64:3.9
 
 # download source
-RUN yum install gcc openssl-devel bzip2-devel libffi-devel -y \
+RUN yum install gcc openssl-devel bzip2-devel libffi libffi-dev libffi-devel -y \
     && curl -O https://www.python.org/ftp/python/3.10.0/Python-3.10.0rc2.tgz \
     && tar -xzf ./Python-3.10.0rc2.tgz
 
 # copy file with necessary configurations for openssl
 COPY Setup /root/Python-3.10.0rc2/Modules/Setup
 
+ENV CFLAGS=-I/usr/lib64/libffi-3.0.5/include
+
 # ensure none of the lineendings in the copied file were wrong. install python3.10
-RUN sed -i -e 's/\r$//' /root/Python-3.10.0rc2/Modules/Setup \
+RUN ldconfig \
+    && sed -i -e 's/\r$//' /root/Python-3.10.0rc2/Modules/Setup \
     && cd Python-3.10.0rc2 \
     && ./configure --enable-optimizations \
     && make altinstall
