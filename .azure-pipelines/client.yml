@@ -52,22 +52,22 @@ jobs:
 
     strategy:
       matrix:
-        Python 2.7:
-          PythonBin: 'python2'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.6:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion36)'
-        Python 3.7:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion38)'
-        Python 3.9:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion39)'
+        # Python 2.7:
+        #   PythonBin: 'python2'
+        #   PythonVersion: '$(PythonVersion27)'
+        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        # Python 3.6:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion36)'
+        # Python 3.7:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion37)'
+        # Python 3.8:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion38)'
+        # Python 3.9:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion39)'
         Python 3.10:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion310)'
@@ -157,41 +157,41 @@ jobs:
 
     strategy:
       matrix:
-        x64 Python 2.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x64 Python 3.6:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion36)'
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-        x64 Python 3.9:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion39)'
-        x64 Python 3.10:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion310)'
-        x86 Python 2.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x86 Python 3.6:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion36)'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-        x86 Python 3.8:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion38)'
-        x86 Python 3.9:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion39)'
+        # x64 Python 2.7:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion27)'
+        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        # x64 Python 3.6:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion36)'
+        # x64 Python 3.7:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion37)'
+        # x64 Python 3.8:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion38)'
+        # x64 Python 3.9:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion39)'
+        # x64 Python 3.10:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion310)'
+        # x86 Python 2.7:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion27)'
+        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        # x86 Python 3.6:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion36)'
+        # x86 Python 3.7:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion37)'
+        # x86 Python 3.8:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion38)'
+        # x86 Python 3.9:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion39)'
         x86 Python 3.10:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion310)'
@@ -254,17 +254,17 @@ jobs:
 
     strategy:
       matrix:
-        Python 2.7:
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.6:
-          PythonVersion: '$(PythonVersion36)'
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-        Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
+        # Python 2.7:
+        #   PythonVersion: '$(PythonVersion27)'
+        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        # Python 3.6:
+        #   PythonVersion: '$(PythonVersion36)'
+        # Python 3.7:
+        #   PythonVersion: '$(PythonVersion37)'
+        # Python 3.8:
+        #   PythonVersion: '$(PythonVersion38)'
+        # Python 3.9:
+        #   PythonVersion: '$(PythonVersion39)'
         Python 3.10:
           PythonVersion: '$(PythonVersion310)'
 
@@ -322,58 +322,58 @@ jobs:
 
     strategy:
       matrix:
-        Python27m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp27-cp27m'
-          Platform: 'manylinux1_x86_64'
-        Python27mu-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp27-cp27mu'
-          Platform: 'manylinux1_x86_64'
-        Python36m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp36-cp36m'
-          Platform: 'manylinux1_x86_64'
-        Python37m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux1_x86_64'
-        Python38-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux1_x86_64'
-        Python39-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux1_x86_64'
+        # Python27m-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp27-cp27m'
+        #   Platform: 'manylinux1_x86_64'
+        # Python27mu-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp27-cp27mu'
+        #   Platform: 'manylinux1_x86_64'
+        # Python36m-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp36-cp36m'
+        #   Platform: 'manylinux1_x86_64'
+        # Python37m-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp37-cp37m'
+        #   Platform: 'manylinux1_x86_64'
+        # Python38-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp38-cp38'
+        #   Platform: 'manylinux1_x86_64'
+        # Python39-manylinux1:
+        #   ContainerImage: 'manylinux_crypto_x64'
+        #   PythonVersion: 'cp39-cp39'
+        #   Platform: 'manylinux1_x86_64'
         Python310-manylinux1:
           ContainerImage: 'manylinux_crypto_x64_azsdk'
           PythonVersion: 'cp310-cp310'
           Platform: 'manylinux1_x86_64'
-        Python27m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp27-cp27m'
-          Platform: 'manylinux2010_x86_64'
-        Python27mu-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp27-cp27mu'
-          Platform: 'manylinux2010_x86_64'
-        Python36m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp36-cp36m'
-          Platform: 'manylinux2010_x86_64'
-        Python37m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux2010_x86_64'
-        Python38-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux2010_x86_64'
-        Python39-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux2010_x86_64'
+        # Python27m-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp27-cp27m'
+        #   Platform: 'manylinux2010_x86_64'
+        # Python27mu-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp27-cp27mu'
+        #   Platform: 'manylinux2010_x86_64'
+        # Python36m-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp36-cp36m'
+        #   Platform: 'manylinux2010_x86_64'
+        # Python37m-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp37-cp37m'
+        #   Platform: 'manylinux2010_x86_64'
+        # Python38-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp38-cp38'
+        #   Platform: 'manylinux2010_x86_64'
+        # Python39-manylinux2010:
+        #   ContainerImage: 'manylinux2010_crypto_x64'
+        #   PythonVersion: 'cp39-cp39'
+        #   Platform: 'manylinux2010_x86_64'
         Python310-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
           PythonVersion: 'cp310-cp310'
