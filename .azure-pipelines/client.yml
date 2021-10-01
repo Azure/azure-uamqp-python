@@ -347,7 +347,7 @@ jobs:
           PythonVersion: 'cp39-cp39'
           Platform: 'manylinux1_x86_64'
         Python310-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
+          ContainerImage: 'manylinux_crypto_x64_azsdk'
           PythonVersion: 'cp310-cp310'
           Platform: 'manylinux1_x86_64'
         Python27m-manylinux2010:
