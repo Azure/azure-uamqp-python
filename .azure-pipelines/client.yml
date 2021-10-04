@@ -173,9 +173,9 @@ jobs:
         # x64 Python 3.9:
         #   PythonArchitecture: 'x64'
         #   PythonVersion: '$(PythonVersion39)'
-        # x64 Python 3.10:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion310)'
+        x64 Python 3.10:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion310)'
         # x86 Python 2.7:
         #   PythonArchitecture: 'x86'
         #   PythonVersion: '$(PythonVersion27)'
@@ -346,10 +346,6 @@ jobs:
         #   ContainerImage: 'manylinux_crypto_x64'
         #   PythonVersion: 'cp39-cp39'
         #   Platform: 'manylinux1_x86_64'
-        Python310-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64_azsdk'
-          PythonVersion: 'cp310-cp310'
-          Platform: 'manylinux1_x86_64'
         # Python27m-manylinux2010:
         #   ContainerImage: 'manylinux2010_crypto_x64'
         #   PythonVersion: 'cp27-cp27m'
