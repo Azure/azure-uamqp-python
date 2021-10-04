@@ -7,7 +7,7 @@ variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
-  PythonVersion310: '3.10'
+  PythonVersion310: '3.10.0-rc.2'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -162,7 +162,7 @@ jobs:
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
-      PythonVersion310: '3.10.0'
+      PythonVersion310: '3.10.0rc2'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -337,13 +337,13 @@ jobs:
           PythonVersion: '$(PythonVersion27)'
           SDK: 'EventHub'
         EventHub x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
+          PythonVersion: '$(PythonVersion310)'
           SDK: 'EventHub'
         ServiceBus x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           SDK: 'ServiceBus'
         ServiceBus x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
+          PythonVersion: '$(PythonVersion310)'
           SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
@@ -393,13 +393,13 @@ jobs:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'EventHub'
         EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
+          PythonVersion: '$(PythonVersion310)'
           SDK: 'EventHub'
         ServiceBus Python 3.7:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'ServiceBus'
         ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
+          PythonVersion: '$(PythonVersion310)'
           SDK: 'ServiceBus'
     variables:
       OSArch: 'Linux'
