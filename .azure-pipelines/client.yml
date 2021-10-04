@@ -334,11 +334,11 @@ jobs:
           PythonVersion: 'cp39-cp39'
           Platform: 'manylinux1_x86_64'
         Python27m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
           PythonVersion: 'cp27-cp27m'
           Platform: 'manylinux2010_x86_64'
         Python27mu-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
           PythonVersion: 'cp27-cp27mu'
           Platform: 'manylinux2010_x86_64'
         Python36m-manylinux2010:
