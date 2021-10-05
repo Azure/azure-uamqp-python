@@ -336,13 +336,13 @@ jobs:
         EventHub x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           SDK: 'EventHub'
-        EventHub x64 Python 3.8:
+        EventHub x64 Python 3.10:
           PythonVersion: '$(PythonVersion310)'
           SDK: 'EventHub'
         ServiceBus x64 Python 2.7:
           PythonVersion: '$(PythonVersion27)'
           SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.8:
+        ServiceBus x64 Python 3.10:
           PythonVersion: '$(PythonVersion310)'
           SDK: 'ServiceBus'
     variables:
@@ -392,13 +392,13 @@ jobs:
         EventHub Python 3.7:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'EventHub'
-        EventHub Python 3.9:
+        EventHub Python 3.10:
           PythonVersion: '$(PythonVersion310)'
           SDK: 'EventHub'
         ServiceBus Python 3.7:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'ServiceBus'
-        ServiceBus Python 3.9:
+        ServiceBus Python 3.10:
           PythonVersion: '$(PythonVersion310)'
           SDK: 'ServiceBus'
     variables:
