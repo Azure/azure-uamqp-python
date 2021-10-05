@@ -7,7 +7,7 @@ variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
-  PythonVersion310: '3.10.0-rc.2'
+  PythonVersion310: '3.10'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -52,22 +52,22 @@ jobs:
 
     strategy:
       matrix:
-        # Python 2.7:
-        #   PythonBin: 'python2'
-        #   PythonVersion: '$(PythonVersion27)'
-        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        # Python 3.6:
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion36)'
-        # Python 3.7:
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion38)'
-        # Python 3.9:
-        #   PythonBin: 'python3'
-        #   PythonVersion: '$(PythonVersion39)'
+        Python 2.7:
+          PythonBin: 'python2'
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        Python 3.6:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion36)'
+        Python 3.7:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion37)'
+        Python 3.8:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion38)'
+        Python 3.9:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion39)'
         Python 3.10:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion310)'
@@ -80,7 +80,7 @@ jobs:
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
-      PythonVersion310: '3.10.0rc2'
+      PythonVersion310: '3.10.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -157,41 +157,41 @@ jobs:
 
     strategy:
       matrix:
-        # x64 Python 2.7:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion27)'
-        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        # x64 Python 3.6:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion36)'
-        # x64 Python 3.7:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion37)'
-        # x64 Python 3.8:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion38)'
-        # x64 Python 3.9:
-        #   PythonArchitecture: 'x64'
-        #   PythonVersion: '$(PythonVersion39)'
+        x64 Python 2.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        x64 Python 3.6:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion36)'
+        x64 Python 3.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion37)'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+        x64 Python 3.9:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion39)'
         x64 Python 3.10:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion310)'
-        # x86 Python 2.7:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion27)'
-        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        # x86 Python 3.6:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion36)'
-        # x86 Python 3.7:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion37)'
-        # x86 Python 3.8:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion38)'
-        # x86 Python 3.9:
-        #   PythonArchitecture: 'x86'
-        #   PythonVersion: '$(PythonVersion39)'
+        x86 Python 2.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        x86 Python 3.6:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion36)'
+        x86 Python 3.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion37)'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
+        x86 Python 3.9:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion39)'
         x86 Python 3.10:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion310)'
@@ -254,17 +254,17 @@ jobs:
 
     strategy:
       matrix:
-        # Python 2.7:
-        #   PythonVersion: '$(PythonVersion27)'
-        #   GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        # Python 3.6:
-        #   PythonVersion: '$(PythonVersion36)'
-        # Python 3.7:
-        #   PythonVersion: '$(PythonVersion37)'
-        # Python 3.8:
-        #   PythonVersion: '$(PythonVersion38)'
-        # Python 3.9:
-        #   PythonVersion: '$(PythonVersion39)'
+        Python 2.7:
+          PythonVersion: '$(PythonVersion27)'
+          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
+        Python 3.6:
+          PythonVersion: '$(PythonVersion36)'
+        Python 3.7:
+          PythonVersion: '$(PythonVersion37)'
+        Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
         Python 3.10:
           PythonVersion: '$(PythonVersion310)'
 
