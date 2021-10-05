@@ -270,11 +270,10 @@ def test_event_hubs_send_large_message_after_socket_lost(live_eventhub_config):
 def test_event_hubs_send_override_token_refresh_window(live_eventhub_config):
     uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
     target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
-    token = None
+    token = [None]
 
     def get_token():
-        nonlocal token
-        return _AccessToken(token, expiry)
+        return _AccessToken(token[0], expiry)
 
     jwt_auth = authentication.JWTTokenAuth(
         uri,
@@ -287,7 +286,7 @@ def test_event_hubs_send_override_token_refresh_window(live_eventhub_config):
 
     # use token of which the valid remaining time < refresh window
     expiry = int(time.time()) + (60 * 4 + 30)  # 4.5 minutes
-    token = utils.create_sas_token(
+    token[0] = utils.create_sas_token(
         live_eventhub_config['key_name'].encode(),
         live_eventhub_config['access_key'].encode(),
         uri.encode(),
@@ -303,7 +302,7 @@ def test_event_hubs_send_override_token_refresh_window(live_eventhub_config):
 
     # update token, the valid remaining time > refresh window
     expiry = int(time.time()) + (60 * 5 + 30)  # 5.5 minutes
-    token = utils.create_sas_token(
+    token[0] = utils.create_sas_token(
         live_eventhub_config['key_name'].encode(),
         live_eventhub_config['access_key'].encode(),
         uri.encode(),
