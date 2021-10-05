@@ -142,11 +142,11 @@ class CBSAuthMixin(object):
                 if self.token != self._prev_token:
                     self._cbs_auth.refresh(self.token, int(self.expires_at))
                 else:
-                    # TODO: I don't think putting an old token will provide any value
-                    #  besides, it throttles the service and self._cbs_auth.refresh will set the auth status to AUTH_STATUS_IN_PROGRESS
-                    #  blocking handler flow
-                    _logger.info("The newly acquired token is the same as the previous one, will keep attempting to refresh",
-                             self._connection.container_id)
+                    _logger.info(
+                        "The newly acquired token on connection %r is the same as the previous one,"
+                        " will keep attempting to refresh",
+                        self._connection.container_id
+                    )
             elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
