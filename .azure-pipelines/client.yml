@@ -322,54 +322,54 @@ jobs:
 
     strategy:
       matrix:
-        # Python27m-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp27-cp27m'
-        #   Platform: 'manylinux1_x86_64'
-        # Python27mu-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp27-cp27mu'
-        #   Platform: 'manylinux1_x86_64'
-        # Python36m-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp36-cp36m'
-        #   Platform: 'manylinux1_x86_64'
-        # Python37m-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp37-cp37m'
-        #   Platform: 'manylinux1_x86_64'
-        # Python38-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp38-cp38'
-        #   Platform: 'manylinux1_x86_64'
-        # Python39-manylinux1:
-        #   ContainerImage: 'manylinux_crypto_x64'
-        #   PythonVersion: 'cp39-cp39'
-        #   Platform: 'manylinux1_x86_64'
-        # Python27m-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64:3.9'
-        #   PythonVersion: 'cp27-cp27m'
-        #   Platform: 'manylinux2010_x86_64'
-        # Python27mu-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64:3.9'
-        #   PythonVersion: 'cp27-cp27mu'
-        #   Platform: 'manylinux2010_x86_64'
-        # Python36m-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64'
-        #   PythonVersion: 'cp36-cp36m'
-        #   Platform: 'manylinux2010_x86_64'
-        # Python37m-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64'
-        #   PythonVersion: 'cp37-cp37m'
-        #   Platform: 'manylinux2010_x86_64'
-        # Python38-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64'
-        #   PythonVersion: 'cp38-cp38'
-        #   Platform: 'manylinux2010_x86_64'
-        # Python39-manylinux2010:
-        #   ContainerImage: 'manylinux2010_crypto_x64'
-        #   PythonVersion: 'cp39-cp39'
-        #   Platform: 'manylinux2010_x86_64'
+        Python27m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp27-cp27m'
+          Platform: 'manylinux1_x86_64'
+        Python27mu-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp27-cp27mu'
+          Platform: 'manylinux1_x86_64'
+        Python36m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp36-cp36m'
+          Platform: 'manylinux1_x86_64'
+        Python37m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux1_x86_64'
+        Python38-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp38-cp38'
+          Platform: 'manylinux1_x86_64'
+        Python39-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp39-cp39'
+          Platform: 'manylinux1_x86_64'
+        Python27m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
+          PythonVersion: 'cp27-cp27m'
+          Platform: 'manylinux2010_x86_64'
+        Python27mu-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
+          PythonVersion: 'cp27-cp27mu'
+          Platform: 'manylinux2010_x86_64'
+        Python36m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp36-cp36m'
+          Platform: 'manylinux2010_x86_64'
+        Python37m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux2010_x86_64'
+        Python38-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp38-cp38'
+          Platform: 'manylinux2010_x86_64'
+        Python39-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp39-cp39'
+          Platform: 'manylinux2010_x86_64'
         Python310-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
           PythonVersion: 'cp310-cp310'
