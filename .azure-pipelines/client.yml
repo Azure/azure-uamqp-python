@@ -7,6 +7,7 @@ variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
+  PythonVersion310: '3.10.0'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -67,6 +68,9 @@ jobs:
         Python 3.9:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion39)'
+        Python 3.10:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion310)'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -76,6 +80,7 @@ jobs:
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
+      PythonVersion310: '3.10.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -168,6 +173,9 @@ jobs:
         x64 Python 3.9:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion39)'
+        x64 Python 3.10:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion310)'
         x86 Python 2.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion27)'
@@ -184,6 +192,9 @@ jobs:
         x86 Python 3.9:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion39)'
+        x86 Python 3.10:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion310)'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -254,6 +265,8 @@ jobs:
           PythonVersion: '$(PythonVersion38)'
         Python 3.9:
           PythonVersion: '$(PythonVersion39)'
+        Python 3.10:
+          PythonVersion: '$(PythonVersion310)'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -334,11 +347,11 @@ jobs:
           PythonVersion: 'cp39-cp39'
           Platform: 'manylinux1_x86_64'
         Python27m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
           PythonVersion: 'cp27-cp27m'
           Platform: 'manylinux2010_x86_64'
         Python27mu-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
+          ContainerImage: 'manylinux2010_crypto_x64:3.9'
           PythonVersion: 'cp27-cp27mu'
           Platform: 'manylinux2010_x86_64'
         Python36m-manylinux2010:
@@ -356,6 +369,10 @@ jobs:
         Python39-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
           PythonVersion: 'cp39-cp39'
+          Platform: 'manylinux2010_x86_64'
+        Python310-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp310-cp310'
           Platform: 'manylinux2010_x86_64'
 
     steps:

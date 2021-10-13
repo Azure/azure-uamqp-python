@@ -55,5 +55,5 @@ async def test_error_loop_arg_async():
         with pytest.raises(ValueError) as e:
             await auth_async.create_authenticator_async("fake_conn", loop=asyncio.get_event_loop())
             assert "no longer supports loop" in e
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(auth_async_loop())
+
+    await auth_async_loop()
