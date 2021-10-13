@@ -71,7 +71,7 @@ class CBSAuthMixin(object):
                 self._session._session,  # pylint: disable=protected-access
                 self.timeout,
                 self._connection.container_id,
-                self._override_token_refresh_window
+                self._refresh_window
             )
             self._cbs_auth.set_trace(debug)
         except ValueError:
@@ -222,6 +222,9 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
 
     def __init__(self, audience, uri, token,
@@ -240,7 +243,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
-        self._override_token_refresh_window = kwargs.pop("override_token_refresh_window", 0)
+        self._refresh_window = kwargs.pop("refresh_window", 0)
         self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
@@ -326,6 +329,9 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :param encoding: The encoding to use if hostname is provided as a str.
          Default is 'UTF-8'.
         :type encoding: str
+        :keyword int refresh_window: The time in seconds before the token expiration
+        time to start the process of token refresh.
+        Default value is 10% of the remaining seconds until the token expires.
         """
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
         encoded_uri = compat.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
@@ -394,6 +400,9 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
 
     def __init__(self, audience, uri,
@@ -411,7 +420,7 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
-        self._override_token_refresh_window = kwargs.pop("override_token_refresh_window", 0)
+        self._refresh_window = kwargs.pop("refresh_window", 0)
         self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member

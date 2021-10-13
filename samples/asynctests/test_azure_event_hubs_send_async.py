@@ -256,7 +256,7 @@ async def test_event_hubs_send_override_token_refresh_window(live_eventhub_confi
         uri,
         uri,
         get_token,
-        override_token_refresh_window=300  # set refresh window to be 5 mins
+        refresh_window=300  # set refresh window to be 5 mins
     )
 
     send_client = uamqp.SendClientAsync(target, auth=jwt_auth, debug=False)
