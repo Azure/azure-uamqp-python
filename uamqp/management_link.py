@@ -18,6 +18,8 @@ from .constants import (
     ManagementOpenResult,
     SEND_DISPOSITION_REJECT
 )
+from .error import ErrorResponse, AMQPException
+from .message import Message, Properties
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class ManagementLink(object):
     def __enter__(self):
         self.open()
         return self
-    
+
     def __exit__(self, *args):
         self.close()
 
@@ -86,7 +88,7 @@ class ManagementLink(object):
         elif self.state == ManagementLinkState.ERROR:
             # All state transitions shall be ignored.
             return
-    
+
     def _on_receiver_state_change(self, previous_state, new_state):
         _LOGGER.info("Management link receiver state changed: %r -> %r", previous_state, new_state)
         if new_state == previous_state:
@@ -145,8 +147,13 @@ class ManagementLink(object):
                     to_remove_operation = operation
                     break
             self._pending_operations.remove(to_remove_operation)
-            to_remove_operation.on_execute_operation_complete(
-                ManagementExecuteOperationResult.ERROR, None, None, message)
+            # TODO: better error handling
+            error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
+            raise AMQPException(
+                error_response.condition,
+                error_response.description,
+                error_response.info,
+            )
 
     def open(self):
         if self.state != ManagementLinkState.IDLE:
@@ -164,12 +171,21 @@ class ManagementLink(object):
             type=None,
             locales=None
     ):
+        message.application_properties["operation"] = operation
+        message.application_properties["type"] = type
+        message.application_properties["locales"] = locales
+        try:
+            new_properties = message.propperties._replace(message_id=self.next_message_id)
+        except AttributeError:
+            new_properties = Properties(message_id=self.next_message_id)
+        message = message._replace(properties=new_properties)
 
         self._request_link.send_transfer(
             message,
             on_send_complete=self._on_send_complete,
             timeout=timeout
         )
+        self.next_message_id += 1
         self._pending_operations.append(PendingMgmtOperation(message, on_execute_operation_complete))
 
     def close(self):

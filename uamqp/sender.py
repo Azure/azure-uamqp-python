@@ -49,6 +49,7 @@ class PendingDelivery(object):
                 self.on_delivery_settled(self.message, reason, state)
             except Exception as e:
                 _LOGGER.warning("Message 'on_send_complete' callback failed: %r", e)
+                raise e
 
 
 class SenderLink(Link):

@@ -3,13 +3,13 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-import six
 import logging
 import uuid
 import time
 
 from .management_link import ManagementLink
 from .message import Message
+from .error import AMQPException
 
 from .constants import (
     ManagementExecuteOperationResult
@@ -45,27 +45,39 @@ class MgmtOperation(object):
     def _on_amqp_management_error(self):
         """Callback run if an error occurs in the send/receive links."""
         # TODO: This probably shouldn't be ValueError
-        self.mgmt_error = ValueError("Management Operation error ocurred.")
+        self.mgmt_error = ValueError("Management Operation error occurred.")
 
     def execute(self, message, operation=None, operation_type=None, timeout=0):
         start_time = time.time()
         operation_id = str(uuid.uuid4())
         self._responses[operation_id] = None
 
-        def on_complete(operation_result, status_code, status_description, raw_message, error_condition):
+        def on_execute_operation_complete(
+            operation_result,
+            status_code,
+            status_description,
+            raw_message,
+            error_response=None
+        ):
+            if operation_result == ManagementExecuteOperationResult.ERROR:
+                self.mgmt_error = AMQPException(
+                    error_response.condition,
+                    error_response.description,
+                    error_response.info
+                )
+                return
             if operation_result != ManagementExecuteOperationResult.OK:
                 _LOGGER.error(
                     "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
                     status_code, status_description)
-            #message = Message(message=wrapped_message) if wrapped_message else None
             self._responses[operation_id] = (status_code, raw_message, status_description)
 
         self._mgmt_link.execute_operation(
             message,
-            on_complete,
-            timeout=timeout
-            # operation=operation,
-            # type=operation_type
+            on_execute_operation_complete,
+            timeout=timeout,
+            operation=operation,
+            type=operation_type
         )
 
         while not self._responses[operation_id] and not self.mgmt_error:

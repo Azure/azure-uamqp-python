@@ -282,11 +282,23 @@ class AMQPClient(object):
             return True
         return self._client_run(**kwargs)
 
-    def mgmt_request(self, message, operation=None, operation_type=None, node='$management', **kwargs):
+    def mgmt_request(self, message, **kwargs):
         """
-        TODO: Move optional params to kwargs and document.
+        :param message:
+        :type message:
+        :keyword str operation:
+        :keyword str operation_type:
+        :keyword str node:
+        :keyword float timeout:
+        :keyword callback:
+        :keyword status_code_field
+        :keyword status_description_field
+        :paramtype callback: Callable
         """
-        timeout = kwargs.pop('timeout', None) or 0
+        operation = kwargs.pop("operation", None)
+        operation_type = kwargs.pop("operation_type", None)
+        node = kwargs.pop("node", "$management")
+        timeout = kwargs.pop('timeout', 0)
         parse_response = kwargs.pop('callback', None)
         try:
             mgmt_link = self._mgmt_links[node]
