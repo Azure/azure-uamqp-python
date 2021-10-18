@@ -51,7 +51,9 @@ class MgmtOperation(object):
         start_time = time.time()
         operation_id = str(uuid.uuid4())
         self._responses[operation_id] = None
+        execution_error = None
 
+        # TODO: This could be moved to outer layer as a method on the MgmgOperation
         def on_execute_operation_complete(
             operation_result,
             status_code,
@@ -60,7 +62,8 @@ class MgmtOperation(object):
             error_response=None
         ):
             if operation_result == ManagementExecuteOperationResult.ERROR:
-                self.mgmt_error = AMQPException(
+                nonlocal execution_error
+                execution_error = AMQPException(
                     error_response.condition,
                     error_response.description,
                     error_response.info
@@ -84,10 +87,10 @@ class MgmtOperation(object):
             if timeout > 0:
                 now = time.time()
                 if (now - start_time) >= timeout:
-                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))  # TODO: compat 2.7 timout exception
+                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
             self._connection.listen()
-        if self.mgmt_error:
-            raise self.mgmt_error
+        if self.mgmt_error or execution_error:
+            raise (self.mgmt_error or execution_error)
         response = self._responses.pop(operation_id)
         return response
 

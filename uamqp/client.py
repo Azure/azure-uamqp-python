@@ -288,11 +288,11 @@ class AMQPClient(object):
         :type message:
         :keyword str operation:
         :keyword str operation_type:
-        :keyword str node:
+        :keyword str node: Default node is `$management`.
         :keyword float timeout:
         :keyword callback:
-        :keyword status_code_field
-        :keyword status_description_field
+        :keyword status_code_field:
+        :keyword status_description_field:
         :paramtype callback: Callable
         """
         operation = kwargs.pop("operation", None)
