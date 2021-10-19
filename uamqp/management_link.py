@@ -139,7 +139,7 @@ class ManagementLink(object):
             )
             self._pending_operations.remove(to_remove_operation)
 
-    def _on_send_complete(self, message, reason, state):
+    def _on_send_complete(self, message, reason, state):  # todo: reason is never used, should check spec
         if SEND_DISPOSITION_REJECT in state:  # either rejected or accepted
             to_remove_operation = None
             for operation in self._pending_operations:
@@ -149,10 +149,16 @@ class ManagementLink(object):
             self._pending_operations.remove(to_remove_operation)
             # TODO: better error handling
             error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
-            raise AMQPException(
-                error_response.condition,
-                error_response.description,
-                error_response.info,
+            to_remove_operation.on_execute_operation_complete(  # The callback is defined in mgmt_operation.py::execute
+                ManagementExecuteOperationResult.ERROR,
+                None,
+                None,
+                message,
+                error=AMQPException(
+                    error_response.condition,
+                    error_response.description,
+                    error_response.info,
+                )
             )
 
     def open(self):
@@ -175,6 +181,7 @@ class ManagementLink(object):
         message.application_properties["type"] = type
         message.application_properties["locales"] = locales
         try:
+            # TODO: namedtuple is immutable, which may push us to re-think about the namedtuple approach for Message
             new_properties = message.propperties._replace(message_id=self.next_message_id)
         except AttributeError:
             new_properties = Properties(message_id=self.next_message_id)

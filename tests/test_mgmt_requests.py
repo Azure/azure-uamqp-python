@@ -39,6 +39,7 @@ def test_mgmt_request_get_eventhub_properties(eventhub_config):
     assert dict_value_body[b'partition_ids']
     assert dict_value_body[b'created_at']
     assert dict_value_body[b'type'] == b'com.microsoft:eventhub'
+    amqp_client.close()
 
 
 def test_mgmt_request_get_partition_properties(eventhub_config):
@@ -72,6 +73,7 @@ def test_mgmt_request_get_partition_properties(eventhub_config):
     assert dict_value_body[b'type'] == b'com.microsoft:partition'
     assert dict_value_body[b'partition'] == eventhub_config['partition'].encode()
     assert dict_value_body[b'name'] == eventhub_config['event_hub'].encode()
+    amqp_client.close()
 
 
 if __name__ == '__main__':

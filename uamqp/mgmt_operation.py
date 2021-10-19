@@ -53,26 +53,26 @@ class MgmtOperation(object):
         self._responses[operation_id] = None
         execution_error = None
 
-        # TODO: This could be moved to outer layer as a method on the MgmgOperation
+        # TODO: This inner func could be moved to outer layer as a method on the MgmgOperation
         def on_execute_operation_complete(
             operation_result,
             status_code,
             status_description,
             raw_message,
-            error_response=None
+            error=None
         ):
-            if operation_result == ManagementExecuteOperationResult.ERROR:
-                nonlocal execution_error
-                execution_error = AMQPException(
-                    error_response.condition,
-                    error_response.description,
-                    error_response.info
-                )
-                return
-            if operation_result != ManagementExecuteOperationResult.OK:
+            nonlocal execution_error
+            if operation_result not in (
+                    ManagementExecuteOperationResult.OK,
+                    ManagementExecuteOperationResult.FAILED_BAD_STATUS
+            ):
+                execution_error = error or\
+                    AMQPException(None, None, None, message="Management request failed unexpectedly")
                 _LOGGER.error(
                     "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
                     status_code, status_description)
+                return
+            # OK or FAILED_BAD_STATUS
             self._responses[operation_id] = (status_code, raw_message, status_description)
 
         self._mgmt_link.execute_operation(
@@ -83,7 +83,7 @@ class MgmtOperation(object):
             type=operation_type
         )
 
-        while not self._responses[operation_id] and not self.mgmt_error:
+        while not self._responses[operation_id] and not (self.mgmt_error or execution_error):
             if timeout > 0:
                 now = time.time()
                 if (now - start_time) >= timeout:
