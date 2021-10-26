@@ -301,6 +301,7 @@ class AMQPClient(object):
          take 3 arguments - status code, response message and description.
         :paramtype callback: ~callable[int, str, ~uamqp.message.Message]
         """
+
         # The method also takes "status_code_field" and "status_description_field"
         # keyword arguments as alternate names for the status code and description
         # in the response body. Those two keyword arguments are used in Azure services only.

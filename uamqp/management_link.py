@@ -128,10 +128,8 @@ class ManagementLink(object):
                 to_remove_operation = operation
                 break
         if to_remove_operation:
-            mgmt_result = ManagementExecuteOperationResult.OK \
-                if 200 <= status_code <= 299 else ManagementExecuteOperationResult.FAILED_BAD_STATUS
             to_remove_operation.on_execute_operation_complete(
-                mgmt_result,
+                ManagementExecuteOperationResult.OK,
                 status_code,
                 status_description,
                 message,
@@ -149,7 +147,7 @@ class ManagementLink(object):
             self._pending_operations.remove(to_remove_operation)
             # TODO: better error handling
             error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
-            # The callback is defined in management_operation.py::execute
+            # The callback is defined in management_operation.py
             to_remove_operation.on_execute_operation_complete(
                 ManagementExecuteOperationResult.ERROR,
                 None,

@@ -57,18 +57,25 @@ class ManagementOperation(object):
         raw_message,
         error=None
     ):
-        if operation_result not in (
-            ManagementExecuteOperationResult.OK,
-            ManagementExecuteOperationResult.FAILED_BAD_STATUS
-        ):
-            self.mgmt_error = error or\
-                AMQPException(None, None, None, message="Management request failed unexpectedly")
+        _LOGGER.debug(
+            "mgmt operation completed, operation id: %r; operation_result: %r; status_code: %r; "
+            "status_description: %r, raw_message: %r, error: %r",
+            operation_id,
+            operation_result,
+            status_code,
+            status_description,
+            raw_message,
+            error
+        )
+
+        if operation_result == ManagementExecuteOperationResult.ERROR:
+            self.mgmt_error = error
             _LOGGER.error(
-                "Failed to complete mgmt operation.\nStatus code: %r\nMessage: %r",
-                status_code, status_description)
-            return
-        # OK or FAILED_BAD_STATUS
-        self._responses[operation_id] = (status_code, status_description, raw_message)
+                "Failed to complete mgmt operation due to error: %r. The management request message is: %r",
+                error, raw_message
+            )
+        else:
+            self._responses[operation_id] = (status_code, status_description, raw_message)
 
     def execute(self, message, operation=None, operation_type=None, timeout=0):
         start_time = time.time()
