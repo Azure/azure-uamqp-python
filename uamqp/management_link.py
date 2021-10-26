@@ -23,7 +23,7 @@ from .message import Message, Properties
 
 _LOGGER = logging.getLogger(__name__)
 
-PendingMgmtOperation = namedtuple('PendingMgmtOperation', ['message', 'on_execute_operation_complete'])
+PendingManagementOperation = namedtuple('PendingManagementOperation', ['message', 'on_execute_operation_complete'])
 
 
 class ManagementLink(object):
@@ -149,7 +149,8 @@ class ManagementLink(object):
             self._pending_operations.remove(to_remove_operation)
             # TODO: better error handling
             error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
-            to_remove_operation.on_execute_operation_complete(  # The callback is defined in mgmt_operation.py::execute
+            # The callback is defined in management_operation.py::execute
+            to_remove_operation.on_execute_operation_complete(
                 ManagementExecuteOperationResult.ERROR,
                 None,
                 None,
@@ -193,7 +194,7 @@ class ManagementLink(object):
             timeout=timeout
         )
         self.next_message_id += 1
-        self._pending_operations.append(PendingMgmtOperation(message, on_execute_operation_complete))
+        self._pending_operations.append(PendingManagementOperation(message, on_execute_operation_complete))
 
     def close(self):
         if self.state != ManagementLinkState.IDLE:
