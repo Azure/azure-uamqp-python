@@ -148,6 +148,8 @@ class ManagementLink(object):
             # TODO: better error handling
             error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
             # The callback is defined in management_operation.py
+            # TODO: AMQPException is too general? to be more specific: MessageReject(Error) or AMQPManagementError?
+            #  or should there an error mapping which maps the condition to the error type
             to_remove_operation.on_execute_operation_complete(
                 ManagementExecuteOperationResult.ERROR,
                 None,
