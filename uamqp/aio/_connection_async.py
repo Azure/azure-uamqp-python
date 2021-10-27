@@ -75,7 +75,7 @@ class Connection(object):
             self.transport = AsyncTransport(parsed_url.netloc, **kwargs)
         self.container_id = kwargs.get('container_id') or str(uuid.uuid4())
         self.max_frame_size = kwargs.get('max_frame_size', MAX_FRAME_SIZE_BYTES)
-        self.remote_max_frame_size = None
+        self._remote_max_frame_size = None
         self.channel_max = kwargs.get('channel_max', MAX_CHANNELS)
         self.idle_timeout = kwargs.get('idle_timeout')
         self.outgoing_locales = kwargs.get('outgoing_locales')
@@ -204,7 +204,7 @@ class Connection(object):
             hostname=self.hostname,
             max_frame_size=self.max_frame_size,
             channel_max=self.channel_max,
-            idle_timeout=None,#self.idle_timeout * 1000 if self.idle_timeout else None,  # Convert to milliseconds
+            idle_timeout=self.idle_timeout * 1000 if self.idle_timeout else None,  # Convert to milliseconds
             outgoing_locales=self.outgoing_locales,
             incoming_locales=self.incoming_locales,
             offered_capabilities=self.offered_capabilities if self.state == ConnectionState.OPEN_RCVD else None,
@@ -212,7 +212,7 @@ class Connection(object):
             properties=self.properties,
         )
         if self.network_trace:
-            _LOGGER.info("<- %r", open_frame, extra=self.network_trace_params)
+            _LOGGER.info("-> %r", open_frame, extra=self.network_trace_params)
         await self._send_frame(0, open_frame)
 
     async def _incoming_open(self, channel, frame):
@@ -231,7 +231,7 @@ class Connection(object):
 
         if frame[2] < 512:
             pass  # TODO: error
-        self.remote_max_frame_size = frame[2]
+        self._remote_max_frame_size = frame[2]
         if self.state == ConnectionState.OPEN_SENT:
             await self._set_state(ConnectionState.OPENED)
         elif self.state == ConnectionState.HDR_EXCH:

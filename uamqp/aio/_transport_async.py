@@ -103,8 +103,7 @@ class AsyncTransport(object):
             self.reader, self.writer = await asyncio.open_connection(
                 sock=self.sock,
                 ssl=self.sslopts,
-                server_hostname=self.host if self.sslopts else None,
-                loop=self.loop
+                server_hostname=self.host if self.sslopts else None
             )
             # we've sent the banner; signal connect
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
@@ -176,16 +175,17 @@ class AsyncTransport(object):
         self._set_socket_options(socket_settings)
 
         # set socket timeouts
-        for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
-                                  (socket.SO_RCVTIMEO, read_timeout)):
-            if interval is not None:
-                sec = int(interval)
-                usec = int((interval - sec) * 1000000)
-                self.sock.setsockopt(
-                    socket.SOL_SOCKET, timeout,
-                    pack('ll', sec, usec),
-                )
-        self.sock.settimeout(0.1)  # set socket back to non-blocking mode
+        # for timeout, interval in ((socket.SO_SNDTIMEO, write_timeout),
+        #                           (socket.SO_RCVTIMEO, read_timeout)):
+        #     if interval is not None:
+        #         sec = int(interval)
+        #         usec = int((interval - sec) * 1000000)
+        #         self.sock.setsockopt(
+        #             socket.SOL_SOCKET, timeout,
+        #             pack('ll', sec, usec),
+        #         )
+
+        self.sock.settimeout(1)  # set socket back to non-blocking mode
 
     def _get_tcp_socket_defaults(self, sock):
         tcp_opts = {}
