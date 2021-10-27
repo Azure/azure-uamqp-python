@@ -13,6 +13,7 @@ import uuid
 import time
 import queue
 import certifi
+from functools import partial
 
 from ._connection_async import Connection
 from ._receiver_async import ReceiverLink
@@ -21,9 +22,19 @@ from ._session_async import Session
 from ._sasl_async import SASLTransport
 from ..client import AMQPClient as AMQPClientSync
 from ..client import ReceiveClient as ReceiveClientSync
+from ..client import SendClient as SendClientSync
+from ..message import _MessageDelivery
 from ..endpoints import Source, Target
-from ..constants import SenderSettleMode, ReceiverSettleMode
-
+from ..constants import (
+    SenderSettleMode,
+    ReceiverSettleMode,
+    MessageDeliveryState,
+    SEND_DISPOSITION_ACCEPT,
+    SEND_DISPOSITION_REJECT,
+    LinkDeliverySettleReason,
+    MESSAGE_DELIVERY_DONE_STATES
+)
+from ..error import ErrorResponse
 
 _logger = logging.getLogger(__name__)
 
@@ -138,12 +149,14 @@ class AMQPClientAsync(AMQPClientSync):
         else:
             self._connection = Connection(
                 "amqps://" + self._hostname,
-                sasl_credential=self._auth,
+                sasl_credential=self._auth.sasl,
                 container_id=self._name,
                 max_frame_size=self._max_frame_size,
                 channel_max=self._channel_max,
                 idle_timeout=self._idle_timeout,
-                properties=self._properties)
+                properties=self._properties,
+                network_trace=self._network_trace
+            )
             await self._connection.open()
         self._session = self._connection.create_session(
             incoming_window=self._incoming_window,
@@ -407,3 +420,111 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
             if timeout and time.time() > timeout:
                 expired = True
         return batch
+
+
+class SendClient(SendClientSync, AMQPClientAsync):
+
+    async def _client_ready_async(self):
+        """Determine whether the client is ready to start receiving messages.
+        To be ready, the connection must be open and authentication complete,
+        The Session, Link and MessageReceiver must be open and in non-errored
+        states.
+
+        :rtype: bool
+        :raises: ~uamqp.errors.MessageHandlerError if the MessageReceiver
+         goes into an error state.
+        """
+        # pylint: disable=protected-access
+        if not self._link:
+            self._link = self._session.create_sender_link(
+                target_address=self.target,
+                link_credit=self._link_credit,
+                send_settle_mode=self._send_settle_mode,
+                rcv_settle_mode=self._receive_settle_mode,
+                max_message_size=self._max_message_size,
+                properties=self._link_properties)
+            await self._link.attach()
+            return False
+        if self._link.state.value != 3:  # ATTACHED
+            return False
+        return True
+
+    async def _client_run_async(self, **kwargs):
+        """MessageSender Link is now open - perform message send
+        on all pending messages.
+        Will return True if operation successful and client can remain open for
+        further work.
+
+        :rtype: bool
+        """
+        try:
+            await self._connection.listen(**kwargs)
+        except ValueError:
+            _logger.info("Timeout reached, closing sender.")
+            self._shutdown = True
+            return False
+        return True
+
+    async def _transfer_message_async(self, message_delivery, timeout=0):
+        message_delivery.state = MessageDeliveryState.WaitingForSendAck
+        on_send_complete = partial(self._on_send_complete_async, message_delivery)
+        delivery = await self._link.send_transfer(
+            message_delivery.message,
+            on_send_complete=on_send_complete,
+            timeout=timeout
+        )
+        if not delivery.sent:
+            raise RuntimeError("Message is not sent.")
+
+    async def _on_send_complete_async(self, message_delivery, message, reason, state):
+        # TODO: check whether the callback would be called in case of message expiry or link going down
+        #  and if so handle the state in the callback
+        if state and SEND_DISPOSITION_ACCEPT in state:
+            message_delivery.state = MessageDeliveryState.Ok
+        else:
+            # TODO:
+            #  - sending disposition state could only be rejected/accepted?
+            #  - error action
+            #  - whether the state should be None in the case of sending failure/we could give a better default value
+            #   (message is not delivered)
+            if not state and reason == LinkDeliverySettleReason.NotDelivered:
+                message_delivery.state = MessageDeliveryState.Error
+                message_delivery.reason = reason
+                return
+
+            error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
+            # TODO: check error_info structure
+            if error_response.condition == b'com.microsoft:server-busy':
+                # TODO: customized/configurable error handling logic
+                time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
+
+                timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
+                await self._transfer_message(message_delivery, timeout)
+                message_delivery.state = MessageDeliveryState.WaitingToBeSent
+            else:
+                message_delivery.state = MessageDeliveryState.Error
+                message_delivery.reason = reason
+
+    async def send_message_async(self, message, **kwargs):
+        """
+        :param ~uamqp.message.Message message:
+        :param int timeout: timeout in seconds
+        """
+        timeout = kwargs.pop("timeout", 0)
+        expire_time = (time.time() + timeout) if timeout else None
+        self.open()
+        message_delivery = _MessageDelivery(
+            message,
+            MessageDeliveryState.WaitingToBeSent,
+            expire_time
+        )
+        await self._transfer_message_async(message_delivery, timeout)
+
+        running = True
+        while running and message_delivery.state not in MESSAGE_DELIVERY_DONE_STATES:
+            running = await self.do_work_async()
+            if message_delivery.expiry and time.time() > message_delivery.expiry:
+                message_delivery.state = MessageDeliveryState.Timeout
+        if message_delivery.state in \
+                (MessageDeliveryState.Error, MessageDeliveryState.Timeout, MessageDeliveryState.Cancelled):
+            raise Exception()  # TODO: Raise proper error

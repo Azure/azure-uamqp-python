@@ -11,8 +11,8 @@ import logging
 import time
 from urllib.parse import urlparse
 from enum import Enum
+import asyncio
 
-from ._anyio import create_task_group, sleep
 from ._transport_async import AsyncTransport
 from ._sasl_async import SASLTransport
 from ._session_async import Session
@@ -116,9 +116,10 @@ class Connection(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Connection '%s' state changed: %r -> %r", self.container_id, previous_state, new_state)
-        async with create_task_group() as tg:
-            for session in self.outgoing_endpoints.values():
-                await tg.spawn(session._on_connection_state_change)
+        futures = []
+        for session in self.outgoing_endpoints.values():
+            futures.append(asyncio.create_task(session._on_connection_state_change()))
+        await asyncio.gather(*futures)
 
     async def _connect(self):
         if not self.state:
@@ -357,7 +358,7 @@ class Connection(object):
         if wait == True:
             await self.listen(wait=False)
             while self.state != end_state:
-                await sleep(self.idle_wait_time)
+                await asyncio.sleep(self.idle_wait_time)
                 await self.listen(wait=False)
         elif wait:
             await self.listen(wait=False)
@@ -365,7 +366,7 @@ class Connection(object):
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                await sleep(self.idle_wait_time)
+                await asyncio.sleep(self.idle_wait_time)
                 await self.listen(wait=False)
     
     async def _listen_one_frame(self, **kwargs):
@@ -378,10 +379,10 @@ class Connection(object):
     async def listen(self, wait=False, batch=1, **kwargs):
         if self.state == ConnectionState.END:
             raise ValueError("Connection closed.")
-        async with create_task_group() as tg:
-            for _ in range(batch):
-                await tg.spawn(self._listen_one_frame, **kwargs)  # TODO: Close on first exception
-
+        futures = []
+        for _ in range(batch):
+            futures.append(asyncio.create_task(self._listen_one_frame(**kwargs)))
+        await asyncio.gather(*futures)   # TODO: Close on first exception
 
         if self.state not in _CLOSING_STATES:
             now = time.time()

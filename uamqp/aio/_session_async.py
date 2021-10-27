@@ -7,8 +7,9 @@
 import uuid
 import logging
 import time
+import asyncio
+from typing import Optional, Union
 
-from ._anyio import create_task_group, sleep
 from ..constants import (
     INCOMING_WINDOW,
     OUTGOING_WIDNOW,
@@ -94,9 +95,11 @@ class Session(object):
         previous_state = self.state
         self.state = new_state
         _LOGGER.info("Session state changed: %r -> %r", previous_state, new_state, extra=self.network_trace_params)
-        async with create_task_group() as tg:
-            for link in self.links.values():
-                await tg.spawn(link._on_session_state_change)
+
+        futures = []
+        for link in self.links.values():
+            futures.append(asyncio.create_task(link._on_session_state_change()))
+        await asyncio.gather(*futures)
 
     async def _on_connection_state_change(self):
         if self._connection.state in [ConnectionState.CLOSE_RCVD, ConnectionState.END]:
@@ -204,10 +207,12 @@ class Session(object):
         if frame[4] is not None:
             await self._input_handles[frame[4]]._incoming_flow(frame)
         else:
-            async with create_task_group() as tg:
-                for link in self._output_handles.values():
-                    if self.remote_incoming_window > 0 and not link._is_closed:
-                        await tg.spawn(link._incoming_flow, frame)
+
+            futures = []
+            for link in self._output_handles.values():
+                if self.remote_incoming_window > 0 and not link._is_closed:
+                    futures.append(link._incoming_flow(frame))
+            await asyncio.gather(*futures)
 
     async def _outgoing_transfer(self, delivery):
         if self.state != SessionState.MAPPED:
@@ -239,9 +244,10 @@ class Session(object):
         await self._connection._process_outgoing_frame(self.channel, frame)
 
     async def _incoming_disposition(self, frame):
-        async with create_task_group() as tg:
-            for link in self._input_handles.values():
-                await tg.spawn(link._incoming_disposition, frame)
+        futures = []
+        for link in self._input_handles.values():
+            asyncio.create_task(link._incoming_disposition(frame))
+        await asyncio.gather(*futures)
 
     async def _outgoing_detach(self, frame):
         await self._connection._process_outgoing_frame(self.channel, frame)
@@ -262,7 +268,7 @@ class Session(object):
         if wait == True:
             await self._connection.listen(wait=False)
             while self.state != end_state:
-                await sleep(self.idle_wait_time)
+                await asyncio.sleep(self.idle_wait_time)
                 await self._connection.listen(wait=False)
         elif wait:
             await self._connection.listen(wait=False)
@@ -270,7 +276,7 @@ class Session(object):
             while self.state != end_state:
                 if time.time() >= timeout:
                     break
-                await sleep(self.idle_wait_time)
+                await asyncio.sleep(self.idle_wait_time)
                 await self._connection.listen(wait=False)
 
     async def begin(self, wait=False):
