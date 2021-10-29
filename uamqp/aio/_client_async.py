@@ -20,6 +20,7 @@ from ._receiver_async import ReceiverLink
 from ._sender_async import SenderLink
 from ._session_async import Session
 from ._sasl_async import SASLTransport
+from ._cbs_async import CBSAuthenticator
 from ..client import AMQPClient as AMQPClientSync
 from ..client import ReceiveClient as ReceiveClientSync
 from ..client import SendClient as SendClientSync
@@ -32,7 +33,8 @@ from ..constants import (
     SEND_DISPOSITION_ACCEPT,
     SEND_DISPOSITION_REJECT,
     LinkDeliverySettleReason,
-    MESSAGE_DELIVERY_DONE_STATES
+    MESSAGE_DELIVERY_DONE_STATES,
+    AUTH_TYPE_CBS
 )
 from ..error import ErrorResponse
 
@@ -163,6 +165,13 @@ class AMQPClientAsync(AMQPClientSync):
             outgoing_window=self._outgoing_window
         )
         await self._session.begin()
+        if self._auth.auth_type == AUTH_TYPE_CBS:
+            self._cbs_authenticator = CBSAuthenticator(
+                session=self._session,
+                auth=self._auth,
+                auth_timeout=self._auth_timeout
+            )
+            await self._cbs_authenticator.open()
 
     async def close_async(self):
         """Close the client asynchronously. This includes closing the Session
@@ -176,6 +185,9 @@ class AMQPClientAsync(AMQPClientSync):
         if self._link:
             await self._link.detach(close=True)
             self._link = None
+        if self._cbs_authenticator:
+            await self._cbs_authenticator.close()
+            self._cbs_authenticator = None
         await self._session.end()
         self._session = None
         if not self._external_connection:
@@ -187,6 +199,9 @@ class AMQPClientAsync(AMQPClientSync):
 
         :rtype: bool
         """
+        if self._cbs_authenticator and not await self._cbs_authenticator.handle_token():
+            await self._connection.listen(wait=self._socket_timeout)
+            return False
         return True
 
     async def client_ready_async(self):

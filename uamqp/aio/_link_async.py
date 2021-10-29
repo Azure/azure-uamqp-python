@@ -195,6 +195,9 @@ class Link(object):
     async def _incoming_flow(self, frame):
         pass
 
+    async def _incoming_disposition(self, frame):
+        pass
+
     async def _outgoing_detach(self, close=False, error=None):
         detach_frame = DetachFrame(handle=self.handle, closed=close, error=error)
         if self.network_trace:

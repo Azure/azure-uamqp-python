@@ -19,6 +19,7 @@ from ..constants import (
     Role
 )
 from ..endpoints import Source, Target
+from ._management_link_async import ManagementLink
 from ._sender_async import SenderLink
 from ._receiver_async import ReceiverLink
 from ..performatives import (
@@ -371,3 +372,10 @@ class Session(object):
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link
+
+    def create_request_response_link_pair(self, endpoint, **kwargs):
+        return ManagementLink(
+            self,
+            endpoint,
+            network_trace=kwargs.pop('network_trace', self.network_trace),
+            **kwargs)

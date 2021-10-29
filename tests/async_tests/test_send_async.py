@@ -8,10 +8,10 @@ import logging
 import os
 import asyncio
 
-from uamqp.aio import SendClient
+from uamqp.aio import SendClient, SASTokenAuthAsync
 from uamqp.message import Message, BatchMessage, Header, Properties
 from uamqp.utils import add_batch
-from uamqp.authentication import SASLPlainAuth, SASTokenAuth
+from uamqp.authentication import SASLPlainAuth
 
 
 logging.basicConfig(level=logging.INFO)
@@ -58,7 +58,7 @@ async def test_send_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
-    sas_auth = SASTokenAuth(
+    sas_auth = SASTokenAuthAsync(
         uri=uri,
         audience=uri,
         username=eventhub_config['key_name'],
@@ -76,7 +76,7 @@ async def test_send_message_with_properties_to_partition_sas_auth_async(eventhub
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
-    sas_auth = SASTokenAuth(
+    sas_auth = SASTokenAuthAsync(
         uri=uri,
         audience=uri,
         username=eventhub_config['key_name'],
@@ -102,7 +102,7 @@ async def test_send_batch_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
-    sas_auth = SASTokenAuth(
+    sas_auth = SASTokenAuthAsync(
         uri=uri,
         audience=uri,
         username=eventhub_config['key_name'],
@@ -117,14 +117,14 @@ async def test_send_batch_message_to_partition_sas_auth_async(eventhub_config):
     for _ in range(10):
         add_batch(batch_message, Message(data=[b'Test']))
     await send_client.send_message_async(batch_message)
-    await send_client.close()
+    await send_client.close_async()
 
 
 async def test_send_large_batch_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
-    sas_auth = SASTokenAuth(
+    sas_auth = SASTokenAuthAsync(
         uri=uri,
         audience=uri,
         username=eventhub_config['key_name'],
@@ -154,8 +154,7 @@ if __name__ == '__main__':
     asyncio.run(test_send_single_message_to_target_partition_sasl_plain_auth_async(config))
     asyncio.run(test_send_single_large_message_to_target_partition_sasl_plain_auth_async(config))
     asyncio.run(test_send_single_message_to_partition_sasl_plain_auth_async(config))
-    # cbs not supported yet for async
-    # asyncio.run(test_send_message_to_partition_sas_auth_async(config))
-    # asyncio.run(test_send_message_with_properties_to_partition_sas_auth_async(config))
-    # asyncio.run(test_send_batch_message_to_partition_sas_auth_async(config))
-    # asyncio.run(test_send_large_batch_message_to_partition_sas_auth_async(config))
+    asyncio.run(test_send_message_to_partition_sas_auth_async(config))
+    asyncio.run(test_send_message_with_properties_to_partition_sas_auth_async(config))
+    asyncio.run(test_send_batch_message_to_partition_sas_auth_async(config))
+    asyncio.run(test_send_large_batch_message_to_partition_sas_auth_async(config))

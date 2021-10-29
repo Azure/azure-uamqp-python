@@ -73,7 +73,7 @@ class Connection(object):
             )
         else:
             self.transport = AsyncTransport(parsed_url.netloc, **kwargs)
-        self.container_id = kwargs.get('container_id') or str(uuid.uuid4())
+        self._container_id = kwargs.get('container_id') or str(uuid.uuid4())
         self.max_frame_size = kwargs.get('max_frame_size', MAX_FRAME_SIZE_BYTES)
         self._remote_max_frame_size = None
         self.channel_max = kwargs.get('channel_max', MAX_CHANNELS)
@@ -93,7 +93,7 @@ class Connection(object):
         self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
         self.network_trace = kwargs.get('network_trace', False)
         self.network_trace_params = {
-            'connection': self.container_id,
+            'connection': self._container_id,
             'session': None,
             'link': None
         }
@@ -115,7 +115,7 @@ class Connection(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Connection '%s' state changed: %r -> %r", self.container_id, previous_state, new_state)
+        _LOGGER.info("Connection '%s' state changed: %r -> %r", self._container_id, previous_state, new_state)
         futures = []
         for session in self.outgoing_endpoints.values():
             futures.append(asyncio.create_task(session._on_connection_state_change()))
@@ -200,7 +200,7 @@ class Connection(object):
 
     async def _outgoing_open(self):
         open_frame = OpenFrame(
-            container_id=self.container_id,
+            container_id=self._container_id,
             hostname=self.hostname,
             max_frame_size=self.max_frame_size,
             channel_max=self.channel_max,
