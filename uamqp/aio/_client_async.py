@@ -382,9 +382,10 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
             await self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
-        elif not message.settled:
-            # Message was received with callback processing and wasn't settled.
-            _logger.info("Message was not settled.")
+        # TODO: do we need settled property for a message?
+        # elif not message.settled:
+        #    # Message was received with callback processing and wasn't settled.
+        #    _logger.info("Message was not settled.")
 
     async def receive_message_batch_async(self, max_batch_size=None, on_message_received=None, timeout=0):
         """Receive a batch of messages asynchronously. This method will return as soon as some
@@ -514,7 +515,7 @@ class SendClient(SendClientSync, AMQPClientAsync):
                 time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
 
                 timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
-                await self._transfer_message(message_delivery, timeout)
+                await self._transfer_message_async(message_delivery, timeout)
                 message_delivery.state = MessageDeliveryState.WaitingToBeSent
             else:
                 message_delivery.state = MessageDeliveryState.Error
