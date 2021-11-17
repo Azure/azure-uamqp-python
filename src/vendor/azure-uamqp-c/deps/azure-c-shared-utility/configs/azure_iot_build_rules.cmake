@@ -68,8 +68,8 @@ endif()
 
 # System-specific compiler flags
 if(MSVC)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
 elseif(UNIX) #LINUX OR APPLE
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -186,6 +186,23 @@ function(compileTargetAsC11 theTarget)
     set_target_properties(${theTarget} PROPERTIES CXX_STANDARD 11)
   endif()
 endfunction()
+
+macro(generate_cpp_wrapper setVar whatIsBuilding)
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${whatIsBuilding}.cxx "#include \"${CMAKE_CURRENT_SOURCE_DIR}/${whatIsBuilding}.c\"")
+  set(${setVar} ${CMAKE_CURRENT_BINARY_DIR}/${whatIsBuilding}.cxx)
+endmacro(generate_cpp_wrapper)
+
+macro(generate_cppunittest_wrapper whatIsBuilding)
+    if (${use_cppunittest} AND WIN32)
+      file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${whatIsBuilding}.cxx "#include \"${CMAKE_CURRENT_SOURCE_DIR}/${whatIsBuilding}.c\"")
+      set(${whatIsBuilding}_test_files ${CMAKE_CURRENT_BINARY_DIR}/${whatIsBuilding}.cxx)
+      #CPP compiler on windows likes to complain about unused local function removed (C4505)
+      #C compiler doesn't like to complain about the same thing
+      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4505")
+    else()
+      set(${whatIsBuilding}_test_files ${whatIsBuilding}.c)
+    endif()
+endmacro(generate_cppunittest_wrapper)
 
 IF((WIN32) AND (NOT(MINGW)))
     #windows needs this define

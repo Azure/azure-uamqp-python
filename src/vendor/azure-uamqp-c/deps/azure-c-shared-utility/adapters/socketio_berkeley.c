@@ -140,7 +140,7 @@ static void* socketio_CloneOption(const char* name, const void* value)
         }
         else
         {
-            LogError("Cannot clone option %s (not supported)", name);
+            LogError("Cannot clone option %s (not suppported)", name);
         }
     }
     else

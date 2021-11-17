@@ -559,21 +559,20 @@ int x509_verify_certificate_in_chain(const char* trustedCertificate, PCCERT_CONT
     else
     {
         CERT_CHAIN_ENGINE_CONFIG EngineConfig;
-        CERT_CHAIN_PARA ChainPara;
-        CERT_CHAIN_POLICY_PARA PolicyPara;
-        CERT_CHAIN_POLICY_STATUS PolicyStatus;
-
         memset(&EngineConfig, 0, sizeof(EngineConfig));
         EngineConfig.cbSize = sizeof(EngineConfig);
         EngineConfig.dwFlags = CERT_CHAIN_ENABLE_CACHE_AUTO_UPDATE | CERT_CHAIN_ENABLE_SHARE_STORE;
         EngineConfig.hExclusiveRoot = hCertStore;
 
+        CERT_CHAIN_PARA ChainPara;
         memset(&ChainPara, 0, sizeof(ChainPara));
         ChainPara.cbSize = sizeof(ChainPara);
 
+        CERT_CHAIN_POLICY_PARA PolicyPara;
         memset(&PolicyPara, 0, sizeof(PolicyPara));
         PolicyPara.cbSize = sizeof(PolicyPara);
 
+        CERT_CHAIN_POLICY_STATUS PolicyStatus;
         memset(&PolicyStatus, 0, sizeof(PolicyStatus));
         PolicyStatus.cbSize = sizeof(PolicyStatus);
 

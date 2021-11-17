@@ -57,11 +57,10 @@ typedef struct LINK_INSTANCE_TAG
     sequence_no initial_delivery_count;
     uint64_t max_message_size;
     uint64_t peer_max_message_size;
-    int32_t current_link_credit;
+    uint32_t current_link_credit;
     uint32_t max_link_credit;
     uint32_t available;
     fields attach_properties;
-    AMQP_VALUE desired_capabilities;
     bool is_underlying_session_begun;
     bool is_closed;
     unsigned char* received_payload;
@@ -280,15 +279,6 @@ static int send_attach(LINK_INSTANCE* link, const char* name, handle handle, rol
             (void)attach_set_properties(attach, link->attach_properties);
         }
 
-        if (link->desired_capabilities != NULL)
-        {
-            if(attach_set_desired_capabilities(attach, link->desired_capabilities) != 0)
-            {
-                LogError("Cannot set attach desired capabilities");
-                result = MU_FAILURE;
-            }
-        }
-
         if (role == role_sender)
         {
             if (attach_set_initial_delivery_count(attach, link->delivery_count) != 0)
@@ -432,6 +422,12 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 bool more;
                 bool is_error;
 
+                if (link_instance->current_link_credit == 0)
+                {
+                    link_instance->current_link_credit = link_instance->max_link_credit;
+                    send_flow(link_instance);
+                }
+
                 more = false;
                 /* Attempt to get more flag, default to false */
                 (void)transfer_get_more(transfer_handle, &more);
@@ -563,19 +559,20 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                                 {
                                     delivery_instance->on_delivery_settled(delivery_instance->callback_context, delivery_instance->delivery_id, LINK_DELIVERY_SETTLE_REASON_DISPOSITION_RECEIVED, delivery_state);
                                     async_operation_destroy(pending_delivery_operation);
-                                    if (singlylinkedlist_remove(link_instance->pending_deliveries, pending_delivery) != 0)
-                                    {
-                                        LogError("Cannot remove pending delivery");
-                                        break;
-                                    }
+                                }
+                                else
+                                {
+                                    LogError("Failed getting the disposition state");
+                                }
 
-                                    pending_delivery = next_pending_delivery;
+                                if (singlylinkedlist_remove(link_instance->pending_deliveries, pending_delivery) != 0)
+                                {
+                                    LogError("Cannot remove pending delivery");
+                                    break;
                                 }
                             }
-                            else
-                            {
-                                pending_delivery = next_pending_delivery;
-                            }
+
+                            pending_delivery = next_pending_delivery;
                         }
                     }
                 }
@@ -693,15 +690,22 @@ static void on_send_complete(void* context, IO_SEND_RESULT send_result)
 {
     LIST_ITEM_HANDLE delivery_instance_list_item = (LIST_ITEM_HANDLE)context;
     ASYNC_OPERATION_HANDLE pending_delivery_operation = (ASYNC_OPERATION_HANDLE)singlylinkedlist_item_get_value(delivery_instance_list_item);
-    DELIVERY_INSTANCE* delivery_instance = (DELIVERY_INSTANCE*)GET_ASYNC_OPERATION_CONTEXT(DELIVERY_INSTANCE, pending_delivery_operation);
-    LINK_HANDLE link = (LINK_HANDLE)delivery_instance->link;
-
-    (void)send_result;
-    if (link->snd_settle_mode == sender_settle_mode_settled)
+    if (pending_delivery_operation != NULL)
     {
-        delivery_instance->on_delivery_settled(delivery_instance->callback_context, delivery_instance->delivery_id, send_result == IO_SEND_OK ? LINK_DELIVERY_SETTLE_REASON_SETTLED : LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED, NULL);
-        async_operation_destroy(pending_delivery_operation);
-        (void)singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item);
+        DELIVERY_INSTANCE* delivery_instance = (DELIVERY_INSTANCE*)GET_ASYNC_OPERATION_CONTEXT(DELIVERY_INSTANCE, pending_delivery_operation);
+        if (delivery_instance != NULL)
+        {
+            LINK_HANDLE link = (LINK_HANDLE)delivery_instance->link;
+
+            (void)send_result;
+            if (link != NULL && 
+                link->snd_settle_mode == sender_settle_mode_settled)
+            {
+                delivery_instance->on_delivery_settled(delivery_instance->callback_context, delivery_instance->delivery_id, send_result == IO_SEND_OK ? LINK_DELIVERY_SETTLE_REASON_SETTLED : LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED, NULL);
+                async_operation_destroy(pending_delivery_operation);
+                (void)singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item);
+            }
+        }
     }
 }
 
@@ -745,7 +749,6 @@ LINK_HANDLE link_create(SESSION_HANDLE session, const char* name, role role, AMQ
         result->is_underlying_session_begun = false;
         result->is_closed = false;
         result->attach_properties = NULL;
-        result->desired_capabilities = NULL;
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
@@ -835,7 +838,6 @@ LINK_HANDLE link_create_from_endpoint(SESSION_HANDLE session, LINK_ENDPOINT_HAND
         result->is_underlying_session_begun = false;
         result->is_closed = false;
         result->attach_properties = NULL;
-        result->desired_capabilities = NULL;
         result->received_payload = NULL;
         result->received_payload_size = 0;
         result->received_delivery_id = 0;
@@ -1114,59 +1116,6 @@ int link_get_peer_max_message_size(LINK_HANDLE link, uint64_t* peer_max_message_
     return result;
 }
 
-int link_get_desired_capabilities(LINK_HANDLE link, AMQP_VALUE* desired_capabilities)
-{
-    int result;
-    if((link == NULL) ||
-        (desired_capabilities == NULL))
-    {
-        LogError("Bad arguments: link = %p, desired_capabilities = %p",
-            link, desired_capabilities);
-        result = MU_FAILURE;
-    }
-    else
-    {
-        AMQP_VALUE link_desired_capabilties = amqpvalue_clone(link->desired_capabilities);
-        if(link_desired_capabilties == NULL)
-        {
-            LogError("Failed to clone link desired capabilities");
-            result = MU_FAILURE;
-        }
-        else
-        {
-            *desired_capabilities = link_desired_capabilties;
-            result = 0;
-        }
-    }
-    return result;
-}
-
-int link_set_desired_capabilities(LINK_HANDLE link, AMQP_VALUE desired_capabilities)
-{
-    int result;
-
-    if (link == NULL)
-    {
-        LogError("NULL link");
-        result = MU_FAILURE;
-    }
-    else
-    {
-        link->desired_capabilities = amqpvalue_clone(desired_capabilities);
-        if (link->desired_capabilities == NULL)
-        {
-            LogError("Failed cloning desired capabilities");
-            result = MU_FAILURE;
-        }
-        else
-        {
-            result = 0;
-        }
-    }
-
-    return result;
-}
-
 int link_set_attach_properties(LINK_HANDLE link, fields attach_properties)
 {
     int result;
@@ -1207,74 +1156,6 @@ int link_set_max_link_credit(LINK_HANDLE link, uint32_t max_link_credit)
         result = 0;
     }
 
-    return result;
-}
-
-int link_reset_link_credit(LINK_HANDLE link, uint32_t link_credit, bool drain)
-{
-    int result;
-    FLOW_HANDLE flow;
-    LINK_INSTANCE* link_instance = (LINK_INSTANCE*)link;
-
-    if (link == NULL)
-    {
-        result = MU_FAILURE;
-    }
-    else
-    {
-        if(link_instance->role == role_sender)
-        {
-            LogError("Sender is not allowed to reset link credit");
-            result = MU_FAILURE;
-        }
-        else
-        {
-            link->current_link_credit = link_credit;
-
-            flow = flow_create(0, 0, 0);
-            if (flow == NULL)
-            {
-                LogError("NULL flow performative");
-                result = MU_FAILURE;
-            }
-            else
-            {
-                if (flow_set_link_credit(flow, link->current_link_credit) != 0)
-                {
-                    LogError("Cannot set link credit on flow performative");
-                    result = MU_FAILURE;
-                }
-                else if (flow_set_handle(flow, link->handle) != 0)
-                {
-                    LogError("Cannot set handle on flow performative");
-                    result = MU_FAILURE;
-                }
-                else if (flow_set_delivery_count(flow, link->delivery_count) != 0)
-                {
-                    LogError("Cannot set delivery count on flow performative");
-                    result = MU_FAILURE;
-                }
-                else if (drain && flow_set_drain(flow, drain) != 0)
-                {
-                    LogError("Cannot set drain on flow performative");
-                    result = MU_FAILURE;
-                }
-                else
-                {
-                    if (session_send_flow(link->link_endpoint, flow) != 0)
-                    {
-                        LogError("Sending flow frame failed in session send");
-                        result = MU_FAILURE;
-                    }
-                    else
-                    {
-                        result = 0;
-                    }
-                }
-                flow_destroy(flow);
-            }
-        }
-    }
     return result;
 }
 
@@ -1727,12 +1608,6 @@ void link_dowork(LINK_HANDLE link)
     {
         tickcounter_ms_t current_tick;
 
-        if (link->current_link_credit <= 0)
-        {
-            link->current_link_credit = link->max_link_credit;
-            send_flow(link);
-        }
-
         if (tickcounter_get_current_ms(link->tick_counter, &current_tick) != 0)
         {
             LogError("Cannot get tick counter value");
@@ -1745,22 +1620,26 @@ void link_dowork(LINK_HANDLE link)
             {
                 LIST_ITEM_HANDLE next_item = singlylinkedlist_get_next_item(item);
                 ASYNC_OPERATION_HANDLE delivery_instance_async_operation = (ASYNC_OPERATION_HANDLE)singlylinkedlist_item_get_value(item);
-                DELIVERY_INSTANCE* delivery_instance = (DELIVERY_INSTANCE*)GET_ASYNC_OPERATION_CONTEXT(DELIVERY_INSTANCE, delivery_instance_async_operation);
-
-                if ((delivery_instance->timeout != 0) &&
-                    (current_tick - delivery_instance->start_tick >= delivery_instance->timeout))
+                if (delivery_instance_async_operation != NULL)
                 {
-                    if (delivery_instance->on_delivery_settled != NULL)
-                    {
-                        delivery_instance->on_delivery_settled(delivery_instance->callback_context, delivery_instance->delivery_id, LINK_DELIVERY_SETTLE_REASON_TIMEOUT, NULL);
-                    }
+                    DELIVERY_INSTANCE* delivery_instance = (DELIVERY_INSTANCE*)GET_ASYNC_OPERATION_CONTEXT(DELIVERY_INSTANCE, delivery_instance_async_operation);
 
-                    if (singlylinkedlist_remove(link->pending_deliveries, item) != 0)
+                    if ((delivery_instance != NULL) &&
+                        (delivery_instance->timeout != 0) &&
+                        (current_tick - delivery_instance->start_tick >= delivery_instance->timeout))
                     {
-                        LogError("Cannot remove item from list");
-                    }
+                        if (delivery_instance->on_delivery_settled != NULL)
+                        {
+                            delivery_instance->on_delivery_settled(delivery_instance->callback_context, delivery_instance->delivery_id, LINK_DELIVERY_SETTLE_REASON_TIMEOUT, NULL);
+                        }
 
-                    async_operation_destroy(delivery_instance_async_operation);
+                        if (singlylinkedlist_remove(link->pending_deliveries, item) != 0)
+                        {
+                            LogError("Cannot remove item from list");
+                        }
+
+                        async_operation_destroy(delivery_instance_async_operation);
+                    }
                 }
 
                 item = next_item;
