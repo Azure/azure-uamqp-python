@@ -12,6 +12,12 @@ option(skip_samples "set skip_samples to ON to skip building samples (default is
 option(use_installed_dependencies "set use_installed_dependencies to ON to use installed packages instead of building dependencies from submodules" OFF)
 option(memory_trace "set memory_trace to ON if memory usage is to be used, set to OFF to not use it" OFF)
 option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
+option(use_latest_windows_sdk "use latest windows sdk if available (default is OFF)" OFF)
+option(latest_windows_sdk_shared_include_path "the path to Windows SDK shared include")
+
+if(${use_latest_windows_sdk})
+    include_directories(${latest_windows_sdk_shared_include_path})
+endif()
 
 if(${use_custom_heap})
     add_definitions(-DGB_USE_CUSTOM_HEAP)
