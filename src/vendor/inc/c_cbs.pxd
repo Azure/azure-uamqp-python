@@ -8,6 +8,7 @@ from libc cimport stdint
 
 cimport c_session
 cimport c_strings
+cimport c_async_operation
 
 
 cdef enum AUTH_STATUS:
@@ -45,6 +46,6 @@ cdef extern from "azure_uamqp_c/cbs.h":
     void cbs_destroy(CBS_HANDLE cbs)
     int cbs_open_async(CBS_HANDLE cbs, ON_CBS_OPEN_COMPLETE on_cbs_open_complete, void* on_cbs_open_complete_context, ON_CBS_ERROR on_cbs_error, void* on_cbs_error_context)
     int cbs_close(CBS_HANDLE cbs)
-    int cbs_put_token_async(CBS_HANDLE cbs, const char* type, const char* audience, const char* token, ON_CBS_OPERATION_COMPLETE on_cbs_put_token_complete, void* on_cbs_put_token_complete_context)
+    c_async_operation.ASYNC_OPERATION_HANDLE cbs_put_token_async(CBS_HANDLE cbs, const char* type, const char* audience, const char* token, ON_CBS_OPERATION_COMPLETE on_cbs_put_token_complete, void* on_cbs_put_token_complete_context)
     int cbs_delete_token_async(CBS_HANDLE cbs, const char* type, const char* audience, ON_CBS_OPERATION_COMPLETE on_cbs_delete_token_complete, void* on_cbs_delete_token_complete_context)
     int cbs_set_trace(CBS_HANDLE cbs, bint trace_on)
