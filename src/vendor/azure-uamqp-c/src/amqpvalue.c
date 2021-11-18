@@ -6610,6 +6610,8 @@ static int internal_decoder_decode_bytes(INTERNAL_DECODER_DATA* internal_decoder
 
                         if (internal_decoder_data->bytes_decoded == 0)
                         {
+                            AMQP_VALUE_DATA* map_item;
+
                             if (internal_decoder_data->decode_value_state.map_value_state.item >= internal_decoder_data->decode_to_value->value.map_value.pair_count)
                             {
                                 LogError("Map item index is out of range");
@@ -6618,7 +6620,7 @@ static int internal_decoder_decode_bytes(INTERNAL_DECODER_DATA* internal_decoder
                                 break;
                             }
 
-                            AMQP_VALUE_DATA* map_item = (AMQP_VALUE_DATA*)REFCOUNT_TYPE_CREATE(AMQP_VALUE_DATA);
+                            map_item = (AMQP_VALUE_DATA*)REFCOUNT_TYPE_CREATE(AMQP_VALUE_DATA);
                             if (map_item == NULL)
                             {
                                 LogError("Could not allocate memory for map item");
