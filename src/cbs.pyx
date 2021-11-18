@@ -97,13 +97,13 @@ cdef class CBSTokenAuth(object):
         if current_time >= self.expires_at:
             raise ValueError("Token has expired")
         self._token_put_time = current_time
-        if c_cbs.cbs_put_token_async(
+        if <void*>c_cbs.cbs_put_token_async(
                 self._cbs_handle,
                 self.token_type,
                 self.audience,
                 self.token,
                 <c_cbs.ON_CBS_OPERATION_COMPLETE>on_cbs_put_token_complete,
-                <void*>self) != 0:
+                <void*>self) == NULL:
             raise ValueError("Put-Token request failed.")
         else:
             self.state = AUTH_STATUS_IN_PROGRESS
