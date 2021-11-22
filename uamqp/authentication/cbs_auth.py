@@ -70,7 +70,9 @@ class CBSAuthMixin(object):
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
                 self.timeout,
-                self._connection.container_id)
+                self._connection.container_id,
+                self._refresh_window
+            )
             self._cbs_auth.set_trace(debug)
         except ValueError:
             self._session.destroy()
@@ -137,7 +139,14 @@ class CBSAuthMixin(object):
                 _logger.info("Token on connection %r will expire soon - attempting to refresh.",
                              self._connection.container_id)
                 self.update_token()
-                self._cbs_auth.refresh(self.token, int(self.expires_at))
+                if self.token != self._prev_token:
+                    self._cbs_auth.refresh(self.token, int(self.expires_at))
+                else:
+                    _logger.info(
+                        "The newly acquired token on connection %r is the same as the previous one,"
+                        " will keep attempting to refresh",
+                        self._connection.container_id
+                    )
             elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
@@ -213,6 +222,9 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
 
     def __init__(self, audience, uri, token,
@@ -231,6 +243,8 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._refresh_window = kwargs.pop("refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -259,6 +273,7 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         encoded_uri = compat.quote_plus(self.uri).encode(self._encoding)  # pylint: disable=no-member
         encoded_key = compat.quote_plus(self.username).encode(self._encoding)  # pylint: disable=no-member
         self.expires_at = time.time() + self.expires_in.seconds
+        self._prev_token = self.token
         self.token = utils.create_sas_token(
             encoded_key,
             self.password.encode(self._encoding),
@@ -314,6 +329,9 @@ class SASTokenAuth(AMQPAuth, CBSAuthMixin):
         :param encoding: The encoding to use if hostname is provided as a str.
          Default is 'UTF-8'.
         :type encoding: str
+        :keyword int refresh_window: The time in seconds before the token expiration
+        time to start the process of token refresh.
+        Default value is 10% of the remaining seconds until the token expires.
         """
         expires_in = datetime.timedelta(seconds=expiry or constants.AUTH_EXPIRATION_SECS)
         encoded_uri = compat.quote_plus(uri).encode(encoding)  # pylint: disable=no-member
@@ -382,6 +400,9 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
 
     def __init__(self, audience, uri,
@@ -399,6 +420,8 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._refresh_window = kwargs.pop("refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -425,4 +448,5 @@ class JWTTokenAuth(AMQPAuth, CBSAuthMixin):
     def update_token(self):
         access_token = self.get_token()
         self.expires_at = access_token.expires_on
+        self._prev_token = self.token
         self.token = self._encode(access_token.token)

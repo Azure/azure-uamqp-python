@@ -3,9 +3,10 @@
 Release History
 ===============
 
-1.4.4 (Unreleased)
+1.5.0 (Unreleased)
 +++++++++++++++++++
 
+- `SASTokenAuth`, `JWTTokenAuth`, `SASTokenAsync`, and `JWTTokenAsync` now takes keyword argument `refresh_window` to override default token refresh timing in constructors.
 - Updated Azure uAMQP C and Azure C Shared Utility dependencies.
 
 1.4.3 (2021-10-06)

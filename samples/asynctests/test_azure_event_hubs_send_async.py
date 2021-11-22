@@ -7,13 +7,17 @@
 import os
 import logging
 import asyncio
+import time
 from datetime import timedelta
 import pytest
 import sys
 import types
+import collections
 
 import uamqp
-from uamqp import types as uamqp_types, utils, authentication
+from uamqp import types as uamqp_types, utils, authentication, constants
+
+_AccessToken = collections.namedtuple("AccessToken", "token expires_on")
 
 
 def get_logger(level):
@@ -237,6 +241,60 @@ async def test_event_hubs_send_large_message_after_socket_lost(live_eventhub_con
     finally:
         await send_client.close_async()
 
+
+@pytest.mark.asyncio
+async def test_event_hubs_send_override_token_refresh_window(live_eventhub_config):
+    uri = "sb://{}/{}".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    target = "amqps://{}/{}/Partitions/0".format(live_eventhub_config['hostname'], live_eventhub_config['event_hub'])
+    token = None
+
+    async def get_token():
+        nonlocal token
+        return _AccessToken(token, expiry)
+
+    jwt_auth = authentication.JWTTokenAsync(
+        uri,
+        uri,
+        get_token,
+        refresh_window=300  # set refresh window to be 5 mins
+    )
+
+    send_client = uamqp.SendClientAsync(target, auth=jwt_auth, debug=False)
+
+    # use token of which the valid remaining time < refresh window
+    expiry = int(time.time()) + (60 * 4 + 30)  # 4.5 minutes
+    token = utils.create_sas_token(
+        live_eventhub_config['key_name'].encode(),
+        live_eventhub_config['access_key'].encode(),
+        uri.encode(),
+        expiry=timedelta(minutes=4, seconds=30)
+    )
+
+    for _ in range(3):
+        message = uamqp.message.Message(body='Hello World')
+        await send_client.send_message_async(message)
+
+    auth_status = constants.CBSAuthStatus(jwt_auth._cbs_auth.get_status())
+    assert auth_status == constants.CBSAuthStatus.RefreshRequired
+
+    # update token, the valid remaining time > refresh window
+    expiry = int(time.time()) + (60 * 5 + 30)  # 5.5 minutes
+    token = utils.create_sas_token(
+        live_eventhub_config['key_name'].encode(),
+        live_eventhub_config['access_key'].encode(),
+        uri.encode(),
+        expiry=timedelta(minutes=5, seconds=30)
+    )
+
+    for _ in range(3):
+        message = uamqp.message.Message(body='Hello World')
+        await send_client.send_message_async(message)
+
+    auth_status = constants.CBSAuthStatus(jwt_auth._cbs_auth.get_status())
+    assert auth_status == constants.CBSAuthStatus.Ok
+    await send_client.close_async()
+
+
 if __name__ == '__main__':
     config = {}
     config['hostname'] = os.environ['EVENT_HUB_HOSTNAME']
@@ -247,4 +305,4 @@ if __name__ == '__main__':
     config['partition'] = "0"
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_event_hubs_send_large_message_after_socket_lost(config))
+    loop.run_until_complete(test_event_hubs_send_override_token_refresh_window(config))
