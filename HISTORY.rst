@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.5.0 (Unreleased)
++++++++++++++++++++
+
+- `SASTokenAuth`, `JWTTokenAuth`, `SASTokenAsync`, and `JWTTokenAsync` now takes keyword argument `refresh_window` to override default token refresh timing in constructors.
+
 1.4.3 (2021-10-06)
 +++++++++++++++++++
 

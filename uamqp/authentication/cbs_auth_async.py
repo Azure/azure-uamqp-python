@@ -65,7 +65,9 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 int(self.expires_at),
                 self._session._session,  # pylint: disable=protected-access
                 self.timeout,
-                self._connection.container_id)
+                self._connection.container_id,
+                self._refresh_window
+            )
             self._cbs_auth.set_trace(debug)
         except ValueError:
             await self._session.destroy_async()
@@ -132,7 +134,14 @@ class CBSAsyncAuthMixin(CBSAuthMixin):
                 _logger.info("Token on connection %r will expire soon - attempting to refresh.",
                              self._connection.container_id)
                 await self.update_token()
-                self._cbs_auth.refresh(self.token, int(self.expires_at))
+                if self.token != self._prev_token:
+                    self._cbs_auth.refresh(self.token, int(self.expires_at))
+                else:
+                    _logger.info(
+                        "The newly acquired token on connection %r is the same as the previous one,"
+                        " will keep attempting to refresh",
+                        self._connection.container_id
+                    )
             elif auth_status == constants.CBSAuthStatus.Idle:
                 self._cbs_auth.authenticate()
                 in_progress = True
@@ -196,6 +205,9 @@ class SASTokenAsync(SASTokenAuth, CBSAsyncAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
     async def update_token(self):  # pylint: disable=useless-super-delegation
         super(SASTokenAsync, self).update_token()
@@ -243,6 +255,9 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
     :param encoding: The encoding to use if hostname is provided as a str.
      Default is 'UTF-8'.
     :type encoding: str
+    :keyword int refresh_window: The time in seconds before the token expiration
+     time to start the process of token refresh.
+     Default value is 10% of the remaining seconds until the token expires.
     """
 
     def __init__(self, audience, uri,
@@ -260,6 +275,8 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
                  **kwargs):  # pylint: disable=no-member
         self._retry_policy = retry_policy
         self._encoding = encoding
+        self._refresh_window = kwargs.pop("refresh_window", 0)
+        self._prev_token = None
         self.uri = uri
         parsed = compat.urlparse(uri)  # pylint: disable=no-member
 
@@ -285,4 +302,5 @@ class JWTTokenAsync(JWTTokenAuth, CBSAsyncAuthMixin):
     async def update_token(self):
         access_token = await self.get_token()
         self.expires_at = access_token.expires_on
+        self._prev_token = self.token
         self.token = self._encode(access_token.token)
