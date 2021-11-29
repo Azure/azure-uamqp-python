@@ -108,7 +108,7 @@ class ConnectionAsync(connection.Connection):
         return self._internal_kwargs.get("loop")
 
     async def lock_async(self, timeout=3.0):
-        await asyncio.wait_for(self._async_lock.acquire(), timeout=timeout, **self._internal_kwargs)
+        await asyncio.wait_for(await self._async_lock.acquire(), timeout=timeout, **self._internal_kwargs)
 
     def release_async(self):
         try:
