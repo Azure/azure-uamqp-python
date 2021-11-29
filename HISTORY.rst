@@ -7,7 +7,7 @@ Release History
 +++++++++++++++++++
 
 - `SASTokenAuth`, `JWTTokenAuth`, `SASTokenAsync`, and `JWTTokenAsync` now takes keyword argument `refresh_window` to override default token refresh timing in constructors.
-- Fixed bug for `coroutine 'Lock.acquire' was never awaited` warning.
+- Fixed bug for `coroutine 'Lock.acquire' was never awaited` warning (azure-sdk-for-python issue #21639).
 
 1.4.3 (2021-10-06)
 +++++++++++++++++++
