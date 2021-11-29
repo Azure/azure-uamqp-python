@@ -22,7 +22,7 @@ Wheels are provided for most major operating systems, so you can install directl
     $ pip install uamqp
 
 
-If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__, you can install from source:
+If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__ or you need to customize the build based on your system settings and packages, you can install from source:
 
 .. code:: shell
 
@@ -35,6 +35,13 @@ If you are running Alpine, you can install from source:
 .. code:: shell
 
     $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl-dev build-base
+    $ pip3 install uamqp --no-binary :all:
+
+If you are running Red Hat, you can install from source:
+
+.. code:: shell
+
+    $ yum install cmake gcc gcc-c++ make openssl-devel python3-devel
     $ pip3 install uamqp --no-binary :all:
 
 
