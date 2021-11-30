@@ -89,7 +89,7 @@ cdef class cManagementOperation(StructBase):
             context = <void*>NULL
         else:
             context = <void*>callback_context
-        if c_amqp_management.amqp_management_execute_operation_async(self._c_value, operation, type, c_locales, message._c_value, on_execute_operation_complete, context) != 0:
+        if <void*>c_amqp_management.amqp_management_execute_operation_async(self._c_value, operation, type, c_locales, message._c_value, on_execute_operation_complete, context) == NULL:
             self._value_error("Unable to execute management operation.")
 
 

@@ -655,7 +655,7 @@ long double strtold_s(const char* nptr, char** endptr)
             break;
         case FST_NAN:
             /*Codes_SRS_CRT_ABSTRACTIONS_21_034: [If the string is 'NAN' or 'NAN(...)' (ignoring case), the strtold_s must return 0.0 and points endptr to the first character after the 'NAN' sequence.]*/
-            result = (long double)NAN;
+            result = (long double)((float)NAN);
             break;
         case FST_NUMBER:
             if ((exponential != DBL_MAX_10_EXP || (fraction <= 1.7976931348623158)) &&
@@ -719,7 +719,7 @@ int mallocAndStrcpy_s(char** destination, const char* source)
             *destination = temp;
             /*Codes_SRS_CRT_ABSTRACTIONS_99_039: [mallocAndstrcpy_s shall copy the contents in the address source, including the terminating null character into location specified by the destination pointer after the memory allocation.]*/
             copied_result = strcpy_s(*destination, l + 1, source);
-            if (copied_result < 0) /*strcpy_s error*/
+            if (copied_result != 0) /*strcpy_s error*/
             {
                 free(*destination);
                 *destination = NULL;
