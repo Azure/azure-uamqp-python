@@ -128,8 +128,10 @@ class ManagementLink(object):
                 to_remove_operation = operation
                 break
         if to_remove_operation:
+            mgmt_result = ManagementExecuteOperationResult.OK \
+                if 200 <= status_code <= 299 else ManagementExecuteOperationResult.FAILED_BAD_STATUS
             to_remove_operation.on_execute_operation_complete(
-                ManagementExecuteOperationResult.OK,
+                mgmt_result,
                 status_code,
                 status_description,
                 message,
@@ -146,7 +148,6 @@ class ManagementLink(object):
                     break
             self._pending_operations.remove(to_remove_operation)
             # TODO: better error handling
-            error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
             # The callback is defined in management_operation.py
             # TODO: AMQPException is too general? to be more specific: MessageReject(Error) or AMQPManagementError?
             #  or should there an error mapping which maps the condition to the error type
@@ -156,9 +157,9 @@ class ManagementLink(object):
                 None,
                 message,
                 error=AMQPException(
-                    error_response.condition,
-                    error_response.description,
-                    error_response.info,
+                    state[SEND_DISPOSITION_REJECT][0][0],
+                    state[SEND_DISPOSITION_REJECT][0][1],
+                    state[SEND_DISPOSITION_REJECT][0][2],
                 )
             )
 
@@ -183,7 +184,7 @@ class ManagementLink(object):
         message.application_properties["locales"] = locales
         try:
             # TODO: namedtuple is immutable, which may push us to re-think about the namedtuple approach for Message
-            new_properties = message.propperties._replace(message_id=self.next_message_id)
+            new_properties = message.properties._replace(message_id=self.next_message_id)
         except AttributeError:
             new_properties = Properties(message_id=self.next_message_id)
         message = message._replace(properties=new_properties)
@@ -201,5 +202,13 @@ class ManagementLink(object):
             self.state = ManagementLinkState.CLOSING
             self._response_link.detach(close=True)
             self._request_link.detach(close=True)
+            for pending_operation in self._pending_operations:
+                pending_operation.on_execute_operation_complete(
+                    ManagementExecuteOperationResult.INSTANCE_CLOSED,
+                    None,
+                    None,
+                    pending_operation.message,
+                    AMQPException(None, None, None, "Management link already closed.")
+                )
             self._pending_operations = []
         self.state = ManagementLinkState.IDLE

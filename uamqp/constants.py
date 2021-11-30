@@ -186,6 +186,8 @@ class ManagementExecuteOperationResult(Enum):
 
     OK = 0
     ERROR = 1
+    FAILED_BAD_STATUS = 2
+    INSTANCE_CLOSED = 3
 
 
 class CbsState(Enum):

@@ -6,7 +6,6 @@
 
 from enum import Enum
 from collections import namedtuple
-import six
 
 from .constants import PORT, FIELD
 from .types import AMQPTypes, FieldDefinition

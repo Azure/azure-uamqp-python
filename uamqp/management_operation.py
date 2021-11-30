@@ -68,7 +68,8 @@ class ManagementOperation(object):
             error
         )
 
-        if operation_result == ManagementExecuteOperationResult.ERROR:
+        if operation_result in\
+                (ManagementExecuteOperationResult.ERROR, ManagementExecuteOperationResult.INSTANCE_CLOSED):
             self.mgmt_error = error
             _LOGGER.error(
                 "Failed to complete mgmt operation due to error: %r. The management request message is: %r",
