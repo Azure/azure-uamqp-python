@@ -22,7 +22,7 @@ Wheels are provided for most major operating systems, so you can install directl
     $ pip install uamqp
 
 
-If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__, you can install from source:
+If you are running a Linux distro that does not support `ManyLinux1 <https://www.python.org/dev/peps/pep-0513>`__ or you need to customize the build based on your system settings and packages, you can install from source:
 
 .. code:: shell
 
@@ -35,6 +35,13 @@ If you are running Alpine, you can install from source:
 .. code:: shell
 
     $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl-dev build-base
+    $ pip3 install uamqp --no-binary :all:
+
+If you are running Red Hat, you can install from source:
+
+.. code:: shell
+
+    $ yum install cmake gcc gcc-c++ make openssl-devel python3-devel
     $ pip3 install uamqp --no-binary :all:
 
 
@@ -63,8 +70,8 @@ Building the extension
 
 This project has two C library dependencies. They are vendored in this repository in these versions:
 
-- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__ @ `2021-01-20 <https://github.com/Azure/azure-uamqp-c/tree/bf3f62e8a2359e2a6b363502097bfcd87c1dff47>`__
-- `Azure C Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__ @ `2021-01-19 <https://github.com/Azure/azure-c-shared-utility/tree/31c6e946cb35c9448d48f1f1f0e82d077ed05b98>`__
+- `Azure uAMQP for C <https://github.com/Azure/azure-uamqp-c>`__ @ `2021-11-16 <https://github.com/Azure/azure-uamqp-c/tree/259db533a66a8fa6e9ac61c39a9dae880224145f>`__
+- `Azure C Shared Utility <https://github.com/Azure/azure-c-shared-utility>`__ @ `2021-11-15 <https://github.com/Azure/azure-c-shared-utility/tree/735be16a943c2a9cbbddef0543f871f5bc0e27ab>`__
 
 To build, start by creating a virtual environment and installing the required Python packages:
 
