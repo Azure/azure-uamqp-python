@@ -260,7 +260,11 @@ class AMQPClient(object):
             self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)
-                self._keep_alive_thread.start()
+                try:
+                    self._keep_alive_thread.start()
+                except RuntimeError:
+                    self._keep_alive_thread = None
+                    raise
         finally:
             if self._ext_connection:
                 connection.release()
