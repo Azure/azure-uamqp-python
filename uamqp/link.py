@@ -11,10 +11,8 @@ import logging
 import time
 from enum import Enum
 from io import BytesIO
-try:
-    from urllib.parse import urlparse
-except:
-    from urlparse import urlparse
+from urllib.parse import urlparse
+
 
 from .endpoints import Source, Target
 from .constants import (
@@ -33,6 +31,13 @@ from .performatives import (
     TransferFrame,
     DispositionFrame,
     FlowFrame,
+)
+
+from .error import (
+    ErrorCodes,
+    LinkDetach,
+    VendorLinkDetach,
+    LinkRedirect
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -95,6 +100,7 @@ class Link(object):
         self._pending_deliveries = {}
         self._received_payload = b""
         self._on_link_state_change = kwargs.get('on_link_state_change')
+        self._error = None
 
     def __enter__(self):
         self.attach()
@@ -107,6 +113,23 @@ class Link(object):
     def from_incoming_frame(cls, session, handle, frame):
         # check link_create_from_endpoint in C lib
         raise NotImplementedError('Pending')  # TODO: Assuming we establish all links for now...
+
+    def get_state(self):
+        if self.state.value == 6:  # error
+            raise self._error
+        return self.state
+
+    def _process_link_error(self, condition, description, info):
+        try:
+            amqp_condition = ErrorCodes(condition)
+        except ValueError:
+            error = VendorLinkDetach(condition, description, info)
+        else:
+            if amqp_condition == ErrorCodes.LinkRedirect:
+                error = LinkRedirect(amqp_condition, description, info)
+            else:
+                error = LinkDetach(amqp_condition, description, info)
+        self._error = error
 
     def _set_state(self, new_state):
         # type: (LinkState) -> None
@@ -220,6 +243,7 @@ class Link(object):
         self._remove_pending_deliveries()
         # TODO: on_detach_hook
         if frame[2]:  # error
+            self._process_link_error(condition=frame[2][0], description=frame[2][1], info=frame[2][2])
             self._set_state(LinkState.ERROR)
         else:
             self._set_state(LinkState.DETACHED)

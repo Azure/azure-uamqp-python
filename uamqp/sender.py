@@ -46,7 +46,7 @@ class PendingDelivery(object):
     def on_settled(self, reason, state):
         if self.on_delivery_settled and not self.settled:
             try:
-                self.on_delivery_settled(self.message, reason, state)
+                self.on_delivery_settled(reason, state)
             except Exception as e:
                 _LOGGER.warning("Message 'on_send_complete' callback failed: %r", e)
 
