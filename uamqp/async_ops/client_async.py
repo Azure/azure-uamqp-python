@@ -613,7 +613,6 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         running = True
         while running and self.messages_pending():
             running = await self.do_work_async()
-        return running
 
     async def send_message_async(self, messages, close_on_done=False):
         """Send a single message or batched message asynchronously.
@@ -664,15 +663,14 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         :rtype: list[~uamqp.constants.MessageState]
         """
         await self.open_async()
-        running = True
         try:
             async with self._pending_messages_lock:
                 messages = self._pending_messages[:]
-            running = await self.wait_async()
+            await self.wait_async()
             results = [m.state for m in messages]
             return results
         finally:
-            if close_on_done or not running:
+            if close_on_done:
                 await self.close_async()
 
 
