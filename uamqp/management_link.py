@@ -204,7 +204,7 @@ class ManagementLink(object):
             self._request_link.detach(close=True)
             for pending_operation in self._pending_operations:
                 pending_operation.on_execute_operation_complete(
-                    ManagementExecuteOperationResult.INSTANCE_CLOSED,
+                    ManagementExecuteOperationResult.LINK_CLOSED,
                     None,
                     None,
                     pending_operation.message,

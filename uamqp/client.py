@@ -32,7 +32,6 @@ from .constants import (
     SenderSettleMode,
     ReceiverSettleMode,
     LinkDeliverySettleReason,
-    ManagementOpenResult,
     SEND_DISPOSITION_ACCEPT,
     SEND_DISPOSITION_REJECT,
     AUTH_TYPE_CBS,
@@ -317,17 +316,10 @@ class AMQPClient(object):
             mgmt_link = ManagementOperation(self._session, endpoint=node, **kwargs)
             self._mgmt_links[node] = mgmt_link
             mgmt_link.open()
-            while not mgmt_link.mgmt_link_open_status and not mgmt_link.mgmt_error:
+
+            while not mgmt_link.ready():
                 self._connection.listen(wait=False)
-            if mgmt_link.mgmt_error:
-                raise mgmt_link.mgmt_error
-            if mgmt_link.mgmt_link_open_status != ManagementOpenResult.OK:
-                # TODO: update below with correct status code + info
-                raise AMQPConnectionError(
-                    400,
-                    "Failed to open mgmt link: {}".format(mgmt_link.mgmt_link_open_status),
-                    {}
-                )
+
         operation_type = operation_type or b'empty'
         status, description, response = mgmt_link.execute(
             message,

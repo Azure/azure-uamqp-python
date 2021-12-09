@@ -10,9 +10,14 @@ from functools import partial
 
 from .management_link import ManagementLink
 from .message import Message
-from .error import AMQPException
+from .error import (
+    AMQPException,
+    AMQPConnectionError,
+    ErrorCondition
+)
 
 from .constants import (
+    ManagementOpenResult,
     ManagementExecuteOperationResult
 )
 
@@ -21,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class ManagementOperation(object):
     def __init__(self, session, endpoint='$management', **kwargs):
-        self.mgmt_link_open_status = None
+        self._mgmt_link_open_status = None
 
         self._session = session
         self._connection = self._session._connection
@@ -32,7 +37,7 @@ class ManagementOperation(object):
             **kwargs
         )  # type: ManagementLink
         self._responses = {}
-        self.mgmt_error = None
+        self._mgmt_error = None
 
     def _on_amqp_management_open_complete(self, result):
         """Callback run when the send/receive links are open and ready
@@ -41,12 +46,12 @@ class ManagementOperation(object):
         :param result: Whether the link opening was successful.
         :type result: int
         """
-        self.mgmt_link_open_status = result
+        self._mgmt_link_open_status = result
 
     def _on_amqp_management_error(self):
         """Callback run if an error occurs in the send/receive links."""
         # TODO: This probably shouldn't be ValueError
-        self.mgmt_error = ValueError("Management Operation error occurred.")
+        self._mgmt_error = ValueError("Management Operation error occurred.")
 
     def _on_execute_operation_complete(
         self,
@@ -69,8 +74,8 @@ class ManagementOperation(object):
         )
 
         if operation_result in\
-                (ManagementExecuteOperationResult.ERROR, ManagementExecuteOperationResult.INSTANCE_CLOSED):
-            self.mgmt_error = error
+                (ManagementExecuteOperationResult.ERROR, ManagementExecuteOperationResult.LINK_CLOSED):
+            self._mgmt_error = error
             _LOGGER.error(
                 "Failed to complete mgmt operation due to error: %r. The management request message is: %r",
                 error, raw_message
@@ -82,7 +87,7 @@ class ManagementOperation(object):
         start_time = time.time()
         operation_id = str(uuid.uuid4())
         self._responses[operation_id] = None
-        self.mgmt_error = None
+        self._mgmt_error = None
 
         self._mgmt_link.execute_operation(
             message,
@@ -92,22 +97,41 @@ class ManagementOperation(object):
             type=operation_type
         )
 
-        while not self._responses[operation_id] and not self.mgmt_error:
+        while not self._responses[operation_id] and not self._mgmt_error:
             if timeout > 0:
                 now = time.time()
                 if (now - start_time) >= timeout:
                     raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
             self._connection.listen()
 
-        if self.mgmt_error:
+        if self._mgmt_error:
             self._responses.pop(operation_id)
-            raise self.mgmt_error
+            raise self._mgmt_error
 
         response = self._responses.pop(operation_id)
         return response
 
     def open(self):
+        self._mgmt_link_open_status = ManagementOpenResult.OPENING
         self._mgmt_link.open()
+
+    def ready(self):
+        try:
+            raise self._mgmt_error
+        except TypeError:
+            pass
+
+        if self._mgmt_link_open_status == ManagementOpenResult.OPENING:
+            return False
+        if self._mgmt_link_open_status == ManagementOpenResult.OK:
+            return True
+        # ManagementOpenResult.ERROR or CANCELLED
+        # TODO: update below with correct status code + info
+        raise AMQPConnectionError(
+            400,
+            "Failed to open mgmt link, management link status: {}".format(mgmt_link.mgmt_link_open_status),
+            None
+        )
 
     def close(self):
         self._mgmt_link.close()
