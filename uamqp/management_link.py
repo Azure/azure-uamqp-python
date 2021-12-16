@@ -4,7 +4,9 @@
 # license information.
 #--------------------------------------------------------------------------
 
+import time
 import logging
+from functools import partial
 from collections import namedtuple
 
 from .sender import SenderLink
@@ -16,10 +18,12 @@ from .constants import (
     ReceiverSettleMode,
     ManagementExecuteOperationResult,
     ManagementOpenResult,
-    SEND_DISPOSITION_REJECT
+    SEND_DISPOSITION_ACCEPT,
+    SEND_DISPOSITION_REJECT,
+    MessageDeliveryState
 )
 from .error import ErrorResponse, AMQPException
-from .message import Message, Properties
+from .message import Message, Properties, _MessageDelivery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,29 +143,30 @@ class ManagementLink(object):
             )
             self._pending_operations.remove(to_remove_operation)
 
-    def _on_send_complete(self, message, reason, state):  # todo: reason is never used, should check spec
-        if SEND_DISPOSITION_REJECT in state:  # either rejected or accepted
+    def _on_send_complete(self, message_delivery, reason, state):  # todo: reason is never used, should check spec
+        if SEND_DISPOSITION_REJECT in state:
             to_remove_operation = None
             for operation in self._pending_operations:
-                if message == operation.message:
+                if message_delivery.message == operation.message:
                     to_remove_operation = operation
                     break
             self._pending_operations.remove(to_remove_operation)
-            # TODO: better error handling
-            # The callback is defined in management_operation.py
-            # TODO: AMQPException is too general? to be more specific: MessageReject(Error) or AMQPManagementError?
-            #  or should there an error mapping which maps the condition to the error type
-            to_remove_operation.on_execute_operation_complete(
-                ManagementExecuteOperationResult.ERROR,
-                None,
-                None,
-                message,
-                error=AMQPException(
-                    state[SEND_DISPOSITION_REJECT][0][0],
-                    state[SEND_DISPOSITION_REJECT][0][1],
-                    state[SEND_DISPOSITION_REJECT][0][2],
+            if SEND_DISPOSITION_REJECT in state:  # either rejected or accepted
+                # TODO: better error handling
+                # The callback is defined in management_operation.py
+                # TODO: AMQPException is too general? to be more specific: MessageReject(Error) or AMQPManagementError?
+                #  or should there an error mapping which maps the condition to the error type
+                to_remove_operation.on_execute_operation_complete(
+                    ManagementExecuteOperationResult.ERROR,
+                    None,
+                    None,
+                    message_delivery.message,
+                    error=AMQPException(
+                        state[SEND_DISPOSITION_REJECT][0][0],
+                        state[SEND_DISPOSITION_REJECT][0][1],
+                        state[SEND_DISPOSITION_REJECT][0][2],
+                    )
                 )
-            )
 
     def open(self):
         if self.state != ManagementLinkState.IDLE:
@@ -171,13 +176,13 @@ class ManagementLink(object):
         self._request_link.attach()
 
     def execute_operation(
-            self,
-            message,
-            on_execute_operation_complete,
-            timeout=None,
-            operation=None,
-            type=None,
-            locales=None
+        self,
+        message,
+        on_execute_operation_complete,
+        timeout=None,
+        operation=None,
+        type=None,
+        locales=None
     ):
         message.application_properties["operation"] = operation
         message.application_properties["type"] = type
@@ -188,10 +193,18 @@ class ManagementLink(object):
         except AttributeError:
             new_properties = Properties(message_id=self.next_message_id)
         message = message._replace(properties=new_properties)
+        expire_time = (time.time() + timeout) if timeout else None
+        message_delivery = _MessageDelivery(
+            message,
+            MessageDeliveryState.WaitingToBeSent,
+            expire_time
+        )
+
+        on_send_complete = partial(self._on_send_complete, message_delivery)
 
         self._request_link.send_transfer(
             message,
-            on_send_complete=self._on_send_complete,
+            on_send_complete=on_send_complete,
             timeout=timeout
         )
         self.next_message_id += 1

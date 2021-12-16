@@ -12,6 +12,7 @@ from uamqp import AMQPClient
 from uamqp.message import Message, BatchMessage, Header, Properties
 from uamqp.utils import add_batch
 from uamqp.authentication import SASLPlainAuth, SASTokenAuth
+from uamqp.error import AMQPException, ErrorCondition
 
 
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +40,23 @@ def test_mgmt_request_get_eventhub_properties(eventhub_config):
     assert dict_value_body[b'partition_ids']
     assert dict_value_body[b'created_at']
     assert dict_value_body[b'type'] == b'com.microsoft:eventhub'
+
+    # Error case
+    mgmt_msg = Message(application_properties={"name": eventhub_config["event_hub"]})
+    error = None
+    try:
+        amqp_client.mgmt_request(
+            mgmt_msg,
+            operation="DELETE",
+            operation_type="com.microsoft:eventhub",
+            status_code_field=b'status-code',
+            status_description_field=b'status-description'
+        )
+    except Exception as exc:
+        error = exc
+
+    assert isinstance(error, AMQPException)
+    assert error.condition == ErrorCondition.NotAllowed.value
     amqp_client.close()
 
 
