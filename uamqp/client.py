@@ -180,8 +180,8 @@ class AMQPClient(object):
         self._connection.listen(wait=self._socket_timeout)
 
     def _close_link(self, **kwargs):
-        if self._link:
-            self._link.detach(close=True)
+        if self._link and not self._link._is_closed:
+            self._link.detach(close=kwargs.get("close", False))
             self._link = None
 
     def _do_retryable_operation(self, operation, *args, **kwargs):
@@ -270,9 +270,7 @@ class AMQPClient(object):
         self._shutdown = True
         if not self._session:
             return  # already closed.
-        if self._link:
-            self._link.detach(close=True)
-            self._link = None
+        self._close_link(close=True)
         if self._cbs_authenticator:
             self._cbs_authenticator.close()
             self._cbs_authenticator = None
@@ -498,7 +496,7 @@ class SendClient(AMQPClient):
 
     def _send_message_impl(self, message, **kwargs):
         timeout = kwargs.pop("timeout", 0)
-        expire_time = (time.time() + timeout) if timeout else None
+        expire_time = (time.time() + timeout / 1000) if timeout else None
         self.open()
         message_delivery = _MessageDelivery(
             message,
@@ -630,7 +628,7 @@ class ReceiveClient(AMQPClient):
         #  implementation needs to be updated to enable specifying type information
         #  self._link_properties = {b"com.microsoft:epoch": {"TYPE": "LONG", "VALUE": 10}}
         #  self._link_properties = {b"com.microsoft:epoch": 10}
-        self._link_credit = kwargs.pop('link_credit', None)
+        self._link_credit = kwargs.pop('link_credit', None) or 300
         super(ReceiveClient, self).__init__(hostname, auth=auth, **kwargs)
 
     def _client_ready(self):
@@ -652,7 +650,9 @@ class ReceiveClient(AMQPClient):
                 rcv_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
                 on_message_received=self._message_received,
-                properties=self._link_properties)
+                properties=self._link_properties,
+                desired_capabilities=self._desired_capabilities
+            )
             self._link.attach()
             return False
         if self._link.get_state().value != 3:  # ATTACHED
@@ -695,7 +695,7 @@ class ReceiveClient(AMQPClient):
     def _receive_message_batch_impl(self, max_batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._link_credit
-        timeout = time.time() + timeout if timeout else 0
+        timeout = (time.time() + timeout / 1000) if timeout else 0
         expired = False
         receiving = True
         batch = []
@@ -710,16 +710,26 @@ class ReceiveClient(AMQPClient):
             return batch
         # TODO: we should return as soon as there are some messages in the queue instead of waiting for timeout
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work(batch=max_batch_size)
+
+            while receiving and self._received_messages.qsize() < max_batch_size:
+                if timeout and time.time() > timeout:
+                    expired = True
+                    break
+
+                before = self._received_messages.qsize()
+                receiving = self.do_work(batch=max_batch_size)
+                received = self._received_messages.qsize() - before
+
+                if self._received_messages.qsize() > 0 and received == 0:
+                    expired = True
+                    break
+
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())
                     self._received_messages.task_done()
                 except queue.Empty:
                     break
-            if timeout and time.time() > timeout:
-                expired = True
-
         return batch
 
     def close(self):

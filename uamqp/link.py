@@ -54,26 +54,34 @@ class Link(object):
         self.handle = handle
         self.remote_handle = None
         self.role = role
-        self.source = Source(
-            address=kwargs['source_address'],
-            durable=kwargs.get('source_durable'),
-            expiry_policy=kwargs.get('source_expiry_policy'),
-            timeout=kwargs.get('source_timeout'),
-            dynamic=kwargs.get('source_dynamic'),
-            dynamic_node_properties=kwargs.get('source_dynamic_node_properties'),
-            distribution_mode=kwargs.get('source_distribution_mode'),
-            filters=kwargs.get('source_filters'),
-            default_outcome=kwargs.get('source_default_outcome'),
-            outcomes=kwargs.get('source_outcomes'),
-            capabilities=kwargs.get('source_capabilities'))
-        self.target = Target(
-            address=kwargs['target_address'],
-            durable=kwargs.get('target_durable'),
-            expiry_policy=kwargs.get('target_expiry_policy'),
-            timeout=kwargs.get('target_timeout'),
-            dynamic=kwargs.get('target_dynamic'),
-            dynamic_node_properties=kwargs.get('target_dynamic_node_properties'),
-            capabilities=kwargs.get('target_capabilities'))
+        source_address = kwargs['source_address']
+        target_address = kwargs['target_address']
+        if isinstance(source_address, Source):
+            self.source = source_address
+        else:
+            self.source = Source(
+                address=kwargs['source_address'],
+                durable=kwargs.get('source_durable'),
+                expiry_policy=kwargs.get('source_expiry_policy'),
+                timeout=kwargs.get('source_timeout'),
+                dynamic=kwargs.get('source_dynamic'),
+                dynamic_node_properties=kwargs.get('source_dynamic_node_properties'),
+                distribution_mode=kwargs.get('source_distribution_mode'),
+                filters=kwargs.get('source_filters'),
+                default_outcome=kwargs.get('source_default_outcome'),
+                outcomes=kwargs.get('source_outcomes'),
+                capabilities=kwargs.get('source_capabilities'))
+        if isinstance(target_address, Target):
+            self.target = target_address
+        else:
+            self.target = Target(
+                address=kwargs['target_address'],
+                durable=kwargs.get('target_durable'),
+                expiry_policy=kwargs.get('target_expiry_policy'),
+                timeout=kwargs.get('target_timeout'),
+                dynamic=kwargs.get('target_dynamic'),
+                dynamic_node_properties=kwargs.get('target_dynamic_node_properties'),
+                capabilities=kwargs.get('target_capabilities'))
         self.link_credit = kwargs.pop('link_credit', None) or DEFAULT_LINK_CREDIT
         self.current_link_credit = self.link_credit
         self.send_settle_mode = kwargs.pop('send_settle_mode', SenderSettleMode.Mixed)
