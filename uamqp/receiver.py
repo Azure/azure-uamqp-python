@@ -74,7 +74,7 @@ class ReceiverLink(Link):
         if not self.received_delivery_id and not self._received_payload:
             pass  # TODO: delivery error
         if self._received_payload or frame[5]:  # more
-            self._received_payload.extend(bytearray(frame[11]))
+            self._received_payload.extend(frame[11])
         if not frame[5]:
             if self._received_payload:
                 message = decode_payload(memoryview(self._received_payload))
