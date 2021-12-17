@@ -141,7 +141,7 @@ class AMQPException(Exception):
             "Error condition: {}, error description: {}, error info: {}".format(
               self.condition, self.description, self.info
             )
-        super(AMQPException, self).__init__(message)  # TODO: Pass a message
+        super(AMQPException, self).__init__(message)
 
 
 class AMQPDecodeError(AMQPException):
