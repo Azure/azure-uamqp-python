@@ -544,3 +544,13 @@ def test_decode_array():
     out_buffer, output = decode_value(buffer)
     assert output == [None] * 256
     assert not out_buffer
+
+
+def test_decode_described():
+    buffer = memoryview(b'\x00\x80\x01\x23\x45\x67\x89\xab\xcd\xef\xa1\x0fdescribedstring')
+    out_buffer, output = decode_value(buffer)
+    assert output == b'describedstring'
+
+    buffer = memoryview(b'\x00\xa3\x10descriptorsymbol\xa1\x0fdescribedstring')
+    out_buffer, output = decode_value(buffer)
+    assert output == b'describedstring'

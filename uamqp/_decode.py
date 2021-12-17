@@ -228,10 +228,11 @@ def _decode_array_large(buffer):
 
 def _decode_described(buffer):
     # type: (memoryview) -> Tuple[memoryview, Any]
-    composite_type = buffer[1]
-    buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[2]](buffer[3:])
+    composite_type = buffer[0]
+    buffer, descriptor = _DECODE_BY_CONSTRUCTOR[composite_type](buffer[1:])
+    buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
     try:
-        composite_type = _COMPOSITES[composite_type]
+        composite_type = _COMPOSITES[descriptor]
         return buffer, {composite_type: value}
     except KeyError:
         return buffer, value
