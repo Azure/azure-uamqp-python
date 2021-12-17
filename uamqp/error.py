@@ -6,7 +6,6 @@
 
 from enum import Enum
 from collections import namedtuple
-import six
 
 from .constants import PORT, FIELD
 from .types import AMQPTypes, FieldDefinition
@@ -138,7 +137,11 @@ class AMQPException(Exception):
         self.condition = condition
         self.description = description
         self.info = info
-        super(AMQPException, self).__init__(message)  # TODO: Pass a message
+        message = message or \
+            "Error condition: {}, error description: {}, error info: {}".format(
+              self.condition, self.description, self.info
+            )
+        super(AMQPException, self).__init__(message)
 
 
 class AMQPDecodeError(AMQPException):
