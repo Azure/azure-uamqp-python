@@ -393,7 +393,7 @@ class SendClient(AMQPClient):
         if not delivery.sent:
             raise RuntimeError("Message is not sent.")
 
-    def _on_send_complete(self, message_delivery, message, reason, state):
+    def _on_send_complete(self, message_delivery, reason, state):
         # TODO: check whether the callback would be called in case of message expiry or link going down
         #  and if so handle the state in the callback
         if state and SEND_DISPOSITION_ACCEPT in state:
