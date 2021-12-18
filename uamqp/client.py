@@ -640,13 +640,24 @@ class ReceiveClient(AMQPClient):
             return batch
 
         while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work(batch=max_batch_size)
+
+            while receiving and self._received_messages.qsize() < max_batch_size:
+                if timeout and time.time() > timeout:
+                    expired = True
+                    break
+
+                before = self._received_messages.qsize()
+                receiving = self.do_work(batch=max_batch_size)
+                received = self._received_messages.qsize() - before
+
+                if self._received_messages.qsize() > 0 and received == 0:
+                    expired = True
+                    break
+
             while len(batch) < max_batch_size:
                 try:
                     batch.append(self._received_messages.get_nowait())
                     self._received_messages.task_done()
                 except queue.Empty:
                     break
-            if timeout and time.time() > timeout:
-                expired = True
         return batch
