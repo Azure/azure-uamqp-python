@@ -533,7 +533,6 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = False
         self._received_messages = queue.Queue()
         self._message_received_callback = None
-        self._new_message_received = False
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
@@ -595,7 +594,6 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
-        self._new_message_received = True
         # TODO: do we need settled property for a message?
         #elif not message.settled:
         #    # Message was received with callback processing and wasn't settled.
@@ -644,10 +642,10 @@ class ReceiveClient(AMQPClient):
             if timeout and time.time() > timeout:
                 return batch
 
-            self._new_message_received = False
+            before = self._received_messages.qsize()
             receiving = self.do_work(batch=max_batch_size)
-
-            if batch and not self._new_message_received:
+            received = self._received_messages.qsize() - before
+            if batch and received == 0:
                 # there are already messages in the batch, and no message is received in the current cycle
                 # return what we have
                 return batch
