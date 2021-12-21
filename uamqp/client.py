@@ -638,23 +638,30 @@ class ReceiveClient(AMQPClient):
         else:
             return batch
 
-        while receiving and len(batch) < max_batch_size:
-            if timeout and time.time() > timeout:
-                return batch
+        to_receive_size = max_batch_size - len(batch)
+        before_queue_size = self._received_messages.qsize()
 
-            before = self._received_messages.qsize()
-            receiving = self.do_work(batch=max_batch_size)
-            received = self._received_messages.qsize() - before
-            if batch and received == 0:
+        while receiving and to_receive_size > 0:
+            if timeout and time.time() > timeout:
+                break
+
+            receiving = self.do_work(batch=to_receive_size)
+            cur_queue_size = self._received_messages.qsize()
+            # after do_work, check how many new messages have been received since previous iteration
+            received = cur_queue_size - before_queue_size
+            if to_receive_size < max_batch_size and received == 0:
                 # there are already messages in the batch, and no message is received in the current cycle
                 # return what we have
-                return batch
+                break
 
-            while len(batch) < max_batch_size:
-                try:
-                    batch.append(self._received_messages.get_nowait())
-                    self._received_messages.task_done()
-                except queue.Empty:
-                    break
+            to_receive_size -= received
+            before_queue_size = cur_queue_size
+
+        while len(batch) < max_batch_size:
+            try:
+                batch.append(self._received_messages.get_nowait())
+                self._received_messages.task_done()
+            except queue.Empty:
+                break
 
         return batch
