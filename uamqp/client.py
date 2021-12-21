@@ -533,6 +533,7 @@ class ReceiveClient(AMQPClient):
         self._streaming_receive = False
         self._received_messages = queue.Queue()
         self._message_received_callback = None
+        self._new_message_received = False
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
@@ -594,6 +595,7 @@ class ReceiveClient(AMQPClient):
             self._message_received_callback(message)
         if not self._streaming_receive:
             self._received_messages.put(message)
+        self._new_message_received = True
         # TODO: do we need settled property for a message?
         #elif not message.settled:
         #    # Message was received with callback processing and wasn't settled.
@@ -627,7 +629,6 @@ class ReceiveClient(AMQPClient):
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._link_credit
         timeout = time.time() + timeout if timeout else 0
-        expired = False
         receiving = True
         batch = []
         while len(batch) < max_batch_size:
@@ -639,20 +640,17 @@ class ReceiveClient(AMQPClient):
         else:
             return batch
 
-        while receiving and not expired and len(batch) < max_batch_size:
+        while receiving and len(batch) < max_batch_size:
+            if timeout and time.time() > timeout:
+                return batch
 
-            while receiving and self._received_messages.qsize() < max_batch_size:
-                if timeout and time.time() > timeout:
-                    expired = True
-                    break
+            self._new_message_received = False
+            receiving = self.do_work(batch=max_batch_size)
 
-                before = self._received_messages.qsize()
-                receiving = self.do_work(batch=max_batch_size)
-                received = self._received_messages.qsize() - before
-
-                if self._received_messages.qsize() > 0 and received == 0:
-                    expired = True
-                    break
+            if batch and not self._new_message_received:
+                # there are already messages in the batch, and no message is received in the current cycle
+                # return what we have
+                return batch
 
             while len(batch) < max_batch_size:
                 try:
@@ -660,4 +658,5 @@ class ReceiveClient(AMQPClient):
                     self._received_messages.task_done()
                 except queue.Empty:
                     break
+
         return batch
