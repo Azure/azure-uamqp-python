@@ -610,8 +610,9 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
         """Run the client asynchronously until all pending messages
         in the queue have been processed.
         """
-        while self.messages_pending():
-            await self.do_work_async()
+        running = True
+        while running and self.messages_pending():
+            running = await self.do_work_async()
 
     async def send_message_async(self, messages, close_on_done=False):
         """Send a single message or batched message asynchronously.
@@ -633,9 +634,10 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                 self._pending_messages.append(message)
             pending_batch.append(message)
         await self.open_async()
+        running = True
         try:
-            while any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
-                await self.do_work_async()
+            while running and any([m for m in pending_batch if m.state not in constants.DONE_STATES]):
+                running = await self.do_work_async()
             failed = [m for m in pending_batch if m.state == constants.MessageState.SendFailed]
             if any(failed):
                 details = {"total_messages": len(pending_batch), "number_failed": len(failed)}
@@ -646,7 +648,7 @@ class SendClientAsync(client.SendClient, AMQPClientAsync):
                     details['failed_messages'][failed_message] = exception
                 raise errors.ClientMessageError(exception, info=details)
         finally:
-            if close_on_done:
+            if close_on_done or not running:
                 await self.close_async()
 
     async def send_all_messages_async(self, close_on_done=True):
