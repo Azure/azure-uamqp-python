@@ -4,20 +4,6 @@ dist: xenial
 matrix:
   include:
     - os: linux
-      python: "2.7"
-      env: UAMQP_ENV=LINUX27
-      script:
-        - pytest
-        - python ./setup.py check -r -s
-        - pylint --extension-pkg-whitelist=uamqp.c_uamqp --ignore=async_ops,cbs_auth_async.py uamqp
-    - os: linux
-      python: "3.6"
-      env: UAMQP_ENV=LINUX36
-      script:
-        - pytest
-        - python ./setup.py check -r -s
-        - pylint --extension-pkg-whitelist=uamqp.c_uamqp uamqp
-    - os: linux
       python: "3.7"
       env: UAMQP_ENV=LINUX37
       script:

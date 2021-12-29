@@ -26,7 +26,6 @@ except ImportError:
 if not os.path.exists("uamqp/c_uamqp.c") and not USE_CYTHON:
     raise ValueError("You need to install cython==0.29.21 in order to execute this setup.py if 'uamqp/c_uamqp.c' does not exists")
 
-is_27 = sys.version_info < (3,)
 is_x64 = platform.architecture()[0] == '64bit'
 is_win = sys.platform.startswith('win')
 is_mac = sys.platform.startswith('darwin')
@@ -66,8 +65,6 @@ include_dirs = [
 ]
 if is_win:
     include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/windows")
-    if is_27:
-        include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/inc/azure_c_shared_utility/windowsce")
 else:
     include_dirs.append("./src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/pal/linux")
 
@@ -92,91 +89,17 @@ def get_build_env():
     build_env = os.environ.copy()
     return {k.upper(): v for k, v in build_env.items()}
 
-def is_msvc_9_for_python_compiler():
-    return is_win and is_27 and os.path.exists("C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0")
 
 def get_generator_flags():
     flags = ["-G"]
-    if is_msvc_9_for_python_compiler():
-        flags.append("\"NMake Makefiles\"")
-        if latest_windows_sdk_shared_include_path:
-            shared_include_path_command = "\"-Dlatest_windows_sdk_shared_include_path=" + latest_windows_sdk_shared_include_path +"\""
-            flags.append("-Duse_latest_windows_sdk:bool=ON")
-            flags.append(shared_include_path_command)
-    elif is_win:
-        flags.append("\"Visual Studio 9 2008\"" if is_27 else "\"Visual Studio 15 2017\"")
+    if is_win:
+        flags.append("\"Visual Studio 15 2017\"")
         flags.append("-A")
         flags.append("x64" if is_x64 else "Win32")
     else:
         flags.append("\"Unix Makefiles\"")
     return " ".join(flags)
 
-
-def get_latest_windows_sdk():
-    """The Windows SDK that ships with VC++ 9.0 is not new enough to include schannel support.
-    So we need to check the OS to see if a newer Windows SDK is available to link to.
-
-    This is only run on Windows if using Python 2.7.
-    """
-
-    from _winreg import ConnectRegistry, OpenKey, EnumKey, QueryValueEx, HKEY_LOCAL_MACHINE
-    installed_sdks = {}
-    key_path = "SOFTWARE\\Wow6432Node\\Microsoft\\Microsoft SDKs\\Windows" if is_x64 else \
-        "SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows"
-    try:
-        with ConnectRegistry(None, HKEY_LOCAL_MACHINE) as hklm:
-            with OpenKey(hklm, key_path) as handler:
-                for i in range(1024):
-                    try:
-                        asubkey_name=EnumKey(handler, i)
-                        with OpenKey(handler, asubkey_name) as asubkey:
-                            location = QueryValueEx(asubkey, "InstallationFolder")
-                            if not location or not os.path.isdir(location[0]):
-                                continue
-                            version = QueryValueEx(asubkey, "ProductVersion")
-                            if not version:
-                                continue
-                            installed_sdks[version[0].lstrip('v')] = location[0]
-                            logger.info("Found Windows SDK %s at %s" % (version[0], location[0]))
-                    except EnvironmentError:
-                        break
-    except EnvironmentError:
-        print("Warning - build may fail: No Windows SDK found.")
-        return []
-
-    installed_versions = sorted([LooseVersion(k) for k in installed_sdks.keys()])
-    if installed_versions[-1] < LooseVersion("8.1"):
-        print("Warning - build may fail: Cannot find Windows SDK 8.1 or greater.")
-        return []
-
-    latest_sdk_version = installed_versions[-1].vstring
-    logger.info("Selecting Windows SDK v%s" % latest_sdk_version)
-    lib_path = os.path.join(installed_sdks[latest_sdk_version], "lib")
-    include_path = os.path.join(installed_sdks[latest_sdk_version], "include")
-    libs_dirs = [d for d in os.listdir(lib_path) if os.path.isdir(os.path.join(lib_path, d, "um"))]
-    if not libs_dirs:
-        print("Warning - build may fail: No Windows SDK libraries found.")
-        return []
-
-    logger.info("Found SDK libraries %s in Windows SDK v%s" % (", ".join(libs_dirs), latest_sdk_version))
-    latest_libs_dir = max([LooseVersion(d) for d in libs_dirs]).vstring
-    logger.info("Selecting SDK libraries %s" % latest_libs_dir)
-    global latest_windows_sdk_shared_include_path
-    latest_windows_sdk_shared_include_path = os.path.join(include_path, latest_libs_dir, "shared")
-    platform_libs_path = os.path.join(lib_path, latest_libs_dir, "um", 'x64' if is_x64 else 'x86')
-
-    if not os.path.isdir(latest_windows_sdk_shared_include_path):
-        print("Warning - build may fail: Windows SDK v{} include directory of shared header files {} not found at path {}.".format(
-            latest_sdk_version, latest_libs_dir, latest_windows_sdk_shared_include_path))
-
-    if not os.path.isdir(platform_libs_path):
-        print("Warning - build may fail: Windows SDK v{} libraries {} not found at path {}.".format(
-            latest_sdk_version, latest_libs_dir, platform_libs_path))
-    else:
-        print("Adding Windows SDK v{} libraries {} to search path, installed at {}".format(
-            latest_sdk_version, latest_libs_dir, platform_libs_path))
-
-    return [platform_libs_path]
 
 def get_msvc_env(vc_ver):
     arch = "amd64" if is_x64 else "x86"
@@ -206,9 +129,6 @@ class build_ext(build_ext_orig):
         cmake_build_dir = None
 
         for ext in self.extensions:
-            if is_win and is_27:
-                ext.library_dirs.extend([lib for lib in get_msvc_env(9.0)['LIB'].split(';') if lib])
-                ext.library_dirs.extend(get_latest_windows_sdk())
 
             if isinstance(ext, UAMQPExtension):
                 self.build_cmake(ext)
@@ -244,9 +164,6 @@ class build_ext(build_ext_orig):
         logger.info("Building with generator flags: {}".format(generator_flags))
 
         build_env = get_build_env()
-        if is_msvc_9_for_python_compiler():
-            logger.info("Configuring environment for Microsoft Visual C++ Compiler for Python 2.7")
-            build_env.update(get_msvc_env(9.0))
 
         # Configure
         configure_command = [
@@ -353,10 +270,8 @@ setup(
         'Development Status :: 5 - Production/Stable',
         'Programming Language :: Cython',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3 :: Only'
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
@@ -371,11 +286,8 @@ setup(
         "certifi>=2017.4.17",
         "six~=1.0"
     ],
-    extras_require={
-        ":python_version<'3.4'": ['enum34>=1.0.4']
-    },
     cmdclass={
         'build_ext': build_ext,
     },
-    python_requires=">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*",
+    python_requires=">=3.7",
 )
