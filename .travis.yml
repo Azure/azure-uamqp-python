@@ -1,6 +1,6 @@
 language: python
 cache: pip
-dist: xenial
+dist: focal
 matrix:
   include:
     - os: linux
