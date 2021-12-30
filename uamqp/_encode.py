@@ -584,7 +584,7 @@ def encode_filter_set(value):
             described_filter = {
                 TYPE: AMQPTypes.described,
                 VALUE: (
-                    descriptor,
+                    {TYPE: AMQPTypes.symbol, VALUE: descriptor},
                     filter_value
                 )
             }
@@ -787,6 +787,7 @@ def encode_payload(output, payload):
 
 def encode_frame(frame, frame_type=_FRAME_TYPE):
     # type: (Performative) -> Tuple(bytes, bytes)
+    # TODO: allow setting type specific bytes manually, e.g. Empty Frame needs padding
     if frame is None:
         size = 8
         header = size.to_bytes(4, 'big') + _FRAME_OFFSET + frame_type
