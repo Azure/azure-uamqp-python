@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-
+import struct
 import uuid
 import logging
 import time
@@ -48,6 +48,11 @@ class PendingDelivery(object):
             try:
                 self.on_delivery_settled(reason, state)
             except Exception as e:
+                # TODO: this swallows every error in on_delivery_settled, which mean we
+                #  1. only handle errors we care about in the callback
+                #  2. ignore errors we don't care
+                #  We should revisit this:
+                #  -- "Errors should never pass silently." unless "Unless explicitly silenced."
                 _LOGGER.warning("Message 'on_send_complete' callback failed: %r", e)
 
 
@@ -86,7 +91,7 @@ class SenderLink(Link):
         delivery_count = self.delivery_count + 1
         delivery.frame = {
             'handle': self.handle,
-            'delivery_tag': bytes(delivery_count),
+            'delivery_tag': struct.pack('>I', abs(delivery_count)),
             'message_format': delivery.message._code,
             'settled': delivery.settled,
             'more': False,

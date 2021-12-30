@@ -6,7 +6,6 @@
 
 from enum import Enum
 from collections import namedtuple
-import six
 
 from .constants import SECURE_PORT, FIELD
 from .types import AMQPTypes, FieldDefinition
@@ -261,12 +260,10 @@ class AMQPException(Exception):
         self.condition = condition
         self.description = description
         self.info = info
-        message = message or (str(condition) if isinstance(condition, ErrorCodes) else condition.decode())
-        if self.description:
-            if isinstance(self.description, str):
-                message += ": {}".format(self.description)
-            else:
-                message += ": {}".format(self.description.decode())
+        message = message or \
+            "Error condition: {}, error description: {}, error info: {}".format(
+              self.condition, self.description, self.info
+            )
         super(AMQPException, self).__init__(message)
 
 
