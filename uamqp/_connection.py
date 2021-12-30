@@ -19,7 +19,8 @@ from .constants import (
     MAX_CHANNELS,
     MAX_FRAME_SIZE_BYTES,
     HEADER_FRAME,
-    ConnectionState, EMPTY_FRAME
+    ConnectionState,
+    EMPTY_FRAME
 )
 
 from .error import (
@@ -260,6 +261,7 @@ class Connection(object):
     def _outgoing_empty(self):
         # type: () -> None
         """Send an empty frame to prevent the connection from reaching an idle timeout."""
+        self._last_frame_sent_time = time.time()
         if self._network_trace:
             _LOGGER.info("-> empty()", extra=self._network_trace_params)
         try:
