@@ -12,6 +12,7 @@ from .management_link import ManagementLink
 from .message import Message, Properties
 from .error import (
     AuthenticationException,
+    ErrorCodes,
     TokenAuthFailure,
     TokenExpired
 )
@@ -203,10 +204,20 @@ class CBSAuthenticator(object):
             self.update_token()
             return False
         elif self.auth_state == CbsAuthState.Failure:
-            raise AuthenticationException("Failed to open CBS authentication link.")
+            raise AuthenticationException(
+                condition=ErrorCodes.InternalError,
+                description="Failed to open CBS authentication link."
+            )
         elif self.auth_state == CbsAuthState.Error:
-            raise TokenAuthFailure(self._token_status_code, self._token_status_description, self._encoding)
+            raise TokenAuthFailure(
+                self._token_status_code,
+                self._token_status_description,
+                encoding=self._encoding
+            )
         elif self.auth_state == CbsAuthState.Timeout:
-            raise TimeoutError("Authentication attempt timed-out.")  # TODO: compat 2.7 timeout error?
+            raise TimeoutError("Authentication attempt timed-out.")
         elif self.auth_state == CbsAuthState.Expired:
-            raise TokenExpired("CBS Authentication Expired.")
+            raise TokenExpired(
+                condition=ErrorCodes.InternalError,
+                description="CBS Authentication Expired."
+            )

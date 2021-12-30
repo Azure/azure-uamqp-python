@@ -11,7 +11,7 @@ from .constants import SECURE_PORT, FIELD
 from .types import AMQPTypes, FieldDefinition
 
 
-class ErrorCodes(Enum):
+class ErrorCodes(bytes, Enum):
     InternalError = b"amqp:internal-error"
     IllegalState = b"amqp:illegal-state"
     DecodeError = b"amqp:decode-error"
@@ -49,7 +49,7 @@ class RetryMode(str, Enum):
 
 class ErrorPolicy:
 
-    no_retry = (
+    no_retry = [
         ErrorCodes.DecodeError,
         ErrorCodes.LinkMessageSizeExceeded,
         ErrorCodes.NotFound,
@@ -70,7 +70,7 @@ class ErrorPolicy:
         ErrorCodes.SessionHandleInUse,
         ErrorCodes.SessionErrantLink,
         ErrorCodes.SessionWindowViolation
-    )
+    ]
 
     def __init__(
         self,
@@ -89,7 +89,7 @@ class ErrorPolicy:
         self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
         self.backoff_max = kwargs.pop('retry_backoff_max', 120)
         self.retry_mode = kwargs.pop('retry_mode', RetryMode.Exponential)
-        self.custom_no_retry = list(self.no_retry) + kwargs.pop("no_retry_condition", [])
+        self.custom_no_retry = self.no_retry + kwargs.pop("no_retry_condition", [])
         self.custom_retry_policy = kwargs.pop("custom_retry_policy", None)
 
     def configure_retries(self, **kwargs):
@@ -118,9 +118,8 @@ class ErrorPolicy:
 
     def get_backoff_time(self, settings, error):
         try:
-            if error.condition in self.custom_retry_policy:
-                return self.custom_retry_policy[error.condition]
-        except TypeError:
+            return self.custom_retry_policy[error.condition]
+        except KeyError:
             pass
 
         consecutive_errors_len = len(settings['history'])
@@ -256,14 +255,20 @@ AMQPError._definition = (
 
 class AMQPException(Exception):
 
-    def __init__(self, condition, description, info, message=None):
-        self.condition = condition
-        self.description = description
-        self.info = info
-        message = message or \
-            "Error condition: {}, error description: {}, error info: {}".format(
-              self.condition, self.description, self.info
-            )
+    def __init__(self, condition, **kwargs):
+        self.condition = condition or ErrorCodes.UnknownError
+        self.description = kwargs.get("description", None)
+        self.info = kwargs.get("info", None)
+        self.message = kwargs.get("message", None)
+        self.inner_error =kwargs.get("error", None)
+        message = self.message or "Error condition: {}".format(
+            str(condition) if isinstance(condition, ErrorCodes) else condition.decode()
+        )
+        if self.description:
+            try:
+                message += "\n Error Description: {}".format(self.description.decode())
+            except (TypeError, AttributeError):
+                message += "\n Error Description: {}".format(self.description)
         super(AMQPException, self).__init__(message)
 
 
@@ -289,9 +294,6 @@ class ConnectionClose(AMQPConnectionError):
     pass
 
 
-class VendorConnectionClose(ConnectionClose):
-    pass
-
 
 class AMQPConnectionRedirect(AMQPConnectionError):
     """Details of a Connection-level redirect response.
@@ -312,7 +314,7 @@ class AMQPConnectionRedirect(AMQPConnectionError):
     def __init__(self, condition, description=None, info=None):
         self.hostname = info.get(b'hostname', b'').decode('utf-8')
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
-        self.port = int(info.get(b'port', 0))  # TODO: Default port
+        self.port = int(info.get(b'port', SECURE_PORT))
         super(AMQPConnectionRedirect, self).__init__(condition, description=description, info=info)
 
 
@@ -331,11 +333,6 @@ class LinkDetach(AMQPConnectionError):
     :param str condition: The error code.
     :param str description: A description of the error.
     :param dict info: A dictionary of additional data associated with the error.
-    """
-
-
-class VendorLinkDetach(LinkDetach):
-    """Vendor error codes
     """
 
 
@@ -380,13 +377,17 @@ class TokenAuthFailure(AuthenticationException):
     """
 
     """
-    def __init__(self, status_code, status_description):
+    def __init__(self, status_code, status_description, **kwargs):
+        encoding = kwargs.get("encoding", 'utf-8')
         self.status_code = status_code
         self.status_description = status_description
         message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
-        if self.description:
-            message += u"\nDescription: {}".format(self.status_description.decode('utf-8'))
-        super(TokenAuthFailure, self).__init__(message)
+        if self.status_description:
+            try:
+                message += "\nDescription: {}".format(self.status_description.decode(encoding))
+            except (TypeError, AttributeError):
+                message += "\nDescription: {}".format(self.status_description)
+        super(TokenAuthFailure, self).__init__(condition=ErrorCodes.ClientError, message=message)
 
 
 class MessageException(AMQPException):

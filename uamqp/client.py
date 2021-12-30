@@ -180,14 +180,14 @@ class AMQPClient(object):
         self._connection.listen(wait=self._socket_timeout)
 
     def _close_link(self, **kwargs):
-        if self._link:
+        if self._link and not self._link._is_closed:
             self._link.detach(close=True)
             self._link = None
 
     def _do_retryable_operation(self, operation, *args, **kwargs):
         retry_settings = self._error_policy.configure_retries()
         retry_active = True
-        absolute_timeout = kwargs.pop("timeout", 0)
+        absolute_timeout = kwargs.pop("timeout", 0) or 0
         while retry_active:
             try:
                 start_time = time.time()
@@ -270,9 +270,7 @@ class AMQPClient(object):
         self._shutdown = True
         if not self._session:
             return  # already closed.
-        if self._link:
-            self._link.detach(close=True)
-            self._link = None
+        self._close_link(close=True)
         if self._cbs_authenticator:
             self._cbs_authenticator.close()
             self._cbs_authenticator = None
@@ -436,9 +434,9 @@ class SendClient(AMQPClient):
         try:
             amqp_condition = ErrorCodes(condition)
         except ValueError:
-            error = MessageException(condition, description, info)
+            error = MessageException(condition, description=description, info=info)
         else:
-            error = MessageSendFailed(amqp_condition, description, info)
+            error = MessageSendFailed(amqp_condition, description=description, info=info)
         message_delivery.state = MessageDeliveryState.Error
         message_delivery.error = error
 
@@ -475,20 +473,6 @@ class SendClient(AMQPClient):
                 condition=ErrorCodes.UnknownError
             )
 
-        # TODO: put the following into error structures
-        # error_response = ErrorResponse(error_info=state[SEND_DISPOSITION_REJECT])
-        # # TODO: check error_info structure
-        # if error_response.condition == b'com.microsoft:server-busy':
-        #     # TODO: customized/configurable error handling logic
-        #     time.sleep(4)  # 4 is what we're doing nowadays in EH/SB, service tells client to backoff for 4 seconds
-        #
-        #     timeout = (message_delivery.expiry - time.time()) if message_delivery.expiry else 0
-        #     self._transfer_message(message_delivery, timeout)
-        #     message_delivery.state = MessageDeliveryState.WaitingToBeSent
-        # else:
-        #     message_delivery.state = MessageDeliveryState.Error
-        #     message_delivery.reason = reason
-
     def _send_message_impl(self, message, **kwargs):
         timeout = kwargs.pop("timeout", 0)
         expire_time = (time.time() + timeout) if timeout else None
@@ -498,6 +482,10 @@ class SendClient(AMQPClient):
             MessageDeliveryState.WaitingToBeSent,
             expire_time
         )
+
+        while not self.client_ready():
+            time.sleep(0.05)
+
         self._transfer_message(message_delivery, timeout)
 
         running = True
@@ -510,7 +498,8 @@ class SendClient(AMQPClient):
             try:
                 raise message_delivery.error
             except TypeError:
-                raise MessageException(condition=ErrorCodes.UnknownError, description=None, info=None)
+                # This is a default handler
+                raise MessageException(condition=ErrorCodes.UnknownError, description="Send failed.")
 
     def send_message(self, message, **kwargs):
         """
@@ -619,11 +608,7 @@ class ReceiveClient(AMQPClient):
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
-        # TODO:  when encoding properties as fields, the value needs to be like the following otherwise the
-        #  implementation needs to be updated to enable specifying type information
-        #  self._link_properties = {b"com.microsoft:epoch": {"TYPE": "LONG", "VALUE": 10}}
-        #  self._link_properties = {b"com.microsoft:epoch": 10}
-        self._link_credit = kwargs.pop('link_credit', None)
+        self._link_credit = kwargs.pop('link_credit', 300)
         super(ReceiveClient, self).__init__(hostname, auth=auth, **kwargs)
 
     def _client_ready(self):
@@ -645,7 +630,9 @@ class ReceiveClient(AMQPClient):
                 rcv_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
                 on_message_received=self._message_received,
-                properties=self._link_properties)
+                properties=self._link_properties,
+                desired_capabilities=self._desired_capabilities
+            )
             self._link.attach()
             return False
         if self._link.get_state().value != 3:  # ATTACHED
