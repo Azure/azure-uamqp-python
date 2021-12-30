@@ -93,7 +93,6 @@ class Connection(object):
         self._remote_max_frame_size = None  # type: Optional[int]
         self._channel_max = kwargs.pop('channel_max', MAX_CHANNELS)  # type: int
         self._idle_timeout = kwargs.pop('idle_timeout', None)  # type: Optional[int]
-        self._idle_timeout_in_seconds = self._idle_timeout / 1000 if self._idle_timeout else None
         self._outgoing_locales = kwargs.pop('outgoing_locales', None)  # type: Optional[List[str]]
         self._incoming_locales = kwargs.pop('incoming_locales', None)  # type: Optional[List[str]]
         self._offered_capabilities = None  # type: Optional[str]
@@ -306,7 +305,7 @@ class Connection(object):
             hostname=self._hostname,
             max_frame_size=self._max_frame_size,
             channel_max=self._channel_max,
-            idle_timeout=self._idle_timeout if self._idle_timeout else None,
+            idle_timeout=self._idle_timeout * 1000 if self._idle_timeout else None,
             outgoing_locales=self._outgoing_locales,
             incoming_locales=self._incoming_locales,
             offered_capabilities=self._offered_capabilities if self.state == ConnectionState.OPEN_RCVD else None,
@@ -553,9 +552,9 @@ class Connection(object):
         :rtype: bool
         :returns: Whether to shutdown the connection due to timeout.
         """
-        if self._idle_timeout_in_seconds and self._last_frame_received_time:
+        if self._idle_timeout and self._last_frame_received_time:
             time_since_last_received = now - self._last_frame_received_time
-            return time_since_last_received > self._idle_timeout_in_seconds
+            return time_since_last_received > self._idle_timeout
         return False
 
     def _get_remote_timeout(self, now):
@@ -621,7 +620,6 @@ class Connection(object):
         try:
             if self.state not in _CLOSING_STATES:
                 now = time.time()
-                # TODO: send empty frame
                 if self._get_local_timeout(now) or self._get_remote_timeout(now):
                     self.close(
                         error=AMQPError(

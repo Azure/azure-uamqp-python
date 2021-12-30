@@ -198,7 +198,7 @@ class ManagementLink(object):
         :paramtype type: bytes or str
         :keyword str locales: A list of locales that the sending peer permits for incoming
          informational text in response messages.
-        :keyword float timeout: Provide an optional timeout in milliseconds within which a response
+        :keyword float timeout: Provide an optional timeout in seconds within which a response
          to the management request must be received.
         :rtype: None
         """

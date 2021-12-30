@@ -11,8 +11,8 @@ import os
 from uamqp import ReceiveClient
 from uamqp.endpoints import Source
 from uamqp.authentication import SASLPlainAuth, SASTokenAuth
-from uamqp.types import VALUE, TYPE
-from uamqp.utils import amqp_long_value, amqp_source_filters_value
+from uamqp.types import VALUE, TYPE, AMQPTypes
+from uamqp.utils import amqp_long_value
 
 
 logging.basicConfig(level=logging.INFO)
@@ -35,9 +35,10 @@ def test_receive_messages_sasl_plain(eventhub_config):
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
-    meassages = receive_client.receive_message_batch(max_batch_size=1)
-    logging.info(len(meassages))
-    logging.info(meassages[0])
+    messages = receive_client.receive_message_batch(timeout=5)
+    assert messages
+    logging.info(len(messages))
+    logging.info(messages[0])
     receive_client.close()
 
 
@@ -60,9 +61,10 @@ def test_receive_messages_sas_auth(eventhub_config):
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
-    meassages = receive_client.receive_message_batch(max_batch_size=1)
-    logging.info(len(meassages))
-    logging.info(meassages[0])
+    messages = receive_client.receive_message_batch(max_batch_size=1)
+    assert len(messages) == 1
+    logging.info(len(messages))
+    logging.info(messages[0])
     receive_client.close()
 
 
@@ -79,9 +81,9 @@ def test_receive_messages_with_customizations(eventhub_config):
         ),
         filters={
             "apache.org:selector-filter:string":
-            amqp_source_filters_value(
-                descriptor="apache.org:selector-filter:string",
-                value="amqp.annotation.x-opt-sequence-number >= '2'".format(starting_sequence)
+            (
+                "apache.org:selector-filter:string",
+                {TYPE: AMQPTypes.string, VALUE: "amqp.annotation.x-opt-sequence-number >= '2'".format(starting_sequence)}
             )
         }
     )
