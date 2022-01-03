@@ -2,8 +2,6 @@ trigger:
   - master
 
 variables:
-  PythonVersion27: '2.7'
-  PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
@@ -52,13 +50,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 2.7:
-          PythonBin: 'python2'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.6:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
@@ -75,8 +66,6 @@ jobs:
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion27: '2.7.17'
-      PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
@@ -157,13 +146,6 @@ jobs:
 
     strategy:
       matrix:
-        x64 Python 2.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x64 Python 3.6:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion36)'
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
@@ -176,13 +158,6 @@ jobs:
         x64 Python 3.10:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion310)'
-        x86 Python 2.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        x86 Python 3.6:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion36)'
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
@@ -201,13 +176,6 @@ jobs:
         parameters:
           architecture: '$(PythonArchitecture)'
           versionSpec: '$(PythonVersion)'
-
-      - pwsh: |
-          Invoke-WebRequest -Uri "$(python-uamqp-client-build-win-py27-compiler)" -OutFile VCForPython27.msi
-          Start-Process -Wait -NoNewWindow msiexec.exe -ArgumentList "/i VCForPython27.msi /quiet /qn /norestart /log VCForPython27.log ALLUSERS=1"
-          Get-Content VCForPython27.log
-        displayName: 'Install Microsoft Visual C++ Compiler for Python 2.7'
-        condition: eq(variables['PythonVersion'], variables['PythonVersion27'])
 
       - powershell: |
           python --version
@@ -254,11 +222,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 2.7:
-          PythonVersion: '$(PythonVersion27)'
-          GetPip: 'https://bootstrap.pypa.io/pip/2.7/get-pip.py'
-        Python 3.6:
-          PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
         Python 3.8:
@@ -322,18 +285,6 @@ jobs:
 
     strategy:
       matrix:
-        Python27m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp27-cp27m'
-          Platform: 'manylinux1_x86_64'
-        Python27mu-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp27-cp27mu'
-          Platform: 'manylinux1_x86_64'
-        Python36m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp36-cp36m'
-          Platform: 'manylinux1_x86_64'
         Python37m-manylinux1:
           ContainerImage: 'manylinux_crypto_x64'
           PythonVersion: 'cp37-cp37m'
@@ -346,18 +297,6 @@ jobs:
           ContainerImage: 'manylinux_crypto_x64'
           PythonVersion: 'cp39-cp39'
           Platform: 'manylinux1_x86_64'
-        Python27m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64:3.9'
-          PythonVersion: 'cp27-cp27m'
-          Platform: 'manylinux2010_x86_64'
-        Python27mu-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64:3.9'
-          PythonVersion: 'cp27-cp27mu'
-          Platform: 'manylinux2010_x86_64'
-        Python36m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp36-cp36m'
-          Platform: 'manylinux2010_x86_64'
         Python37m-manylinux2010:
           ContainerImage: 'manylinux2010_crypto_x64'
           PythonVersion: 'cp37-cp37m'

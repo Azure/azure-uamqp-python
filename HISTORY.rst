@@ -6,6 +6,8 @@ Release History
 1.5.0 (Unreleased)
 +++++++++++++++++++
 
+This version and all future versions will require Python 3.7+, Python 2.7 and Python 3.5 is no longer supported.
+
 - `SASTokenAuth`, `JWTTokenAuth`, `SASTokenAsync`, and `JWTTokenAsync` now takes keyword argument `refresh_window` to override default token refresh timing in constructors.
 - Fixed bug that `SendClientAsync` might run into infinite loop while sending when it is shutdown unexpectedly.
 - Updated dependencies Azure uAMQP C @ `2021-11-16 <https://github.com/Azure/azure-uamqp-c/tree/259db533a66a8fa6e9ac61c39a9dae880224145f>`__ and Azure C Shared Utility @ `2021-11-15 <https://github.com/Azure/azure-c-shared-utility/tree/735be16a943c2a9cbbddef0543f871f5bc0e27ab>`__.
