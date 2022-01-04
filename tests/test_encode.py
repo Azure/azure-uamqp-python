@@ -8,7 +8,7 @@ import datetime
 import uuid
 
 import uamqp._encode as encode
-from uamqp.types import AMQPTypes
+from uamqp.types import AMQPTypes, TYPE, VALUE
 from uamqp.message import Message, Header, Properties
 
 import pytest
@@ -958,3 +958,29 @@ def test_encode_payload():
     )
     encode.encode_payload(output, data_body_with_properties_and_header_msg1)
     assert output == b'\x00\x53\x70\xc0\x0e\x05\x56\x01\x50\x01\x70\x00\x00\x03\xe8\x56\x01\x52\x01\x00\x53\x73\xc0\x3e\x0d\xa0\x01\x31\xa0\x04\x75\x73\x65\x72\xa1\x01\x74\xa1\x01\x73\xa1\x02\x72\x74\xa0\x01\x31\xa3\x02\x63\x74\xa3\x02\x63\x65\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\x83\x00\x00\x01\x71\xa4\x86\xa6\x20\xa1\x03\x67\x69\x64\x52\x64\xa1\x04\x72\x67\x69\x64\x00\x53\x75\xa0\x0b\x41\x62\x63\x20\x31\x32\x33\x20\x21\x40\x23'
+
+
+def test_encode_described():
+    described_value = (
+        {TYPE: AMQPTypes.ulong, VALUE: 0x0123456789abcdef},
+        {TYPE: AMQPTypes.string, VALUE: 'describedstring'}
+    )
+
+    output = bytearray()
+    encode.encode_described(output, described_value)
+    # x00 is the constructor for described value
+    # x80 indicates the descriptor is a ulong
+    # x01\x23\x45\x67\x89\xab\xcd\xef is the descriptor value
+    # xa1 indicates the type for the value being described is a string
+    # x0f indicates the length of the string
+    assert output == b'\x00\x80\x01\x23\x45\x67\x89\xab\xcd\xef\xa1\x0fdescribedstring'
+
+    described_value = (
+        {TYPE: AMQPTypes.symbol, VALUE: 'descriptorsymbol'},
+        {TYPE: AMQPTypes.string, VALUE: 'describedstring'}
+    )
+
+    output.clear()
+    encode.encode_described(output, described_value)
+    # same as the above one except that the second byte xa3 indicated  the descriptor is a symbol
+    assert output == b'\x00\xa3\x10descriptorsymbol\xa1\x0fdescribedstring'

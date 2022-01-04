@@ -676,7 +676,6 @@ class ReceiveClient(AMQPClient):
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._link_credit
         timeout = time.time() + timeout if timeout else 0
-        expired = False
         receiving = True
         batch = []
         self.open()
@@ -688,18 +687,32 @@ class ReceiveClient(AMQPClient):
                 break
         else:
             return batch
-        # TODO: we should return as soon as there are some messages in the queue instead of waiting for timeout
-        while receiving and not expired and len(batch) < max_batch_size:
-            receiving = self.do_work(batch=max_batch_size)
-            while len(batch) < max_batch_size:
-                try:
-                    batch.append(self._received_messages.get_nowait())
-                    self._received_messages.task_done()
-                except queue.Empty:
-                    break
-            if timeout and time.time() > timeout:
-                expired = True
 
+        to_receive_size = max_batch_size - len(batch)
+        before_queue_size = self._received_messages.qsize()
+
+        while receiving and to_receive_size > 0:
+            if timeout and time.time() > timeout:
+                break
+
+            receiving = self.do_work(batch=to_receive_size)
+            cur_queue_size = self._received_messages.qsize()
+            # after do_work, check how many new messages have been received since previous iteration
+            received = cur_queue_size - before_queue_size
+            if to_receive_size < max_batch_size and received == 0:
+                # there are already messages in the batch, and no message is received in the current cycle
+                # return what we have
+                break
+
+            to_receive_size -= received
+            before_queue_size = cur_queue_size
+
+        while len(batch) < max_batch_size:
+            try:
+                batch.append(self._received_messages.get_nowait())
+                self._received_messages.task_done()
+            except queue.Empty:
+                break
         return batch
 
     def close(self):
