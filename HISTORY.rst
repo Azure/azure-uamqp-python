@@ -6,7 +6,7 @@ Release History
 1.5.0 (2022-01-04)
 +++++++++++++++++++
 
-This version and all future versions will require Python 3.7+, Python 2.7 and Python 3.6 is no longer supported.
+This version and all future versions will require Python 3.7+, Python 2.7 and Python 3.6 are no longer supported.
 
 - `SASTokenAuth`, `JWTTokenAuth`, `SASTokenAsync`, and `JWTTokenAsync` now takes keyword argument `refresh_window` to override default token refresh timing in constructors.
 - Fixed bug that `SendClientAsync` might run into infinite loop while sending when it is shutdown unexpectedly.
