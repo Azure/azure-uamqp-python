@@ -32,7 +32,7 @@ def test_receive_messages_sasl_plain(eventhub_config):
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
-    meassages = receive_client.receive_message_batch(max_batch_size=1)
+    meassages = receive_client.receive_message_batch(max_batch_size=1000)
     logging.info(len(meassages))
     logging.info(meassages[0])
     receive_client.close()
@@ -57,7 +57,7 @@ def test_receive_messages_sas_auth(eventhub_config):
     receive_client.open()
     while not receive_client.client_ready():
         time.sleep(0.05)
-    meassages = receive_client.receive_message_batch(max_batch_size=1)
+    meassages = receive_client.receive_message_batch(max_batch_size=1000)
     logging.info(len(meassages))
     logging.info(meassages[0])
     receive_client.close()
