@@ -9,16 +9,10 @@ import datetime
 from base64 import b64encode
 from hashlib import sha256
 from hmac import HMAC
-
-try:
-    from urlparse import urlparse
-    from urllib import unquote_plus, urlencode, quote_plus
-except ImportError:
-    from urllib.parse import urlparse, unquote_plus, urlencode, quote_plus
+from urllib.parse import urlencode, quote_plus
 import time
 
 from ._encode import encode_payload
-from .message import BatchMessage
 
 
 class UTC(datetime.tzinfo):
