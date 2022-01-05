@@ -40,6 +40,7 @@ class ErrorCodes(bytes, Enum):
     ClientError = b"amqp:client-error"
     UnknownError = b"amqp:unknown-error"
     VendorError = b"amqp:vendor-error"
+    SocketError = b"amqp:socket-error"
 
 
 class RetryMode(str, Enum):
@@ -254,13 +255,18 @@ AMQPError._definition = (
 
 
 class AMQPException(Exception):
+    """Base exception for all errors.
 
+    :param bytes condition: The error code.
+    :keyword str description: A description of the error.
+    :keyword dict info: A dictionary of additional data associated with the error.
+    """
     def __init__(self, condition, **kwargs):
         self.condition = condition or ErrorCodes.UnknownError
         self.description = kwargs.get("description", None)
         self.info = kwargs.get("info", None)
         self.message = kwargs.get("message", None)
-        self.inner_error =kwargs.get("error", None)
+        self.inner_error = kwargs.get("error", None)
         message = self.message or "Error condition: {}".format(
             str(condition) if isinstance(condition, ErrorCodes) else condition.decode()
         )
@@ -275,24 +281,19 @@ class AMQPException(Exception):
 class AMQPDecodeError(AMQPException):
     """An error occurred while decoding an incoming frame.
 
-    :param ~uamqp.ErrorCondition condition: The error code.
-    :param str description: A description of the error.
-    :param info: A dictionary of additional data associated with the error.
     """
 
 
 class AMQPConnectionError(AMQPException):
     """Details of a Connection-level error.
 
-    :param ~uamqp.ConnectionErrorCondition condition: The error code.
-    :param str description: A description of the error.
-    :param info: A dictionary of additional data associated with the error.
     """
 
 
 class ConnectionClose(AMQPConnectionError):
-    pass
+    """Details of Connection-level close error.
 
+    """
 
 
 class AMQPConnectionRedirect(AMQPConnectionError):
@@ -301,16 +302,11 @@ class AMQPConnectionRedirect(AMQPConnectionError):
     The container is no longer available on the current connection.
     The peer should attempt reconnection to the container using the details provided.
 
-    :param ~uamqp.ConnectionErrorCondition condition: The error code.
-    :param str description: A description of the error.
-    :param info: A dictionary of additional data associated with the error.
-    :param str hostname: The hostname of the container.
-        This is the value that should be supplied in the hostname field of the open frame, and during the SASL and
-        TLS negotiation (if used).
-    :param str network_host: The DNS hostname or IP address of the machine hosting the container.
-    :param int port: The port number on the machine hosting the container.
+    :param bytes condition: The error code.
+    :keyword str description: A description of the error.
+    :keyword dict info: A dictionary of additional data associated with the error.
     """
-
+    # TODO: naming to ConnectionRedirect?
     def __init__(self, condition, description=None, info=None):
         self.hostname = info.get(b'hostname', b'').decode('utf-8')
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
@@ -321,18 +317,24 @@ class AMQPConnectionRedirect(AMQPConnectionError):
 class AMQPSessionError(AMQPConnectionError):
     """Details of a Session-level error.
 
-    :param ~uamqp.SessionErrorCondition condition: The error code.
-    :param str description: A description of the error.
-    :param info: A dictionary of additional data associated with the error.
+    :param bytes condition: The error code.
+    :keyword str description: A description of the error.
+    :keyword dict info: A dictionary of additional data associated with the error.
+    """
+
+
+class AMQPLinkError(AMQPException):
+    """
+
     """
 
 
 class LinkDetach(AMQPConnectionError):
     """Details of a Link-level error.
 
-    :param str condition: The error code.
-    :param str description: A description of the error.
-    :param dict info: A dictionary of additional data associated with the error.
+    :param bytes condition: The error code.
+    :keyword str description: A description of the error.
+    :keyword dict info: A dictionary of additional data associated with the error.
     """
 
 
@@ -342,15 +344,9 @@ class LinkRedirect(LinkDetach):
     The address provided cannot be resolved to a terminus at the current container.
     The supplied information may allow the client to locate and attach to the terminus.
 
-    :param ~uamqp.LinkErrorCondition condition: The error code.
-    :param str description: A description of the error.
-    :param info: A dictionary of additional data associated with the error.
-    :param str hostname: The hostname of the container hosting the terminus.
-        This is the value that should be supplied in the hostname field of the open frame, and during SASL
-        and TLS negotiation (if used).
-    :param str network_host: The DNS hostname or IP address of the machine hosting the container.
-    :param int port: The port number on the machine hosting the container.
-    :param str address: The address of the terminus at the container.
+    :param bytes condition: The error code.
+    :keyword str description: A description of the error.
+    :keyword dict info: A dictionary of additional data associated with the error.
     """
 
     def __init__(self, condition, description=None, info=None):

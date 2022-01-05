@@ -195,15 +195,20 @@ class AMQPClient(object):
                     raise TimeoutError("Operation timed out.")
                 return operation(*args, timeout=absolute_timeout, **kwargs)
             except AMQPException as exc:
+                if not self._error_policy.is_retryable(exc):
+                    raise
                 if absolute_timeout >= 0:
                     retry_active = self._error_policy.increment(retry_settings, exc)
                     if not retry_active:
                         break
                     time.sleep(self._error_policy.get_backoff_time(retry_settings, exc))
-                    if isinstance(exc, LinkDetach):
+                    if exc.condition == ErrorCodes.LinkDetachForced:
                         self._close_link()  # if link level error, close and open a new link
-                    elif isinstance(exc, (ConnectionClose, AMQPConnectionError)):
+                        # TODO: check if there's any other code that we want to close link?
+                    if exc.condition in (ErrorCodes.ConnectionCloseForced, ErrorCodes.SocketFailure):
+                        # if connection detach or socket error, close and open a new connection
                         self.close()
+                        # TODO: check if there's any other code we want to close connection
             except Exception:
                 raise
             finally:
