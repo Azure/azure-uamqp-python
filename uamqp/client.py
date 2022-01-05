@@ -29,8 +29,6 @@ from .error import (
     ErrorCodes,
     MessageException,
     MessageSendFailed,
-    LinkDetach,
-    ConnectionClose,
     ErrorPolicy
 )
 

@@ -290,12 +290,6 @@ class AMQPConnectionError(AMQPException):
     """
 
 
-class ConnectionClose(AMQPConnectionError):
-    """Details of Connection-level close error.
-
-    """
-
-
 class AMQPConnectionRedirect(AMQPConnectionError):
     """Details of a Connection-level redirect response.
 
@@ -306,7 +300,6 @@ class AMQPConnectionRedirect(AMQPConnectionError):
     :keyword str description: A description of the error.
     :keyword dict info: A dictionary of additional data associated with the error.
     """
-    # TODO: naming to ConnectionRedirect?
     def __init__(self, condition, description=None, info=None):
         self.hostname = info.get(b'hostname', b'').decode('utf-8')
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
@@ -314,7 +307,7 @@ class AMQPConnectionRedirect(AMQPConnectionError):
         super(AMQPConnectionRedirect, self).__init__(condition, description=description, info=info)
 
 
-class AMQPSessionError(AMQPConnectionError):
+class AMQPSessionError(AMQPException):
     """Details of a Session-level error.
 
     :param bytes condition: The error code.
@@ -329,16 +322,7 @@ class AMQPLinkError(AMQPException):
     """
 
 
-class LinkDetach(AMQPConnectionError):
-    """Details of a Link-level error.
-
-    :param bytes condition: The error code.
-    :keyword str description: A description of the error.
-    :keyword dict info: A dictionary of additional data associated with the error.
-    """
-
-
-class LinkRedirect(LinkDetach):
+class AMQPLinkRedirect(AMQPLinkError):
     """Details of a Link-level redirect response.
 
     The address provided cannot be resolved to a terminus at the current container.
@@ -354,7 +338,7 @@ class LinkRedirect(LinkDetach):
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
         self.port = int(info.get(b'port', SECURE_PORT))
         self.address = info.get(b'address', b'').decode('utf-8')
-        super(LinkRedirect, self).__init__(condition, description=description, info=info)
+        super(AMQPLinkError, self).__init__(condition, description=description, info=info)
 
 
 class AuthenticationException(AMQPException):

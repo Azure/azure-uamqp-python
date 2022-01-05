@@ -28,7 +28,6 @@ from .constants import (
 from .error import (
     ErrorCodes,
     AMQPConnectionError,
-    ConnectionClose,
     AMQPError
 )
 
@@ -409,7 +408,7 @@ class Connection(object):
         self._set_state(ConnectionState.END)
 
         if frame[0]:
-            self._error = ConnectionClose(
+            self._error = AMQPConnectionError(
                 condition=frame[0][0],
                 description=frame[0][1],
                 info=frame[0][2]
@@ -634,7 +633,7 @@ class Connection(object):
                     )
                     return
             if self.state == ConnectionState.END:
-                self._error = ConnectionClose(
+                self._error = AMQPConnectionError(
                     condition=ErrorCodes.ClientError,
                     description="Connection closed."
                 )

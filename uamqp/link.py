@@ -35,8 +35,8 @@ from .performatives import (
 
 from .error import (
     ErrorCodes,
-    LinkDetach,
-    LinkRedirect,
+    AMQPLinkError,
+    AMQPLinkRedirect,
     AMQPConnectionError
 )
 
@@ -244,7 +244,7 @@ class Link(object):
         # TODO: on_detach_hook
         if frame[2]:  # error
             # frame[2][0] is condition, frame[2][1] is description, frame[2][2] is info
-            error_cls = LinkRedirect if frame[2][0] == ErrorCodes.LinkRedirect else LinkDetach
+            error_cls = AMQPLinkRedirect if frame[2][0] == ErrorCodes.LinkRedirect else AMQPLinkError
             self._error = error_cls(condition=frame[2][0], description=frame[2][1], info=frame[2][2])
             self._set_state(LinkState.ERROR)
         else:
