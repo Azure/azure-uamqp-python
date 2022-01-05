@@ -88,7 +88,7 @@ class AMQPClient(object):
     :type max_frame_size: int
     :param channel_max: Maximum number of Session channels in the Connection.
     :type channel_max: int
-    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+    :param idle_timeout: Timeout in seconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
     :param auth_timeout: Timeout in seconds for CBS authentication. Otherwise this value will be ignored.
@@ -530,10 +530,6 @@ class ReceiveClient(AMQPClient):
     :param debug: Whether to turn on network trace logs. If `True`, trace logs
      will be logged at INFO level. Default is `False`.
     :type debug: bool
-    :param timeout: A timeout in milliseconds. The receiver will shut down if no
-     new messages are received after the specified timeout. If set to 0, the receiver
-     will never timeout and will continue to listen. The default is 0.
-    :type timeout: float
     :param auto_complete: Whether to automatically settle message received via callback
      or via iterator. If the message has not been explicitly settled after processing
      the message will be accepted. Alternatively, when used with batch receive, this setting
@@ -576,7 +572,7 @@ class ReceiveClient(AMQPClient):
     :type max_frame_size: int
     :param channel_max: Maximum number of Session channels in the Connection.
     :type channel_max: int
-    :param idle_timeout: Timeout in milliseconds after which the Connection will close
+    :param idle_timeout: Timeout in seconds after which the Connection will close
      if there is no further activity.
     :type idle_timeout: int
     :param properties: Connection properties.
