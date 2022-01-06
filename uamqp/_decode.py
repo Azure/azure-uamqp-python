@@ -274,6 +274,8 @@ def decode_payload(buffer):
             message["value"] = value
         elif descriptor == 120:
             message["footer"] = value
+    # TODO: we can possibly swap out the Message construct with a TypedDict
+    #  for both input and output so we get the best of both.
     return Message(**message)
 
 
