@@ -26,7 +26,7 @@ from .performatives import (
     DispositionFrame,
     FlowFrame,
 )
-from .error import AMQPConnectionError, ErrorCodes
+from .error import AMQPLinkError, ErrorCodes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,8 +152,8 @@ class SenderLink(Link):
     def send_transfer(self, message, **kwargs):
         self._check_if_closed()
         if self.state != LinkState.ATTACHED:
-            raise AMQPConnectionError(
-                condition=ErrorCodes.InternalError,
+            raise AMQPLinkError(  # TODO: should we introduce MessageHandler to indicate the handler is in wrong state
+                condition=ErrorCodes.ClientError,  # TODO: should this be a ClientError?
                 description="Link is not attached."
             )
         settled = self.send_settle_mode == SenderSettleMode.Settled

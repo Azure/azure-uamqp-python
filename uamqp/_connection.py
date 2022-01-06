@@ -229,7 +229,8 @@ class Connection(object):
                 if timeout:
                     with self._transport.block_with_timeout(timeout):
                         self._transport.send_frame(channel, frame, **kwargs)
-                self._transport.send_frame(channel, frame, **kwargs)
+                else:
+                    self._transport.send_frame(channel, frame, **kwargs)
             except (OSError, IOError, SSLError, socket.error) as exc:
                 self._error = AMQPConnectionError(
                     ErrorCodes.SocketError,
@@ -257,7 +258,6 @@ class Connection(object):
     def _outgoing_empty(self):
         # type: () -> None
         """Send an empty frame to prevent the connection from reaching an idle timeout."""
-        self._last_frame_sent_time = time.time()
         if self._network_trace:
             _LOGGER.info("-> empty()", extra=self._network_trace_params)
         try:
@@ -399,11 +399,14 @@ class Connection(object):
             self._disconnect()
             self._set_state(ConnectionState.END)
             return
+
+        close_error = None
         if channel > self._channel_max:
             _LOGGER.error("Invalid channel")
+            close_error = AMQPError(condition=ErrorCodes.InvalidField, description="Invalid channel", info=None)
 
         self._set_state(ConnectionState.CLOSE_RCVD)
-        self._outgoing_close()
+        self._outgoing_close(error=close_error)
         self._disconnect()
         self._set_state(ConnectionState.END)
 
@@ -537,7 +540,7 @@ class Connection(object):
         if self._get_local_timeout(now) or self._get_remote_timeout(now):
             self.close(
                 error=AMQPError(
-                    condition=ErrorCodes.InternalError.value,
+                    condition=ErrorCodes.InternalError,
                     description="No frame received for the idle timeout"
                 ),
                 wait=False
@@ -619,8 +622,6 @@ class Connection(object):
         except TypeError:
             pass
         try:
-            # TODO: This is affecting perf, however idle timeout check is needed
-            #  need to check to what extent perf is affected
             if self.state not in _CLOSING_STATES:
                 now = time.time()
                 if self._get_local_timeout(now) or self._get_remote_timeout(now):

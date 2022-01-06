@@ -37,6 +37,8 @@ class ErrorCodes(bytes, Enum):
     LinkDetachForced = b"amqp:link:detach-forced"
     LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
     LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
+    # TODO: check whether Client/Unknown/Vendor Error are exposed in EH/SB as users might be depending
+    #  on the code for error handling
     ClientError = b"amqp:client-error"
     UnknownError = b"amqp:unknown-error"
     VendorError = b"amqp:vendor-error"
@@ -44,11 +46,11 @@ class ErrorCodes(bytes, Enum):
 
 
 class RetryMode(str, Enum):
-    Exponential = 'exponential'
-    Fixed = 'fixed'
+    EXPONENTIAL = 'exponential'
+    FIXED = 'fixed'
 
 
-class ErrorPolicy:
+class RetryPolicy:
 
     no_retry = [
         ErrorCodes.DecodeError,
@@ -78,7 +80,6 @@ class ErrorPolicy:
         **kwargs
     ):
         """
-
         keyword int retry_total:
         keyword float retry_backoff_factor:
         keyword float retry_backoff_max:
@@ -87,11 +88,15 @@ class ErrorPolicy:
         keyword dict custom_retry_policy:
         """
         self.total_retries = kwargs.pop('retry_total', 3)
+        # TODO: A. consider letting retry_backoff_factor be either a float or a callback obj which returns a float
+        #  to give more extensibility on customization of retry backoff time, the callback could take the exception
+        #  as input.
         self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
         self.backoff_max = kwargs.pop('retry_backoff_max', 120)
         self.retry_mode = kwargs.pop('retry_mode', RetryMode.Exponential)
         self.custom_no_retry = self.no_retry + kwargs.pop("no_retry_condition", [])
-        self.custom_retry_policy = kwargs.pop("custom_retry_policy", None)
+        self.custom_condition_backoff = kwargs.pop("custom_condition_backoff", None)
+        # TODO: B. As an alternative of option A, we could have a new kwarg serve the goal
 
     def configure_retries(self, **kwargs):
         return {
@@ -119,7 +124,7 @@ class ErrorPolicy:
 
     def get_backoff_time(self, settings, error):
         try:
-            return self.custom_retry_policy[error.condition]
+            return self.custom_condition_backoff[error.condition]
         except KeyError:
             pass
 
@@ -127,7 +132,7 @@ class ErrorPolicy:
         if consecutive_errors_len <= 1:
             return 0
 
-        if self.retry_mode == RetryMode.Fixed:
+        if self.retry_mode == RetryMode.FIXED:
             backoff_value = settings['backoff']
         else:
             backoff_value = settings['backoff'] * (2 ** (consecutive_errors_len - 1))

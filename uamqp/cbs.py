@@ -166,8 +166,12 @@ class CBSAuthenticator(object):
         if self.state != CbsState.OPEN:
             return False
         if self.state in (CbsState.CLOSED, CbsState.ERROR):
-            # TODO: raise proper error type
-            raise AuthenticationException("CBS authentication link is in broken status, please recreate the cbs link.")
+            # TODO: raise proper error type also should this be a ClientError?
+            #  Think how upper layer handle this exception + condition code
+            raise AuthenticationException(
+                condition=ErrorCodes.ClientError,
+                description="CBS authentication link is in broken status, please recreate the cbs link."
+            )
 
     def open(self):
         self.state = CbsState.OPENING
@@ -212,7 +216,7 @@ class CBSAuthenticator(object):
             raise TokenAuthFailure(
                 self._token_status_code,
                 self._token_status_description,
-                encoding=self._encoding
+                encoding=self._encoding  # TODO: drop off all the encodings
             )
         elif self.auth_state == CbsAuthState.Timeout:
             raise TimeoutError("Authentication attempt timed-out.")
