@@ -46,9 +46,7 @@ class Link(object):
         self.handle = handle
         self.remote_handle = None
         self.role = role
-        source_address = kwargs['source_address']
-        target_address = kwargs['target_address']
-        self.source = source_address if isinstance(source_address, Source) else Source(
+        self.source = kwargs.get("source") or Source(
             address=kwargs['source_address'],
             durable=kwargs.get('source_durable'),
             expiry_policy=kwargs.get('source_expiry_policy'),
@@ -61,7 +59,7 @@ class Link(object):
             outcomes=kwargs.get('source_outcomes'),
             capabilities=kwargs.get('source_capabilities')
         )
-        self.target = target_address if isinstance(target_address, Target) else Target(
+        self.target = kwargs.get("target") or Target(
             address=kwargs['target_address'],
             durable=kwargs.get('target_durable'),
             expiry_policy=kwargs.get('target_expiry_policy'),

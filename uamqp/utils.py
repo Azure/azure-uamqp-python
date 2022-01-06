@@ -121,6 +121,7 @@ def get_message_encoded_size(message):
 
 def amqp_long_value(value):
     # A helper method to wrap a Python int as AMQP long
+    # TODO: wrapping one line in a function is expensive, find if there's a better way to do it
     return {TYPE: AMQPTypes.long, VALUE: value}
 
 
