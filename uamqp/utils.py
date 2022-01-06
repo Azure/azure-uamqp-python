@@ -12,6 +12,7 @@ from hmac import HMAC
 from urllib.parse import urlencode, quote_plus
 import time
 
+from .types import TYPE, VALUE, AMQPTypes
 from ._encode import encode_payload
 
 
@@ -74,7 +75,8 @@ def generate_sas_token(audience, policy, key, expiry=None):
     result = {
         'sr': audience,
         'sig': signature,
-        'se': str(ttl)}
+        'se': str(ttl)
+    }
     if policy:
         result['skn'] = encoded_policy
     return 'SharedAccessSignature ' + urlencode(result)
@@ -87,7 +89,41 @@ def add_batch(batch, message):
     batch.data.append(output)
 
 
+def encode_str(data, encoding='utf-8'):
+    try:
+        return data.encode(encoding)
+    except AttributeError:
+        return data
+
+
+def normalized_data_body(data, **kwargs):
+    # A helper method to normalize input into AMQP Data Body format
+    encoding = kwargs.get("encoding", "utf-8")
+    if isinstance(data, list):
+        return [encode_str(item, encoding) for item in data]
+    else:
+        return [encode_str(data, encoding)]
+
+
+def normalized_sequence_body(sequence):
+    # A helper method to normalize input into AMQP Sequence Body format
+    if isinstance(sequence, list) and all([isinstance(b, list) for b in sequence]):
+        return sequence
+    elif isinstance(sequence, list):
+        return [sequence]
+
+
 def get_message_encoded_size(message):
     output = bytearray()
     encode_payload(output, message)
     return len(output)
+
+
+def amqp_long_value(value):
+    # A helper method to wrap a Python int as AMQP long
+    return {TYPE: AMQPTypes.long, VALUE: value}
+
+
+def amqp_uint_value(value):
+    # A helper method to wrap a Python int as AMQP uint
+    return {TYPE: AMQPTypes.uint, VALUE: value}
