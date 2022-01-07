@@ -26,7 +26,7 @@ from .constants import (
 )
 
 from .error import (
-    ErrorCodes,
+    ErrorCondition,
     AMQPConnectionError,
     AMQPError
 )
@@ -161,7 +161,7 @@ class Connection(object):
                 self._set_state(ConnectionState.HDR_SENT)
         except (OSError, IOError, SSLError, socket.error) as exc:
             raise AMQPConnectionError(
-                ErrorCodes.SocketError,
+                ErrorCondition.SocketError,
                 description="Failed to initiate the connection due to exception: " + str(exc),
                 error=exc
             )
@@ -233,7 +233,7 @@ class Connection(object):
                     self._transport.send_frame(channel, frame, **kwargs)
             except (OSError, IOError, SSLError, socket.error) as exc:
                 self._error = AMQPConnectionError(
-                    ErrorCodes.SocketError,
+                    ErrorCondition.SocketError,
                     description="Can not send frame out due to exception: " + str(exc),
                     error=exc
                 )
@@ -270,7 +270,7 @@ class Connection(object):
                 self._last_frame_sent_time = time.time()
         except (OSError, IOError, SSLError, socket.error) as exc:
             self._error = AMQPConnectionError(
-                ErrorCodes.SocketError,
+                ErrorCondition.SocketError,
                 description="Can not send empty frame due to exception: " + str(exc),
                 error=exc
             )
@@ -345,7 +345,7 @@ class Connection(object):
             _LOGGER.error("OPEN frame received on a channel that is not 0.")
             self.close(
                 error=AMQPError(
-                    condition=ErrorCodes.NotAllowed,
+                    condition=ErrorCondition.NotAllowed,
                     description="OPEN frame received on a channel that is not 0."
                 )
             )
@@ -403,7 +403,7 @@ class Connection(object):
         close_error = None
         if channel > self._channel_max:
             _LOGGER.error("Invalid channel")
-            close_error = AMQPError(condition=ErrorCodes.InvalidField, description="Invalid channel", info=None)
+            close_error = AMQPError(condition=ErrorCondition.InvalidField, description="Invalid channel", info=None)
 
         self._set_state(ConnectionState.CLOSE_RCVD)
         self._outgoing_close(error=close_error)
@@ -540,7 +540,7 @@ class Connection(object):
         if self._get_local_timeout(now) or self._get_remote_timeout(now):
             self.close(
                 error=AMQPError(
-                    condition=ErrorCodes.InternalError,
+                    condition=ErrorCondition.InternalError,
                     description="No frame received for the idle timeout"
                 ),
                 wait=False
@@ -627,7 +627,7 @@ class Connection(object):
                 if self._get_local_timeout(now) or self._get_remote_timeout(now):
                     self.close(
                         error=AMQPError(
-                            condition=ErrorCodes.InternalError.value,
+                            condition=ErrorCondition.InternalError.value,
                             description="No frame received for the idle timeout"
                         ),
                         wait=False
@@ -635,7 +635,7 @@ class Connection(object):
                     return
             if self.state == ConnectionState.END:
                 self._error = AMQPConnectionError(
-                    condition=ErrorCodes.ClientError,
+                    condition=ErrorCondition.ClientError,
                     description="Connection closed."
                 )
                 return
@@ -645,7 +645,7 @@ class Connection(object):
                     break
         except (OSError, IOError, SSLError, socket.error) as exc:
             self._error = AMQPConnectionError(
-                ErrorCodes.SocketError,
+                ErrorCondition.SocketError,
                 description="Can not send frame out due to exception: " + str(exc),
                 error=exc
             )

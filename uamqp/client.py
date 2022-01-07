@@ -26,7 +26,7 @@ from .error import (
     AMQPConnectionError,
     AMQPException,
     ErrorResponse,
-    ErrorCodes,
+    ErrorCondition,
     MessageException,
     MessageSendFailed,
     ErrorPolicy
@@ -200,10 +200,10 @@ class AMQPClient(object):
                     if not retry_active:
                         break
                     time.sleep(self._error_policy.get_backoff_time(retry_settings, exc))
-                    if exc.condition == ErrorCodes.LinkDetachForced:
+                    if exc.condition == ErrorCondition.LinkDetachForced:
                         self._close_link()  # if link level error, close and open a new link
                         # TODO: check if there's any other code that we want to close link?
-                    if exc.condition in (ErrorCodes.ConnectionCloseForced, ErrorCodes.SocketFailure):
+                    if exc.condition in (ErrorCondition.ConnectionCloseForced, ErrorCondition.SocketFailure):
                         # if connection detach or socket error, close and open a new connection
                         self.close()
                         # TODO: check if there's any other code we want to close connection
@@ -435,7 +435,7 @@ class SendClient(AMQPClient):
     @staticmethod
     def _process_send_error(message_delivery, condition, description=None, info=None):
         try:
-            amqp_condition = ErrorCodes(condition)
+            amqp_condition = ErrorCondition(condition)
         except ValueError:
             error = MessageException(condition, description=description, info=info)
         else:
@@ -462,7 +462,7 @@ class SendClient(AMQPClient):
                 except TypeError:
                     self._process_send_error(
                         message_delivery,
-                        condition=ErrorCodes.UnknownError
+                        condition=ErrorCondition.UnknownError
                     )
         elif reason == LinkDeliverySettleReason.Settled:
             message_delivery.state = MessageDeliveryState.Ok
@@ -473,7 +473,7 @@ class SendClient(AMQPClient):
             # NotDelivered and other unknown errors
             self._process_send_error(
                 message_delivery,
-                condition=ErrorCodes.UnknownError
+                condition=ErrorCondition.UnknownError
             )
 
     def _send_message_impl(self, message, **kwargs):
@@ -502,7 +502,7 @@ class SendClient(AMQPClient):
                 raise message_delivery.error
             except TypeError:
                 # This is a default handler
-                raise MessageException(condition=ErrorCodes.UnknownError, description="Send failed.")
+                raise MessageException(condition=ErrorCondition.UnknownError, description="Send failed.")
 
     def send_message(self, message, **kwargs):
         """

@@ -11,153 +11,9 @@ from .constants import SECURE_PORT, FIELD
 from .types import AMQPTypes, FieldDefinition
 
 
-class ErrorCodes(bytes, Enum):
-    InternalError = b"amqp:internal-error"
-    IllegalState = b"amqp:illegal-state"
-    DecodeError = b"amqp:decode-error"
-    NotFound = b"amqp:not-found"
-    NotImplemented = b"amqp:not-implemented"
-    NotAllowed = b"amqp:not-allowed"
-    InvalidField = b"amqp:invalid-field"
-    ResourceLocked = b"amqp:resource-locked"
-    ResourceDeleted = b"amqp:resource-deleted"
-    UnauthorizedAccess = b"amqp:unauthorized-access"
-    FrameSizeTooSmall = b"amqp:frame-size-too-small"
-    ResourceLimitExceeded = b"amqp:resource-limit-exceeded"
-    PreconditionFailed = b"amqp:precondition-failed"
-    ConnectionRedirect = b"amqp:connection:redirect"
-    ConnectionCloseForced = b"amqp:connection:forced"
-    ConnectionFramingError = b"amqp:connection:framing-error"
-    SessionWindowViolation = b"amqp:session:window-violation"
-    SessionErrantLink = b"amqp:session:errant-link"
-    SessionHandleInUse = b"amqp:session:handle-in-use"
-    SessionUnattachedHandle = b"amqp:session:unattached-handle"
-    LinkRedirect = b"amqp:link:redirect"
-    LinkStolen = b"amqp:link:stolen"
-    LinkDetachForced = b"amqp:link:detach-forced"
-    LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
-    LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
-    # TODO: check whether Client/Unknown/Vendor Error are exposed in EH/SB as users might be depending
-    #  on the code for error handling
-    ClientError = b"amqp:client-error"
-    UnknownError = b"amqp:unknown-error"
-    VendorError = b"amqp:vendor-error"
-    SocketError = b"amqp:socket-error"
+class ErrorCondition(bytes, Enum):
+    # Shared error conditions:
 
-
-class RetryMode(str, Enum):
-    EXPONENTIAL = 'exponential'
-    FIXED = 'fixed'
-
-
-class RetryPolicy:
-
-    no_retry = [
-        ErrorCodes.DecodeError,
-        ErrorCodes.LinkMessageSizeExceeded,
-        ErrorCodes.NotFound,
-        ErrorCodes.NotImplemented,
-        ErrorCodes.LinkRedirect,
-        ErrorCodes.NotAllowed,
-        ErrorCodes.UnauthorizedAccess,
-        ErrorCodes.LinkStolen,
-        ErrorCodes.ResourceLimitExceeded,
-        ErrorCodes.ConnectionRedirect,
-        ErrorCodes.PreconditionFailed,
-        ErrorCodes.InvalidField,
-        ErrorCodes.ResourceDeleted,
-        ErrorCodes.IllegalState,
-        ErrorCodes.FrameSizeTooSmall,
-        ErrorCodes.ConnectionFramingError,
-        ErrorCodes.SessionUnattachedHandle,
-        ErrorCodes.SessionHandleInUse,
-        ErrorCodes.SessionErrantLink,
-        ErrorCodes.SessionWindowViolation
-    ]
-
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        keyword int retry_total:
-        keyword float retry_backoff_factor:
-        keyword float retry_backoff_max:
-        keyword RetryMode retry_mode:
-        keyword list no_retry_condition:
-        keyword dict custom_retry_policy:
-        """
-        self.total_retries = kwargs.pop('retry_total', 3)
-        # TODO: A. consider letting retry_backoff_factor be either a float or a callback obj which returns a float
-        #  to give more extensibility on customization of retry backoff time, the callback could take the exception
-        #  as input.
-        self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
-        self.backoff_max = kwargs.pop('retry_backoff_max', 120)
-        self.retry_mode = kwargs.pop('retry_mode', RetryMode.Exponential)
-        self.custom_no_retry = self.no_retry + kwargs.pop("no_retry_condition", [])
-        self.custom_condition_backoff = kwargs.pop("custom_condition_backoff", None)
-        # TODO: B. As an alternative of option A, we could have a new kwarg serve the goal
-
-    def configure_retries(self, **kwargs):
-        return {
-            'total': kwargs.pop("retry_total", self.total_retries),
-            'backoff': kwargs.pop("retry_backoff_factor", self.backoff_factor),
-            'max_backoff': kwargs.pop("retry_backoff_max", self.backoff_max),
-            'retry_mode': kwargs.pop("retry_mode", self.retry_mode),
-            'history': []
-        }
-
-    def increment(self, settings, error):
-        settings['total'] -= 1
-        settings['history'].append(error)
-        if settings['total'] < 0:
-            return False
-        return True
-
-    def is_retryable(self, error):
-        try:
-            if error.condition in self.custom_no_retry:
-                return False
-        except TypeError:
-            pass
-        return True
-
-    def get_backoff_time(self, settings, error):
-        try:
-            return self.custom_condition_backoff[error.condition]
-        except KeyError:
-            pass
-
-        consecutive_errors_len = len(settings['history'])
-        if consecutive_errors_len <= 1:
-            return 0
-
-        if self.retry_mode == RetryMode.FIXED:
-            backoff_value = settings['backoff']
-        else:
-            backoff_value = settings['backoff'] * (2 ** (consecutive_errors_len - 1))
-        return min(settings['max_backoff'], backoff_value)
-
-
-class ErrorCondition(Enum):
-    """Shared error conditions
-
-    <type name="amqp-error" class="restricted" source="symbol" provides="error-condition">
-        <choice name="internal-error" value="amqp:internal-error"/>
-        <choice name="not-found" value="amqp:not-found"/>
-        <choice name="unauthorized-access" value="amqp:unauthorized-access"/>
-        <choice name="decode-error" value="amqp:decode-error"/>
-        <choice name="resource-limit-exceeded" value="amqp:resource-limit-exceeded"/>
-        <choice name="not-allowed" value="amqp:not-allowed"/>
-        <choice name="invalid-field" value="amqp:invalid-field"/>
-        <choice name="not-implemented" value="amqp:not-implemented"/>
-        <choice name="resource-locked" value="amqp:resource-locked"/>
-        <choice name="precondition-failed" value="amqp:precondition-failed"/>
-        <choice name="resource-deleted" value="amqp:resource-deleted"/>
-        <choice name="illegal-state" value="amqp:illegal-state"/>
-        <choice name="frame-size-too-small" value="amqp:frame-size-too-small"/>
-    </type>
-    """
     #: An internal error occurred. Operator intervention may be required to resume normaloperation.
     InternalError = b"amqp:internal-error"
     #: A peer attempted to work with a remote entity that does not exist.
@@ -187,67 +43,142 @@ class ErrorCondition(Enum):
     #: valid values would be too large to fit within a frame of the agreed maximum frame size.
     FrameSizeTooSmall = b"amqp:frame-size-too-small"
 
+    # Symbols used to indicate connection error conditions:
 
-class ConnectionErrorCondition(Enum):
-    """Symbols used to indicate connection error conditions.
-
-    <type name="connection-error" class="restricted" source="symbol" provides="error-condition">
-        <choice name="connection-forced" value="amqp:connection:forced"/>
-        <choice name="framing-error" value="amqp:connection:framing-error"/>
-        <choice name="redirect" value="amqp:connection:redirect"/>
-    </type>
-    """
     #: An operator intervened to close the Connection for some reason. The client may retry at some later date.
-    ConnectionForced = b"amqp:connection:forced"
+    ConnectionCloseForced = b"amqp:connection:forced"
     #: A valid frame header cannot be formed from the incoming byte stream.
-    FramingError = b"amqp:connection:framing-error"
+    ConnectionFramingError = b"amqp:connection:framing-error"
     #: The container is no longer available on the current connection. The peer should attempt reconnection
     #: to the container using the details provided in the info map.
-    Redirect = b"amqp:connection:redirect"
+    ConnectionRedirect = b"amqp:connection:redirect"
 
+    # Symbols used to indicate session error conditions:
 
-class SessionErrorCondition(Enum):
-    """Symbols used to indicate session error conditions.
-
-    <type name="session-error" class="restricted" source="symbol" provides="error-condition">
-        <choice name="window-violation" value="amqp:session:window-violation"/>
-        <choice name="errant-link" value="amqp:session:errant-link"/>
-        <choice name="handle-in-use" value="amqp:session:handle-in-use"/>
-        <choice name="unattached-handle" value="amqp:session:unattached-handle"/>
-    </type>
-    """
     #: The peer violated incoming window for the session.
-    WindowViolation = b"amqp:session:window-violation"
+    SessionWindowViolation = b"amqp:session:window-violation"
     #: Input was received for a link that was detached with an error.
-    ErrantLink = b"amqp:session:errant-link"
+    SessionErrantLink = b"amqp:session:errant-link"
     #: An attach was received using a handle that is already in use for an attached Link.
-    HandleInUse = b"amqp:session:handle-in-use"
+    SessionHandleInUse = b"amqp:session:handle-in-use"
     #: A frame (other than attach) was received referencing a handle which
     #: is not currently in use of an attached Link.
-    UnattachedHandle = b"amqp:session:unattached-handle"
+    SessionUnattachedHandle = b"amqp:session:unattached-handle"
 
+    # Symbols used to indicate link error conditions:
 
-class LinkErrorCondition(Enum):
-    """Symbols used to indicate link error conditions.
-
-    <type name="link-error" class="restricted" source="symbol" provides="error-condition">
-        <choice name="detach-forced" value="amqp:link:detach-forced"/>
-        <choice name="transfer-limit-exceeded" value="amqp:link:transfer-limit-exceeded"/>
-        <choice name="message-size-exceeded" value="amqp:link:message-size-exceeded"/>
-        <choice name="redirect" value="amqp:link:redirect"/>
-        <choice name="stolen" value="amqp:link:stolen"/>
-    </type>
-    """
     #: An operator intervened to detach for some reason.
-    DetachForced = b"amqp:link:detach-forced"
+    LinkDetachForced = b"amqp:link:detach-forced"
     #: The peer sent more Message transfers than currently allowed on the link.
-    TransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
+    LinkTransferLimitExceeded = b"amqp:link:transfer-limit-exceeded"
     #: The peer sent a larger message than is supported on the link.
-    MessageSizeExceeded = b"amqp:link:message-size-exceeded"
+    LinkMessageSizeExceeded = b"amqp:link:message-size-exceeded"
     #: The address provided cannot be resolved to a terminus at the current container.
-    Redirect = b"amqp:link:redirect"
+    LinkRedirect = b"amqp:link:redirect"
     #: The link has been attached elsewhere, causing the existing attachment to be forcibly closed.
-    Stolen = b"amqp:link:stolen"
+    LinkStolen = b"amqp:link:stolen"
+
+    # Customized symbols used to indicate client error conditions.
+    # TODO: check whether Client/Unknown/Vendor Error are exposed in EH/SB as users might be depending
+    #  on the code for error handling
+    ClientError = b"amqp:client-error"
+    UnknownError = b"amqp:unknown-error"
+    VendorError = b"amqp:vendor-error"
+    SocketError = b"amqp:socket-error"
+
+
+class RetryMode(str, Enum):
+    EXPONENTIAL = 'exponential'
+    FIXED = 'fixed'
+
+
+class RetryPolicy:
+
+    no_retry = [
+        ErrorCondition.DecodeError,
+        ErrorCondition.LinkMessageSizeExceeded,
+        ErrorCondition.NotFound,
+        ErrorCondition.NotImplemented,
+        ErrorCondition.LinkRedirect,
+        ErrorCondition.NotAllowed,
+        ErrorCondition.UnauthorizedAccess,
+        ErrorCondition.LinkStolen,
+        ErrorCondition.ResourceLimitExceeded,
+        ErrorCondition.ConnectionRedirect,
+        ErrorCondition.PreconditionFailed,
+        ErrorCondition.InvalidField,
+        ErrorCondition.ResourceDeleted,
+        ErrorCondition.IllegalState,
+        ErrorCondition.FrameSizeTooSmall,
+        ErrorCondition.ConnectionFramingError,
+        ErrorCondition.SessionUnattachedHandle,
+        ErrorCondition.SessionHandleInUse,
+        ErrorCondition.SessionErrantLink,
+        ErrorCondition.SessionWindowViolation
+    ]
+
+    def __init__(
+        self,
+        **kwargs
+    ):
+        """
+        keyword int retry_total:
+        keyword float retry_backoff_factor:
+        keyword float retry_backoff_max:
+        keyword RetryMode retry_mode:
+        keyword list no_retry:
+        keyword dict custom_retry_policy:
+        """
+        self.total_retries = kwargs.pop('retry_total', 3)
+        # TODO: A. consider letting retry_backoff_factor be either a float or a callback obj which returns a float
+        #  to give more extensibility on customization of retry backoff time, the callback could take the exception
+        #  as input.
+        self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
+        self.backoff_max = kwargs.pop('retry_backoff_max', 120)
+        self.retry_mode = kwargs.pop('retry_mode', RetryMode.Exponential)
+        self.no_retry.extend(kwargs.get('no_retry', []))
+        self.custom_condition_backoff = kwargs.pop("custom_condition_backoff", None)
+        # TODO: B. As an alternative of option A, we could have a new kwarg serve the goal
+
+    def configure_retries(self, **kwargs):
+        return {
+            'total': kwargs.pop("retry_total", self.total_retries),
+            'backoff': kwargs.pop("retry_backoff_factor", self.backoff_factor),
+            'max_backoff': kwargs.pop("retry_backoff_max", self.backoff_max),
+            'retry_mode': kwargs.pop("retry_mode", self.retry_mode),
+            'history': []
+        }
+
+    def increment(self, settings, error):
+        settings['total'] -= 1
+        settings['history'].append(error)
+        if settings['total'] < 0:
+            return False
+        return True
+
+    def is_retryable(self, error):
+        try:
+            if error.condition in self.no_retry:
+                return False
+        except TypeError:
+            pass
+        return True
+
+    def get_backoff_time(self, settings, error):
+        try:
+            return self.custom_condition_backoff[error.condition]
+        except KeyError:
+            pass
+
+        consecutive_errors_len = len(settings['history'])
+        if consecutive_errors_len <= 1:
+            return 0
+
+        if self.retry_mode == RetryMode.FIXED:
+            backoff_value = settings['backoff']
+        else:
+            backoff_value = settings['backoff'] * (2 ** (consecutive_errors_len - 1))
+        return min(settings['max_backoff'], backoff_value)
 
 
 AMQPError = namedtuple('error', ['condition', 'description', 'info'])
@@ -267,13 +198,13 @@ class AMQPException(Exception):
     :keyword dict info: A dictionary of additional data associated with the error.
     """
     def __init__(self, condition, **kwargs):
-        self.condition = condition or ErrorCodes.UnknownError
+        self.condition = condition or ErrorCondition.UnknownError
         self.description = kwargs.get("description", None)
         self.info = kwargs.get("info", None)
         self.message = kwargs.get("message", None)
         self.inner_error = kwargs.get("error", None)
         message = self.message or "Error condition: {}".format(
-            str(condition) if isinstance(condition, ErrorCodes) else condition.decode()
+            str(condition) if isinstance(condition, ErrorCondition) else condition.decode()
         )
         if self.description:
             try:
@@ -372,7 +303,7 @@ class TokenAuthFailure(AuthenticationException):
                 message += "\nDescription: {}".format(self.status_description.decode(encoding))
             except (TypeError, AttributeError):
                 message += "\nDescription: {}".format(self.status_description)
-        super(TokenAuthFailure, self).__init__(condition=ErrorCodes.ClientError, message=message)
+        super(TokenAuthFailure, self).__init__(condition=ErrorCondition.ClientError, message=message)
 
 
 class MessageException(AMQPException):

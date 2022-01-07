@@ -34,7 +34,7 @@ from .performatives import (
 )
 
 from .error import (
-    ErrorCodes,
+    ErrorCondition,
     AMQPLinkError,
     AMQPLinkRedirect,
     AMQPConnectionError
@@ -127,7 +127,7 @@ class Link(object):
                 raise self._error
             except TypeError:
                 raise AMQPConnectionError(
-                    condition=ErrorCodes.InternalError,
+                    condition=ErrorCondition.InternalError,
                     description="Link already closed."
                 )
 
@@ -244,7 +244,7 @@ class Link(object):
         # TODO: on_detach_hook
         if frame[2]:  # error
             # frame[2][0] is condition, frame[2][1] is description, frame[2][2] is info
-            error_cls = AMQPLinkRedirect if frame[2][0] == ErrorCodes.LinkRedirect else AMQPLinkError
+            error_cls = AMQPLinkRedirect if frame[2][0] == ErrorCondition.LinkRedirect else AMQPLinkError
             self._error = error_cls(condition=frame[2][0], description=frame[2][1], info=frame[2][2])
             self._set_state(LinkState.ERROR)
         else:

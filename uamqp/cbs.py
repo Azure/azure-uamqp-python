@@ -12,7 +12,7 @@ from .management_link import ManagementLink
 from .message import Message, Properties
 from .error import (
     AuthenticationException,
-    ErrorCodes,
+    ErrorCondition,
     TokenAuthFailure,
     TokenExpired
 )
@@ -169,7 +169,7 @@ class CBSAuthenticator(object):
             # TODO: raise proper error type also should this be a ClientError?
             #  Think how upper layer handle this exception + condition code
             raise AuthenticationException(
-                condition=ErrorCodes.ClientError,
+                condition=ErrorCondition.ClientError,
                 description="CBS authentication link is in broken status, please recreate the cbs link."
             )
 
@@ -209,7 +209,7 @@ class CBSAuthenticator(object):
             return False
         elif self.auth_state == CbsAuthState.Failure:
             raise AuthenticationException(
-                condition=ErrorCodes.InternalError,
+                condition=ErrorCondition.InternalError,
                 description="Failed to open CBS authentication link."
             )
         elif self.auth_state == CbsAuthState.Error:
@@ -222,6 +222,6 @@ class CBSAuthenticator(object):
             raise TimeoutError("Authentication attempt timed-out.")
         elif self.auth_state == CbsAuthState.Expired:
             raise TokenExpired(
-                condition=ErrorCodes.InternalError,
+                condition=ErrorCondition.InternalError,
                 description="CBS Authentication Expired."
             )
