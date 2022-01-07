@@ -29,7 +29,7 @@ from .error import (
     ErrorCondition,
     MessageException,
     MessageSendFailed,
-    ErrorPolicy
+    RetryPolicy
 )
 
 from .constants import (
@@ -136,7 +136,7 @@ class AMQPClient(object):
         self._cbs_authenticator = None
         self._auth_timeout = kwargs.pop("auth_timeout", DEFAULT_AUTH_TIMEOUT)
         self._mgmt_links = {}
-        self._error_policy = kwargs.pop("error_policy", ErrorPolicy())
+        self._error_policy = kwargs.pop("error_policy", RetryPolicy())
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or MAX_FRAME_SIZE_BYTES

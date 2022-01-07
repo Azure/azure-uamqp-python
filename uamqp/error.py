@@ -135,7 +135,7 @@ class RetryPolicy:
         #  as input.
         self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
         self.backoff_max = kwargs.pop('retry_backoff_max', 120)
-        self.retry_mode = kwargs.pop('retry_mode', RetryMode.Exponential)
+        self.retry_mode = kwargs.pop('retry_mode', RetryMode.EXPONENTIAL)
         self.no_retry.extend(kwargs.get('no_retry', []))
         self.custom_condition_backoff = kwargs.pop("custom_condition_backoff", None)
         # TODO: B. As an alternative of option A, we could have a new kwarg serve the goal
