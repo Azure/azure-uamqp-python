@@ -11,6 +11,8 @@ import logging
 from typing import List, Union, Tuple, Dict, Callable  # pylint: disable=unused-import
 
 
+from .message import Message, Header, Properties
+
 _LOGGER = logging.getLogger(__name__)
 _HEADER_PREFIX = memoryview(b'AMQP')
 _COMPOSITES = {
@@ -241,7 +243,7 @@ def _decode_described(buffer):
 
 
 def decode_payload(buffer):
-    # type: (memoryview) -> Dict[str, Any]
+    # type: (memoryview) -> Message
     message = {}
     while buffer:
         # Ignore the first two bytes, they will always be the constructors for
@@ -249,13 +251,13 @@ def decode_payload(buffer):
         descriptor = buffer[2]
         buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[3]](buffer[4:])
         if descriptor == 112:
-            message["header"] = value
+            message["header"] = Header(*value)
         elif descriptor == 113:
             message["delivery_annotations"] = value
         elif descriptor == 114:
             message["message_annotations"] = value
         elif descriptor == 115:
-            message["properties"] = value
+            message["properties"] = Properties(*value)
         elif descriptor == 116:
             message["application_properties"] = value
         elif descriptor == 117:
@@ -264,12 +266,17 @@ def decode_payload(buffer):
             except KeyError:
                 message["data"] = [value]
         elif descriptor == 118:
-            message["sequence"] = value
+            try:
+                message["sequence"].append(value)
+            except KeyError:
+                message["sequence"] = [value]
         elif descriptor == 119:
             message["value"] = value
         elif descriptor == 120:
             message["footer"] = value
-    return message
+    # TODO: we can possibly swap out the Message construct with a TypedDict
+    #  for both input and output so we get the best of both.
+    return Message(**message)
 
 
 def decode_frame(data):

@@ -13,7 +13,6 @@ from enum import Enum
 from io import BytesIO
 from urllib.parse import urlparse
 
-
 from .endpoints import Source, Target
 from .constants import (
     DEFAULT_LINK_CREDIT,
@@ -54,7 +53,7 @@ class Link(object):
         self.handle = handle
         self.remote_handle = None
         self.role = role
-        self.source = Source(
+        self.source = kwargs.get("source") or Source(
             address=kwargs['source_address'],
             durable=kwargs.get('source_durable'),
             expiry_policy=kwargs.get('source_expiry_policy'),
@@ -65,15 +64,17 @@ class Link(object):
             filters=kwargs.get('source_filters'),
             default_outcome=kwargs.get('source_default_outcome'),
             outcomes=kwargs.get('source_outcomes'),
-            capabilities=kwargs.get('source_capabilities'))
-        self.target = Target(
+            capabilities=kwargs.get('source_capabilities')
+        )
+        self.target = kwargs.get("target") or Target(
             address=kwargs['target_address'],
             durable=kwargs.get('target_durable'),
             expiry_policy=kwargs.get('target_expiry_policy'),
             timeout=kwargs.get('target_timeout'),
             dynamic=kwargs.get('target_dynamic'),
             dynamic_node_properties=kwargs.get('target_dynamic_node_properties'),
-            capabilities=kwargs.get('target_capabilities'))
+            capabilities=kwargs.get('target_capabilities')
+        )
         self.link_credit = kwargs.pop('link_credit', None) or DEFAULT_LINK_CREDIT
         self.current_link_credit = self.link_credit
         self.send_settle_mode = kwargs.pop('send_settle_mode', SenderSettleMode.Mixed)
