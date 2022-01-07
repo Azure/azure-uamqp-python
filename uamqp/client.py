@@ -526,14 +526,14 @@ class ReceiveClient(AMQPClient):
 
     def __init__(self, hostname, source, auth=None, **kwargs):
         self.source = source
-        self._streaming_receive = False
+        self._streaming_receive = kwargs.pop("streaming_receive", False)  # TODO: whether public?
         self._received_messages = queue.Queue()
-        self._message_received_callback = None
+        self._message_received_callback = kwargs.pop("message_received_callback", None)  # TODO: whether public?
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
         self._link_properties = kwargs.pop('link_properties', None)
-        self._link_credit = kwargs.pop('link_credit', None)
+        self._link_credit = kwargs.pop('link_credit', None) or 300
         super(ReceiveClient, self).__init__(hostname, auth=auth, **kwargs)
 
     def _client_ready(self):
@@ -555,7 +555,9 @@ class ReceiveClient(AMQPClient):
                 rcv_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
                 on_message_received=self._message_received,
-                properties=self._link_properties)
+                properties=self._link_properties,
+                desired_capabilities=self._desired_capabilities
+            )
             self._link.attach()
             return False
         if self._link.state.value != 3:  # ATTACHED
