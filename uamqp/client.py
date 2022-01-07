@@ -600,9 +600,9 @@ class ReceiveClient(AMQPClient):
 
     def __init__(self, hostname, source, auth=None, **kwargs):
         self.source = source
-        self._streaming_receive = False
+        self._streaming_receive = kwargs.pop("streaming_receive", False)  # TODO: whether public?
         self._received_messages = queue.Queue()
-        self._message_received_callback = None
+        self._message_received_callback = kwargs.pop("message_received_callback", None)  # TODO: whether public?
 
         # Sender and Link settings
         self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES

@@ -119,9 +119,9 @@ class ManagementLink(object):
             return
 
     def _on_message_received(self, message):
-        message_properties = message.get("properties")
+        message_properties = message.properties
         correlation_id = message_properties[5]
-        response_detail = message.get("application_properties")
+        response_detail = message.application_properties
 
         status_code = response_detail.get(self._status_code_field)
         status_description = response_detail.get(self._status_description_field)
