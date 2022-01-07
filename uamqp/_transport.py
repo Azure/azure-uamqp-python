@@ -1,3 +1,4 @@
+#-------------------------------------------------------------------------
 # This is a fork of the transport.py which was originally written by Barry Pederson and
 # maintained by the Celery project: https://github.com/celery/py-amqp.
 #
@@ -29,8 +30,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
-
-# pylint: skip-file
+#-------------------------------------------------------------------------
 
 
 from __future__ import absolute_import, unicode_literals
