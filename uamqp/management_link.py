@@ -161,9 +161,9 @@ class ManagementLink(object):
                 None,
                 message_delivery.message,
                 error=AMQPException(
-                    state[SEND_DISPOSITION_REJECT][0][0],  # 0 is error condition
-                    state[SEND_DISPOSITION_REJECT][0][1],  # 1 is error description
-                    state[SEND_DISPOSITION_REJECT][0][2],  # 2 is error info
+                    condition=state[SEND_DISPOSITION_REJECT][0][0],  # 0 is error condition
+                    description=state[SEND_DISPOSITION_REJECT][0][1],  # 1 is error description
+                    info=state[SEND_DISPOSITION_REJECT][0][2],  # 2 is error info
                 )
             )
 

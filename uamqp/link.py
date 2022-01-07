@@ -32,6 +32,13 @@ from .performatives import (
     FlowFrame,
 )
 
+from .error import (
+    ErrorCondition,
+    AMQPLinkError,
+    AMQPLinkRedirect,
+    AMQPConnectionError
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -94,6 +101,7 @@ class Link(object):
         self._pending_deliveries = {}
         self._received_payload = bytearray()
         self._on_link_state_change = kwargs.get('on_link_state_change')
+        self._error = None
 
     def __enter__(self):
         self.attach()
@@ -106,6 +114,23 @@ class Link(object):
     def from_incoming_frame(cls, session, handle, frame):
         # check link_create_from_endpoint in C lib
         raise NotImplementedError('Pending')  # TODO: Assuming we establish all links for now...
+
+    def get_state(self):
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        return self.state
+
+    def _check_if_closed(self):
+        if self._is_closed:
+            try:
+                raise self._error
+            except TypeError:
+                raise AMQPConnectionError(
+                    condition=ErrorCondition.InternalError,
+                    description="Link already closed."
+                )
 
     def _set_state(self, new_state):
         # type: (LinkState) -> None
@@ -219,6 +244,9 @@ class Link(object):
         self._remove_pending_deliveries()
         # TODO: on_detach_hook
         if frame[2]:  # error
+            # frame[2][0] is condition, frame[2][1] is description, frame[2][2] is info
+            error_cls = AMQPLinkRedirect if frame[2][0] == ErrorCondition.LinkRedirect else AMQPLinkError
+            self._error = error_cls(condition=frame[2][0], description=frame[2][1], info=frame[2][2])
             self._set_state(LinkState.ERROR)
         else:
             self._set_state(LinkState.DETACHED)
@@ -231,12 +259,17 @@ class Link(object):
         self._received_payload = bytearray()
 
     def detach(self, close=False, error=None):
-        if self._is_closed:
-            raise ValueError("Link already closed.")
-        self._remove_pending_deliveries()  # TODO: Keep?
-        if self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
-            self._outgoing_detach(close=close, error=error)
+        if self.state in (LinkState.DETACHED, LinkState.ERROR):
+            return
+        try:
+            self._check_if_closed()
+            self._remove_pending_deliveries()  # TODO: Keep?
+            if self.state in [LinkState.ATTACH_SENT, LinkState.ATTACH_RCVD]:
+                self._outgoing_detach(close=close, error=error)
+                self._set_state(LinkState.DETACHED)
+            elif self.state == LinkState.ATTACHED:
+                self._outgoing_detach(close=close, error=error)
+                self._set_state(LinkState.DETACH_SENT)
+        except Exception as exc:
+            _LOGGER.info("An error occurred when detaching the link: %r", exc)
             self._set_state(LinkState.DETACHED)
-        elif self.state == LinkState.ATTACHED:
-            self._outgoing_detach(close=close, error=error)
-            self._set_state(LinkState.DETACH_SENT)

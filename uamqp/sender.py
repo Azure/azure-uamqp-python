@@ -26,6 +26,7 @@ from .performatives import (
     DispositionFrame,
     FlowFrame,
 )
+from .error import AMQPLinkError, ErrorCondition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -149,10 +150,12 @@ class SenderLink(Link):
         self._unsent_messages = unsent
 
     def send_transfer(self, message, **kwargs):
-        if self._is_closed:
-            raise ValueError("Link already closed.")
+        self._check_if_closed()
         if self.state != LinkState.ATTACHED:
-            raise ValueError("Link is not attached.")
+            raise AMQPLinkError(  # TODO: should we introduce MessageHandler to indicate the handler is in wrong state
+                condition=ErrorCondition.ClientError,  # TODO: should this be a ClientError?
+                description="Link is not attached."
+            )
         settled = self.send_settle_mode == SenderSettleMode.Settled
         if self.send_settle_mode == SenderSettleMode.Mixed:
             settled = kwargs.pop('settled', True)
