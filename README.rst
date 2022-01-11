@@ -11,7 +11,6 @@ uAMQP for Python
 
 An AMQP 1.0 client library for Python.
 
-
 Disclaimer
 ============
 
