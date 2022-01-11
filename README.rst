@@ -14,7 +14,11 @@ An AMQP 1.0 client library for Python.
 Disclaimer
 ============
 
-uAMQP for Python requires Python 3.7+ starting from v1.5, Python 2.7 is no longer supported. If Python 2.7 is required, please install uAMQP v1.4.
+uAMQP for Python requires Python 3.6+ starting from v1.5, and Python 2.7 is no longer supported. If Python 2.7 is required, please install uAMQP v1.4.3:
+
+.. code:: shell
+
+    $ pip install uamqp==1.4.3
 
 Installation
 ============
