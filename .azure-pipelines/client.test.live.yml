@@ -348,7 +348,7 @@ jobs:
       PythonBin: 'python3'
       PythonVersion: '$(PythonVersion36)'
       MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.6.8'
+      PythonVersion368: '3.6.8'
       OSArch: 'MacOS'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion368)-whl'
     steps:
