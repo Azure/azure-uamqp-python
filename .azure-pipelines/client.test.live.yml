@@ -2,6 +2,7 @@ trigger:
   - master
 
 variables:
+  PythonVersion36: '3.6'
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
@@ -19,6 +20,9 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
+        x64 Python 3.6:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion36)'
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
@@ -31,6 +35,9 @@ jobs:
         x64 Python 3.10:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion310)'
+        x86 Python 3.6:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion36)'
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
@@ -111,6 +118,9 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
+        Python 3.6:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
@@ -127,6 +137,7 @@ jobs:
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
+      PythonVersion36: '3.6.8'
       PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
@@ -223,6 +234,8 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
+        Python 3.6:
+          PythonVersion: '$(PythonVersion36)'
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
         Python 3.8:
@@ -319,7 +332,7 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_macOS1015_38'
+  - job: 'SDK_LiveTest_macOS1015_36'
     timeoutInMinutes: 300
     dependsOn: 'MacOS'
     pool:
@@ -327,17 +340,17 @@ jobs:
       vmImage: 'macOS-10.15'
     strategy:
       matrix:
-        EventHub Python 3.8:
+        EventHub Python 3.6:
           SDK: 'EventHub'
-        ServiceBus Python 3.8:
+        ServiceBus Python 3.6:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '$(PythonVersion38)'
+      PythonVersion: '$(PythonVersion36)'
       MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.8.2'
+      PythonVersion368: '3.6.8'
       OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
+      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion368)-whl'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
