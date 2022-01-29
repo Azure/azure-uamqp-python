@@ -29,18 +29,12 @@ from ..constants import (
     ManagementOpenResult,
     DEFAULT_AUTH_TIMEOUT
 )
+from ..cbs import (
+    check_put_timeout_status,
+    check_expiration_and_refresh_status
+)
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def is_coroutine(get_token):
-    try:
-        if asyncio.iscoroutinefunction(get_token.func):
-            return True
-    except AttributeError:
-        if asyncio.iscoroutinefunction(get_token):
-            return True
-    raise ValueError("get_token must be a coroutine function")
 
 
 class CBSAuthenticator(object):
@@ -59,18 +53,12 @@ class CBSAuthenticator(object):
             status_code_field=b'status-code',
             status_description_field=b'status-description'
         )  # type: ManagementLink
-
-        if not auth.get_token or not is_coroutine(auth.get_token):
-            raise ValueError("get_token must be a coroutine object.")
-
         self._auth = auth
         self._encoding = 'UTF-8'
         self._auth_timeout = kwargs.pop('auth_timeout', DEFAULT_AUTH_TIMEOUT)
         self._token_put_time = None
-        self._expires_in = None
         self._expires_on = None
         self._token = None
-
         self._refresh_window = None
 
         self._token_status_code = None
@@ -102,23 +90,27 @@ class CBSAuthenticator(object):
 
     async def _on_amqp_management_open_complete(self, management_open_result):
         if self.state in (CbsState.CLOSED, CbsState.ERROR):
-            _LOGGER.info("Unexpected AMQP management open complete.")
+            _LOGGER.debug("Unexpected AMQP management open complete.")
         elif self.state == CbsState.OPEN:
             self.state = CbsState.ERROR
-            _LOGGER.info("Unexpected AMQP management open complete in OPEN,"
-                         "CBS error occurred on connection %r.", self._connection._container_id)
+            _LOGGER.info(
+                "Unexpected AMQP management open complete in OPEN, CBS error occurred on connection %r.",
+                self._connection._container_id
+            )
         elif self.state == CbsState.OPENING:
             self.state = CbsState.OPEN if management_open_result == ManagementOpenResult.OK else CbsState.CLOSED
             _LOGGER.info("CBS for connection %r completed opening with status: %r",
                          self._connection._container_id, management_open_result)
 
     async def _on_amqp_management_error(self):
+        # TODO: review the logging information, adjust level/information
+        #  this should be applied to overall logging
         if self.state == CbsState.CLOSED:
-            _LOGGER.info("Unexpected AMQP error in CLOSED state.")
+            _LOGGER.debug("Unexpected AMQP error in CLOSED state.")
         elif self.state == CbsState.OPENING:
             self.state = CbsState.ERROR
             await self._mgmt_link.close()
-            _LOGGER.info("CBS for connection %r completed opening with status: %r",
+            _LOGGER.info("CBS for connection %r failed to open with status: %r",
                          self._connection._container_id, ManagementOpenResult.ERROR)
         elif self.state == CbsState.OPEN:
             self.state = CbsState.ERROR
@@ -147,35 +139,19 @@ class CBSAuthenticator(object):
         elif execute_operation_result == ManagementExecuteOperationResult.FAILED_BAD_STATUS:
             self.auth_state = CbsAuthState.Error
 
-    def _update_status(self):
-        # TODO: this is duplication the sync version, considering mixin or inheritance
+    async def _update_status(self):
         if self.state == CbsAuthState.Ok or self.state == CbsAuthState.RefreshRequired:
-            is_expired, is_refresh_required = self._check_expiration_and_refresh_status()
+            is_expired, is_refresh_required = check_expiration_and_refresh_status(self._expires_on, self._refresh_window)
             if is_expired:
                 self.state = CbsAuthState.Expired
             elif is_refresh_required:
                 self.state = CbsAuthState.RefreshRequired
         elif self.state == CbsAuthState.InProgress:
-            put_timeout = self._check_put_timeout_status()
+            put_timeout = check_put_timeout_status(self._auth_timeout, self._token_put_time)
             if put_timeout:
                 self.state = CbsAuthState.Timeout
 
-    def _check_expiration_and_refresh_status(self):
-        # TODO: this is duplication the sync version, considering mixin or inheritance
-        seconds_since_epoc = int(utc_now().timestamp())
-        is_expired = seconds_since_epoc >= self._expires_on
-        is_refresh_required = (self._expires_on - seconds_since_epoc) <= self._refresh_window
-        return is_expired, is_refresh_required
-
-    def _check_put_timeout_status(self):
-        # TODO: this is duplication the sync version, considering mixin or inheritance
-        if self._auth_timeout > 0:
-            return (int(utc_now().timestamp()) - self._token_put_time) >= self._auth_timeout
-        else:
-            return False
-
-    def _cbs_link_ready(self):
-        # TODO: this is duplication the sync version, considering mixin or inheritance
+    async def _cbs_link_ready(self):
         if self.state == CbsState.OPEN:
             return True
         if self.state != CbsState.OPEN:
@@ -200,16 +176,16 @@ class CBSAuthenticator(object):
         self.auth_state = CbsAuthState.InProgress
         access_token = await self._auth.get_token()
         self._expires_on = access_token.expires_on
-        self._expires_in = self._expires_on - int(utc_now().timestamp())
-        self._refresh_window = int(float(self._expires_in) * 0.1)
+        expires_in = self._expires_on - int(utc_now().timestamp())
+        self._refresh_window = int(float(expires_in) * 0.1)
         self._token = access_token.token
         self._token_put_time = int(utc_now().timestamp())
         await self._put_token(self._token, self._auth.token_type, self._auth.audience, utc_from_timestamp(self._expires_on))
 
     async def handle_token(self):
-        if not self._cbs_link_ready():
+        if not (await self._cbs_link_ready()):
             return False
-        self._update_status()
+        await self._update_status()
         if self.auth_state == CbsAuthState.Idle:
             await self.update_token()
             return False
