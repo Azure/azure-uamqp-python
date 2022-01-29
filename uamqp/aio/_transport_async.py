@@ -336,7 +336,7 @@ class AsyncTransport(object):
     async def receive_frame_with_lock(self, *args, **kwargs):
         try:
             async with self.socket_lock:
-                header, channel, payload, await self.read(**kwargs) 
+                header, channel, payload = await self.read(**kwargs)
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
@@ -359,8 +359,8 @@ class AsyncTransport(object):
     async def negotiate(self):
         if not self.sslopts:
             return
-        await self.wriate(TLS_HEADER_FRAME)
-        channel, returned_header[1] = await self.receive_frame(verify_frame_type=None)
-        if returned_header == TLS_HEADER_FRAME:
+        await self.write(TLS_HEADER_FRAME)
+        channel, returned_header = await self.receive_frame(verify_frame_type=None)
+        if returned_header[1] == TLS_HEADER_FRAME:
             raise ValueError("Mismatching TLS header protocol. Excpected: {}, received: {}".format(
                 TLS_HEADER_FRAME, returned_header[1]))

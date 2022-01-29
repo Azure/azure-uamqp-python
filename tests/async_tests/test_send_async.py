@@ -7,6 +7,7 @@
 import logging
 import os
 import asyncio
+import pytest
 
 from uamqp.aio import SendClient, SASTokenAuthAsync
 from uamqp.message import Message, BatchMessage, Header, Properties
@@ -17,6 +18,7 @@ from uamqp.authentication import SASLPlainAuth
 logging.basicConfig(level=logging.INFO)
 
 
+@pytest.mark.asyncio
 async def test_send_single_message_to_target_partition_sasl_plain_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
@@ -29,6 +31,7 @@ async def test_send_single_message_to_target_partition_sasl_plain_auth_async(eve
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_single_large_message_to_target_partition_sasl_plain_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
@@ -42,6 +45,7 @@ async def test_send_single_large_message_to_target_partition_sasl_plain_auth_asy
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_single_message_to_partition_sasl_plain_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
@@ -54,6 +58,7 @@ async def test_send_single_message_to_partition_sasl_plain_auth_async(eventhub_c
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
@@ -72,6 +77,7 @@ async def test_send_message_to_partition_sas_auth_async(eventhub_config):
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_message_with_properties_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
@@ -98,6 +104,7 @@ async def test_send_message_with_properties_to_partition_sas_auth_async(eventhub
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_batch_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
@@ -120,6 +127,7 @@ async def test_send_batch_message_to_partition_sas_auth_async(eventhub_config):
     await send_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_send_large_batch_message_to_partition_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])

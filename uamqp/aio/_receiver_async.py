@@ -73,12 +73,11 @@ class ReceiverLink(Link):
         if not self.received_delivery_id and not self._received_payload:
             pass  # TODO: delivery error
         if self._received_payload or frame[5]:
-            self._received_payload += bytes(
-                frame[11])  # TODO, is it possible to use memoryview directly for concatenation?
+            self._received_payload.extend(frame[11])
         if not frame[5]:
             if self._received_payload:
-                message = decode_payload(memoryview(self._received_payload))  # TODO, is it possible to use memoryview directly for concatenation?
-                self._received_payload = b""
+                message = decode_payload(memoryview(self._received_payload))
+                self._received_payload = bytearray()
             else:
                 message = decode_payload(frame[11])
             delivery_state = await self._process_incoming_message(frame, message)

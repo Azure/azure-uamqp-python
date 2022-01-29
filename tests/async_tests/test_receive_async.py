@@ -7,6 +7,7 @@
 import logging
 import os
 import asyncio
+import pytest
 
 from uamqp.aio import ReceiveClient, SASTokenAuthAsync
 from uamqp.authentication import SASLPlainAuth
@@ -15,6 +16,7 @@ from uamqp.authentication import SASLPlainAuth
 logging.basicConfig(level=logging.INFO)
 
 
+@pytest.mark.asyncio
 async def test_receive_messages_sasl_plain_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
@@ -38,6 +40,7 @@ async def test_receive_messages_sasl_plain_async(eventhub_config):
     await receive_client.close_async()
 
 
+@pytest.mark.asyncio
 async def test_receive_messages_sas_auth_async(eventhub_config):
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])

@@ -22,7 +22,7 @@ from .constants import (
     SEND_DISPOSITION_REJECT,
     MessageDeliveryState
 )
-from .error import ErrorResponse, AMQPException
+from .error import ErrorResponse, AMQPException, ErrorCondition
 from .message import Message, Properties, _MessageDelivery
 
 _LOGGER = logging.getLogger(__name__)
@@ -240,7 +240,7 @@ class ManagementLink(object):
                     None,
                     None,
                     pending_operation.message,
-                    AMQPException(None, None, None, "Management link already closed.")
+                    AMQPException(condition=ErrorCondition.ClientError, description="Management link already closed.")
                 )
             self._pending_operations = []
         self.state = ManagementLinkState.IDLE

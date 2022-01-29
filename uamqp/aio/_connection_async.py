@@ -10,6 +10,8 @@ import uuid
 import logging
 import time
 from urllib.parse import urlparse
+import socket
+from ssl import SSLError
 from enum import Enum
 import asyncio
 
@@ -18,12 +20,19 @@ from ._sasl_async import SASLTransport
 from ._session_async import Session
 from ..performatives import OpenFrame, CloseFrame
 from ..constants import (
-    PORT, 
+    PORT,
     SECURE_PORT,
     MAX_FRAME_SIZE_BYTES,
     MAX_CHANNELS,
     HEADER_FRAME,
-    ConnectionState
+    ConnectionState,
+    EMPTY_FRAME
+)
+
+from ..error import (
+    ErrorCondition,
+    AMQPConnectionError,
+    AMQPError
 )
 
 
@@ -97,7 +106,7 @@ class Connection(object):
             'session': None,
             'link': None
         }
-
+        self._error = None
         self.outgoing_endpoints = {}
         self.incoming_endpoints = {}
 
@@ -122,19 +131,28 @@ class Connection(object):
         await asyncio.gather(*futures)
 
     async def _connect(self):
-        if not self.state:
-            await self.transport.connect()
-            await self._set_state(ConnectionState.START)
-        await self.transport.negotiate()
-        await self._outgoing_header()
-        await self._set_state(ConnectionState.HDR_SENT)
-        if not self.allow_pipelined_open:
-            await self._process_incoming_frame(*(await self._read_frame(wait=True)))
-            if self.state != ConnectionState.HDR_EXCH:
-                await self._disconnect()
-                raise ValueError("Did not receive reciprocal protocol header. Disconnecting.")
-        else:
+        try:
+            if not self.state:
+                await self.transport.connect()
+                await self._set_state(ConnectionState.START)
+            await self.transport.negotiate()
+            await self._outgoing_header()
             await self._set_state(ConnectionState.HDR_SENT)
+            if not self.allow_pipelined_open:
+                await self._process_incoming_frame(*(await self._read_frame(wait=True)))
+                if self.state != ConnectionState.HDR_EXCH:
+                    await self._disconnect()
+                    raise ValueError("Did not receive reciprocal protocol header. Disconnecting.")
+            else:
+                await self._set_state(ConnectionState.HDR_SENT)
+        except (OSError, IOError, SSLError, socket.error) as exc:
+            raise AMQPConnectionError(
+                ErrorCondition.SocketError,
+                description="Failed to initiate the connection due to exception: " + str(exc),
+                error=exc
+            )
+        except Exception:
+            raise
 
     async def _disconnect(self, *args):
         if self.state == ConnectionState.END:
@@ -158,9 +176,23 @@ class Connection(object):
         return self.state not in _CLOSING_STATES
 
     async def _send_frame(self, channel, frame, timeout=None, **kwargs):
+        try:
+            raise self._error
+        except TypeError:
+            pass
+
         if self._can_write():
-            self.last_frame_sent_time = time.time()
-            await self.transport.send_frame(channel, frame, **kwargs)
+            try:
+                self.last_frame_sent_time = time.time()
+                await self.transport.send_frame(channel, frame, **kwargs)
+            except (OSError, IOError, SSLError, socket.error) as exc:
+                self._error = AMQPConnectionError(
+                    ErrorCondition.SocketError,
+                    description="Can not send frame out due to exception: " + str(exc),
+                    error=exc
+                )
+            except Exception:
+                raise
         else:
             _LOGGER.warning("Cannot write frame in current state: %r", self.state)
 
@@ -180,7 +212,18 @@ class Connection(object):
     async def _outgoing_empty(self):
         if self.network_trace:
             _LOGGER.info("<- empty()", extra=self.network_trace_params)
-        await self._send_frame(0, None)
+        try:
+            if self._can_write():
+                await self.transport.write(EMPTY_FRAME)
+                self._last_frame_sent_time = time.time()
+        except (OSError, IOError, SSLError, socket.error) as exc:
+            self._error = AMQPConnectionError(
+                ErrorCondition.SocketError,
+                description="Can not send empty frame due to exception: " + str(exc),
+                error=exc
+            )
+        except Exception:
+            raise
 
     async def _outgoing_header(self):
         self.last_frame_sent_time = time.time()
@@ -263,12 +306,19 @@ class Connection(object):
             return
         if channel > self.channel_max:
             _LOGGER.error("Invalid channel")
-        if frame[0]:
-            _LOGGER.error("Connection error: {}".format(frame[0]))
+
         await self._set_state(ConnectionState.CLOSE_RCVD)
         await self._outgoing_close()
         await self._disconnect()
         await self._set_state(ConnectionState.END)
+
+        if frame[0]:
+            self._error = AMQPConnectionError(
+                condition=frame[0][0],
+                description=frame[0][1],
+                info=frame[0][2]
+            )
+            _LOGGER.error("Connection error: {}".format(frame[0]))
 
     async def _incoming_begin(self, channel, frame):
         try:
@@ -334,13 +384,26 @@ class Connection(object):
             return True  #TODO: channel error
 
     async def _process_outgoing_frame(self, channel, frame):
+        if self.network_trace:
+            _LOGGER.info("-> %r", frame, extra=self.network_trace_params)
         if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
             raise ValueError("Connection not configured to allow pipeline send.")
         if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
+        now = time.time()
+        if (await self._get_local_timeout(now)) or (await self._get_remote_timeout(now)):
+            await self.close(
+                # TODO: check error condition
+                error=AMQPError(
+                    condition=ErrorCondition.ConnectionCloseForced,
+                    description="No frame received for the idle timeout."
+                ),
+                wait=False
+            )
+            return
         await self._send_frame(channel, frame)
 
-    def _get_local_timeout(self, now):
+    async def _get_local_timeout(self, now):
         if self.idle_timeout and self.last_frame_received_time:
             time_since_last_received = now - self.last_frame_received_time
             return time_since_last_received > self.idle_timeout
@@ -377,17 +440,30 @@ class Connection(object):
         #    raise Exception("Stop")  # TODO: Stop listening
 
     async def listen(self, wait=False, batch=1, **kwargs):
-        if self.state == ConnectionState.END:
-            raise ValueError("Connection closed.")
-        futures = []
-        for _ in range(batch):
-            futures.append(asyncio.create_task(self._listen_one_frame(**kwargs)))
-        await asyncio.gather(*futures)   # TODO: Close on first exception
+        try:
+            raise self._error
+        except TypeError:
+            pass
+        try:
+            if self.state == ConnectionState.END:
+                raise ValueError("Connection closed.")
+            futures = []
+            for _ in range(batch):
+                futures.append(asyncio.create_task(self._listen_one_frame(**kwargs)))
+            await asyncio.gather(*futures)   # TODO: Close on first exception
 
-        if self.state not in _CLOSING_STATES:
-            now = time.time()
-            if self._get_local_timeout(now) or (await self._get_remote_timeout(now)):
-                await self.close(error=None, wait=False)
+            if self.state not in _CLOSING_STATES:
+                now = time.time()
+                if (await self._get_local_timeout(now)) or (await self._get_remote_timeout(now)):
+                    await self.close(error=None, wait=False)
+        except (OSError, IOError, SSLError, socket.error) as exc:
+            self._error = AMQPConnectionError(
+                ErrorCondition.SocketError,
+                description="Can not send frame out due to exception: " + str(exc),
+                error=exc
+            )
+        except Exception:
+            raise
 
     def create_session(self, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()
@@ -417,14 +493,26 @@ class Connection(object):
     async def close(self, error=None, wait=False):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
             return
-        await self._outgoing_close(error=error)
-        if self.state == ConnectionState.OPEN_PIPE:
-            await self._set_state(ConnectionState.OC_PIPE)
-        elif self.state == ConnectionState.OPEN_SENT:
-            await self._set_state(ConnectionState.CLOSE_PIPE)
-        elif error:
-            await self._set_state(ConnectionState.DISCARDING)
-        else:
-            await self._set_state(ConnectionState.CLOSE_SENT)
-        await self._wait_for_response(wait, ConnectionState.END)
-        await self._disconnect()
+        try:
+            await self._outgoing_close(error=error)
+            if error:
+                self._error = AMQPConnectionError(
+                    condition=error.condition,
+                    description=error.descrption,
+                    info=error.info
+                )
+            if self.state == ConnectionState.OPEN_PIPE:
+                await self._set_state(ConnectionState.OC_PIPE)
+            elif self.state == ConnectionState.OPEN_SENT:
+                await self._set_state(ConnectionState.CLOSE_PIPE)
+            elif error:
+                await self._set_state(ConnectionState.DISCARDING)
+            else:
+                await self._set_state(ConnectionState.CLOSE_SENT)
+            await self._wait_for_response(wait, ConnectionState.END)
+        except Exception as exc:
+            # If error happened during closing, ignore the error and set state to END
+            _LOGGER.info("An error occurred when closing the connection: %r", exc)
+            await self._set_state(ConnectionState.END)
+        finally:
+            await self._disconnect()

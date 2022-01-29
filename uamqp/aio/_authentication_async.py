@@ -6,7 +6,7 @@
 from functools import partial
 
 from ..authentication import (
-    _generate_sas_token,
+    _generate_sas_access_token,
     SASTokenAuth,
     JWTTokenAuth
 )
@@ -20,7 +20,7 @@ except ImportError:
 
 
 async def _generate_sas_token_async(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS):
-    return _generate_sas_token(auth_uri, sas_name, sas_key, expiry_in=expiry_in)
+    return _generate_sas_access_token(auth_uri, sas_name, sas_key, expiry_in=expiry_in)
 
 
 class JWTTokenAuthAsync(JWTTokenAuth):
