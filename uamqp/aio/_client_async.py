@@ -249,7 +249,7 @@ class AMQPClientAsync(AMQPClientSync):
 
         :rtype: bool
         """
-        if self._cbs_authenticator and not await self._cbs_authenticator.handle_token():
+        if self._cbs_authenticator and not (await self._cbs_authenticator.handle_token()):
             await self._connection.listen(wait=self._socket_timeout)
             return False
         return True
@@ -331,7 +331,7 @@ class AMQPClientAsync(AMQPClientSync):
         return response
 
 
-class SendClient(SendClientSync, AMQPClientAsync):
+class SendClientAsync(SendClientSync, AMQPClientAsync):
 
     async def _client_ready_async(self):
         """Determine whether the client is ready to start receiving messages.
@@ -435,7 +435,13 @@ class SendClient(SendClientSync, AMQPClientAsync):
 
         running = True
         while running and message_delivery.state not in MESSAGE_DELIVERY_DONE_STATES:
-            running = await self.do_work_async()
+            try:
+                running = await asyncio.wait_for(
+                    self.do_work_async(),
+                    timeout=(expire_time - time.time() if timeout else None)
+                )
+            except asyncio.TimeoutError:
+                pass
             if message_delivery.expiry and time.time() > message_delivery.expiry:
                 await self._on_send_complete_async(message_delivery, LinkDeliverySettleReason.Timeout, None)
 
@@ -458,7 +464,7 @@ class SendClient(SendClientSync, AMQPClientAsync):
         await self._do_retryable_operation_async(self._send_message_impl_async, message=message, **kwargs)
 
 
-class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
+class ReceiveClientAsync(ReceiveClientSync, AMQPClientAsync):
     """An AMQP client for receiving messages asynchronously.
 
     :param target: The source AMQP service endpoint. This can either be the URI as
@@ -612,7 +618,7 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
     async def _receive_message_batch_impl_async(self, max_batch_size=None, on_message_received=None, timeout=0):
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._link_credit
-        timeout = time.time() + timeout if timeout else 0
+        timeout_time = time.time() + timeout if timeout else 0
         receiving = True
         batch = []
         await self.open_async()
@@ -629,8 +635,17 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
         before_queue_size = self._received_messages.qsize()
 
         while receiving and to_receive_size > 0:
-            if timeout and time.time() > timeout:
+            now_time = time.time()
+            if timeout_time and now_time > timeout_time:
                 break
+
+            try:
+                await asyncio.wait_for(
+                    self.do_work_async(batch=to_receive_size),
+                    timeout=timeout_time - now_time if timeout else None
+                )
+            except asyncio.TimeoutError:
+                pass
 
             receiving = await self.do_work_async(batch=to_receive_size)
             cur_queue_size = self._received_messages.qsize()
@@ -654,7 +669,7 @@ class ReceiveClient(ReceiveClientSync, AMQPClientAsync):
 
     async def close_async(self):
         self._received_messages = queue.Queue()
-        await super(ReceiveClient, self).close_async()
+        await super(ReceiveClientAsync, self).close_async()
 
     async def receive_message_batch_async(self, **kwargs):
         """Receive a batch of messages. Messages returned in the batch have already been

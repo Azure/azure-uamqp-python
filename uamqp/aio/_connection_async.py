@@ -445,17 +445,29 @@ class Connection(object):
         except TypeError:
             pass
         try:
+            if self.state not in _CLOSING_STATES:
+                now = time.time()
+                if (await self._get_local_timeout(now)) or (await self._get_remote_timeout(now)):
+                    # TODO: check error condition
+                    await self.close(
+                        error=AMQPError(
+                            condition=ErrorCondition.ConnectionCloseForced,
+                            description="No frame received for the idle timeout."
+                        ),
+                        wait=False
+                    )
+                    return
             if self.state == ConnectionState.END:
-                raise ValueError("Connection closed.")
+                # TODO: check error condition
+                self._error = AMQPConnectionError(
+                    condition=ErrorCondition.ConnectionCloseForced,
+                    description="Connection was already closed."
+                )
+                return
             futures = []
             for _ in range(batch):
                 futures.append(asyncio.create_task(self._listen_one_frame(**kwargs)))
             await asyncio.gather(*futures)   # TODO: Close on first exception
-
-            if self.state not in _CLOSING_STATES:
-                now = time.time()
-                if (await self._get_local_timeout(now)) or (await self._get_remote_timeout(now)):
-                    await self.close(error=None, wait=False)
         except (OSError, IOError, SSLError, socket.error) as exc:
             self._error = AMQPConnectionError(
                 ErrorCondition.SocketError,

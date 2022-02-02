@@ -126,6 +126,7 @@ class AsyncTransport(object):
         # during resolution attempt (either because of system misconfiguration,
         # or network connectivity problem), resolution process locks the
         # _connect call for extended time.
+        e = None
         addr_types = (socket.AF_INET, socket.AF_INET6)
         addr_types_num = len(addr_types)
         for n, family in enumerate(addr_types):
