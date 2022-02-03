@@ -9,7 +9,7 @@ import os
 import asyncio
 import pytest
 
-from uamqp.aio import ReceiveClient, SASTokenAuthAsync
+from uamqp.aio import ReceiveClientAsync, SASTokenAuthAsync
 from uamqp.authentication import SASLPlainAuth
 
 
@@ -30,7 +30,7 @@ async def test_receive_messages_sasl_plain_async(eventhub_config):
         authcid=eventhub_config['key_name'],
         passwd=eventhub_config['access_key']
     )
-    receive_client = ReceiveClient(hostname, source, sas_auth, idle_timeout=10, network_trace=True)
+    receive_client = ReceiveClientAsync(hostname, source, sas_auth, idle_timeout=10, network_trace=True)
     await receive_client.open_async()
     while not await receive_client.client_ready_async():
         await asyncio.sleep(0.05)
@@ -56,7 +56,7 @@ async def test_receive_messages_sas_auth_async(eventhub_config):
         username=eventhub_config['key_name'],
         password=eventhub_config['access_key']
     )
-    receive_client = ReceiveClient(hostname, source, auth=sas_auth, idle_timeout=10, network_trace=True)
+    receive_client = ReceiveClientAsync(hostname, source, auth=sas_auth, idle_timeout=10, network_trace=True)
     await receive_client.open_async()
     while not await receive_client.client_ready_async():
         await asyncio.sleep(0.05)
