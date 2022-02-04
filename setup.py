@@ -95,7 +95,7 @@ def get_generator_flags():
     if is_win:
         flags.append("\"Visual Studio 15 2017\"")
         flags.append("-A")
-        flags.append("x64" if is_x64 else "Win32")
+        flags.append("ARM64" if platform.machine() == "ARM64" else "x64" if is_x64 else "Win32")
     else:
         flags.append("\"Unix Makefiles\"")
     return " ".join(flags)
