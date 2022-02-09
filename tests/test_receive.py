@@ -8,14 +8,28 @@ import time
 import logging
 import os
 
-from uamqp import ReceiveClient
+from uamqp import ReceiveClient, SendClient
+from uamqp.message import Message
 from uamqp.authentication import SASLPlainAuth, SASTokenAuth
 
 
 logging.basicConfig(level=logging.INFO)
 
 
+def send_one_message(eventhub_config):
+    hostname = eventhub_config['hostname']
+    target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=eventhub_config['access_key'])
+    send_client = SendClient(hostname, target, auth=auth, idle_timeout=10, network_trace=True)
+    send_client.open()
+    while not send_client.client_ready():
+        time.sleep(0.05)
+    send_client.send_message(Message(data=[b'Test']))
+    send_client.close()
+
+
 def test_receive_messages_sasl_plain(eventhub_config):
+    send_one_message(eventhub_config)
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
@@ -39,6 +53,7 @@ def test_receive_messages_sasl_plain(eventhub_config):
 
 
 def test_receive_messages_sas_auth(eventhub_config):
+    send_one_message(eventhub_config)
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(

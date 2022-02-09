@@ -8,7 +8,10 @@ import logging
 import os
 import asyncio
 import pytest
+import time
 
+from uamqp import SendClient
+from uamqp.message import Message
 from uamqp.aio import ReceiveClientAsync, SASTokenAuthAsync
 from uamqp.authentication import SASLPlainAuth
 
@@ -16,8 +19,21 @@ from uamqp.authentication import SASLPlainAuth
 logging.basicConfig(level=logging.INFO)
 
 
+def send_one_message(eventhub_config):
+    hostname = eventhub_config['hostname']
+    target = "amqps://{}/{}/Partitions/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'], eventhub_config['partition'])
+    auth = SASLPlainAuth(authcid=eventhub_config['key_name'], passwd=eventhub_config['access_key'])
+    send_client = SendClient(hostname, target, auth=auth, idle_timeout=10, network_trace=True)
+    send_client.open()
+    while not send_client.client_ready():
+        time.sleep(0.05)
+    send_client.send_message(Message(data=[b'Test']))
+    send_client.close()
+
+
 @pytest.mark.asyncio
 async def test_receive_messages_sasl_plain_async(eventhub_config):
+    send_one_message(eventhub_config)
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
@@ -42,6 +58,7 @@ async def test_receive_messages_sasl_plain_async(eventhub_config):
 
 @pytest.mark.asyncio
 async def test_receive_messages_sas_auth_async(eventhub_config):
+    send_one_message(eventhub_config)
     hostname = eventhub_config['hostname']
     uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
     source = "amqps://{}/{}/ConsumerGroups/{}/Partitions/{}".format(
