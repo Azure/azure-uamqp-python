@@ -646,6 +646,13 @@ class BatchMessage(Message):
         self._header = header
         self._need_further_parse = False
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     def _create_batch_message(self):
         """Create a ~uamqp.message.Message for a value supplied by the data
         generator. Applies all properties and annotations to the message.
