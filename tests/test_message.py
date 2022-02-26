@@ -3,12 +3,22 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-
-from uamqp.message import MessageProperties, MessageHeader, Message, constants, errors, c_uamqp
+import copy
 import pickle
 import pytest
 
-from uamqp.message import MessageProperties, Message, SequenceBody, DataBody, ValueBody
+from uamqp.message import (
+    MessageProperties,
+    MessageHeader,
+    Message,
+    constants,
+    errors,
+    c_uamqp,
+    SequenceBody,
+    DataBody,
+    ValueBody,
+    BatchMessage
+)
 from uamqp import MessageBodyType
 
 
@@ -152,6 +162,71 @@ def test_message_pickle():
     assert message_w_message_param.settled == pickled.settled
     assert pickled.delivery_no == 1
     assert type(pickled._settler()) == type(settler())  # pylint: disable=protected-access
+
+def test_deepcopy_batch_message():
+    ## DEEPCOPY WITH MESSAGES IN BATCH THAT HAVE HEADER/PROPERTIES
+    properties = MessageProperties()
+    properties.message_id = '2'
+    properties.user_id = '1'
+    properties.to = 'dkfj'
+    properties.subject = 'dsljv'
+    properties.reply_to = "kdjfk"
+    properties.correlation_id = 'ienag'
+    properties.content_type = 'b'
+    properties.content_encoding = '39ru'
+    properties.absolute_expiry_time = 24
+    properties.creation_time = 10
+    properties.group_id = '3irow'
+    properties.group_sequence = 39
+    properties.reply_to_group_id = '39rud'
+
+    header = MessageHeader()
+    header.delivery_count = 3
+    header.time_to_live = 5
+    header.first_acquirer = 'dkfj'
+    header.durable = True
+    header.priority = 4
+
+    message = Message(body="test", properties=properties, header=header)
+    message.on_send_complete = send_complete_callback
+    message.footer = {'a':2}
+    message.state = constants.MessageState.ReceivedSettled
+
+    message_batch = BatchMessage(
+            data=[], multi_messages=False, properties=None
+    )
+    message_batch._body_gen.append(message)
+    message_batch_copy = copy.deepcopy(message_batch)
+    batch_message = list(message_batch._body_gen)[0]
+    batch_copy_message = list(message_batch_copy._body_gen)[0]
+    assert len(list(message_batch._body_gen)) == len(list(message_batch_copy._body_gen))
+
+    # check message attributes are equal to deepcopied message attributes
+    assert list(batch_message.get_data()) == list(batch_copy_message.get_data())
+    assert batch_message.footer == batch_copy_message.footer
+    assert batch_message.state == batch_copy_message.state
+    assert batch_message.application_properties == batch_copy_message.application_properties
+    assert batch_message.annotations == batch_copy_message.annotations
+    assert batch_message.delivery_annotations == batch_copy_message.delivery_annotations
+    assert batch_message.settled == batch_copy_message.settled
+    assert batch_message.properties.message_id == batch_copy_message.properties.message_id
+    assert batch_message.properties.user_id == batch_copy_message.properties.user_id
+    assert batch_message.properties.to == batch_copy_message.properties.to
+    assert batch_message.properties.subject == batch_copy_message.properties.subject
+    assert batch_message.properties.reply_to == batch_copy_message.properties.reply_to
+    assert batch_message.properties.correlation_id == batch_copy_message.properties.correlation_id
+    assert batch_message.properties.content_type == batch_copy_message.properties.content_type
+    assert batch_message.properties.content_encoding == batch_copy_message.properties.content_encoding
+    assert batch_message.properties.absolute_expiry_time == batch_copy_message.properties.absolute_expiry_time
+    assert batch_message.properties.creation_time == batch_copy_message.properties.creation_time
+    assert batch_message.properties.group_id == batch_copy_message.properties.group_id
+    assert batch_message.properties.group_sequence == batch_copy_message.properties.group_sequence
+    assert batch_message.properties.reply_to_group_id == batch_copy_message.properties.reply_to_group_id
+    assert batch_message.header.delivery_count == batch_copy_message.header.delivery_count
+    assert batch_message.header.time_to_live == batch_copy_message.header.time_to_live
+    assert batch_message.header.first_acquirer == batch_copy_message.header.first_acquirer
+    assert batch_message.header.durable == batch_copy_message.header.durable
+    assert batch_message.header.priority == batch_copy_message.header.priority
 
 def test_message_auto_body_type():
     single_data = b'!@#$%^&*()_+1234567890'
