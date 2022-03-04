@@ -187,7 +187,7 @@ class AMQPClientAsync(AMQPClientSync):
                     _logger.info("Keeping %r connection alive. %r",
                                  self.__class__.__name__,
                                  self._connection._container_id)
-                    await asyncio.shield(self._connection._get_remote_timeout(current_time))
+                    await self._connection._get_remote_timeout(current_time)
                     start_time = current_time
                 await asyncio.sleep(1)
         except Exception as e:  # pylint: disable=broad-except

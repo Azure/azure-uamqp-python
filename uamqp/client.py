@@ -277,9 +277,9 @@ class AMQPClient(object):
             )
             self._cbs_authenticator.open()
         if self._keep_alive:
-                self._keep_alive_thread = threading.Thread(target=self._keep_alive_worker)
-                self._keep_alive_thread.daemon = True
-                self._keep_alive_thread.start()
+            self._keep_alive_thread = threading.Thread(target=self._keep_alive_worker)
+            self._keep_alive_thread.daemon = True
+            self._keep_alive_thread.start()
         self._shutdown = False
 
     def close(self):
