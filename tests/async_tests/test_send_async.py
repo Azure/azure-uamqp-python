@@ -9,6 +9,7 @@ import os
 import asyncio
 import pytest
 
+from uamqp.error import RetryPolicy
 from uamqp.aio import SendClientAsync, SASTokenAuthAsync
 from uamqp.message import Message, BatchMessage, Header, Properties
 from uamqp.utils import add_batch
@@ -147,6 +148,27 @@ async def test_send_large_batch_message_to_partition_sas_auth_async(eventhub_con
     for i in range(10 * 1024):
         add_batch(batch_message, Message(data=[b'Test']))
     await send_client.send_message_async(batch_message)
+    await send_client.close_async()
+
+
+@pytest.mark.asyncio
+async def test_send_keep_alive_async(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    sas_auth = SASTokenAuthAsync(
+        uri=uri,
+        audience=uri,
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
+    )
+    send_client = SendClientAsync(hostname, target, auth=sas_auth, network_trace=True, keep_alive=True, retry_policy=RetryPolicy(retry_total=0))
+    await send_client.open_async()
+    while not await send_client.client_ready_async():
+        await asyncio.sleep(0.05)
+
+    await asyncio.sleep(250)
+    await send_client.send_message_async(Message(data=[b'Test']))
     await send_client.close_async()
 
 

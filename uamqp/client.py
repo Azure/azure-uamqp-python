@@ -137,6 +137,8 @@ class AMQPClient(object):
         self._auth_timeout = kwargs.pop("auth_timeout", DEFAULT_AUTH_TIMEOUT)
         self._mgmt_links = {}
         self._retry_policy = kwargs.pop("retry_policy", RetryPolicy())
+        self._keep_alive = kwargs.pop("keep_alive", False)
+        self._keep_alive_thread = None
 
         # Connection settings
         self._max_frame_size = kwargs.pop('max_frame_size', None) or MAX_FRAME_SIZE_BYTES
@@ -215,6 +217,24 @@ class AMQPClient(object):
                     absolute_timeout -= (end_time - start_time)
         raise retry_settings['history'][-1]
 
+    def _keep_alive_worker(self):
+        interval = 10 if self._keep_alive is True else self._keep_alive
+        start_time = time.time()
+        try:
+            while self._connection and not self._shutdown:
+                current_time = time.time()
+                elapsed_time = (current_time - start_time)
+                if elapsed_time >= interval:
+                    _logger.info("Keeping %r connection alive. %r",
+                                 self.__class__.__name__,
+                                 self._connection._container_id)
+                    self._connection._get_remote_timeout(current_time)
+                    start_time = current_time
+                time.sleep(1)
+        except Exception as e:
+            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
+
+
     def open(self):
         """Open the client. The client can create a new Connection
         or an existing Connection can be passed in. This existing Connection
@@ -256,6 +276,10 @@ class AMQPClient(object):
                 auth_timeout=self._auth_timeout
             )
             self._cbs_authenticator.open()
+        if self._keep_alive:
+            self._keep_alive_thread = threading.Thread(target=self._keep_alive_worker)
+            self._keep_alive_thread.daemon = True
+            self._keep_alive_thread.start()
         self._shutdown = False
 
     def close(self):
@@ -271,6 +295,9 @@ class AMQPClient(object):
         them to be inspected and queued to a new client.
         """
         self._shutdown = True
+        if self._keep_alive_thread:
+            self._keep_alive_thread.join()
+            self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
         self._close_link(close=True)

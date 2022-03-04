@@ -9,6 +9,7 @@ import logging
 import os
 
 from uamqp import SendClient
+from uamqp.error import RetryPolicy
 from uamqp.message import Message, BatchMessage, Header, Properties
 from uamqp.utils import add_batch
 from uamqp.authentication import SASLPlainAuth, SASTokenAuth
@@ -133,6 +134,26 @@ def test_send_large_batch_message_to_partition_sas_auth(eventhub_config):
     for i in range(10 * 1024):
         add_batch(batch_message, Message(data=[b'Test']))
     send_client.send_message(batch_message)
+    send_client.close()
+
+
+def test_send_keep_alive(eventhub_config):
+    hostname = eventhub_config['hostname']
+    uri = "sb://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    target = "amqps://{}/{}".format(eventhub_config['hostname'], eventhub_config['event_hub'])
+    sas_auth = SASTokenAuth(
+        uri=uri,
+        audience=uri,
+        username=eventhub_config['key_name'],
+        password=eventhub_config['access_key']
+    )
+    send_client = SendClient(hostname, target, auth=sas_auth, network_trace=True, keep_alive=True, retry_policy=RetryPolicy(retry_total=0))
+    send_client.open()
+    while not send_client.client_ready():
+        time.sleep(0.05)
+
+    time.sleep(250)
+    send_client.send_message(Message(data=[b'Test']))
     send_client.close()
 
 
