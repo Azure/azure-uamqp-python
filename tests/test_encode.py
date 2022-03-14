@@ -6,10 +6,12 @@
 
 import datetime
 import uuid
+import struct
 
 import uamqp._encode as encode
 from uamqp.types import AMQPTypes, TYPE, VALUE
 from uamqp.message import Message, Header, Properties
+from uamqp import performatives, endpoints
 
 import pytest
 
@@ -689,7 +691,7 @@ def test_encode_list():
     output.clear()
     encode.encode_list(output, [])
     assert output == b'\x45'
-    
+
     output.clear()
     encode.encode_list(output, [1, 2, 3, 4])
     assert output == b"\xC0\x09\x04\x54\x01\x54\x02\x54\x03\x54\x04"
@@ -984,3 +986,103 @@ def test_encode_described():
     encode.encode_described(output, described_value)
     # same as the above one except that the second byte xa3 indicated  the descriptor is a symbol
     assert output == b'\x00\xa3\x10descriptorsymbol\xa1\x0fdescribedstring'
+
+
+def test_encode_transfer():
+    transfer_frame = performatives.TransferFrame(
+        handle=1,
+        delivery_tag=struct.pack('>I', abs(1)),
+        message_format=0,
+        settled=False,
+        more=False,
+        rcv_settle_mode=None,
+        state=None,
+        resume=None,
+        aborted=None,
+        batchable=None,
+        payload=bytearray(b'\x00Su\xa0\x04Test'),
+        delivery_id=1
+    )
+
+    header, frame_data = encode.encode_frame(transfer_frame)
+    assert header == b'\x00\x00\x00+\x02\x00'
+    assert frame_data == b'\x00S\x14\xc0\x15\x0bR\x01R\x01\xa0\x04\x00\x00\x00\x01CV\x00V\x00@@@@@\x00Su\xa0\x04Test'
+g
+
+def test_encode_open():
+    open_frame = performatives.OpenFrame(
+        container_id='fbea31f5-dcae-4173-86a6-53003ea44383',
+        hostname='test.servicebus.windows.net',
+        max_frame_size=1048576,
+        channel_max=65535,
+        idle_timeout=10000,
+        outgoing_locales=None,
+        incoming_locales=None,
+        offered_capabilities=None,
+        desired_capabilities=None,
+        properties=None
+    )
+
+    header, frame_data = encode.encode_frame(open_frame)
+    assert header == b'\x00\x00\x00c\x02\x00'
+    assert frame_data == b"\x00S\x10\xc0V\n\xa1$fbea31f5-dcae-4173-86a6-53003ea44383\xa1\x1btest.servicebus.windows.netp\x00\x10\x00\x00`\xff\xffp\x00\x00\'\x10@@@@@"
+
+
+def test_encode_begin():
+    begin_frame = performatives.BeginFrame(
+        remote_channel=None,
+        next_outgoing_id=0,
+        incoming_window=65536,
+        outgoing_window=65536,
+        handle_max=4294967295,
+        offered_capabilities=None,
+        desired_capabilities=None,
+        properties=None
+    )
+
+    header, frame_data = encode.encode_frame(begin_frame)
+    assert header == b'\x00\x00\x00c\x02\x00'
+    assert frame_data == b'\x00S\x11\xc0\x15\x08@Cp\x00\x01\x00\x00p\x00\x01\x00\x00p\xff\xff\xff\xff@@@'
+
+
+def test_encode_attach():
+    attach_frame = performatives.AttachFrame(
+        name='f20110d3-5cc8-40e5-a4cb-550d37c9ddec',
+        handle=3,
+        role=False,
+        send_settle_mode=0,
+        rcv_settle_mode=1,
+        source=endpoints.Source(
+            address='sender-link-f20110d3-5cc8-40e5-a4cb-550d37c9ddec',
+            durable=None,
+            expiry_policy=None,
+            timeout=None,
+            dynamic=None,
+            dynamic_node_properties=None,
+            distribution_mode=None,
+            filters=None,
+            default_outcome=None,
+            outcomes=None,
+            capabilities=None
+        ),
+        target=endpoints.Target(
+            address='amqps://test.servicebus.windows.net/test',
+            durable=None,
+            expiry_policy=None,
+            timeout=None,
+            dynamic=None,
+            dynamic_node_properties=None,
+            capabilities=None
+        ),
+        unsettled=None,
+        incomplete_unsettled=None,
+        initial_delivery_count=0,
+        max_message_size=1048576,
+        offered_capabilities=None,
+        desired_capabilities=None,
+        properties=None
+    )
+
+    header, frame_data = encode.encode_frame(attach_frame)
+    assert header == b'\x00\x00\x00\xc3\x02\x00'
+    assert frame_data == b'\x00S\x12\xc0\xb6\x0e\xa1$f20110d3-5cc8-40e5-a4cb-550d37c9ddecR\x03V\x00P\x00P\x01\x00S(\xc0=\x0b\xa10sender-link-f20110d3-5cc8-40e5-a4cb-550d37c9ddec@@@@@@@@@@\x00S)\xc01\x07\xa1(amqps://test.servicebus.windows.net/test@@@@@@@@C\x80\x00\x00\x00\x00\x00\x10\x00\x00@@@'
