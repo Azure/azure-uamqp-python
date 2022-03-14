@@ -260,11 +260,7 @@ class AMQPClient(object):
             self._build_session()
             if self._keep_alive_interval:
                 self._keep_alive_thread = threading.Thread(target=self._keep_alive)
-                try:
-                    self._keep_alive_thread.start()
-                except RuntimeError:
-                    self._keep_alive_thread = None
-                    raise
+                self._keep_alive_thread.start()
         finally:
             if self._ext_connection:
                 connection.release()
@@ -286,7 +282,10 @@ class AMQPClient(object):
             self.message_handler = None
         self._shutdown = True
         if self._keep_alive_thread:
-            self._keep_alive_thread.join()
+            try:
+                self._keep_alive_thread.join()
+            except RuntimeError:  # Probably thread failed to start in .open()
+                logging.info("Keep alive thread failed to join.", exc_info=True)
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
