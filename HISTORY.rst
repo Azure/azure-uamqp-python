@@ -3,7 +3,7 @@
 Release History
 ===============
 
-1.5.2 (Unreleased)
+1.5.2 (2022-03-15)
 +++++++++++++++++++
 
 - Fixed bug that resulted in an error when deepcopying BatchMessage objects (azure-sdk-for-python issue #22529).
