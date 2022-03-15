@@ -1,38 +1,46 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # pylint: disable=redefined-builtin, import-error
 
 import logging
 import struct
 import uuid
-from typing import List, Tuple, Dict, Callable, Any, Union, Optional  # pylint: disable=unused-import
+from typing import (
+    List,
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Union,
+    Optional,
+)  # pylint: disable=unused-import
 
 from uamqp.message import Message, Header, Properties
 
 _LOGGER = logging.getLogger(__name__)
-_HEADER_PREFIX = memoryview(b'AMQP')
+_HEADER_PREFIX = memoryview(b"AMQP")
 _COMPOSITES = {
-    35: 'received',
-    36: 'accepted',
-    37: 'rejected',
-    38: 'released',
-    39: 'modified',
+    35: "received",
+    36: "accepted",
+    37: "rejected",
+    38: "released",
+    39: "modified",
 }
 
-c_unsigned_char = struct.Struct('>B')
-c_signed_char = struct.Struct('>b')
-c_unsigned_short = struct.Struct('>H')
-c_signed_short = struct.Struct('>h')
-c_unsigned_int = struct.Struct('>I')
-c_signed_int = struct.Struct('>i')
-c_unsigned_long = struct.Struct('>L')
-c_unsigned_long_long = struct.Struct('>Q')
-c_signed_long_long = struct.Struct('>q')
-c_float = struct.Struct('>f')
-c_double = struct.Struct('>d')
+c_unsigned_char = struct.Struct(">B")
+c_signed_char = struct.Struct(">b")
+c_unsigned_short = struct.Struct(">H")
+c_signed_short = struct.Struct(">h")
+c_unsigned_int = struct.Struct(">I")
+c_signed_int = struct.Struct(">i")
+c_unsigned_long = struct.Struct(">L")
+c_unsigned_long_long = struct.Struct(">Q")
+c_signed_long_long = struct.Struct(">q")
+c_float = struct.Struct(">f")
+c_double = struct.Struct(">d")
 
 
 def _decode_null(buffer):
@@ -62,7 +70,7 @@ def _decode_empty(buffer):
 
 def _decode_boolean(buffer):
     # type: (memoryview) -> Tuple[memoryview, bool]
-    return buffer[1:], buffer[:1] == b'\x01'
+    return buffer[1:], buffer[:1] == b"\x01"
 
 
 def _decode_ubyte(buffer):
@@ -179,10 +187,10 @@ def _decode_list_large(buffer):
 
 def _decode_map_small(buffer):
     # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
-    count = int(buffer[1]/2)
+    count = int(buffer[1] / 2)
     buffer = buffer[2:]
     values = {}
-    for  _ in range(count):
+    for _ in range(count):
         buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         values[key] = value
@@ -191,10 +199,10 @@ def _decode_map_small(buffer):
 
 def _decode_map_large(buffer):
     # type: (memoryview) -> Tuple[memoryview, Dict[Any, Any]]
-    count = int(c_unsigned_long.unpack(buffer[4:8])[0]/2)
+    count = int(c_unsigned_long.unpack(buffer[4:8])[0] / 2)
     buffer = buffer[8:]
     values = {}
-    for  _ in range(count):
+    for _ in range(count):
         buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         values[key] = value
@@ -284,7 +292,7 @@ def decode_frame(data):
     # described type then ulong.
     frame_type = data[2]
     compound_list_type = data[3]
-    if compound_list_type == 0xd0:
+    if compound_list_type == 0xD0:
         # list32 0xd0: data[4:8] is size, data[8:12] is count
         count = c_signed_int.unpack(data[8:12])[0]
         buffer = data[12:]
@@ -309,7 +317,9 @@ def decode_empty_frame(header):
     raise ValueError("Received unrecognized empty frame")
 
 
-_DECODE_BY_CONSTRUCTOR = [None] * 256  # type: List[Optional[Callable[[memoryview], Tuple[memoryview, Any]]]]
+_DECODE_BY_CONSTRUCTOR = [
+    None
+] * 256  # type: List[Optional[Callable[[memoryview], Tuple[memoryview, Any]]]]
 _DECODE_BY_CONSTRUCTOR[0] = _decode_described
 _DECODE_BY_CONSTRUCTOR[64] = _decode_null
 _DECODE_BY_CONSTRUCTOR[65] = _decode_true

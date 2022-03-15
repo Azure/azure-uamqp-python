@@ -1,8 +1,8 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 # pylint: disable=protected-access
 
@@ -13,14 +13,8 @@ from uamqp.constants import FIELD, MessageDeliveryState
 from uamqp.performatives import _CAN_ADD_DOCSTRING
 
 Header = namedtuple(
-    'Header',
-    [
-        'durable',
-        'priority',
-        'ttl',
-        'first_acquirer',
-        'delivery_count'
-    ])
+    "Header", ["durable", "priority", "ttl", "first_acquirer", "delivery_count"]
+)
 Header._code = 0x00000070  # type: ignore
 Header.__new__.__defaults__ = (None,) * len(Header._fields)  # type: ignore
 Header._definition = (  # type: ignore
@@ -28,7 +22,8 @@ Header._definition = (  # type: ignore
     FIELD("priority", AMQPTypes.ubyte, False, None, False),
     FIELD("ttl", AMQPTypes.uint, False, None, False),
     FIELD("first_acquirer", AMQPTypes.boolean, False, None, False),
-    FIELD("delivery_count", AMQPTypes.uint, False, None, False))
+    FIELD("delivery_count", AMQPTypes.uint, False, None, False),
+)
 if _CAN_ADD_DOCSTRING:
     Header.__doc__ = """
     Transport headers for a Message.
@@ -76,22 +71,23 @@ if _CAN_ADD_DOCSTRING:
 
 
 Properties = namedtuple(
-    'Properties',
+    "Properties",
     [
-        'message_id',
-        'user_id',
-        'to',
-        'subject',
-        'reply_to',
-        'correlation_id',
-        'content_type',
-        'content_encoding',
-        'absolute_expiry_time',
-        'creation_time',
-        'group_id',
-        'group_sequence',
-        'reply_to_group_id'
-    ])
+        "message_id",
+        "user_id",
+        "to",
+        "subject",
+        "reply_to",
+        "correlation_id",
+        "content_type",
+        "content_encoding",
+        "absolute_expiry_time",
+        "creation_time",
+        "group_id",
+        "group_sequence",
+        "reply_to_group_id",
+    ],
+)
 Properties._code = 0x00000073  # type: ignore
 Properties.__new__.__defaults__ = (None,) * len(Properties._fields)  # type: ignore
 Properties._definition = (  # type: ignore
@@ -107,7 +103,8 @@ Properties._definition = (  # type: ignore
     FIELD("creation_time", AMQPTypes.timestamp, False, None, False),
     FIELD("group_id", AMQPTypes.string, False, None, False),
     FIELD("group_sequence", AMQPTypes.uint, False, None, False),
-    FIELD("reply_to_group_id", AMQPTypes.string, False, None, False))
+    FIELD("reply_to_group_id", AMQPTypes.string, False, None, False),
+)
 if _CAN_ADD_DOCSTRING:
     Properties.__doc__ = """
     Immutable properties of the Message.
@@ -166,30 +163,38 @@ if _CAN_ADD_DOCSTRING:
 
 # TODO: should be a class, namedtuple or dataclass, immutability vs performance, need to collect performance data
 Message = namedtuple(
-    'Message',
+    "Message",
     [
-        'header',
-        'delivery_annotations',
-        'message_annotations',
-        'properties',
-        'application_properties',
-        'data',
-        'sequence',
-        'value',
-        'footer',
-    ])
+        "header",
+        "delivery_annotations",
+        "message_annotations",
+        "properties",
+        "application_properties",
+        "data",
+        "sequence",
+        "value",
+        "footer",
+    ],
+)
 Message.__new__.__defaults__ = (None,) * len(Message._fields)  # type: ignore
 Message._code = 0  # type: ignore
 Message._definition = (  # type: ignore
     (0x00000070, FIELD("header", Header, False, None, False)),
-    (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
-    (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),
+    (
+        0x00000071,
+        FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False),
+    ),
+    (
+        0x00000072,
+        FIELD("message_annotations", FieldDefinition.annotations, False, None, False),
+    ),
     (0x00000073, FIELD("properties", Properties, False, None, False)),
     (0x00000074, FIELD("application_properties", AMQPTypes.map, False, None, False)),
     (0x00000075, FIELD("data", AMQPTypes.binary, False, None, True)),
     (0x00000076, FIELD("sequence", AMQPTypes.list, False, None, False)),
     (0x00000077, FIELD("value", None, False, None, False)),
-    (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)))
+    (0x00000078, FIELD("footer", FieldDefinition.annotations, False, None, False)),
+)
 if _CAN_ADD_DOCSTRING:
     Message.__doc__ = """
     An annotated message consists of the bare message plus sections for annotation at the head and tail
@@ -259,7 +264,9 @@ class BatchMessage(Message):
 
 
 class _MessageDelivery:
-    def __init__(self, message, state=MessageDeliveryState.WaitingToBeSent, expiry=None):
+    def __init__(
+        self, message, state=MessageDeliveryState.WaitingToBeSent, expiry=None
+    ):
         self.message = message
         self.state = state
         self.expiry = expiry

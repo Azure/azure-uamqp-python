@@ -1,8 +1,8 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 import time
 from collections import namedtuple
@@ -13,7 +13,7 @@ from uamqp.constants import (
     TOKEN_TYPE_JWT,
     TOKEN_TYPE_SASTOKEN,
     AUTH_TYPE_CBS,
-    AUTH_TYPE_SASL_PLAIN
+    AUTH_TYPE_SASL_PLAIN,
 )
 from uamqp.sasl import SASLAnonymousCredential, SASLPlainCredential
 from uamqp.utils import generate_sas_token
@@ -21,13 +21,12 @@ from uamqp.utils import generate_sas_token
 AccessToken = namedtuple("AccessToken", ["token", "expires_on"])
 
 
-def _generate_sas_access_token(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS):
+def _generate_sas_access_token(
+    auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS
+):
     expires_on = int(time.time() + expiry_in)
     token = generate_sas_token(auth_uri, sas_name, sas_key, expires_on)
-    return AccessToken(
-        token,
-        expires_on
-    )
+    return AccessToken(token, expires_on)
 
 
 class SASLPlainAuth(object):
@@ -104,7 +103,9 @@ class JWTTokenAuth(_CBSAuth):
         :type token_type: str
 
         """
-        super(JWTTokenAuth, self).__init__(uri, audience, kwargs.pop("kwargs", TOKEN_TYPE_JWT), get_token)
+        super(JWTTokenAuth, self).__init__(
+            uri, audience, kwargs.pop("kwargs", TOKEN_TYPE_JWT), get_token
+        )
         self.get_token = get_token
 
 
@@ -143,12 +144,14 @@ class SASTokenAuth(_CBSAuth):
         expires_in = kwargs.pop("expires_in", AUTH_DEFAULT_EXPIRATION_SECONDS)
         expires_on = kwargs.pop("expires_on", None)
         expires_in, expires_on = self._set_expiry(expires_in, expires_on)
-        self.get_token = partial(_generate_sas_access_token, uri, username, password, expires_in)
+        self.get_token = partial(
+            _generate_sas_access_token, uri, username, password, expires_in
+        )
         super(SASTokenAuth, self).__init__(
             uri,
             audience,
             kwargs.pop("token_type", TOKEN_TYPE_SASTOKEN),
             self.get_token,
             expires_in=expires_in,
-            expires_on=expires_on
+            expires_on=expires_on,
         )

@@ -1,13 +1,13 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 import struct
 from collections import namedtuple
 from enum import Enum
 
-_AS_BYTES = struct.Struct('>B')
+_AS_BYTES = struct.Struct(">B")
 
 #: The IANA assigned port number for AMQP.The standard AMQP port number that has been assigned by IANA
 #: for TCP, UDP, and SCTP.There are currently no UDP or SCTP mappings defined for AMQP.
@@ -24,20 +24,32 @@ SECURE_PORT = 5671
 MAJOR = 1  #: Major protocol version.
 MINOR = 0  #: Minor protocol version.
 REV = 0  #: Protocol revision.
-HEADER_FRAME = b"AMQP\x00" + _AS_BYTES.pack(MAJOR) + _AS_BYTES.pack(MINOR) + _AS_BYTES.pack(REV)
+HEADER_FRAME = (
+    b"AMQP\x00" + _AS_BYTES.pack(MAJOR) + _AS_BYTES.pack(MINOR) + _AS_BYTES.pack(REV)
+)
 
 
 TLS_MAJOR = 1  #: Major protocol version.
 TLS_MINOR = 0  #: Minor protocol version.
 TLS_REV = 0  #: Protocol revision.
-TLS_HEADER_FRAME = b"AMQP\x02" + _AS_BYTES.pack(TLS_MAJOR) + _AS_BYTES.pack(TLS_MINOR) + _AS_BYTES.pack(TLS_REV)
+TLS_HEADER_FRAME = (
+    b"AMQP\x02"
+    + _AS_BYTES.pack(TLS_MAJOR)
+    + _AS_BYTES.pack(TLS_MINOR)
+    + _AS_BYTES.pack(TLS_REV)
+)
 
 SASL_MAJOR = 1  #: Major protocol version.
 SASL_MINOR = 0  #: Minor protocol version.
 SASL_REV = 0  #: Protocol revision.
-SASL_HEADER_FRAME = b"AMQP\x03" + _AS_BYTES.pack(SASL_MAJOR) + _AS_BYTES.pack(SASL_MINOR) + _AS_BYTES.pack(SASL_REV)
+SASL_HEADER_FRAME = (
+    b"AMQP\x03"
+    + _AS_BYTES.pack(SASL_MAJOR)
+    + _AS_BYTES.pack(SASL_MINOR)
+    + _AS_BYTES.pack(SASL_REV)
+)
 
-EMPTY_FRAME = b'\x00\x00\x00\x08\x02\x00\x00\x00'
+EMPTY_FRAME = b"\x00\x00\x00\x08\x02\x00\x00\x00"
 
 #: The lower bound for the agreed maximum frame size (in bytes). During the initial Connection negotiation, the
 #: two peers must agree upon a maximum frame size. This constant defines the minimum value to which the maximum
@@ -51,7 +63,7 @@ OUTGOING_WIDNOW = 64 * 1024
 
 DEFAULT_LINK_CREDIT = 10000
 
-FIELD = namedtuple('FIELD', 'name, type, mandatory, default, multiple')
+FIELD = namedtuple("FIELD", "name, type, mandatory, default, multiple")
 
 
 DEFAULT_AUTH_TIMEOUT = 60
@@ -223,6 +235,7 @@ class Role(object):
         <choice name="receiver" value="true"/>
     </type>
     """
+
     Sender = False
     Receiver = True
 
@@ -241,6 +254,7 @@ class SenderSettleMode(object):
         <choice name="mixed" value="2"/>
     </type>
     """
+
     Unsettled = 0
     Settled = 1
     Mixed = 2
@@ -259,6 +273,7 @@ class ReceiverSettleMode(object):
         <choice name="second" value="1"/>
     </type>
     """
+
     First = 0
     Second = 1
 
@@ -274,6 +289,7 @@ class SASLCode(object):
         <choice name="sys-temp" value="4"/>
     </type>
     """
+
     #: Connection authentication succeeded.
     Ok = 0
     #: Connection authentication failed due to an unspecified problem with the supplied credentials.
@@ -300,5 +316,5 @@ MESSAGE_DELIVERY_DONE_STATES = (
     MessageDeliveryState.Ok,
     MessageDeliveryState.Error,
     MessageDeliveryState.Timeout,
-    MessageDeliveryState.Cancelled
+    MessageDeliveryState.Cancelled,
 )

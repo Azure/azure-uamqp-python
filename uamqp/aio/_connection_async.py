@@ -28,13 +28,9 @@ from uamqp.constants import (
     MAX_CHANNELS,
     HEADER_FRAME,
     ConnectionState,
-    EMPTY_FRAME
+    EMPTY_FRAME,
 )
-from uamqp.error import (
-    ErrorCondition,
-    AMQPConnectionError,
-    AMQPError
-)
+from uamqp.error import ErrorCondition, AMQPConnectionError, AMQPError
 from uamqp.performatives import OpenFrame, CloseFrame
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,7 +39,7 @@ _CLOSING_STATES = (
     ConnectionState.CLOSE_PIPE,
     ConnectionState.DISCARDING,
     ConnectionState.CLOSE_SENT,
-    ConnectionState.END
+    ConnectionState.END,
 )
 
 
@@ -66,46 +62,46 @@ class Connection(object):
         self.hostname = parsed_url.hostname
         if parsed_url.port:
             self.port = parsed_url.port
-        elif parsed_url.scheme == 'amqps':
+        elif parsed_url.scheme == "amqps":
             self.port = SECURE_PORT
         else:
             self.port = PORT
         self.state = None
 
-        transport = kwargs.get('transport')
+        transport = kwargs.get("transport")
         if transport:
             self.transport = transport
-        elif 'sasl_credential' in kwargs:
+        elif "sasl_credential" in kwargs:
             self.transport = SASLTransport(
-                host=parsed_url.netloc,
-                credential=kwargs['sasl_credential'],
-                **kwargs
+                host=parsed_url.netloc, credential=kwargs["sasl_credential"], **kwargs
             )
         else:
             self.transport = AsyncTransport(parsed_url.netloc, **kwargs)
-        self._container_id = kwargs.get('container_id') or str(uuid.uuid4())
-        self.max_frame_size = kwargs.get('max_frame_size', MAX_FRAME_SIZE_BYTES)
+        self._container_id = kwargs.get("container_id") or str(uuid.uuid4())
+        self.max_frame_size = kwargs.get("max_frame_size", MAX_FRAME_SIZE_BYTES)
         self._remote_max_frame_size = None
-        self.channel_max = kwargs.get('channel_max', MAX_CHANNELS)
-        self.idle_timeout = kwargs.get('idle_timeout')
-        self.outgoing_locales = kwargs.get('outgoing_locales')
-        self.incoming_locales = kwargs.get('incoming_locales')
+        self.channel_max = kwargs.get("channel_max", MAX_CHANNELS)
+        self.idle_timeout = kwargs.get("idle_timeout")
+        self.outgoing_locales = kwargs.get("outgoing_locales")
+        self.incoming_locales = kwargs.get("incoming_locales")
         self.offered_capabilities = None
-        self.desired_capabilities = kwargs.get('desired_capabilities')
-        self.properties = kwargs.pop('properties', None)
+        self.desired_capabilities = kwargs.get("desired_capabilities")
+        self.properties = kwargs.pop("properties", None)
 
-        self.allow_pipelined_open = kwargs.get('allow_pipelined_open', True)
+        self.allow_pipelined_open = kwargs.get("allow_pipelined_open", True)
         self.remote_idle_timeout = None
         self.remote_idle_timeout_send_frame = None
-        self.idle_timeout_empty_frame_send_ratio = kwargs.get('idle_timeout_empty_frame_send_ratio', 0.5)
+        self.idle_timeout_empty_frame_send_ratio = kwargs.get(
+            "idle_timeout_empty_frame_send_ratio", 0.5
+        )
         self.last_frame_received_time = None
         self.last_frame_sent_time = None
-        self.idle_wait_time = kwargs.get('idle_wait_time', 0.1)
-        self.network_trace = kwargs.get('network_trace', False)
+        self.idle_wait_time = kwargs.get("idle_wait_time", 0.1)
+        self.network_trace = kwargs.get("network_trace", False)
         self.network_trace_params = {
-            'connection': self._container_id,
-            'session': None,
-            'link': None
+            "connection": self._container_id,
+            "session": None,
+            "link": None,
         }
         self._error = None
         self.outgoing_endpoints = {}
@@ -125,7 +121,12 @@ class Connection(object):
             return
         previous_state = self.state
         self.state = new_state
-        _LOGGER.info("Connection '%s' state changed: %r -> %r", self._container_id, previous_state, new_state)
+        _LOGGER.info(
+            "Connection '%s' state changed: %r -> %r",
+            self._container_id,
+            previous_state,
+            new_state,
+        )
 
         for session in self.outgoing_endpoints.values():
             await session._on_connection_state_change()
@@ -142,14 +143,17 @@ class Connection(object):
                 await self._process_incoming_frame(*(await self._read_frame(wait=True)))
                 if self.state != ConnectionState.HDR_EXCH:
                     await self._disconnect()
-                    raise ValueError("Did not receive reciprocal protocol header. Disconnecting.")
+                    raise ValueError(
+                        "Did not receive reciprocal protocol header. Disconnecting."
+                    )
             else:
                 await self._set_state(ConnectionState.HDR_SENT)
         except (OSError, IOError, SSLError, socket.error) as exc:
             raise AMQPConnectionError(
                 ErrorCondition.SocketError,
-                description="Failed to initiate the connection due to exception: " + str(exc),
-                error=exc
+                description="Failed to initiate the connection due to exception: "
+                + str(exc),
+                error=exc,
             )
 
     async def _disconnect(self, *args):  # pylint: disable=unused-argument
@@ -173,7 +177,9 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to write outgoing frames."""
         return self.state not in _CLOSING_STATES
 
-    async def _send_frame(self, channel, frame, timeout=None, **kwargs):  # pylint: disable=unused-argument
+    async def _send_frame(
+        self, channel, frame, timeout=None, **kwargs
+    ):  # pylint: disable=unused-argument
         try:
             raise self._error
         except TypeError:
@@ -187,7 +193,7 @@ class Connection(object):
                 self._error = AMQPConnectionError(
                     ErrorCondition.SocketError,
                     description="Can not send frame out due to exception: " + str(exc),
-                    error=exc
+                    error=exc,
                 )
         else:
             _LOGGER.warning("Cannot write frame in current state: %r", self.state)
@@ -200,9 +206,17 @@ class Connection(object):
         :returns: The next available outgoing channel number.
         :rtype: int
         """
-        if (len(self.incoming_endpoints) + len(self.outgoing_endpoints)) >= self.channel_max:
-            raise ValueError("Maximum number of channels ({}) has been reached.".format(self.channel_max))
-        next_channel = next(i for i in range(1, self.channel_max) if i not in self.outgoing_endpoints)
+        if (
+            len(self.incoming_endpoints) + len(self.outgoing_endpoints)
+        ) >= self.channel_max:
+            raise ValueError(
+                "Maximum number of channels ({}) has been reached.".format(
+                    self.channel_max
+                )
+            )
+        next_channel = next(
+            i for i in range(1, self.channel_max) if i not in self.outgoing_endpoints
+        )
         return next_channel
 
     async def _outgoing_empty(self):
@@ -216,7 +230,7 @@ class Connection(object):
             self._error = AMQPConnectionError(
                 ErrorCondition.SocketError,
                 description="Can not send empty frame due to exception: " + str(exc),
-                error=exc
+                error=exc,
             )
 
     async def _outgoing_header(self):
@@ -241,11 +255,17 @@ class Connection(object):
             hostname=self.hostname,
             max_frame_size=self.max_frame_size,
             channel_max=self.channel_max,
-            idle_timeout=self.idle_timeout * 1000 if self.idle_timeout else None,  # Convert to milliseconds
+            idle_timeout=self.idle_timeout * 1000
+            if self.idle_timeout
+            else None,  # Convert to milliseconds
             outgoing_locales=self.outgoing_locales,
             incoming_locales=self.incoming_locales,
-            offered_capabilities=self.offered_capabilities if self.state == ConnectionState.OPEN_RCVD else None,
-            desired_capabilities=self.desired_capabilities if self.state == ConnectionState.HDR_EXCH else None,
+            offered_capabilities=self.offered_capabilities
+            if self.state == ConnectionState.OPEN_RCVD
+            else None,
+            desired_capabilities=self.desired_capabilities
+            if self.state == ConnectionState.HDR_EXCH
+            else None,
             properties=self.properties,
         )
         if self.network_trace:
@@ -264,7 +284,9 @@ class Connection(object):
             await self.close()
         if frame[4]:
             self.remote_idle_timeout = frame[4] / 1000  # Convert to seconds
-            self.remote_idle_timeout_send_frame = self.idle_timeout_empty_frame_send_ratio * self.remote_idle_timeout
+            self.remote_idle_timeout_send_frame = (
+                self.idle_timeout_empty_frame_send_ratio * self.remote_idle_timeout
+            )
 
         if frame[2] < 512:
             pass  # TODO: error
@@ -292,7 +314,7 @@ class Connection(object):
             ConnectionState.HDR_EXCH,
             ConnectionState.OPEN_RCVD,
             ConnectionState.CLOSE_SENT,
-            ConnectionState.DISCARDING
+            ConnectionState.DISCARDING,
         ]
         if self.state in disconnect_states:
             await self._disconnect()
@@ -308,9 +330,7 @@ class Connection(object):
 
         if frame[0]:
             self._error = AMQPConnectionError(
-                condition=frame[0][0],
-                description=frame[0][1],
-                info=frame[0][2]
+                condition=frame[0][0], description=frame[0][1], info=frame[0][2]
             )
             _LOGGER.error("Connection error: {}".format(frame[0]))
 
@@ -380,20 +400,28 @@ class Connection(object):
     async def _process_outgoing_frame(self, channel, frame):
         if self.network_trace:
             _LOGGER.info("-> %r", frame, extra=self.network_trace_params)
-        if not self.allow_pipelined_open and self.state in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT]:
+        if not self.allow_pipelined_open and self.state in [
+            ConnectionState.OPEN_PIPE,
+            ConnectionState.OPEN_SENT,
+        ]:
             raise ValueError("Connection not configured to allow pipeline send.")
-        if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
+        if self.state not in [
+            ConnectionState.OPEN_PIPE,
+            ConnectionState.OPEN_SENT,
+            ConnectionState.OPENED,
+        ]:
             raise ValueError("Connection not open.")
         now = time.time()
-        if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or\
-                (await self._get_remote_timeout(now)):
+        if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or (
+            await self._get_remote_timeout(now)
+        ):
             await self.close(
                 # TODO: check error condition
                 error=AMQPError(
                     condition=ErrorCondition.ConnectionCloseForced,
-                    description="No frame received for the idle timeout."
+                    description="No frame received for the idle timeout.",
                 ),
-                wait=False
+                wait=False,
             )
             return
         await self._send_frame(channel, frame)
@@ -425,7 +453,9 @@ class Connection(object):
         new_frame = await self._read_frame(**kwargs)
         return await self._process_incoming_frame(*new_frame)
 
-    async def listen(self, wait=False, batch=1, **kwargs):  # pylint: disable=unused-argument
+    async def listen(
+        self, wait=False, batch=1, **kwargs
+    ):  # pylint: disable=unused-argument
         try:
             raise self._error
         except TypeError:
@@ -433,22 +463,23 @@ class Connection(object):
         try:
             if self.state not in _CLOSING_STATES:
                 now = time.time()
-                if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or\
-                        (await self._get_remote_timeout(now)):
+                if get_local_timeout(
+                    now, self.idle_timeout, self.last_frame_received_time
+                ) or (await self._get_remote_timeout(now)):
                     # TODO: check error condition
                     await self.close(
                         error=AMQPError(
                             condition=ErrorCondition.ConnectionCloseForced,
-                            description="No frame received for the idle timeout."
+                            description="No frame received for the idle timeout.",
                         ),
-                        wait=False
+                        wait=False,
                     )
                     return
             if self.state == ConnectionState.END:
                 # TODO: check error condition
                 self._error = AMQPConnectionError(
                     condition=ErrorCondition.ConnectionCloseForced,
-                    description="Connection was already closed."
+                    description="Connection was already closed.",
                 )
                 return
             for _ in range(batch):
@@ -459,19 +490,20 @@ class Connection(object):
             self._error = AMQPConnectionError(
                 ErrorCondition.SocketError,
                 description="Can not send frame out due to exception: " + str(exc),
-                error=exc
+                error=exc,
             )
 
     def create_session(self, **kwargs):
         assigned_channel = self._get_next_outgoing_channel()
-        kwargs['allow_pipelined_open'] = self.allow_pipelined_open
-        kwargs['idle_wait_time'] = self.idle_wait_time
+        kwargs["allow_pipelined_open"] = self.allow_pipelined_open
+        kwargs["idle_wait_time"] = self.idle_wait_time
         session = Session(
             self,
             assigned_channel,
-            network_trace=kwargs.pop('network_trace', self.network_trace),
+            network_trace=kwargs.pop("network_trace", self.network_trace),
             network_trace_params=dict(self.network_trace_params),
-            **kwargs)
+            **kwargs
+        )
         self.outgoing_endpoints[assigned_channel] = session
         return session
 
@@ -485,7 +517,9 @@ class Connection(object):
         if wait:
             await self._wait_for_response(wait, ConnectionState.OPENED)
         elif not self.allow_pipelined_open:
-            raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
+            raise ValueError(
+                "Connection has been configured to not allow piplined-open. Please set 'wait' parameter."
+            )
 
     async def close(self, error=None, wait=False):
         if self.state in [ConnectionState.END, ConnectionState.CLOSE_SENT]:
@@ -496,7 +530,7 @@ class Connection(object):
                 self._error = AMQPConnectionError(
                     condition=error.condition,
                     description=error.description,
-                    info=error.info
+                    info=error.info,
                 )
             if self.state == ConnectionState.OPEN_PIPE:
                 await self._set_state(ConnectionState.OC_PIPE)

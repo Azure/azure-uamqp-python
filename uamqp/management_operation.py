@@ -8,21 +8,15 @@ import time
 import uuid
 from functools import partial
 
-from uamqp.constants import (
-    ManagementOpenResult,
-    ManagementExecuteOperationResult
-)
-from uamqp.error import (
-    AMQPLinkError,
-    ErrorCondition
-)
+from uamqp.constants import ManagementOpenResult, ManagementExecuteOperationResult
+from uamqp.error import AMQPLinkError, ErrorCondition
 from uamqp.management_link import ManagementLink
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ManagementOperation(object):
-    def __init__(self, session, endpoint='$management', **kwargs):
+    def __init__(self, session, endpoint="$management", **kwargs):
         self._mgmt_link_open_status = None
 
         self._session = session
@@ -51,13 +45,13 @@ class ManagementOperation(object):
         self._mgmt_error = ValueError("Management Operation error occurred.")
 
     def _on_execute_operation_complete(
-            self,
-            operation_id,
-            operation_result,
-            status_code,
-            status_description,
-            raw_message,
-            error=None
+        self,
+        operation_id,
+        operation_result,
+        status_code,
+        status_description,
+        raw_message,
+        error=None,
     ):
         _LOGGER.debug(
             "mgmt operation completed, operation id: %r; operation_result: %r; status_code: %r; "
@@ -67,18 +61,25 @@ class ManagementOperation(object):
             status_code,
             status_description,
             raw_message,
-            error
+            error,
         )
 
-        if operation_result in \
-                (ManagementExecuteOperationResult.ERROR, ManagementExecuteOperationResult.LINK_CLOSED):
+        if operation_result in (
+            ManagementExecuteOperationResult.ERROR,
+            ManagementExecuteOperationResult.LINK_CLOSED,
+        ):
             self._mgmt_error = error
             _LOGGER.error(
                 "Failed to complete mgmt operation due to error: %r. The management request message is: %r",
-                error, raw_message
+                error,
+                raw_message,
             )
         else:
-            self._responses[operation_id] = (status_code, status_description, raw_message)
+            self._responses[operation_id] = (
+                status_code,
+                status_description,
+                raw_message,
+            )
 
     def execute(self, message, operation=None, operation_type=None, timeout=0):
         start_time = time.time()
@@ -91,14 +92,16 @@ class ManagementOperation(object):
             partial(self._on_execute_operation_complete, operation_id),
             timeout=timeout,
             operation=operation,
-            type=operation_type
+            type=operation_type,
         )
 
         while not self._responses[operation_id] and not self._mgmt_error:
             if timeout > 0:
                 now = time.time()
                 if (now - start_time) >= timeout:
-                    raise TimeoutError("Failed to receive mgmt response in {}ms".format(timeout))
+                    raise TimeoutError(
+                        "Failed to receive mgmt response in {}ms".format(timeout)
+                    )
             self._connection.listen()
 
         if self._mgmt_error:
@@ -126,8 +129,10 @@ class ManagementOperation(object):
         # TODO: update below with correct status code + info
         raise AMQPLinkError(
             condition=ErrorCondition.ClientError,
-            description="Failed to open mgmt link, management link status: {}".format(self._mgmt_link_open_status),
-            info=None
+            description="Failed to open mgmt link, management link status: {}".format(
+                self._mgmt_link_open_status
+            ),
+            info=None,
         )
 
     def close(self):

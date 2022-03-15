@@ -1,8 +1,8 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 # pylint: disable=protected-access,too-many-lines
 
@@ -36,7 +36,7 @@ from uamqp.error import (
     ErrorCondition,
     MessageException,
     MessageSendFailed,
-    RetryPolicy
+    RetryPolicy,
 )
 from uamqp.management_operation import ManagementOperation
 from uamqp.message import _MessageDelivery
@@ -130,21 +130,27 @@ class AMQPClient(object):
         self._keep_alive_thread = None
 
         # Connection settings
-        self._max_frame_size = kwargs.pop('max_frame_size', None) or MAX_FRAME_SIZE_BYTES
-        self._channel_max = kwargs.pop('channel_max', None) or 65535
-        self._idle_timeout = kwargs.pop('idle_timeout', None)
-        self._properties = kwargs.pop('properties', None)
+        self._max_frame_size = (
+            kwargs.pop("max_frame_size", None) or MAX_FRAME_SIZE_BYTES
+        )
+        self._channel_max = kwargs.pop("channel_max", None) or 65535
+        self._idle_timeout = kwargs.pop("idle_timeout", None)
+        self._properties = kwargs.pop("properties", None)
         self._network_trace = kwargs.pop("network_trace", False)
 
         # Session settings
-        self._outgoing_window = kwargs.pop('outgoing_window', None) or OUTGOING_WIDNOW
-        self._incoming_window = kwargs.pop('incoming_window', None) or INCOMING_WINDOW
-        self._handle_max = kwargs.pop('handle_max', None)
+        self._outgoing_window = kwargs.pop("outgoing_window", None) or OUTGOING_WIDNOW
+        self._incoming_window = kwargs.pop("incoming_window", None) or INCOMING_WINDOW
+        self._handle_max = kwargs.pop("handle_max", None)
 
         # Link settings
-        self._send_settle_mode = kwargs.pop('send_settle_mode', SenderSettleMode.Unsettled)
-        self._receive_settle_mode = kwargs.pop('receive_settle_mode', ReceiverSettleMode.Second)
-        self._desired_capabilities = kwargs.pop('desired_capabilities', None)
+        self._send_settle_mode = kwargs.pop(
+            "send_settle_mode", SenderSettleMode.Unsettled
+        )
+        self._receive_settle_mode = kwargs.pop(
+            "receive_settle_mode", ReceiverSettleMode.Second
+        )
+        self._desired_capabilities = kwargs.pop("desired_capabilities", None)
 
     def __enter__(self):
         """Run Client in a context manager."""
@@ -194,15 +200,18 @@ class AMQPClient(object):
                     if exc.condition == ErrorCondition.LinkDetachForced:
                         self._close_link()  # if link level error, close and open a new link
                         # TODO: check if there's any other code that we want to close link?
-                    if exc.condition in (ErrorCondition.ConnectionCloseForced, ErrorCondition.SocketError):
+                    if exc.condition in (
+                        ErrorCondition.ConnectionCloseForced,
+                        ErrorCondition.SocketError,
+                    ):
                         # if connection detach or socket error, close and open a new connection
                         self.close()
                         # TODO: check if there's any other code we want to close connection
             finally:
                 end_time = time.time()
                 if absolute_timeout > 0:
-                    absolute_timeout -= (end_time - start_time)
-        raise retry_settings['history'][-1]
+                    absolute_timeout -= end_time - start_time
+        raise retry_settings["history"][-1]
 
     def _keep_alive_worker(self):
         interval = 10 if self._keep_alive is True else self._keep_alive
@@ -210,17 +219,20 @@ class AMQPClient(object):
         try:
             while self._connection and not self._shutdown:
                 current_time = time.time()
-                elapsed_time = (current_time - start_time)
+                elapsed_time = current_time - start_time
                 if elapsed_time >= interval:
-                    _logger.info("Keeping %r connection alive. %r",
-                                 self.__class__.__name__,
-                                 self._connection._container_id)
+                    _logger.info(
+                        "Keeping %r connection alive. %r",
+                        self.__class__.__name__,
+                        self._connection._container_id,
+                    )
                     self._connection._get_remote_timeout(current_time)
                     start_time = current_time
                 time.sleep(1)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
-
+            _logger.info(
+                "Connection keep-alive for %r failed: %r.", self.__class__.__name__, e
+            )
 
     def open(self):
         """Open the client. The client can create a new Connection
@@ -241,26 +253,24 @@ class AMQPClient(object):
             self._connection = Connection(
                 "amqps://" + self._hostname,
                 sasl_credential=self._auth.sasl,
-                ssl={'ca_certs':certifi.where()},
+                ssl={"ca_certs": certifi.where()},
                 container_id=self._name,
                 max_frame_size=self._max_frame_size,
                 channel_max=self._channel_max,
                 idle_timeout=self._idle_timeout,
                 properties=self._properties,
-                network_trace=self._network_trace
+                network_trace=self._network_trace,
             )
             self._connection.open()
         if not self._session:
             self._session = self._connection.create_session(
                 incoming_window=self._incoming_window,
-                outgoing_window=self._outgoing_window
+                outgoing_window=self._outgoing_window,
             )
             self._session.begin()
         if self._auth.auth_type == AUTH_TYPE_CBS:
             self._cbs_authenticator = CBSAuthenticator(
-                session=self._session,
-                auth=self._auth,
-                auth_timeout=self._auth_timeout
+                session=self._session, auth=self._auth, auth_timeout=self._auth_timeout
             )
             self._cbs_authenticator.open()
         if self._keep_alive:
@@ -363,7 +373,7 @@ class AMQPClient(object):
         operation = kwargs.pop("operation", None)
         operation_type = kwargs.pop("operation_type", None)
         node = kwargs.pop("node", "$management")
-        timeout = kwargs.pop('timeout', 0)
+        timeout = kwargs.pop("timeout", 0)
         try:
             mgmt_link = self._mgmt_links[node]
         except KeyError:
@@ -375,13 +385,12 @@ class AMQPClient(object):
             while not mgmt_link.ready():
                 self._connection.listen(wait=False)
 
-        operation_type = operation_type or b'empty'
+        operation_type = operation_type or b"empty"
         response = mgmt_link.execute(
-            message,
-            operation=operation,
-            operation_type=operation_type,
-            timeout=timeout
-        )[2]  # [0] for status, [1] for description, [2] for response
+            message, operation=operation, operation_type=operation_type, timeout=timeout
+        )[
+            2
+        ]  # [0] for status, [1] for description, [2] for response
         return response
 
 
@@ -389,9 +398,11 @@ class SendClient(AMQPClient):
     def __init__(self, hostname, target, auth=None, **kwargs):
         self.target = target
         # Sender and Link settings
-        self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
-        self._link_properties = kwargs.pop('link_properties', None)
-        self._link_credit = kwargs.pop('link_credit', None)
+        self._max_message_size = (
+            kwargs.pop("max_message_size", None) or MAX_FRAME_SIZE_BYTES
+        )
+        self._link_properties = kwargs.pop("link_properties", None)
+        self._link_credit = kwargs.pop("link_credit", None)
         super(SendClient, self).__init__(hostname, auth=auth, **kwargs)
 
     def _client_ready(self):
@@ -412,7 +423,8 @@ class SendClient(AMQPClient):
                 send_settle_mode=self._send_settle_mode,
                 rcv_settle_mode=self._receive_settle_mode,
                 max_message_size=self._max_message_size,
-                properties=self._link_properties)
+                properties=self._link_properties,
+            )
             self._link.attach()
             return False
         if self._link.get_state().value != 3:  # ATTACHED
@@ -439,9 +451,7 @@ class SendClient(AMQPClient):
         message_delivery.state = MessageDeliveryState.WaitingForSendAck
         on_send_complete = partial(self._on_send_complete, message_delivery)
         delivery = self._link.send_transfer(
-            message_delivery.message,
-            on_send_complete=on_send_complete,
-            timeout=timeout
+            message_delivery.message, on_send_complete=on_send_complete, timeout=timeout
         )
         if not delivery.sent:
             raise RuntimeError("Message is not sent.")
@@ -453,7 +463,9 @@ class SendClient(AMQPClient):
         except ValueError:
             error = MessageException(condition, description=description, info=info)
         else:
-            error = MessageSendFailed(amqp_condition, description=description, info=info)
+            error = MessageSendFailed(
+                amqp_condition, description=description, info=info
+            )
         message_delivery.state = MessageDeliveryState.Error
         message_delivery.error = error
 
@@ -471,12 +483,11 @@ class SendClient(AMQPClient):
                         message_delivery,
                         condition=error_info[0][0],
                         description=error_info[0][1],
-                        info=error_info[0][2]
+                        info=error_info[0][2],
                     )
                 except TypeError:
                     self._process_send_error(
-                        message_delivery,
-                        condition=ErrorCondition.UnknownError
+                        message_delivery, condition=ErrorCondition.UnknownError
                     )
         elif reason == LinkDeliverySettleReason.SETTLED:
             message_delivery.state = MessageDeliveryState.Ok
@@ -486,8 +497,7 @@ class SendClient(AMQPClient):
         else:
             # NotDelivered and other unknown errors
             self._process_send_error(
-                message_delivery,
-                condition=ErrorCondition.UnknownError
+                message_delivery, condition=ErrorCondition.UnknownError
             )
 
     def _send_message_impl(self, message, **kwargs):
@@ -495,9 +505,7 @@ class SendClient(AMQPClient):
         expire_time = (time.time() + timeout) if timeout else None
         self.open()
         message_delivery = _MessageDelivery(
-            message,
-            MessageDeliveryState.WaitingToBeSent,
-            expire_time
+            message, MessageDeliveryState.WaitingToBeSent, expire_time
         )
 
         while not self.client_ready():
@@ -509,16 +517,22 @@ class SendClient(AMQPClient):
         while running and message_delivery.state not in MESSAGE_DELIVERY_DONE_STATES:
             running = self.do_work()
             if message_delivery.expiry and time.time() > message_delivery.expiry:
-                self._on_send_complete(message_delivery, LinkDeliverySettleReason.TIMEOUT, None)
+                self._on_send_complete(
+                    message_delivery, LinkDeliverySettleReason.TIMEOUT, None
+                )
 
-        if message_delivery.state in (MessageDeliveryState.Error,
-                                      MessageDeliveryState.Cancelled,
-                                      MessageDeliveryState.Timeout):
+        if message_delivery.state in (
+            MessageDeliveryState.Error,
+            MessageDeliveryState.Cancelled,
+            MessageDeliveryState.Timeout,
+        ):
             try:
                 raise message_delivery.error
             except TypeError:
                 # This is a default handler
-                raise MessageException(condition=ErrorCondition.UnknownError, description="Send failed.")
+                raise MessageException(
+                    condition=ErrorCondition.UnknownError, description="Send failed."
+                )
 
     def send_message(self, message, **kwargs):
         """
@@ -616,14 +630,20 @@ class ReceiveClient(AMQPClient):
 
     def __init__(self, hostname, source, auth=None, **kwargs):
         self.source = source
-        self._streaming_receive = kwargs.pop("streaming_receive", False)  # TODO: whether public?
+        self._streaming_receive = kwargs.pop(
+            "streaming_receive", False
+        )  # TODO: whether public?
         self._received_messages = queue.Queue()
-        self._message_received_callback = kwargs.pop("message_received_callback", None)  # TODO: whether public?
+        self._message_received_callback = kwargs.pop(
+            "message_received_callback", None
+        )  # TODO: whether public?
 
         # Sender and Link settings
-        self._max_message_size = kwargs.pop('max_message_size', None) or MAX_FRAME_SIZE_BYTES
-        self._link_properties = kwargs.pop('link_properties', None)
-        self._link_credit = kwargs.pop('link_credit', 300)
+        self._max_message_size = (
+            kwargs.pop("max_message_size", None) or MAX_FRAME_SIZE_BYTES
+        )
+        self._link_properties = kwargs.pop("link_properties", None)
+        self._link_credit = kwargs.pop("link_credit", 300)
         super(ReceiveClient, self).__init__(hostname, auth=auth, **kwargs)
 
     def _client_ready(self):
@@ -646,7 +666,7 @@ class ReceiveClient(AMQPClient):
                 max_message_size=self._max_message_size,
                 on_message_received=self._message_received,
                 properties=self._link_properties,
-                desired_capabilities=self._desired_capabilities
+                desired_capabilities=self._desired_capabilities,
             )
             self._link.attach()
             return False
@@ -683,11 +703,13 @@ class ReceiveClient(AMQPClient):
         if not self._streaming_receive:
             self._received_messages.put(message)
         # TODO: do we need settled property for a message?
-        #elif not message.settled:
+        # elif not message.settled:
         #    # Message was received with callback processing and wasn't settled.
         #    _logger.info("Message was not settled.")
 
-    def _receive_message_batch_impl(self, max_batch_size=None, on_message_received=None, timeout=0):
+    def _receive_message_batch_impl(
+        self, max_batch_size=None, on_message_received=None, timeout=0
+    ):
         self._message_received_callback = on_message_received
         max_batch_size = max_batch_size or self._link_credit
         timeout = time.time() + timeout if timeout else 0
@@ -759,7 +781,4 @@ class ReceiveClient(AMQPClient):
          default is 0.
         :type timeout: float
         """
-        return self._do_retryable_operation(
-            self._receive_message_batch_impl,
-            **kwargs
-        )
+        return self._do_retryable_operation(self._receive_message_batch_impl, **kwargs)

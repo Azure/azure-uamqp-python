@@ -1,19 +1,17 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 from functools import partial
 
-from uamqp.authentication import (
-    _generate_sas_access_token,
-    SASTokenAuth,
-    JWTTokenAuth
-)
+from uamqp.authentication import _generate_sas_access_token, SASTokenAuth, JWTTokenAuth
 from uamqp.constants import AUTH_DEFAULT_EXPIRATION_SECONDS
 
 
-async def _generate_sas_token_async(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS):
+async def _generate_sas_token_async(
+    auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS
+):
     return _generate_sas_access_token(auth_uri, sas_name, sas_key, expiry_in=expiry_in)
 
 
@@ -54,10 +52,8 @@ class SASTokenAuthAsync(SASTokenAuth):
 
         """
         super(SASTokenAuthAsync, self).__init__(
-            uri,
-            audience,
-            username,
-            password,
-            **kwargs
+            uri, audience, username, password, **kwargs
         )
-        self.get_token = partial(_generate_sas_token_async, uri, username, password, self.expires_in)
+        self.get_token = partial(
+            _generate_sas_token_async, uri, username, password, self.expires_in
+        )

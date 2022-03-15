@@ -1,8 +1,8 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 # pylint: disable=protected-access
 
@@ -22,15 +22,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ReceiverLink(Link):
-
     def __init__(self, session, handle, source_address, **kwargs):
-        name = kwargs.pop('name', None) or str(uuid.uuid4())
+        name = kwargs.pop("name", None) or str(uuid.uuid4())
         role = Role.Receiver
-        if 'target_address' not in kwargs:
-            kwargs['target_address'] = "receiver-link-{}".format(name)
-        super(ReceiverLink, self).__init__(session, handle, name, role, source_address=source_address, **kwargs)
-        self.on_message_received = kwargs.get('on_message_received')
-        self.on_transfer_received = kwargs.get('on_transfer_received')
+        if "target_address" not in kwargs:
+            kwargs["target_address"] = "receiver-link-{}".format(name)
+        super(ReceiverLink, self).__init__(
+            session, handle, name, role, source_address=source_address, **kwargs
+        )
+        self.on_message_received = kwargs.get("on_message_received")
+        self.on_transfer_received = kwargs.get("on_transfer_received")
         if not self.on_message_received and not self.on_transfer_received:
             raise ValueError("Must specify either a message or transfer handler.")
 
@@ -56,7 +57,9 @@ class ReceiverLink(Link):
 
     async def _incoming_transfer(self, frame):
         if self.network_trace:
-            _LOGGER.info("<- %r", TransferFrame(*frame), extra=self.network_trace_params)
+            _LOGGER.info(
+                "<- %r", TransferFrame(*frame), extra=self.network_trace_params
+            )
         self.current_link_credit -= 1
         self.delivery_count += 1
         self.received_delivery_id = frame[1]
@@ -84,10 +87,14 @@ class ReceiverLink(Link):
             last=delivery_id,
             settled=True,
             state=delivery_state,
-            batchable=None
+            batchable=None,
         )
         if self.network_trace:
-            _LOGGER.info("-> %r", DispositionFrame(*disposition_frame), extra=self.network_trace_params)
+            _LOGGER.info(
+                "-> %r",
+                DispositionFrame(*disposition_frame),
+                extra=self.network_trace_params,
+            )
         await self._session._outgoing_disposition(disposition_frame)
 
     async def send_disposition(self, delivery_id, delivery_state=None):
@@ -98,4 +105,6 @@ class ReceiverLink(Link):
     @classmethod
     def from_incoming_frame(cls, session, handle, frame):
         # check link_create_from_endpoint in C lib
-        raise NotImplementedError('Pending')  # TODO: Assuming we establish all links for now...
+        raise NotImplementedError(
+            "Pending"
+        )  # TODO: Assuming we establish all links for now...

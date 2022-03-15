@@ -1,17 +1,15 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 from uamqp._transport import SSLTransport, AMQPS_PORT
 from uamqp.constants import SASLCode, SASL_HEADER_FRAME
-from uamqp.performatives import (
-    SASLInit
-)
+from uamqp.performatives import SASLInit
 
 
-_SASL_FRAME_TYPE = b'\x01'
+_SASL_FRAME_TYPE = b"\x01"
 
 
 class SASLPlainCredential(object):
@@ -19,7 +17,7 @@ class SASLPlainCredential(object):
     See https://tools.ietf.org/html/rfc4616 for details
     """
 
-    mechanism = b'PLAIN'
+    mechanism = b"PLAIN"
 
     def __init__(self, authcid, passwd, authzid=None):
         self.authcid = authcid
@@ -28,13 +26,13 @@ class SASLPlainCredential(object):
 
     def start(self):
         if self.authzid:
-            login_response = self.authzid.encode('utf-8')
+            login_response = self.authzid.encode("utf-8")
         else:
-            login_response = b''
-        login_response += b'\0'
-        login_response += self.authcid.encode('utf-8')
-        login_response += b'\0'
-        login_response += self.passwd.encode('utf-8')
+            login_response = b""
+        login_response += b"\0"
+        login_response += self.authcid.encode("utf-8")
+        login_response += b"\0"
+        login_response += self.passwd.encode("utf-8")
         return login_response
 
 
@@ -43,10 +41,10 @@ class SASLAnonymousCredential(object):
     See https://tools.ietf.org/html/rfc4505 for details
     """
 
-    mechanism = b'ANONYMOUS'
+    mechanism = b"ANONYMOUS"
 
     def start(self):  # pylint: disable=no-self-use
-        return b''
+        return b""
 
 
 class SASLExternalCredential(object):
@@ -56,34 +54,53 @@ class SASLExternalCredential(object):
     authentication data.
     """
 
-    mechanism = b'EXTERNAL'
+    mechanism = b"EXTERNAL"
 
     def start(self):  # pylint: disable=no-self-use
-        return b''
+        return b""
 
 
 class SASLTransport(SSLTransport):
-
-    def __init__(self, host, credential, port=AMQPS_PORT, connect_timeout=None, ssl=None, **kwargs):
+    def __init__(
+        self,
+        host,
+        credential,
+        port=AMQPS_PORT,
+        connect_timeout=None,
+        ssl=None,
+        **kwargs
+    ):
         self.credential = credential
         ssl = ssl or True
-        super(SASLTransport, self).__init__(host, port=port, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
+        super(SASLTransport, self).__init__(
+            host, port=port, connect_timeout=connect_timeout, ssl=ssl, **kwargs
+        )
 
     def negotiate(self):
         with self.block():
             self.write(SASL_HEADER_FRAME)
             _, returned_header = self.receive_frame()
             if returned_header[1] != SASL_HEADER_FRAME:
-                raise ValueError("Mismatching AMQP header protocol. Expected: {!r}, received: {!r}".format(
-                    SASL_HEADER_FRAME, returned_header[1]))
+                raise ValueError(
+                    "Mismatching AMQP header protocol. Expected: {!r}, received: {!r}".format(
+                        SASL_HEADER_FRAME, returned_header[1]
+                    )
+                )
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
-            if self.credential.mechanism not in supported_mechansisms[1][0]:  # sasl_server_mechanisms
-                raise ValueError("Unsupported SASL credential type: {}".format(self.credential.mechanism))
+            if (
+                self.credential.mechanism not in supported_mechansisms[1][0]
+            ):  # sasl_server_mechanisms
+                raise ValueError(
+                    "Unsupported SASL credential type: {}".format(
+                        self.credential.mechanism
+                    )
+                )
             sasl_init = SASLInit(
                 mechanism=self.credential.mechanism,
                 initial_response=self.credential.start(),
-                hostname=self.host)
+                hostname=self.host,
+            )
             self.send_frame(0, sasl_init, frame_type=_SASL_FRAME_TYPE)
 
             _, next_frame = self.receive_frame(verify_frame_type=1)
@@ -92,4 +109,6 @@ class SASLTransport(SSLTransport):
                 raise NotImplementedError("Unsupported SASL challenge")
             if fields[0] == SASLCode.Ok:  # code
                 return
-            raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields))
+            raise ValueError(
+                "SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields)
+            )

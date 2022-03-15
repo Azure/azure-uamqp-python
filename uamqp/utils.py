@@ -1,8 +1,8 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 import datetime
 import time
@@ -47,7 +47,7 @@ def utc_now():
     return datetime.datetime.now(tz=TZ_UTC)
 
 
-def encode(value, encoding='UTF-8'):
+def encode(value, encoding="UTF-8"):
     return value.encode(encoding) if isinstance(value, str) else value
 
 
@@ -69,16 +69,12 @@ def generate_sas_token(audience, policy, key, expiry=None):
     encoded_key = key.encode("utf-8")
 
     ttl = int(expiry)
-    sign_key = '%s\n%d' % (encoded_uri, ttl)
-    signature = b64encode(HMAC(encoded_key, sign_key.encode('utf-8'), sha256).digest())
-    result = {
-        'sr': audience,
-        'sig': signature,
-        'se': str(ttl)
-    }
+    sign_key = "%s\n%d" % (encoded_uri, ttl)
+    signature = b64encode(HMAC(encoded_key, sign_key.encode("utf-8"), sha256).digest())
+    result = {"sr": audience, "sig": signature, "se": str(ttl)}
     if policy:
-        result['skn'] = encoded_policy
-    return 'SharedAccessSignature ' + urlencode(result)
+        result["skn"] = encoded_policy
+    return "SharedAccessSignature " + urlencode(result)
 
 
 def add_batch(batch, message):
@@ -88,7 +84,7 @@ def add_batch(batch, message):
     batch.data.append(output)
 
 
-def encode_str(data, encoding='utf-8'):
+def encode_str(data, encoding="utf-8"):
     try:
         return data.encode(encoding)
     except AttributeError:
