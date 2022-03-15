@@ -3,30 +3,27 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-import struct
-import uuid
-import logging
-import time
 
-from ._encode import encode_payload
-from .endpoints import Source
-from .link import Link
-from .constants import (
-    SessionState,
+# pylint: disable=protected-access
+
+import logging
+import struct
+import time
+import uuid
+
+from uamqp._encode import encode_payload
+from uamqp.constants import (
     SessionTransferState,
     LinkDeliverySettleReason,
     LinkState,
     Role,
     SenderSettleMode
 )
-from .performatives import (
-    AttachFrame,
-    DetachFrame,
+from uamqp.error import AMQPLinkError, ErrorCondition
+from uamqp.link import Link
+from uamqp.performatives import (
     TransferFrame,
-    DispositionFrame,
-    FlowFrame,
 )
-from .error import AMQPLinkError, ErrorCondition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,12 +40,12 @@ class PendingDelivery(object):
         self.transfer_state = None
         self.timeout = kwargs.get('timeout')
         self.settled = kwargs.get('settled', False)
-    
+
     def on_settled(self, reason, state):
         if self.on_delivery_settled and not self.settled:
             try:
                 self.on_delivery_settled(reason, state)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 # TODO: this swallows every error in on_delivery_settled, which mean we
                 #  1. only handle errors we care about in the callback
                 #  2. ignore errors we don't care
@@ -105,7 +102,11 @@ class SenderLink(Link):
         }
         if self.network_trace:
             # TODO: whether we should move frame tracing into centralized place e.g. connection.py
-            _LOGGER.info("-> %r", TransferFrame(delivery_id='<pending>', **delivery.frame), extra=self.network_trace_params)
+            _LOGGER.info(
+                "-> %r",
+                TransferFrame(delivery_id='<pending>', **delivery.frame),
+                extra=self.network_trace_params
+            )
         self._session._outgoing_transfer(delivery)
         if delivery.transfer_state == SessionTransferState.OKAY:
             self.delivery_count = delivery_count
@@ -125,8 +126,7 @@ class SenderLink(Link):
         if not frame[3]:  # settled
             return
         range_end = (frame[2] or frame[1]) + 1  # first or last
-        settled_ids = [i for i in range(frame[1], range_end)]
-        for settled_id in settled_ids:
+        for settled_id in range(frame[1], range_end):
             delivery = self._pending_deliveries.pop(settled_id, None)
             if delivery:
                 delivery.on_settled(LinkDeliverySettleReason.DISPOSITION_RECEIVED, frame[4])  # state
@@ -183,3 +183,8 @@ class SenderLink(Link):
             pass
         # todo remove from unset messages
         raise ValueError("No pending delivery with ID '{}' found.".format(delivery.frame['delivery_id']))
+
+    @classmethod
+    def from_incoming_frame(cls, session, handle, frame):
+        # check link_create_from_endpoint in C lib
+        raise NotImplementedError('Pending')  # TODO: Assuming we establish all links for now...

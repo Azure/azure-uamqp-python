@@ -4,26 +4,25 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import time
 import logging
-from functools import partial
+import time
 from collections import namedtuple
+from functools import partial
 
-from .sender import SenderLink
-from .receiver import ReceiverLink
-from .constants import (
+from uamqp.constants import (
     ManagementLinkState,
     LinkState,
     SenderSettleMode,
     ReceiverSettleMode,
     ManagementExecuteOperationResult,
     ManagementOpenResult,
-    SEND_DISPOSITION_ACCEPT,
     SEND_DISPOSITION_REJECT,
     MessageDeliveryState
 )
-from .error import ErrorResponse, AMQPException, ErrorCondition
-from .message import Message, Properties, _MessageDelivery
+from uamqp.error import AMQPException, ErrorCondition
+from uamqp.message import Properties, _MessageDelivery
+from uamqp.receiver import ReceiverLink
+from uamqp.sender import SenderLink
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,20 +31,20 @@ PendingManagementOperation = namedtuple('PendingManagementOperation', ['message'
 
 class ManagementLink(object):
     """
-
+    AMQP management link
     """
     def __init__(self, session, endpoint, **kwargs):
         self.next_message_id = 0
         self.state = ManagementLinkState.IDLE
         self._pending_operations = []
         self._session = session
-        self._request_link = session.create_sender_link(  # type: SenderLink
+        self._request_link: SenderLink = session.create_sender_link(
             endpoint,
             on_link_state_change=self._on_sender_state_change,
             send_settle_mode=SenderSettleMode.Unsettled,
             rcv_settle_mode=ReceiverSettleMode.First
         )
-        self._response_link = session.create_receiver_link(  # type: ReceiverLink
+        self._response_link: ReceiverLink = session.create_receiver_link(
             endpoint,
             on_link_state_change=self._on_receiver_state_change,
             on_message_received=self._on_message_received,
@@ -143,7 +142,8 @@ class ManagementLink(object):
             )
             self._pending_operations.remove(to_remove_operation)
 
-    def _on_send_complete(self, message_delivery, reason, state):  # todo: reason is never used, should check spec
+    def _on_send_complete(self, message_delivery, reason, state):  # pylint: disable=unused-argument
+        # todo: reason is never used, should check spec
         if SEND_DISPOSITION_REJECT in state:
             # sample reject state: {'rejected': [[b'amqp:not-allowed', b"Invalid command 'RE1AD'.", None]]}
             to_remove_operation = None
@@ -175,10 +175,10 @@ class ManagementLink(object):
         self._request_link.attach()
 
     def execute_operation(
-        self,
-        message,
-        on_execute_operation_complete,
-        **kwargs
+            self,
+            message,
+            on_execute_operation_complete,
+            **kwargs
     ):
         """Execute a request and wait on a response.
 

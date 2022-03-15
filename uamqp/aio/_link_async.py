@@ -3,39 +3,32 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
-import asyncio
-import threading
-import struct
-import uuid
-import logging
-import time
-from urllib.parse import urlparse
-from enum import Enum
-from io import BytesIO
 
-from ..endpoints import Source, Target
-from ..constants import (
+# pylint: disable=protected-access
+
+import asyncio
+import logging
+import uuid
+
+from uamqp.constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,
-    SessionTransferState,
     LinkDeliverySettleReason,
     LinkState,
     Role,
     SenderSettleMode,
     ReceiverSettleMode
 )
-from ..performatives import (
-    AttachFrame,
-    DetachFrame,
-    TransferFrame,
-    DispositionFrame,
-    FlowFrame,
-)
-from ..error import (
+from uamqp.endpoints import Source, Target
+from uamqp.error import (
     AMQPConnectionError,
     AMQPLinkRedirect,
     AMQPLinkError,
     ErrorCondition
+)
+from uamqp.performatives import (
+    AttachFrame,
+    DetachFrame,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,7 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Link(object):
     """
-
+    AMQP link
     """
 
     def __init__(self, session, handle, name, role, **kwargs):
@@ -66,7 +59,7 @@ class Link(object):
             default_outcome=kwargs.get('source_default_outcome'),
             outcomes=kwargs.get('source_outcomes'),
             capabilities=kwargs.get('source_capabilities'))
-        self.target = target_address if isinstance(target_address,Target) else Target(
+        self.target = target_address if isinstance(target_address, Target) else Target(
             address=kwargs['target_address'],
             durable=kwargs.get('target_durable'),
             expiry_policy=kwargs.get('target_expiry_policy'),
@@ -152,7 +145,7 @@ class Link(object):
             futures.append(asyncio.ensure_future(delivery.on_settled(LinkDeliverySettleReason.NOT_DELIVERED, None)))
         await asyncio.gather(*futures)
         self._pending_deliveries = {}
-    
+
     async def _on_session_state_change(self):
         if self._session.state == SessionState.MAPPED:
             if not self._is_closed and self.state == LinkState.DETACHED:
@@ -189,7 +182,7 @@ class Link(object):
             _LOGGER.info("<- %r", AttachFrame(*frame), extra=self.network_trace_params)
         if self._is_closed:
             raise ValueError("Invalid link")
-        elif not frame[5] or not frame[6]:  # TODO: not sure if we should check here
+        if not frame[5] or not frame[6]:  # TODO: not sure if we should check here
             _LOGGER.info("Cannot get source or target. Detaching link")
             await self._remove_pending_deliveries()
             await self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
@@ -205,7 +198,7 @@ class Link(object):
             await self._set_state(LinkState.ATTACH_RCVD)
         elif self.state == LinkState.ATTACH_SENT:
             await self._set_state(LinkState.ATTACHED)
-    
+
     async def _outgoing_flow(self):
         flow_frame = {
             'handle': self.handle,
@@ -271,6 +264,6 @@ class Link(object):
             elif self.state == LinkState.ATTACHED:
                 await self._outgoing_detach(close=close, error=error)
                 await self._set_state(LinkState.DETACH_SENT)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.info("An error occurred when detaching the link: %r", exc)
             await self._set_state(LinkState.DETACHED)

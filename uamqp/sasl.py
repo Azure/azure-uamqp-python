@@ -4,16 +4,9 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import struct
-from enum import Enum
-
-from ._transport import SSLTransport, AMQPS_PORT
-from .types import AMQPTypes, TYPE, VALUE
-from .constants import FIELD, SASLCode, SASL_HEADER_FRAME
-from .performatives import (
-    SASLOutcome,
-    SASLResponse,
-    SASLChallenge,
+from uamqp._transport import SSLTransport, AMQPS_PORT
+from uamqp.constants import SASLCode, SASL_HEADER_FRAME
+from uamqp.performatives import (
     SASLInit
 )
 
@@ -52,7 +45,7 @@ class SASLAnonymousCredential(object):
 
     mechanism = b'ANONYMOUS'
 
-    def start(self):
+    def start(self):  # pylint: disable=no-self-use
         return b''
 
 
@@ -65,7 +58,7 @@ class SASLExternalCredential(object):
 
     mechanism = b'EXTERNAL'
 
-    def start(self):
+    def start(self):  # pylint: disable=no-self-use
         return b''
 
 
@@ -81,7 +74,7 @@ class SASLTransport(SSLTransport):
             self.write(SASL_HEADER_FRAME)
             _, returned_header = self.receive_frame()
             if returned_header[1] != SASL_HEADER_FRAME:
-                raise ValueError("Mismatching AMQP header protocol. Expected: {}, received: {}".format(
+                raise ValueError("Mismatching AMQP header protocol. Expected: {!r}, received: {!r}".format(
                     SASL_HEADER_FRAME, returned_header[1]))
 
             _, supported_mechansisms = self.receive_frame(verify_frame_type=1)
@@ -99,5 +92,4 @@ class SASLTransport(SSLTransport):
                 raise NotImplementedError("Unsupported SASL challenge")
             if fields[0] == SASLCode.Ok:  # code
                 return
-            else:
-                raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields))
+            raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields))

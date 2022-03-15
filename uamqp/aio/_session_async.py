@@ -4,34 +4,33 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import uuid
+# pylint: disable=protected-access
+
+import asyncio
 import logging
 import time
-import asyncio
+import uuid
 from typing import Optional, Union
 
-from ..constants import (
-    INCOMING_WINDOW,
-    OUTGOING_WIDNOW,
+from uamqp.aio import (
+    ManagementLink,
+    ReceiverLink,
+    SenderLink,
+)
+from uamqp._encode import encode_frame
+from uamqp.constants import (
     ConnectionState,
     SessionState,
     SessionTransferState,
     Role
 )
-from ..endpoints import Source, Target
-from ._management_link_async import ManagementLink
-from ._sender_async import SenderLink
-from ._receiver_async import ReceiverLink
-from ..performatives import (
+from uamqp.performatives import (
     BeginFrame,
     EndFrame,
     FlowFrame,
-    AttachFrame,
-    DetachFrame,
-    TransferFrame,
-    DispositionFrame
+    TransferFrame
 )
-from .._encode import encode_frame
+from uamqp.error import AMQPError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,7 +83,7 @@ class Session(object):
         await self.end()
 
     @classmethod
-    def from_incoming_frame(cls, connection, channel, frame):
+    def from_incoming_frame(cls, connection, channel, frame):  # pylint: disable=unused-argument
         # check session_create_from_endpoint in C lib
         new_session = cls(connection, channel)
         return new_session
@@ -120,7 +119,7 @@ class Session(object):
             raise ValueError("Maximum number of handles ({}) has been reached.".format(self.handle_max))
         next_handle = next(i for i in range(1, self.handle_max) if i not in self._output_handles)
         return next_handle
-    
+
     async def _outgoing_begin(self):
         begin_frame = BeginFrame(
             remote_channel=self.remote_channel if self.state == SessionState.BEGIN_RCVD else None,
@@ -185,7 +184,7 @@ class Session(object):
             self._input_handles[frame[1]] = new_link
         except ValueError:
             pass  # TODO: Reject link
-    
+
     async def _outgoing_flow(self, frame=None):
         link_flow = frame or {}
         link_flow.update({
@@ -316,7 +315,7 @@ class Session(object):
 
     async def _wait_for_response(self, wait, end_state):
         # type: (Union[bool, float], SessionState) -> None
-        if wait == True:
+        if wait is True:
             await self._connection.listen(wait=False)
             while self.state != end_state:
                 await asyncio.sleep(self.idle_wait_time)
@@ -339,7 +338,7 @@ class Session(object):
             raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
 
     async def end(self, error=None, wait=False):
-        # type: (Optional[AMQPError]) -> None
+        # type: (Optional[AMQPError], Union[bool, int]) -> None
         try:
             if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
                 await self._outgoing_end(error=error)
@@ -347,7 +346,7 @@ class Session(object):
             new_state = SessionState.DISCARDING if error else SessionState.END_SENT
             await self._set_state(new_state)
             await self._wait_for_response(wait, SessionState.UNMAPPED)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.info("An error occurred when ending the session: %r", exc)
             await self._set_state(SessionState.UNMAPPED)
 

@@ -5,26 +5,18 @@
 #-------------------------------------------------------------------------
 
 import time
-import urllib
 from collections import namedtuple
 from functools import partial
 
-from .sasl import SASLAnonymousCredential, SASLPlainCredential
-from .utils import generate_sas_token
-
-from .constants import (
+from uamqp.constants import (
     AUTH_DEFAULT_EXPIRATION_SECONDS,
     TOKEN_TYPE_JWT,
     TOKEN_TYPE_SASTOKEN,
     AUTH_TYPE_CBS,
     AUTH_TYPE_SASL_PLAIN
 )
-
-try:
-    from urlparse import urlparse
-    from urllib import quote_plus  # type: ignore
-except ImportError:
-    from urllib.parse import urlparse, quote_plus
+from uamqp.sasl import SASLAnonymousCredential, SASLPlainCredential
+from uamqp.utils import generate_sas_token
 
 AccessToken = namedtuple("AccessToken", ["token", "expires_on"])
 
@@ -52,14 +44,7 @@ class _CBSAuth(object):
     #  1. naming decision, suffix with Auth vs Credential
     auth_type = AUTH_TYPE_CBS
 
-    def __init__(
-        self,
-        uri,
-        audience,
-        token_type,
-        get_token,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, token_type, get_token, **kwargs):
         """
         CBS authentication using JWT tokens.
 
@@ -101,13 +86,7 @@ class _CBSAuth(object):
 class JWTTokenAuth(_CBSAuth):
     # TODO:
     #  1. naming decision, suffix with Auth vs Credential
-    def __init__(
-        self,
-        uri,
-        audience,
-        get_token,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, get_token, **kwargs):
         """
         CBS authentication using JWT tokens.
 
@@ -132,14 +111,7 @@ class JWTTokenAuth(_CBSAuth):
 class SASTokenAuth(_CBSAuth):
     # TODO:
     #  1. naming decision, suffix with Auth vs Credential
-    def __init__(
-        self,
-        uri,
-        audience,
-        username,
-        password,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, username, password, **kwargs):
         """
         CBS authentication using SAS tokens.
 

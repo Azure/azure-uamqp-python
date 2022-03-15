@@ -1,26 +1,22 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 import logging
-import uuid
 import time
+import uuid
 from functools import partial
 
-from .management_link import ManagementLink
-from .message import Message
-from .error import (
-    AMQPException,
-    AMQPConnectionError,
-    AMQPLinkError,
-    ErrorCondition
-)
-
-from .constants import (
+from uamqp.constants import (
     ManagementOpenResult,
     ManagementExecuteOperationResult
 )
+from uamqp.error import (
+    AMQPLinkError,
+    ErrorCondition
+)
+from uamqp.management_link import ManagementLink
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,13 +51,13 @@ class ManagementOperation(object):
         self._mgmt_error = ValueError("Management Operation error occurred.")
 
     def _on_execute_operation_complete(
-        self,
-        operation_id,
-        operation_result,
-        status_code,
-        status_description,
-        raw_message,
-        error=None
+            self,
+            operation_id,
+            operation_result,
+            status_code,
+            status_description,
+            raw_message,
+            error=None
     ):
         _LOGGER.debug(
             "mgmt operation completed, operation id: %r; operation_result: %r; status_code: %r; "
@@ -74,7 +70,7 @@ class ManagementOperation(object):
             error
         )
 
-        if operation_result in\
+        if operation_result in \
                 (ManagementExecuteOperationResult.ERROR, ManagementExecuteOperationResult.LINK_CLOSED):
             self._mgmt_error = error
             _LOGGER.error(

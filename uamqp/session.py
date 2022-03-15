@@ -4,33 +4,31 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import uuid
-import logging
-from enum import Enum
-import time
+# pylint: disable=protected-access
 
-from .constants import (
-    INCOMING_WINDOW,
-    OUTGOING_WIDNOW,
+import logging
+import time
+import uuid
+from typing import Union, Optional
+
+from uamqp._encode import encode_frame
+from uamqp.constants import (
     ConnectionState,
     SessionState,
     SessionTransferState,
     Role
 )
-from .endpoints import Source, Target
-from .sender import SenderLink
-from .receiver import ReceiverLink
-from .management_link import ManagementLink
-from .performatives import (
+from uamqp.management_link import ManagementLink
+from uamqp.performatives import (
     BeginFrame,
     EndFrame,
     FlowFrame,
-    AttachFrame,
-    DetachFrame,
     TransferFrame,
     DispositionFrame
 )
-from ._encode import encode_frame
+from uamqp.receiver import ReceiverLink
+from uamqp.sender import SenderLink
+from uamqp.error import AMQPError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +82,7 @@ class Session(object):
 
     @classmethod
     def from_incoming_frame(cls, connection, channel, frame):
+        # pylint: disable=unused-argument
         # check session_create_from_endpoint in C lib
         new_session = cls(connection, channel)
         return new_session
@@ -116,7 +115,7 @@ class Session(object):
             raise ValueError("Maximum number of handles ({}) has been reached.".format(self.handle_max))
         next_handle = next(i for i in range(1, self.handle_max) if i not in self._output_handles)
         return next_handle
-    
+
     def _outgoing_begin(self):
         begin_frame = BeginFrame(
             remote_channel=self.remote_channel if self.state == SessionState.BEGIN_RCVD else None,
@@ -182,7 +181,7 @@ class Session(object):
             self._input_handles[frame[1]] = new_link
         except ValueError:
             pass  # TODO: Reject link
-    
+
     def _outgoing_flow(self, frame=None):
         link_flow = frame or {}
         link_flow.update({
@@ -200,7 +199,7 @@ class Session(object):
         if self.network_trace:
             _LOGGER.info("<- %r", FlowFrame(*frame), extra=self.network_trace_params)
         self.next_incoming_id = frame[2]  # next_outgoing_id
-        remote_incoming_id = frame[0] or self.next_outgoing_id  #  next_incoming_id  TODO "initial-outgoing-id"
+        remote_incoming_id = frame[0] or self.next_outgoing_id  # next_incoming_id  TODO "initial-outgoing-id"
         self.remote_incoming_window = remote_incoming_id + frame[1] - self.next_outgoing_id  # incoming_window
         self.remote_outgoing_window = frame[3]  # outgoing_window
         if frame[4] is not None:  # handle
@@ -310,7 +309,7 @@ class Session(object):
 
     def _wait_for_response(self, wait, end_state):
         # type: (Union[bool, float], SessionState) -> None
-        if wait == True:
+        if wait is True:
             self._connection.listen(wait=False)
             while self.state != end_state:
                 time.sleep(self.idle_wait_time)
@@ -333,7 +332,7 @@ class Session(object):
             raise ValueError("Connection has been configured to not allow piplined-open. Please set 'wait' parameter.")
 
     def end(self, error=None, wait=False):
-        # type: (Optional[AMQPError]) -> None
+        # type: (Optional[AMQPError], Union[bool, float]) -> None
         try:
             if self.state not in [SessionState.UNMAPPED, SessionState.DISCARDING]:
                 self._outgoing_end(error=error)
@@ -341,7 +340,7 @@ class Session(object):
             new_state = SessionState.DISCARDING if error else SessionState.END_SENT
             self._set_state(new_state)
             self._wait_for_response(wait, SessionState.UNMAPPED)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.info("An error occurred when ending the session: %r", exc)
             self._set_state(SessionState.UNMAPPED)
 
@@ -370,7 +369,7 @@ class Session(object):
         self._output_handles[assigned_handle] = link
         self.links[link.name] = link
         return link
-    
+
     def create_request_response_link_pair(self, endpoint, **kwargs):
         return ManagementLink(
             self,

@@ -8,9 +8,11 @@ import logging
 import time
 from functools import partial
 
-from ._sender_async import SenderLink
-from ._receiver_async import ReceiverLink
-from ..constants import (
+from uamqp.aio import (
+    ReceiverLink,
+    SenderLink
+)
+from uamqp.constants import (
     ManagementLinkState,
     LinkState,
     SenderSettleMode,
@@ -20,9 +22,9 @@ from ..constants import (
     MessageDeliveryState,
     SEND_DISPOSITION_REJECT
 )
-from ..message import Properties, _MessageDelivery
-from ..management_link import PendingManagementOperation
-from ..error import AMQPException, ErrorCondition
+from uamqp.error import AMQPException, ErrorCondition
+from uamqp.management_link import PendingManagementOperation
+from uamqp.message import Properties, _MessageDelivery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,13 +41,13 @@ class ManagementLink(object):
         self.state = ManagementLinkState.IDLE
         self._pending_operations = []
         self._session = session
-        self._request_link = session.create_sender_link(  # type: SenderLink
+        self._request_link: SenderLink = session.create_sender_link(
             endpoint,
             on_link_state_change=self._on_sender_state_change,
             send_settle_mode=SenderSettleMode.Unsettled,
             rcv_settle_mode=ReceiverSettleMode.First
         )
-        self._response_link = session.create_receiver_link(  # type: ReceiverLink
+        self._response_link: ReceiverLink = session.create_receiver_link(
             endpoint,
             on_link_state_change=self._on_receiver_state_change,
             on_message_received=self._on_message_received,
@@ -143,7 +145,8 @@ class ManagementLink(object):
             )
             self._pending_operations.remove(to_remove_operation)
 
-    async def _on_send_complete(self, message_delivery, reason, state):  # todo: reason is never used, should check spec
+    async def _on_send_complete(self, message_delivery, reason, state):  # pylint: disable=unused-argument
+        # todo: reason is never used, should check spec
         if SEND_DISPOSITION_REJECT in state:
             # sample reject state: {'rejected': [[b'amqp:not-allowed', b"Invalid command 'RE1AD'.", None]]}
             to_remove_operation = None
@@ -155,7 +158,8 @@ class ManagementLink(object):
             # TODO: better error handling
             #  AMQPException is too general? to be more specific: MessageReject(Error) or AMQPManagementError?
             #  or should there an error mapping which maps the condition to the error type
-            await to_remove_operation.on_execute_operation_complete(  # The callback is defined in management_operation.py
+            # The callback is defined in management_operation.py
+            await to_remove_operation.on_execute_operation_complete(
                 ManagementExecuteOperationResult.ERROR,
                 None,
                 None,
@@ -174,12 +178,7 @@ class ManagementLink(object):
         await self._response_link.attach()
         await self._request_link.attach()
 
-    async def execute_operation(
-        self,
-        message,
-        on_execute_operation_complete,
-        **kwargs
-    ):
+    async def execute_operation(self, message, on_execute_operation_complete, **kwargs):
         timeout = kwargs.get("timeout")
         message.application_properties["operation"] = kwargs.get("operation")
         message.application_properties["type"] = kwargs.get("type")

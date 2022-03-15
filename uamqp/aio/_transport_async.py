@@ -34,41 +34,35 @@
 
 import asyncio
 import errno
-import re
+import logging
 import socket
 import ssl
 import struct
-from ssl import SSLError
-from contextlib import contextmanager
 from io import BytesIO
-import logging
-from threading import Lock
+from ssl import SSLError
 
 import certifi
 
-from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
-from .._encode import encode_frame
-from .._decode import decode_frame, decode_empty_frame
-from ..constants import TLS_HEADER_FRAME
-from .._transport import (
+from uamqp._decode import decode_frame, decode_empty_frame
+from uamqp._encode import encode_frame
+from uamqp._platform import SOL_TCP
+from uamqp._transport import (
     AMQP_FRAME,
     get_errno,
     to_host_port,
-    DEFAULT_SOCKET_SETTINGS,
-    IPV6_LITERAL,
     SIGNED_INT_MAX,
     _UNAVAIL,
     set_cloexec,
-    AMQP_PORT
+    AMQP_PORT,
+    _get_tcp_socket_defaults
 )
-
+from uamqp.constants import TLS_HEADER_FRAME
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def get_running_loop():
     try:
-        import asyncio  # pylint: disable=import-error
         return asyncio.get_running_loop()
     except AttributeError:  # 3.6
         loop = None
@@ -85,8 +79,8 @@ def get_running_loop():
 class AsyncTransport(object):
     """Common superclass for TCP and SSL transports."""
 
-    def __init__(self, host, port=AMQP_PORT, connect_timeout=None,
-                 read_timeout=None, write_timeout=None, ssl=False,
+    def __init__(self, host, port=AMQP_PORT, connect_timeout=None,  # pylint: disable=unused-argument
+                 read_timeout=None, write_timeout=None, ssl=False,  # pylint: disable=redefined-outer-name
                  socket_settings=None, raise_on_initial_eintr=True, **kwargs):
         self.connected = False
         self.sock = None
@@ -116,7 +110,8 @@ class AsyncTransport(object):
 
             # Set SNI headers if supported
             server_hostname = sslopts.get('server_hostname')
-            if (server_hostname is not None) and (hasattr(ssl, 'HAS_SNI') and ssl.HAS_SNI) and (hasattr(ssl, 'SSLContext')):
+            if (server_hostname is not None) and\
+                    (hasattr(ssl, 'HAS_SNI') and ssl.HAS_SNI) and (hasattr(ssl, 'SSLContext')):
                 context = ssl.SSLContext(ssl_version)
                 cert_reqs = sslopts.get('cert_reqs', ssl.CERT_REQUIRED)
                 certfile = sslopts.get('certfile')
@@ -131,7 +126,7 @@ class AsyncTransport(object):
         except TypeError:
             raise TypeError('SSL configuration must be a dictionary, or the value True.')
 
-    def _build_ssl_context(self, sslopts, check_hostname=None, **ctx_options):
+    def _build_ssl_context(self, sslopts, check_hostname=None, **ctx_options):  # pylint: disable=unused-argument,no-self-use
         ctx = ssl.create_default_context(**ctx_options)
         ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.load_verify_locations(cafile=certifi.where())
@@ -217,7 +212,7 @@ class AsyncTransport(object):
                     # hurray, we established connection
                     return
 
-    def _init_socket(self, socket_settings, read_timeout, write_timeout):
+    def _init_socket(self, socket_settings, read_timeout, write_timeout):  # pylint: disable=unused-argument
         self.sock.settimeout(None)  # set socket back to blocking mode
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self._set_socket_options(socket_settings)
@@ -235,36 +230,15 @@ class AsyncTransport(object):
 
         self.sock.settimeout(1)  # set socket back to non-blocking mode
 
-    def _get_tcp_socket_defaults(self, sock):
-        tcp_opts = {}
-        for opt in KNOWN_TCP_OPTS:
-            enum = None
-            if opt == 'TCP_USER_TIMEOUT':
-                try:
-                    from socket import TCP_USER_TIMEOUT as enum
-                except ImportError:
-                    # should be in Python 3.6+ on Linux.
-                    enum = 18
-            elif hasattr(socket, opt):
-                enum = getattr(socket, opt)
-
-            if enum:
-                if opt in DEFAULT_SOCKET_SETTINGS:
-                    tcp_opts[enum] = DEFAULT_SOCKET_SETTINGS[opt]
-                elif hasattr(socket, opt):
-                    tcp_opts[enum] = sock.getsockopt(
-                        SOL_TCP, getattr(socket, opt))
-        return tcp_opts
-
     def _set_socket_options(self, socket_settings):
-        tcp_opts = self._get_tcp_socket_defaults(self.sock)
+        tcp_opts = _get_tcp_socket_defaults(self.sock)
         if socket_settings:
             tcp_opts.update(socket_settings)
         for opt, val in tcp_opts.items():
             self.sock.setsockopt(SOL_TCP, opt, val)
 
     async def _read(self, toread, initial=False, buffer=None,
-              _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
+                    _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
         # According to SSL_read(3), it can at most return 16kb of data.
         # Thus, we use an internal read buffer like TCPTransport._read
         # to get the exact number of bytes wanted.
@@ -318,7 +292,8 @@ class AsyncTransport(object):
         self.sock = None
         self.connected = False
 
-    async def read(self, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
+    async def read(self, verify_frame_type=0, **kwargs):  # pylint: disable=unused-argument
+        # TODO: verify frame type?
         async with self.socket_lock:
             read_frame_buffer = BytesIO()
             try:
@@ -331,7 +306,7 @@ class AsyncTransport(object):
                     return frame_header, channel, None
                 size = struct.unpack('>I', size)[0]
                 offset = frame_header[4]
-                frame_type = frame_header[5]
+                # frame_type = frame_header[5]
 
                 # >I is an unsigned int, but the argument to sock.recv is signed,
                 # so we know the size can be at most 2 * SIGNED_INT_MAX
@@ -368,9 +343,9 @@ class AsyncTransport(object):
                 self.connected = False
             raise
 
-    async def receive_frame(self, *args, **kwargs):
+    async def receive_frame(self, *args, **kwargs):  # pylint: disable=unused-argument
         try:
-            header, channel, payload = await self.read(**kwargs) 
+            header, channel, payload = await self.read(**kwargs)
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
@@ -381,7 +356,7 @@ class AsyncTransport(object):
         except (socket.timeout, asyncio.IncompleteReadError, asyncio.TimeoutError):
             return None, None
 
-    async def receive_frame_with_lock(self, *args, **kwargs):
+    async def receive_frame_with_lock(self, *args, **kwargs):  # pylint: disable=unused-argument
         try:
             async with self.socket_lock:
                 header, channel, payload = await self.read(**kwargs)
@@ -408,7 +383,8 @@ class AsyncTransport(object):
         if not self.sslopts:
             return
         await self.write(TLS_HEADER_FRAME)
-        channel, returned_header = await self.receive_frame(verify_frame_type=None)
+        # receive_frame returns tuple, [0] for channel, [1] for returned header
+        returned_header = (await self.receive_frame(verify_frame_type=None))[1]
         if returned_header[1] == TLS_HEADER_FRAME:
-            raise ValueError("Mismatching TLS header protocol. Excpected: {}, received: {}".format(
+            raise ValueError("Mismatching TLS header protocol. Expected: {!r}, received: {!r}".format(
                 TLS_HEADER_FRAME, returned_header[1]))

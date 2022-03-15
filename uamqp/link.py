@@ -4,39 +4,30 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import threading
-import struct
-import uuid
-import logging
-import time
-from enum import Enum
-from io import BytesIO
-from urllib.parse import urlparse
+# pylint: disable=protected-access
 
-from .endpoints import Source, Target
-from .constants import (
+import logging
+import uuid
+
+from uamqp.constants import (
     DEFAULT_LINK_CREDIT,
     SessionState,
-    SessionTransferState,
     LinkDeliverySettleReason,
     LinkState,
     Role,
     SenderSettleMode,
     ReceiverSettleMode
 )
-from .performatives import (
-    AttachFrame,
-    DetachFrame,
-    TransferFrame,
-    DispositionFrame,
-    FlowFrame,
-)
-
-from .error import (
+from uamqp.endpoints import Source, Target
+from uamqp.error import (
     ErrorCondition,
     AMQPLinkError,
     AMQPLinkRedirect,
     AMQPConnectionError
+)
+from uamqp.performatives import (
+    AttachFrame,
+    DetachFrame,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Link(object):
     """
-
+    AMQP link
     """
 
     def __init__(self, session, handle, name, role, **kwargs):
@@ -68,7 +59,7 @@ class Link(object):
             outcomes=kwargs.get('source_outcomes'),
             capabilities=kwargs.get('source_capabilities')
         )
-        self.target = target_address if isinstance(target_address,Target) else Target(
+        self.target = target_address if isinstance(target_address, Target) else Target(
             address=kwargs['target_address'],
             durable=kwargs.get('target_durable'),
             expiry_policy=kwargs.get('target_expiry_policy'),
@@ -153,7 +144,7 @@ class Link(object):
         for delivery in self._pending_deliveries.values():
             delivery.on_settled(LinkDeliverySettleReason.NOT_DELIVERED, None)
         self._pending_deliveries = {}
-    
+
     def _on_session_state_change(self):
         if self._session.state == SessionState.MAPPED:
             if not self._is_closed and self.state == LinkState.DETACHED:
@@ -190,7 +181,7 @@ class Link(object):
             _LOGGER.info("<- %r", AttachFrame(*frame), extra=self.network_trace_params)
         if self._is_closed:
             raise ValueError("Invalid link")
-        elif not frame[5] or not frame[6]:  # TODO: not sure if we should source + target check here
+        if not frame[5] or not frame[6]:  # TODO: not sure if we should source + target check here
             _LOGGER.info("Cannot get source or target. Detaching link")
             self._remove_pending_deliveries()
             self._set_state(LinkState.DETACHED)  # TODO: Send detach now?
@@ -221,7 +212,7 @@ class Link(object):
 
     def _incoming_flow(self, frame):
         pass
-    
+
     def _incoming_disposition(self, frame):
         pass
 
@@ -272,6 +263,6 @@ class Link(object):
             elif self.state == LinkState.ATTACHED:
                 self._outgoing_detach(close=close, error=error)
                 self._set_state(LinkState.DETACH_SENT)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.info("An error occurred when detaching the link: %r", exc)
             self._set_state(LinkState.DETACHED)

@@ -7,7 +7,7 @@
 __version__ = "2.0.0a1"
 
 
-from ._connection import Connection
-from ._transport import SSLTransport
+from uamqp._connection import Connection
+from uamqp._transport import SSLTransport
 
-from .client import AMQPClient, ReceiveClient, SendClient
+from uamqp.client import AMQPClient, ReceiveClient, SendClient

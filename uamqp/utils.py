@@ -4,16 +4,15 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import six
 import datetime
+import time
 from base64 import b64encode
 from hashlib import sha256
 from hmac import HMAC
 from urllib.parse import urlencode, quote_plus
-import time
 
-from .types import TYPE, VALUE, AMQPTypes
-from ._encode import encode_payload
+from uamqp._encode import encode_payload
+from uamqp.amqp_types import TYPE, VALUE, AMQPTypes
 
 
 class UTC(datetime.tzinfo):
@@ -49,7 +48,7 @@ def utc_now():
 
 
 def encode(value, encoding='UTF-8'):
-    return value.encode(encoding) if isinstance(value, six.text_type) else value
+    return value.encode(encoding) if isinstance(value, str) else value
 
 
 def generate_sas_token(audience, policy, key, expiry=None):
@@ -101,16 +100,14 @@ def normalized_data_body(data, **kwargs):
     encoding = kwargs.get("encoding", "utf-8")
     if isinstance(data, list):
         return [encode_str(item, encoding) for item in data]
-    else:
-        return [encode_str(data, encoding)]
+    return [encode_str(data, encoding)]
 
 
 def normalized_sequence_body(sequence):
     # A helper method to normalize input into AMQP Sequence Body format
     if isinstance(sequence, list) and all([isinstance(b, list) for b in sequence]):
         return sequence
-    elif isinstance(sequence, list):
-        return [sequence]
+    return [sequence]
 
 
 def get_message_encoded_size(message):

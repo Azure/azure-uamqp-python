@@ -4,23 +4,24 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import threading
-import struct
-import uuid
-import logging
-import time
-from urllib.parse import urlparse
-import socket
-from ssl import SSLError
-from enum import Enum
-import asyncio
+# pylint: disable=protected-access
 
-from ._transport_async import AsyncTransport
-from ._sasl_async import SASLTransport
-from ._session_async import Session
-from ..performatives import OpenFrame, CloseFrame
-from .._connection import get_local_timeout
-from ..constants import (
+import asyncio
+import logging
+import socket
+import time
+import uuid
+from ssl import SSLError
+from typing import Union
+from urllib.parse import urlparse
+
+from uamqp._connection import get_local_timeout
+from uamqp.aio import (
+    SASLTransport,
+    Session,
+    AsyncTransport,
+)
+from uamqp.constants import (
     PORT,
     SECURE_PORT,
     MAX_FRAME_SIZE_BYTES,
@@ -29,12 +30,12 @@ from ..constants import (
     ConnectionState,
     EMPTY_FRAME
 )
-
-from ..error import (
+from uamqp.error import (
     ErrorCondition,
     AMQPConnectionError,
     AMQPError
 )
+from uamqp.performatives import OpenFrame, CloseFrame
 
 _LOGGER = logging.getLogger(__name__)
 _CLOSING_STATES = (
@@ -151,7 +152,7 @@ class Connection(object):
                 error=exc
             )
 
-    async def _disconnect(self, *args):
+    async def _disconnect(self, *args):  # pylint: disable=unused-argument
         if self.state == ConnectionState.END:
             return
         await self._set_state(ConnectionState.END)
@@ -172,7 +173,7 @@ class Connection(object):
         """Whether the connection is in a state where it is legal to write outgoing frames."""
         return self.state not in _CLOSING_STATES
 
-    async def _send_frame(self, channel, frame, timeout=None, **kwargs):
+    async def _send_frame(self, channel, frame, timeout=None, **kwargs):  # pylint: disable=unused-argument
         try:
             raise self._error
         except TypeError:
@@ -224,7 +225,7 @@ class Connection(object):
             _LOGGER.info("-> header(%r)", HEADER_FRAME, extra=self.network_trace_params)
         await self.transport.write(HEADER_FRAME)
 
-    async def _incoming_header(self, channel, frame):
+    async def _incoming_header(self, channel, frame):  # pylint: disable=unused-argument
         if self.network_trace:
             _LOGGER.info("<- header(%r)", frame, extra=self.network_trace_params)
         if self.state == ConnectionState.START:
@@ -332,6 +333,7 @@ class Connection(object):
         # self.outgoing_endpoints.pop(channel)  # TODO
 
     async def _process_incoming_frame(self, channel, frame):
+        # pylint: disable=too-many-return-statements
         try:
             performative, fields = frame
         except TypeError:
@@ -370,9 +372,8 @@ class Connection(object):
                 return True
             if performative == 1:
                 return False  # TODO: incoming EMPTY
-            else:
-                _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
-                return True
+            _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+            return True
         except KeyError:
             return True  # TODO: channel error
 
@@ -384,8 +385,8 @@ class Connection(object):
         if self.state not in [ConnectionState.OPEN_PIPE, ConnectionState.OPEN_SENT, ConnectionState.OPENED]:
             raise ValueError("Connection not open.")
         now = time.time()
-        if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or (
-        await self._get_remote_timeout(now)):
+        if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or\
+                (await self._get_remote_timeout(now)):
             await self.close(
                 # TODO: check error condition
                 error=AMQPError(
@@ -406,7 +407,7 @@ class Connection(object):
 
     async def _wait_for_response(self, wait, end_state):
         # type: (Union[bool, float], ConnectionState) -> None
-        if wait == True:
+        if wait is True:
             await self.listen(wait=False)
             while self.state != end_state:
                 await asyncio.sleep(self.idle_wait_time)
@@ -424,7 +425,7 @@ class Connection(object):
         new_frame = await self._read_frame(**kwargs)
         return await self._process_incoming_frame(*new_frame)
 
-    async def listen(self, wait=False, batch=1, **kwargs):
+    async def listen(self, wait=False, batch=1, **kwargs):  # pylint: disable=unused-argument
         try:
             raise self._error
         except TypeError:
@@ -432,8 +433,8 @@ class Connection(object):
         try:
             if self.state not in _CLOSING_STATES:
                 now = time.time()
-                if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or (
-                await self._get_remote_timeout(now)):
+                if get_local_timeout(now, self.idle_timeout, self.last_frame_received_time) or\
+                        (await self._get_remote_timeout(now)):
                     # TODO: check error condition
                     await self.close(
                         error=AMQPError(
@@ -506,7 +507,7 @@ class Connection(object):
             else:
                 await self._set_state(ConnectionState.CLOSE_SENT)
             await self._wait_for_response(wait, ConnectionState.END)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             # If error happened during closing, ignore the error and set state to END
             _LOGGER.info("An error occurred when closing the connection: %r", exc)
             await self._set_state(ConnectionState.END)

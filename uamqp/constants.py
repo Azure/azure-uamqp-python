@@ -3,9 +3,9 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 #--------------------------------------------------------------------------
+import struct
 from collections import namedtuple
 from enum import Enum
-import struct
 
 _AS_BYTES = struct.Struct('>B')
 
@@ -51,7 +51,7 @@ OUTGOING_WIDNOW = 64 * 1024
 
 DEFAULT_LINK_CREDIT = 10000
 
-FIELD = namedtuple('field', 'name, type, mandatory, default, multiple')
+FIELD = namedtuple('FIELD', 'name, type, mandatory, default, multiple')
 
 
 DEFAULT_AUTH_TIMEOUT = 60

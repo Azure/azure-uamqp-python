@@ -4,19 +4,12 @@
 # license information.
 #-------------------------------------------------------------------------
 
+# pylint: disable=protected-access
+
 import logging
 from datetime import datetime
 
-from .utils import utc_now, utc_from_timestamp
-from .management_link import ManagementLink
-from .message import Message, Properties
-from .error import (
-    AuthenticationException,
-    ErrorCondition,
-    TokenAuthFailure,
-    TokenExpired
-)
-from .constants import (
+from uamqp.constants import (
     CbsState,
     CbsAuthState,
     CBS_PUT_TOKEN,
@@ -28,6 +21,15 @@ from .constants import (
     ManagementOpenResult,
     DEFAULT_AUTH_TIMEOUT
 )
+from uamqp.error import (
+    AuthenticationException,
+    ErrorCondition,
+    TokenAuthFailure,
+    TokenExpired
+)
+from uamqp.management_link import ManagementLink
+from uamqp.message import Message, Properties
+from uamqp.utils import utc_now, utc_from_timestamp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,19 +42,11 @@ def check_expiration_and_refresh_status(expires_on, refresh_window):
 
 
 def check_put_timeout_status(auth_timeout, token_put_time):
-    if auth_timeout > 0:
-        return (int(utc_now().timestamp()) - token_put_time) >= auth_timeout
-    else:
-        return False
+    return 0 < auth_timeout <= (int(utc_now().timestamp()) - token_put_time)
 
 
 class CBSAuthenticator(object):
-    def __init__(
-        self,
-        session,
-        auth,
-        **kwargs
-    ):
+    def __init__(self, session, auth, **kwargs):
         self._session = session
         self._connection = self._session._connection
         self._mgmt_link = self._session.create_request_response_link_pair(
@@ -82,9 +76,9 @@ class CBSAuthenticator(object):
 
     def _put_token(self, token, token_type, audience, expires_on=None):
         # type: (str, str, str, datetime) -> None
-        message = Message(
+        message = Message(  # type: ignore
             value=token,
-            properties=Properties(message_id=self._mgmt_link.next_message_id),
+            properties=Properties(message_id=self._mgmt_link.next_message_id),  # type: ignore
             application_properties={
                 CBS_NAME: audience,
                 CBS_OPERATION: CBS_PUT_TOKEN,
@@ -134,7 +128,7 @@ class CBSAuthenticator(object):
             status_description,
             message,
             error_condition=None
-    ):
+    ):  # pylint: disable=unused-argument
         _LOGGER.info("CBS Put token result (%r), status code: %s, status_description: %s.",
                      execute_operation_result, status_code, status_description)
         self._token_status_code = status_code
@@ -148,11 +142,13 @@ class CBSAuthenticator(object):
             self._token_status_code = 0
             self._token_status_description = "Auth message has been rejected."
         elif execute_operation_result == ManagementExecuteOperationResult.FAILED_BAD_STATUS:
+            # TODO: log error and message
             self.auth_state = CbsAuthState.ERROR
 
     def _update_status(self):
         if self.state == CbsAuthState.OK or self.state == CbsAuthState.REFRESH_REQUIRED:
-            is_expired, is_refresh_required = check_expiration_and_refresh_status(self._expires_on, self._refresh_window)
+            is_expired, is_refresh_required =\
+                check_expiration_and_refresh_status(self._expires_on, self._refresh_window)
             if is_expired:
                 self.state = CbsAuthState.EXPIRED
             elif is_refresh_required:
@@ -165,15 +161,15 @@ class CBSAuthenticator(object):
     def _cbs_link_ready(self):
         if self.state == CbsState.OPEN:
             return True
-        if self.state != CbsState.OPEN:
+        if self.state == CbsState.OPENING:
             return False
-        if self.state in (CbsState.CLOSED, CbsState.ERROR):
-            # TODO: raise proper error type also should this be a ClientError?
-            #  Think how upper layer handle this exception + condition code
-            raise AuthenticationException(
-                condition=ErrorCondition.ClientError,
-                description="CBS authentication link is in broken status, please recreate the cbs link."
-            )
+        # cbs state in CbsState.CLOSED or CbsState.ERROR
+        # TODO: raise proper error type also should this be a ClientError?
+        #  Think how upper layer handle this exception + condition code
+        raise AuthenticationException(
+            condition=ErrorCondition.ClientError,
+            description="CBS authentication link is in broken status, please recreate the cbs link."
+        )
 
     def open(self):
         self.state = CbsState.OPENING
@@ -203,30 +199,35 @@ class CBSAuthenticator(object):
         if self.auth_state == CbsAuthState.IDLE:
             self.update_token()
             return False
-        elif self.auth_state == CbsAuthState.IN_PROGRESS:
+        if self.auth_state == CbsAuthState.IN_PROGRESS:
             return False
-        elif self.auth_state == CbsAuthState.OK:
+        if self.auth_state == CbsAuthState.OK:
             return True
-        elif self.auth_state == CbsAuthState.REFRESH_REQUIRED:
+        if self.auth_state == CbsAuthState.REFRESH_REQUIRED:
             _LOGGER.info("Token on connection %r will expire soon - attempting to refresh.",
                          self._connection._container_id)
             self.update_token()
             return False
-        elif self.auth_state == CbsAuthState.FAILURE:
+        if self.auth_state == CbsAuthState.FAILURE:
             raise AuthenticationException(
                 condition=ErrorCondition.InternalError,
                 description="Failed to open CBS authentication link."
             )
-        elif self.auth_state == CbsAuthState.ERROR:
+        if self.auth_state == CbsAuthState.ERROR:
             raise TokenAuthFailure(
                 self._token_status_code,
                 self._token_status_description,
                 encoding=self._encoding  # TODO: drop off all the encodings
             )
-        elif self.auth_state == CbsAuthState.TIMEOUT:
+        if self.auth_state == CbsAuthState.TIMEOUT:
             raise TimeoutError("Authentication attempt timed-out.")
-        elif self.auth_state == CbsAuthState.EXPIRED:
+        if self.auth_state == CbsAuthState.EXPIRED:
             raise TokenExpired(
                 condition=ErrorCondition.InternalError,
                 description="CBS Authentication Expired."
             )
+        # default error case
+        raise AuthenticationException(
+            condition=ErrorCondition.InternalError,
+            description="Unrecognized authentication state"
+        )

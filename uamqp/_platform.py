@@ -7,6 +7,7 @@ import platform
 import re
 import struct
 import sys
+from typing import Tuple
 
 # Jython does not have this attribute
 try:
@@ -19,7 +20,7 @@ RE_NUM = re.compile(r'(\d+).+')
 
 
 def _linux_version_to_tuple(s):
-    # type: (str) -> Tuple[int, int, int]
+    # type: (str) -> Tuple[int, ...]
     return tuple(map(_versionatom, s.split('.')[:3]))
 
 

@@ -4,35 +4,20 @@
 # license information.
 #--------------------------------------------------------------------------
 
-# pylint: disable=too-many-lines
+# pylint: disable=protected-access,too-many-lines
 
-from collections import namedtuple
 import logging
+import queue
 import threading
 import time
 import uuid
-import certifi
-import queue
 from functools import partial
 
-from ._connection import Connection
-from .message import _MessageDelivery
-from .session import Session
-from .sender import SenderLink
-from .receiver import ReceiverLink
-from .sasl import SASLTransport
-from .endpoints import Source, Target
-from .error import (
-    AMQPConnectionError,
-    AMQPException,
-    ErrorResponse,
-    ErrorCondition,
-    MessageException,
-    MessageSendFailed,
-    RetryPolicy
-)
+import certifi
 
-from .constants import (
+from uamqp._connection import Connection
+from uamqp.cbs import CBSAuthenticator
+from uamqp.constants import (
     MessageDeliveryState,
     SenderSettleMode,
     ReceiverSettleMode,
@@ -46,11 +31,15 @@ from .constants import (
     DEFAULT_AUTH_TIMEOUT,
     MESSAGE_DELIVERY_DONE_STATES,
 )
-
-from .management_operation import ManagementOperation
-from .cbs import CBSAuthenticator
-from .authentication import _CBSAuth
-
+from uamqp.error import (
+    AMQPException,
+    ErrorCondition,
+    MessageException,
+    MessageSendFailed,
+    RetryPolicy
+)
+from uamqp.management_operation import ManagementOperation
+from uamqp.message import _MessageDelivery
 
 _logger = logging.getLogger(__name__)
 
@@ -177,11 +166,11 @@ class AMQPClient(object):
 
     def _client_run(self, **kwargs):
         """Perform a single Connection iteration."""
-        self._connection.listen(wait=self._socket_timeout)
+        self._connection.listen(wait=self._socket_timeout, **kwargs)
 
     def _close_link(self, **kwargs):
         if self._link and not self._link._is_closed:
-            self._link.detach(close=True)
+            self._link.detach(close=True, **kwargs)
             self._link = None
 
     def _do_retryable_operation(self, operation, *args, **kwargs):
@@ -209,8 +198,6 @@ class AMQPClient(object):
                         # if connection detach or socket error, close and open a new connection
                         self.close()
                         # TODO: check if there's any other code we want to close connection
-            except Exception:
-                raise
             finally:
                 end_time = time.time()
                 if absolute_timeout > 0:
@@ -231,7 +218,7 @@ class AMQPClient(object):
                     self._connection._get_remote_timeout(current_time)
                     start_time = current_time
                 time.sleep(1)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             _logger.info("Connection keep-alive for %r failed: %r.", self.__class__.__name__, e)
 
 
@@ -389,12 +376,12 @@ class AMQPClient(object):
                 self._connection.listen(wait=False)
 
         operation_type = operation_type or b'empty'
-        status, description, response = mgmt_link.execute(
+        response = mgmt_link.execute(
             message,
             operation=operation,
             operation_type=operation_type,
             timeout=timeout
-        )
+        )[2]  # [0] for status, [1] for description, [2] for response
         return response
 
 
@@ -524,7 +511,9 @@ class SendClient(AMQPClient):
             if message_delivery.expiry and time.time() > message_delivery.expiry:
                 self._on_send_complete(message_delivery, LinkDeliverySettleReason.TIMEOUT, None)
 
-        if message_delivery.state in (MessageDeliveryState.Error, MessageDeliveryState.Cancelled, MessageDeliveryState.Timeout):
+        if message_delivery.state in (MessageDeliveryState.Error,
+                                      MessageDeliveryState.Cancelled,
+                                      MessageDeliveryState.Timeout):
             try:
                 raise message_delivery.error
             except TypeError:

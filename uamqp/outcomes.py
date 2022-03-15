@@ -4,6 +4,8 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=protected-access
+
 # The Messaging layer defines a concrete set of delivery states which can be used (via the disposition frame)
 # to indicate the state of the message at the receiver.
 
@@ -27,14 +29,13 @@
 
 from collections import namedtuple
 
-from .types import AMQPTypes, FieldDefinition, ObjDefinition
-from .constants import FIELD
-from .performatives import _CAN_ADD_DOCSTRING
+from uamqp.amqp_types import AMQPTypes, FieldDefinition, ObjDefinition
+from uamqp.constants import FIELD
+from uamqp.performatives import _CAN_ADD_DOCSTRING  # type: ignore
 
-
-Received = namedtuple('received', ['section_number', 'section_offset'])
-Received._code = 0x00000023
-Received._definition = (
+Received = namedtuple('Received', ['section_number', 'section_offset'])
+Received._code = 0x00000023  # type: ignore
+Received._definition = (  # type: ignore
     FIELD("section_number", AMQPTypes.uint, True, None, False),
     FIELD("section_offset", AMQPTypes.ulong, True, None, False))
 if _CAN_ADD_DOCSTRING:
@@ -64,9 +65,9 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-Accepted = namedtuple('accepted', [])
-Accepted._code = 0x00000024
-Accepted._definition = ()
+Accepted = namedtuple('Accepted', [])
+Accepted._code = 0x00000024  # type: ignore
+Accepted._definition = ()  # type: ignore
 if _CAN_ADD_DOCSTRING:
     Accepted.__doc__ = """
     The accepted outcome.
@@ -82,9 +83,9 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-Rejected = namedtuple('rejected', ['error'])
-Rejected._code = 0x00000025
-Rejected._definition = (FIELD("error", ObjDefinition.error, False, None, False),)
+Rejected = namedtuple('Rejected', ['error'])
+Rejected._code = 0x00000025  # type: ignore
+Rejected._definition = (FIELD("error", ObjDefinition.error, False, None, False),)  # type: ignore
 if _CAN_ADD_DOCSTRING:
     Rejected.__doc__ = """
     The rejected outcome.
@@ -101,9 +102,9 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-Released = namedtuple('released', [])
-Released._code = 0x00000026
-Released._definition = ()
+Released = namedtuple('Released', [])
+Released._code = 0x00000026  # type: ignore
+Released._definition = ()  # type: ignore
 if _CAN_ADD_DOCSTRING:
     Released.__doc__ = """
     The released outcome.
@@ -122,9 +123,9 @@ if _CAN_ADD_DOCSTRING:
     """
 
 
-Modified = namedtuple('modified', ['delivery_failed', 'undeliverable_here', 'message_annotations'])
-Modified._code = 0x00000027
-Modified._definition = (
+Modified = namedtuple('Modified', ['delivery_failed', 'undeliverable_here', 'message_annotations'])
+Modified._code = 0x00000027  # type: ignore
+Modified._definition = (  # type: ignore
     FIELD('delivery_failed', AMQPTypes.boolean, False, None, False),
     FIELD('undeliverable_here', AMQPTypes.boolean, False, None, False),
     FIELD('message_annotations', FieldDefinition.fields, False, None, False))

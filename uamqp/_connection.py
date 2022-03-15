@@ -4,18 +4,16 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import uuid
 import logging
-import time
-from urllib.parse import urlparse
 import socket
+import time
+import uuid
 from ssl import SSLError
+from typing import Optional, List, Dict, Any, Tuple, NamedTuple, Union
+from urllib.parse import urlparse
 
-from ._transport import Transport
-from .sasl import SASLTransport
-from .session import Session
-from .performatives import OpenFrame, CloseFrame
-from .constants import (
+from uamqp._transport import Transport
+from uamqp.constants import (
     PORT,
     SECURE_PORT,
     MAX_CHANNELS,
@@ -24,12 +22,14 @@ from .constants import (
     ConnectionState,
     EMPTY_FRAME
 )
-
-from .error import (
+from uamqp.error import (
     ErrorCondition,
     AMQPConnectionError,
     AMQPError
 )
+from uamqp.performatives import OpenFrame, CloseFrame
+from uamqp.sasl import SASLTransport
+from uamqp.session import Session
 
 _LOGGER = logging.getLogger(__name__)
 _CLOSING_STATES = (
@@ -42,7 +42,7 @@ _CLOSING_STATES = (
 
 
 def get_local_timeout(now, idle_timeout, last_frame_received_time):
-    # type: (float, float, float) -> bool
+    # type: (float, Optional[float], Optional[float]) -> bool
     """Check whether the local timeout has been reached since a new incoming frame was received.
 
     :param float now: The current time to check against.
@@ -103,25 +103,25 @@ class Connection(object):
         else:
             self._transport = Transport(parsed_url.netloc, **kwargs)
 
-        self._container_id = kwargs.pop('container_id', None) or str(uuid.uuid4())  # type: str
-        self._max_frame_size = kwargs.pop('max_frame_size', MAX_FRAME_SIZE_BYTES)  # type: int
-        self._remote_max_frame_size = None  # type: Optional[int]
-        self._channel_max = kwargs.pop('channel_max', MAX_CHANNELS)  # type: int
-        self._idle_timeout = kwargs.pop('idle_timeout', None)  # type: Optional[int]
-        self._outgoing_locales = kwargs.pop('outgoing_locales', None)  # type: Optional[List[str]]
-        self._incoming_locales = kwargs.pop('incoming_locales', None)  # type: Optional[List[str]]
-        self._offered_capabilities = None  # type: Optional[str]
-        self._desired_capabilities = kwargs.pop('desired_capabilities', None)  # type: Optional[str]
-        self._properties = kwargs.pop('properties', None)  # type: Optional[Dict[str, str]]
+        self._container_id: str = kwargs.pop('container_id', None) or str(uuid.uuid4())
+        self._max_frame_size: int = kwargs.pop('max_frame_size', MAX_FRAME_SIZE_BYTES)
+        self._remote_max_frame_size: Optional[int] = None
+        self._channel_max: int = kwargs.pop('channel_max', MAX_CHANNELS)
+        self._idle_timeout: Optional[int] = kwargs.pop('idle_timeout', None)
+        self._outgoing_locales: Optional[List[str]] = kwargs.pop('outgoing_locales', None)
+        self._incoming_locales: Optional[List[str]] = kwargs.pop('incoming_locales', None)
+        self._offered_capabilities: Optional[str] = None
+        self._desired_capabilities: Optional[str] = kwargs.pop('desired_capabilities', None)
+        self._properties: Optional[Dict[str, str]] = kwargs.pop('properties', None)
 
-        self._allow_pipelined_open = kwargs.pop('allow_pipelined_open', True)  # type: bool
-        self._remote_idle_timeout = None  # type: Optional[int]
-        self._remote_idle_timeout_send_frame = None  # type: Optional[int]
-        self._idle_timeout_empty_frame_send_ratio = kwargs.get('idle_timeout_empty_frame_send_ratio', 0.5)  # type: float
-        self._last_frame_received_time = None  # type: Optional[float]
-        self._last_frame_sent_time = None  # type: Optional[float]
-        self._idle_wait_time = kwargs.get('idle_wait_time', 0.1)  # type: float
-        self._network_trace = kwargs.get('network_trace', False)
+        self._allow_pipelined_open: bool = kwargs.pop('allow_pipelined_open', True)
+        self._remote_idle_timeout: Optional[int] = None
+        self._remote_idle_timeout_send_frame: Optional[int] = None
+        self._idle_timeout_empty_frame_send_ratio: float = kwargs.get('idle_timeout_empty_frame_send_ratio', 0.5)
+        self._last_frame_received_time: Optional[float] = None
+        self._last_frame_sent_time: Optional[float] = None
+        self._idle_wait_time: float = kwargs.get('idle_wait_time', 0.1)
+        self._network_trace: bool = kwargs.get('network_trace', False)
         self._network_trace_params = {
             'connection': self._container_id,
             'session': None,
@@ -179,8 +179,6 @@ class Connection(object):
                 description="Failed to initiate the connection due to exception: " + str(exc),
                 error=exc
             )
-        except Exception:
-            raise
 
     def _disconnect(self):
         # type: () -> None
@@ -196,7 +194,7 @@ class Connection(object):
         return self.state not in (ConnectionState.CLOSE_RCVD, ConnectionState.END)
 
     def _read_frame(self, wait=True, **kwargs):
-        # type: (bool, Any) -> Tuple[int, Optional[Tuple[int, NamedTuple]]]
+        # type: (Union[bool, float], Any) -> Tuple[Optional[int], Optional[Tuple[int, NamedTuple]]]
         """Read an incoming frame from the transport.
 
         :param Union[bool, float] wait: Whether to block on the socket while waiting for an incoming frame.
@@ -208,15 +206,15 @@ class Connection(object):
          descriptor and field values.
         """
         if self._can_read():
-            if wait == False:
+            if wait is False:
                 return self._transport.receive_frame(**kwargs)
-            elif wait == True:
+            if wait is True:
                 with self._transport.block():
                     return self._transport.receive_frame(**kwargs)
-            else:
-                with self._transport.block_with_timeout(timeout=wait):
-                    return self._transport.receive_frame(**kwargs)
+            with self._transport.block_with_timeout(timeout=wait):
+                return self._transport.receive_frame(**kwargs)
         _LOGGER.warning("Cannot read frame in current state: %r", self.state)
+        return None, None
 
     def _can_write(self):
         # type: () -> bool
@@ -251,8 +249,6 @@ class Connection(object):
                     description="Can not send frame out due to exception: " + str(exc),
                     error=exc
                 )
-            except Exception:
-                raise
         else:
             _LOGGER.warning("Cannot write frame in current state: %r", self.state)
 
@@ -288,8 +284,6 @@ class Connection(object):
                 description="Can not send empty frame due to exception: " + str(exc),
                 error=exc
             )
-        except Exception:
-            raise
 
     def _outgoing_header(self):
         # type: () -> None
@@ -300,7 +294,7 @@ class Connection(object):
         self._transport.write(HEADER_FRAME)
 
     def _incoming_header(self, _, frame):
-        # type: (int, bytes) -> None
+        # type: (int, Tuple[Any, ...]) -> None
         """Process an incoming AMQP protocol header and update the connection state."""
         if self._network_trace:
             _LOGGER.info("<- header(%r)", frame, extra=self._network_trace_params)
@@ -360,7 +354,8 @@ class Connection(object):
             self.close(
                 error=AMQPError(
                     condition=ErrorCondition.NotAllowed,
-                    description="OPEN frame received on a channel that is not 0."
+                    description="OPEN frame received on a channel that is not 0.",
+                    info=None
                 )
             )
             self._set_state(ConnectionState.END)
@@ -369,7 +364,8 @@ class Connection(object):
             self.close()
         if frame[4]:
             self._remote_idle_timeout = frame[4]/1000  # Convert to seconds
-            self._remote_idle_timeout_send_frame = self._idle_timeout_empty_frame_send_ratio * self._remote_idle_timeout
+            self._remote_idle_timeout_send_frame =\
+                self._idle_timeout_empty_frame_send_ratio * self._remote_idle_timeout  # type: ignore
 
         if frame[2] < 512:  # Ensure minimum max frame size.
             pass  # TODO: error
@@ -482,7 +478,8 @@ class Connection(object):
         #self._outgoing_endpoints.pop(channel)  # TODO
 
     def _process_incoming_frame(self, channel, frame):
-        # type: (int, Optional[Union[bytes, Tuple[int, Tuple[Any, ...]]]]) -> bool
+        # type: (Optional[int], Optional[Tuple[int, Tuple[Any, ...]]]) -> bool
+        # pylint: disable=too-many-return-statements
         """Process an incoming frame, either directly or by passing to the necessary Session.
 
         :param int channel: The channel the frame arrived on.
@@ -495,48 +492,47 @@ class Connection(object):
          should be interrupted.
         """
         try:
-            performative, fields = frame  # type: int, Tuple[Any, ...]
+            performative, fields = frame  # type: ignore
         except TypeError:
             return True  # Empty Frame or socket timeout
         try:
             self._last_frame_received_time = time.time()
             if performative == 20:
-                self._incoming_endpoints[channel]._incoming_transfer(fields)  # pylint:disable=protected-access
+                self._incoming_endpoints[channel]._incoming_transfer(fields)  # type:ignore  # pylint:disable=protected-access
                 return False
             if performative == 21:
-                self._incoming_endpoints[channel]._incoming_disposition(fields)  # pylint:disable=protected-access
+                self._incoming_endpoints[channel]._incoming_disposition(fields)  # type:ignore  # pylint:disable=protected-access
                 return False
             if performative == 19:
-                self._incoming_endpoints[channel]._incoming_flow(fields)  # pylint:disable=protected-access
+                self._incoming_endpoints[channel]._incoming_flow(fields)  # type:ignore  # pylint:disable=protected-access
                 return False
             if performative == 18:
-                self._incoming_endpoints[channel]._incoming_attach(fields)  # pylint:disable=protected-access
+                self._incoming_endpoints[channel]._incoming_attach(fields)  # type:ignore  # pylint:disable=protected-access
                 return False
             if performative == 22:
-                self._incoming_endpoints[channel]._incoming_detach(fields)  # pylint:disable=protected-access
+                self._incoming_endpoints[channel]._incoming_detach(fields)  # type:ignore  # pylint:disable=protected-access
                 return True
             if performative == 17:
-                self._incoming_begin(channel, fields)
+                self._incoming_begin(channel, fields)  # type:ignore
                 return True
             if performative == 23:
-                self._incoming_end(channel, fields)
+                self._incoming_end(channel, fields)  # type:ignore
                 return True
             if performative == 16:
-                self._incoming_open(channel, fields)
+                self._incoming_open(channel, fields)  # type:ignore
                 return True
             if performative == 24:
-                self._incoming_close(channel, fields)
+                self._incoming_close(channel, fields)  # type:ignore
                 return True
             if performative == 0:
-                self._incoming_header(channel, fields)
+                self._incoming_header(channel, fields)  # type:ignore
                 return True
             if performative == 1:
                 return False  # TODO: incoming EMPTY
-            else:
-                _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
-                return True
+            _LOGGER.error("Unrecognized incoming frame: {}".format(frame))
+            return True
         except KeyError:
-            return True  #TODO: channel error
+            return True  # TODO: channel error
 
     def _process_outgoing_frame(self, channel, frame):
         # type: (int, NamedTuple) -> None
@@ -556,7 +552,8 @@ class Connection(object):
                 # TODO: check error condition
                 error=AMQPError(
                     condition=ErrorCondition.ConnectionCloseForced,
-                    description="No frame received for the idle timeout."
+                    description="No frame received for the idle timeout.",
+                    info=None
                 ),
                 wait=False
             )
@@ -576,8 +573,8 @@ class Connection(object):
         :returns: Whether the local connection should be shutdown due to timeout.
         """
         if self._remote_idle_timeout and self._last_frame_sent_time:
-            time_since_last_sent = now - self._last_frame_sent_time
-            if time_since_last_sent > self._remote_idle_timeout_send_frame:
+            time_since_last_sent = now - self._last_frame_sent_time  # type: ignore
+            if time_since_last_sent > self._remote_idle_timeout_send_frame:  # type: ignore
                 self._outgoing_empty()
         return False
 
@@ -626,12 +623,14 @@ class Connection(object):
         try:
             if self.state not in _CLOSING_STATES:
                 now = time.time()
-                if get_local_timeout(now, self._idle_timeout, self._last_frame_received_time) or self._get_remote_timeout(now):
+                if get_local_timeout(now, self._idle_timeout, self._last_frame_received_time) or\
+                        self._get_remote_timeout(now):
                     # TODO: check error condition
                     self.close(
                         error=AMQPError(
                             condition=ErrorCondition.ConnectionCloseForced,
-                            description="No frame received for the idle timeout."
+                            description="No frame received for the idle timeout.",
+                            info=None
                         ),
                         wait=False
                     )
@@ -653,8 +652,6 @@ class Connection(object):
                 description="Can not send frame out due to exception: " + str(exc),
                 error=exc
             )
-        except Exception:
-            raise
 
     def create_session(self, **kwargs):
         # type: (Any) -> Session
@@ -727,7 +724,7 @@ class Connection(object):
             if error:
                 self._error = AMQPConnectionError(
                     condition=error.condition,
-                    description=error.descrption,
+                    description=error.description,
                     info=error.info
                 )
             if self.state == ConnectionState.OPEN_PIPE:
@@ -739,7 +736,7 @@ class Connection(object):
             else:
                 self._set_state(ConnectionState.CLOSE_SENT)
             self._wait_for_response(wait, ConnectionState.END)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             # If error happened during closing, ignore the error and set state to END
             _LOGGER.info("An error occurred when closing the connection: %r", exc)
             self._set_state(ConnectionState.END)

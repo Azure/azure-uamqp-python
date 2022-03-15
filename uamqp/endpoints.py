@@ -4,6 +4,8 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=protected-access
+
 # The messaging layer defines two concrete types (source and target) to be used as the source and target of a
 # link. These types are supplied in the source and target fields of the attach frame when establishing or
 # resuming link. The source is comprised of an address (which the container of the outgoing Link Endpoint will
@@ -16,9 +18,9 @@
 
 from collections import namedtuple
 
-from .types import AMQPTypes, FieldDefinition, ObjDefinition
-from .constants import FIELD
-from .performatives import _CAN_ADD_DOCSTRING
+from uamqp.constants import FIELD
+from uamqp.performatives import _CAN_ADD_DOCSTRING
+from uamqp.amqp_types import AMQPTypes, FieldDefinition, ObjDefinition
 
 
 class TerminusDurability(object):
@@ -128,7 +130,7 @@ class ApacheFilters(object):
 
 
 Source = namedtuple(
-    'source',
+    'Source',
     [
         'address',
         'durable',
@@ -142,9 +144,9 @@ Source = namedtuple(
         'outcomes',
         'capabilities'
     ])
-Source.__new__.__defaults__ = (None,) * len(Source._fields)
-Source._code = 0x00000028
-Source._definition = (
+Source.__new__.__defaults__ = (None,) * len(Source._fields)  # type: ignore
+Source._code = 0x00000028  # type: ignore
+Source._definition = (  # type: ignore
     FIELD("address", AMQPTypes.string, False, None, False),
     FIELD("durable", AMQPTypes.uint, False, "none", False),
     FIELD("expiry_policy", AMQPTypes.symbol, False, ExpiryPolicy.SessionEnd, False),
@@ -217,7 +219,7 @@ if _CAN_ADD_DOCSTRING:
 
 
 Target = namedtuple(
-    'target',
+    'Target',
     [
         'address',
         'durable',
@@ -227,9 +229,9 @@ Target = namedtuple(
         'dynamic_node_properties',
         'capabilities'
     ])
-Target._code = 0x00000029
-Target.__new__.__defaults__ = (None,) * len(Target._fields)
-Target._definition = (
+Target._code = 0x00000029  # type: ignore
+Target.__new__.__defaults__ = (None,) * len(Target._fields)  # type: ignore
+Target._definition = (  # type: ignore
     FIELD("address", AMQPTypes.string, False, None, False),
     FIELD("durable", AMQPTypes.uint, False, "none", False),
     FIELD("expiry_policy", AMQPTypes.symbol, False, ExpiryPolicy.SessionEnd, False),

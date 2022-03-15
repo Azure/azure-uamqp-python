@@ -4,11 +4,13 @@
 # license information.
 #--------------------------------------------------------------------------
 
-from enum import Enum
-from collections import namedtuple
+# pylint: disable=protected-access
 
-from .constants import SECURE_PORT, FIELD
-from .types import AMQPTypes, FieldDefinition
+from collections import namedtuple
+from enum import Enum
+
+from uamqp.constants import SECURE_PORT, FIELD
+from uamqp.amqp_types import AMQPTypes, FieldDefinition
 
 
 class ErrorCondition(bytes, Enum):
@@ -117,10 +119,7 @@ class RetryPolicy:
         ErrorCondition.SessionWindowViolation
     ]
 
-    def __init__(
-        self,
-        **kwargs
-    ):
+    def __init__(self, **kwargs):
         """
         keyword int retry_total:
         keyword float retry_backoff_factor:
@@ -149,7 +148,7 @@ class RetryPolicy:
             'history': []
         }
 
-    def increment(self, settings, error):
+    def increment(self, settings, error):  # pylint: disable=no-self-use
         settings['total'] -= 1
         settings['history'].append(error)
         if settings['total'] < 0:
@@ -181,10 +180,10 @@ class RetryPolicy:
         return min(settings['max_backoff'], backoff_value)
 
 
-AMQPError = namedtuple('error', ['condition', 'description', 'info'])
-AMQPError.__new__.__defaults__ = (None,) * len(AMQPError._fields)
-AMQPError._code = 0x0000001d
-AMQPError._definition = (
+AMQPError = namedtuple('AMQPError', ['condition', 'description', 'info'])
+AMQPError.__new__.__defaults__ = (None,) * len(AMQPError._fields)  # type: ignore
+AMQPError._code = 0x0000001d  # type: ignore
+AMQPError._definition = (  # type: ignore
     FIELD('condition', AMQPTypes.symbol, True, None, False),
     FIELD('description', AMQPTypes.string, False, None, False),
     FIELD('info', FieldDefinition.fields, False, None, False),
@@ -255,7 +254,7 @@ class AMQPSessionError(AMQPException):
 
 class AMQPLinkError(AMQPException):
     """
-
+    AMQP link error
     """
 
 
@@ -275,24 +274,24 @@ class AMQPLinkRedirect(AMQPLinkError):
         self.network_host = info.get(b'network-host', b'').decode('utf-8')
         self.port = int(info.get(b'port', SECURE_PORT))
         self.address = info.get(b'address', b'').decode('utf-8')
-        super(AMQPLinkError, self).__init__(condition, description=description, info=info)
+        super(AMQPLinkRedirect, self).__init__(condition, description=description, info=info)
 
 
 class AuthenticationException(AMQPException):
     """
-
+    Authentication exception
     """
 
 
 class TokenExpired(AuthenticationException):
     """
-
+    Token expired exception
     """
 
 
 class TokenAuthFailure(AuthenticationException):
     """
-
+    Token authentication failure
     """
     def __init__(self, status_code, status_description, **kwargs):
         encoding = kwargs.get("encoding", 'utf-8')
@@ -309,18 +308,19 @@ class TokenAuthFailure(AuthenticationException):
 
 class MessageException(AMQPException):
     """
-
+    Message exception
     """
 
 
 class MessageSendFailed(MessageException):
     """
-
+    Message send failed
     """
 
 
 class ErrorResponse(object):
     """
+    Error response
     """
     def __init__(self, **kwargs):
         self.condition = kwargs.get("condition")

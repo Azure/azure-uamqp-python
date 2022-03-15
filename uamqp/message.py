@@ -4,15 +4,16 @@
 # license information.
 #--------------------------------------------------------------------------
 
+# pylint: disable=protected-access
+
 from collections import namedtuple
 
-from .types import AMQPTypes, FieldDefinition
-from .constants import FIELD, MessageDeliveryState
-from .performatives import _CAN_ADD_DOCSTRING
-
+from uamqp.amqp_types import AMQPTypes, FieldDefinition
+from uamqp.constants import FIELD, MessageDeliveryState
+from uamqp.performatives import _CAN_ADD_DOCSTRING
 
 Header = namedtuple(
-    'header',
+    'Header',
     [
         'durable',
         'priority',
@@ -20,9 +21,9 @@ Header = namedtuple(
         'first_acquirer',
         'delivery_count'
     ])
-Header._code = 0x00000070
-Header.__new__.__defaults__ = (None,) * len(Header._fields)
-Header._definition = (
+Header._code = 0x00000070  # type: ignore
+Header.__new__.__defaults__ = (None,) * len(Header._fields)  # type: ignore
+Header._definition = (  # type: ignore
     FIELD("durable", AMQPTypes.boolean, False, None, False),
     FIELD("priority", AMQPTypes.ubyte, False, None, False),
     FIELD("ttl", AMQPTypes.uint, False, None, False),
@@ -75,7 +76,7 @@ if _CAN_ADD_DOCSTRING:
 
 
 Properties = namedtuple(
-    'properties',
+    'Properties',
     [
         'message_id',
         'user_id',
@@ -91,9 +92,9 @@ Properties = namedtuple(
         'group_sequence',
         'reply_to_group_id'
     ])
-Properties._code = 0x00000073
-Properties.__new__.__defaults__ = (None,) * len(Properties._fields)
-Properties._definition = (
+Properties._code = 0x00000073  # type: ignore
+Properties.__new__.__defaults__ = (None,) * len(Properties._fields)  # type: ignore
+Properties._definition = (  # type: ignore
     FIELD("message_id", FieldDefinition.message_id, False, None, False),
     FIELD("user_id", AMQPTypes.binary, False, None, False),
     FIELD("to", AMQPTypes.string, False, None, False),
@@ -165,7 +166,7 @@ if _CAN_ADD_DOCSTRING:
 
 # TODO: should be a class, namedtuple or dataclass, immutability vs performance, need to collect performance data
 Message = namedtuple(
-    'message',
+    'Message',
     [
         'header',
         'delivery_annotations',
@@ -177,9 +178,9 @@ Message = namedtuple(
         'value',
         'footer',
     ])
-Message.__new__.__defaults__ = (None,) * len(Message._fields)
-Message._code = 0
-Message._definition = (
+Message.__new__.__defaults__ = (None,) * len(Message._fields)  # type: ignore
+Message._code = 0  # type: ignore
+Message._definition = (  # type: ignore
     (0x00000070, FIELD("header", Header, False, None, False)),
     (0x00000071, FIELD("delivery_annotations", FieldDefinition.annotations, False, None, False)),
     (0x00000072, FIELD("message_annotations", FieldDefinition.annotations, False, None, False)),

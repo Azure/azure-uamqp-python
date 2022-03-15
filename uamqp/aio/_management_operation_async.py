@@ -4,22 +4,18 @@
 # license information.
 #--------------------------------------------------------------------------
 import logging
-import uuid
 import time
+import uuid
 from functools import partial
 
-from ._management_link_async import ManagementLink
-from ..message import Message
-from ..error import (
-    AMQPException,
-    AMQPConnectionError,
-    AMQPLinkError,
-    ErrorCondition
-)
-
-from ..constants import (
+from uamqp.aio import ManagementLink
+from uamqp.constants import (
     ManagementOpenResult,
     ManagementExecuteOperationResult
+)
+from uamqp.error import (
+    AMQPLinkError,
+    ErrorCondition
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,13 +51,13 @@ class ManagementOperation(object):
         self._mgmt_error = ValueError("Management Operation error occurred.")
 
     async def _on_execute_operation_complete(
-        self,
-        operation_id,
-        operation_result,
-        status_code,
-        status_description,
-        raw_message,
-        error=None
+            self,
+            operation_id,
+            operation_result,
+            status_code,
+            status_description,
+            raw_message,
+            error=None
     ):
         _LOGGER.debug(
             "mgmt operation completed, operation id: %r; operation_result: %r; status_code: %r; "

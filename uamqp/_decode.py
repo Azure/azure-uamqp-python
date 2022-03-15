@@ -5,13 +5,12 @@
 #--------------------------------------------------------------------------
 # pylint: disable=redefined-builtin, import-error
 
+import logging
 import struct
 import uuid
-import logging
-from typing import List, Union, Tuple, Dict, Callable  # pylint: disable=unused-import
+from typing import List, Tuple, Dict, Callable, Any, Union, Optional  # pylint: disable=unused-import
 
-
-from .message import Message, Header, Properties
+from uamqp.message import Message, Header, Properties
 
 _LOGGER = logging.getLogger(__name__)
 _HEADER_PREFIX = memoryview(b'AMQP')
@@ -164,7 +163,7 @@ def _decode_list_small(buffer):
     buffer = buffer[2:]
     values = [None] * count
     for i in range(count):
-        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
     return buffer, values
 
 
@@ -174,7 +173,7 @@ def _decode_list_large(buffer):
     buffer = buffer[8:]
     values = [None] * count
     for i in range(count):
-        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, values[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
     return buffer, values
 
 
@@ -184,8 +183,8 @@ def _decode_map_small(buffer):
     buffer = buffer[2:]
     values = {}
     for  _ in range(count):
-        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
-        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         values[key] = value
     return buffer, values
 
@@ -196,8 +195,8 @@ def _decode_map_large(buffer):
     buffer = buffer[8:]
     values = {}
     for  _ in range(count):
-        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
-        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, key = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
         values[key] = value
     return buffer, values
 
@@ -210,7 +209,7 @@ def _decode_array_small(buffer):
         buffer = buffer[3:]
         values = [None] * count
         for i in range(count):
-            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
+            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)  # type: ignore
         return buffer, values
     return buffer[2:], []
 
@@ -223,7 +222,7 @@ def _decode_array_large(buffer):
         buffer = buffer[9:]
         values = [None] * count
         for i in range(count):
-            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)
+            buffer, values[i] = _DECODE_BY_CONSTRUCTOR[subconstructor](buffer)  # type: ignore
         return buffer, values
     return buffer[8:], []
 
@@ -233,10 +232,10 @@ def _decode_described(buffer):
     # TODO: to move the cursor of the buffer to the described value based on size of the
     #  descriptor without decoding descriptor value
     composite_type = buffer[0]
-    buffer, descriptor = _DECODE_BY_CONSTRUCTOR[composite_type](buffer[1:])
-    buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+    buffer, descriptor = _DECODE_BY_CONSTRUCTOR[composite_type](buffer[1:])  # type: ignore
+    buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
     try:
-        composite_type = _COMPOSITES[descriptor]
+        composite_type = _COMPOSITES[descriptor]  # type: ignore
         return buffer, {composite_type: value}
     except KeyError:
         return buffer, value
@@ -244,12 +243,12 @@ def _decode_described(buffer):
 
 def decode_payload(buffer):
     # type: (memoryview) -> Message
-    message = {}
+    message: Dict[str, Any] = {}
     while buffer:
         # Ignore the first two bytes, they will always be the constructors for
         # described type then ulong.
         descriptor = buffer[2]
-        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[3]](buffer[4:])
+        buffer, value = _DECODE_BY_CONSTRUCTOR[buffer[3]](buffer[4:])  # type: ignore
         if descriptor == 112:
             message["header"] = Header(*value)
         elif descriptor == 113:
@@ -293,16 +292,16 @@ def decode_frame(data):
         # list8 0xc0: data[4] is size, data[5] is count
         count = data[5]
         buffer = data[6:]
-    fields = [None] * count
+    fields: List[Union[None, memoryview]] = [None] * count
     for i in range(count):
-        buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])
+        buffer, fields[i] = _DECODE_BY_CONSTRUCTOR[buffer[0]](buffer[1:])  # type: ignore
     if frame_type == 20:
         fields.append(buffer)
     return frame_type, fields
 
 
 def decode_empty_frame(header):
-    # type: (memory) -> bytes
+    # type: (memoryview) -> Tuple[int,bytes]
     if header[0:4] == _HEADER_PREFIX:
         return 0, header.tobytes()
     if header[5] == 0:
@@ -310,7 +309,7 @@ def decode_empty_frame(header):
     raise ValueError("Received unrecognized empty frame")
 
 
-_DECODE_BY_CONSTRUCTOR = [None] * 256  # type: List[Callable[memoryview]]
+_DECODE_BY_CONSTRUCTOR = [None] * 256  # type: List[Optional[Callable[[memoryview], Tuple[memoryview, Any]]]]
 _DECODE_BY_CONSTRUCTOR[0] = _decode_described
 _DECODE_BY_CONSTRUCTOR[64] = _decode_null
 _DECODE_BY_CONSTRUCTOR[65] = _decode_true

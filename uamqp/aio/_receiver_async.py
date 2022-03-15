@@ -4,29 +4,19 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import uuid
-import logging
-from io import BytesIO
+# pylint: disable=protected-access
 
-from .._decode import decode_payload
-from ._link_async import Link
-from ..constants import DEFAULT_LINK_CREDIT, Role
-from ..endpoints import Target
-from ..constants import (
-    DEFAULT_LINK_CREDIT,
-    SessionState,
-    SessionTransferState,
-    LinkDeliverySettleReason,
-    LinkState
-)
-from ..performatives import (
-    AttachFrame,
-    DetachFrame,
+import logging
+import uuid
+
+from uamqp.aio import Link
+from uamqp._decode import decode_payload
+from uamqp.constants import LinkState
+from uamqp.constants import Role
+from uamqp.performatives import (
     TransferFrame,
     DispositionFrame,
-    FlowFrame,
 )
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,9 +38,9 @@ class ReceiverLink(Link):
         try:
             if self.on_message_received:
                 return await self.on_message_received(message)
-            elif self.on_transfer_received:
+            if self.on_transfer_received:
                 return await self.on_transfer_received(frame, message)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Handler function failed with error: %r", e)
         return None
 
@@ -104,3 +94,8 @@ class ReceiverLink(Link):
         if self._is_closed:
             raise ValueError("Link already closed.")
         await self._outgoing_disposition(delivery_id, delivery_state)
+
+    @classmethod
+    def from_incoming_frame(cls, session, handle, frame):
+        # check link_create_from_endpoint in C lib
+        raise NotImplementedError('Pending')  # TODO: Assuming we establish all links for now...
