@@ -11,7 +11,7 @@ import time
 import uuid
 
 from uamqp._encode import encode_payload
-from uamqp.aio import Link
+from uamqp.aio._link_async import Link
 from uamqp.constants import (
     SessionTransferState,
     LinkDeliverySettleReason,

@@ -9,7 +9,7 @@
 import logging
 from datetime import datetime
 
-from uamqp.aio import ManagementLink
+from uamqp.aio._management_link_async import ManagementLink
 from uamqp.cbs import check_put_timeout_status, check_expiration_and_refresh_status
 from uamqp.constants import (
     CbsState,

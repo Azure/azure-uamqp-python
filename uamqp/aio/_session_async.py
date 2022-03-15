@@ -12,15 +12,13 @@ import time
 import uuid
 from typing import Optional, Union
 
-from uamqp.aio import (
-    ManagementLink,
-    ReceiverLink,
-    SenderLink,
-)
 from uamqp._encode import encode_frame
+from uamqp.aio._management_link_async import ManagementLink
+from uamqp.aio._receiver_async import ReceiverLink
+from uamqp.aio._sender_async import SenderLink
 from uamqp.constants import ConnectionState, SessionState, SessionTransferState, Role
-from uamqp.performatives import BeginFrame, EndFrame, FlowFrame, TransferFrame
 from uamqp.error import AMQPError
+from uamqp.performatives import BeginFrame, EndFrame, FlowFrame, TransferFrame
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import time
 import uuid
 from functools import partial
 
-from uamqp.aio import ManagementLink
+from uamqp.aio._management_link_async import ManagementLink
 from uamqp.constants import ManagementOpenResult, ManagementExecuteOperationResult
 from uamqp.error import AMQPLinkError, ErrorCondition
 

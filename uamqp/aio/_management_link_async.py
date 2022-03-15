@@ -8,7 +8,8 @@ import logging
 import time
 from functools import partial
 
-from uamqp.aio import ReceiverLink, SenderLink
+from uamqp.aio._receiver_async import ReceiverLink
+from uamqp.aio._sender_async import SenderLink
 from uamqp.constants import (
     ManagementLinkState,
     LinkState,

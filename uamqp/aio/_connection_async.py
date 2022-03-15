@@ -16,11 +16,9 @@ from typing import Union
 from urllib.parse import urlparse
 
 from uamqp._connection import get_local_timeout
-from uamqp.aio import (
-    SASLTransport,
-    Session,
-    AsyncTransport,
-)
+from uamqp.aio._sasl_async import SASLTransport
+from uamqp.aio._session_async import Session
+from uamqp.aio._transport_async import AsyncTransport
 from uamqp.constants import (
     PORT,
     SECURE_PORT,

@@ -8,7 +8,7 @@ import datetime
 import uuid
 
 from uamqp import _decode as decode
-from uamqp.types import AMQPTypes, TYPE, VALUE
+from uamqp.amqp_types import AMQPTypes, TYPE, VALUE
 
 import pytest
 

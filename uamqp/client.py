@@ -176,7 +176,7 @@ class AMQPClient(object):
 
     def _close_link(self, **kwargs):
         if self._link and not self._link._is_closed:
-            self._link.detach(close=True, **kwargs)
+            self._link.detach(kwargs.pop('close', True), **kwargs)
             self._link = None
 
     def _do_retryable_operation(self, operation, *args, **kwargs):

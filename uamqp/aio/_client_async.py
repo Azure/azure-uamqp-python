@@ -15,7 +15,9 @@ from functools import partial
 
 import certifi
 
-from uamqp.aio import Connection, CBSAuthenticator, ManagementOperation
+from uamqp.aio._cbs_async import CBSAuthenticator
+from uamqp.aio._connection_async import Connection
+from uamqp.aio._management_operation_async import ManagementOperation
 from uamqp.client import (
     AMQPClient as AMQPClientSync,
     ReceiveClient as ReceiveClientSync,
@@ -127,7 +129,7 @@ class AMQPClientAsync(AMQPClientSync):
 
     async def _close_link_async(self, **kwargs):
         if self._link and not self._link._is_closed:
-            await self._link.detach(close=True, **kwargs)
+            await self._link.detach(kwargs.pop('close',True), **kwargs)
             self._link = None
 
     async def _do_retryable_operation_async(self, operation, *args, **kwargs):

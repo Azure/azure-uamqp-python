@@ -9,8 +9,8 @@
 import logging
 import uuid
 
-from uamqp.aio import Link
 from uamqp._decode import decode_payload
+from uamqp.aio._link_async import Link
 from uamqp.constants import LinkState
 from uamqp.constants import Role
 from uamqp.performatives import (

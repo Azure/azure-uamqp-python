@@ -8,7 +8,7 @@ import datetime
 import uuid
 
 import uamqp._encode as encode
-from uamqp.types import AMQPTypes, TYPE, VALUE
+from uamqp.amqp_types import AMQPTypes, TYPE, VALUE
 from uamqp.message import Message, Header, Properties
 
 import pytest
