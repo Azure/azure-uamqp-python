@@ -1,14 +1,16 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
-from enum import Enum
+# pylint: disable=protected-access
+
 from collections import namedtuple
+from enum import Enum
 
-from .constants import SECURE_PORT, FIELD
-from .types import AMQPTypes, FieldDefinition
+from uamqp.constants import SECURE_PORT, FIELD
+from uamqp.amqp_types import AMQPTypes, FieldDefinition
 
 
 class ErrorCondition(bytes, Enum):
@@ -88,8 +90,8 @@ class ErrorCondition(bytes, Enum):
 
 
 class RetryMode(str, Enum):
-    EXPONENTIAL = 'exponential'
-    FIXED = 'fixed'
+    EXPONENTIAL = "exponential"
+    FIXED = "fixed"
 
 
 class RetryPolicy:
@@ -114,13 +116,10 @@ class RetryPolicy:
         ErrorCondition.SessionUnattachedHandle,
         ErrorCondition.SessionHandleInUse,
         ErrorCondition.SessionErrantLink,
-        ErrorCondition.SessionWindowViolation
+        ErrorCondition.SessionWindowViolation,
     ]
 
-    def __init__(
-        self,
-        **kwargs
-    ):
+    def __init__(self, **kwargs):
         """
         keyword int retry_total:
         keyword float retry_backoff_factor:
@@ -129,30 +128,30 @@ class RetryPolicy:
         keyword list no_retry:
         keyword dict custom_retry_policy:
         """
-        self.total_retries = kwargs.pop('retry_total', 3)
+        self.total_retries = kwargs.pop("retry_total", 3)
         # TODO: A. consider letting retry_backoff_factor be either a float or a callback obj which returns a float
         #  to give more extensibility on customization of retry backoff time, the callback could take the exception
         #  as input.
-        self.backoff_factor = kwargs.pop('retry_backoff_factor', 0.8)
-        self.backoff_max = kwargs.pop('retry_backoff_max', 120)
-        self.retry_mode = kwargs.pop('retry_mode', RetryMode.EXPONENTIAL)
-        self.no_retry.extend(kwargs.get('no_retry', []))
+        self.backoff_factor = kwargs.pop("retry_backoff_factor", 0.8)
+        self.backoff_max = kwargs.pop("retry_backoff_max", 120)
+        self.retry_mode = kwargs.pop("retry_mode", RetryMode.EXPONENTIAL)
+        self.no_retry.extend(kwargs.get("no_retry", []))
         self.custom_condition_backoff = kwargs.pop("custom_condition_backoff", None)
         # TODO: B. As an alternative of option A, we could have a new kwarg serve the goal
 
     def configure_retries(self, **kwargs):
         return {
-            'total': kwargs.pop("retry_total", self.total_retries),
-            'backoff': kwargs.pop("retry_backoff_factor", self.backoff_factor),
-            'max_backoff': kwargs.pop("retry_backoff_max", self.backoff_max),
-            'retry_mode': kwargs.pop("retry_mode", self.retry_mode),
-            'history': []
+            "total": kwargs.pop("retry_total", self.total_retries),
+            "backoff": kwargs.pop("retry_backoff_factor", self.backoff_factor),
+            "max_backoff": kwargs.pop("retry_backoff_max", self.backoff_max),
+            "retry_mode": kwargs.pop("retry_mode", self.retry_mode),
+            "history": [],
         }
 
-    def increment(self, settings, error):
-        settings['total'] -= 1
-        settings['history'].append(error)
-        if settings['total'] < 0:
+    def increment(self, settings, error):  # pylint: disable=no-self-use
+        settings["total"] -= 1
+        settings["history"].append(error)
+        if settings["total"] < 0:
             return False
         return True
 
@@ -170,24 +169,24 @@ class RetryPolicy:
         except (KeyError, TypeError):
             pass
 
-        consecutive_errors_len = len(settings['history'])
+        consecutive_errors_len = len(settings["history"])
         if consecutive_errors_len <= 1:
             return 0
 
         if self.retry_mode == RetryMode.FIXED:
-            backoff_value = settings['backoff']
+            backoff_value = settings["backoff"]
         else:
-            backoff_value = settings['backoff'] * (2 ** (consecutive_errors_len - 1))
-        return min(settings['max_backoff'], backoff_value)
+            backoff_value = settings["backoff"] * (2 ** (consecutive_errors_len - 1))
+        return min(settings["max_backoff"], backoff_value)
 
 
-AMQPError = namedtuple('error', ['condition', 'description', 'info'])
-AMQPError.__new__.__defaults__ = (None,) * len(AMQPError._fields)
-AMQPError._code = 0x0000001d
-AMQPError._definition = (
-    FIELD('condition', AMQPTypes.symbol, True, None, False),
-    FIELD('description', AMQPTypes.string, False, None, False),
-    FIELD('info', FieldDefinition.fields, False, None, False),
+AMQPError = namedtuple("AMQPError", ["condition", "description", "info"])
+AMQPError.__new__.__defaults__ = (None,) * len(AMQPError._fields)  # type: ignore
+AMQPError._code = 0x0000001D  # type: ignore
+AMQPError._definition = (  # type: ignore
+    FIELD("condition", AMQPTypes.symbol, True, None, False),
+    FIELD("description", AMQPTypes.string, False, None, False),
+    FIELD("info", FieldDefinition.fields, False, None, False),
 )
 
 
@@ -198,6 +197,7 @@ class AMQPException(Exception):
     :keyword str description: A description of the error.
     :keyword dict info: A dictionary of additional data associated with the error.
     """
+
     def __init__(self, condition, **kwargs):
         self.condition = condition or ErrorCondition.UnknownError
         self.description = kwargs.get("description", None)
@@ -205,7 +205,9 @@ class AMQPException(Exception):
         self.message = kwargs.get("message", None)
         self.inner_error = kwargs.get("error", None)
         message = self.message or "Error condition: {}".format(
-            str(condition) if isinstance(condition, ErrorCondition) else condition.decode()
+            str(condition)
+            if isinstance(condition, ErrorCondition)
+            else condition.decode()
         )
         if self.description:
             try:
@@ -216,15 +218,11 @@ class AMQPException(Exception):
 
 
 class AMQPDecodeError(AMQPException):
-    """An error occurred while decoding an incoming frame.
-
-    """
+    """An error occurred while decoding an incoming frame."""
 
 
 class AMQPConnectionError(AMQPException):
-    """Details of a Connection-level error.
-
-    """
+    """Details of a Connection-level error."""
 
 
 class AMQPConnectionRedirect(AMQPConnectionError):
@@ -237,11 +235,14 @@ class AMQPConnectionRedirect(AMQPConnectionError):
     :keyword str description: A description of the error.
     :keyword dict info: A dictionary of additional data associated with the error.
     """
+
     def __init__(self, condition, description=None, info=None):
-        self.hostname = info.get(b'hostname', b'').decode('utf-8')
-        self.network_host = info.get(b'network-host', b'').decode('utf-8')
-        self.port = int(info.get(b'port', SECURE_PORT))
-        super(AMQPConnectionRedirect, self).__init__(condition, description=description, info=info)
+        self.hostname = info.get(b"hostname", b"").decode("utf-8")
+        self.network_host = info.get(b"network-host", b"").decode("utf-8")
+        self.port = int(info.get(b"port", SECURE_PORT))
+        super(AMQPConnectionRedirect, self).__init__(
+            condition, description=description, info=info
+        )
 
 
 class AMQPSessionError(AMQPException):
@@ -255,7 +256,7 @@ class AMQPSessionError(AMQPException):
 
 class AMQPLinkError(AMQPException):
     """
-
+    AMQP link error
     """
 
 
@@ -271,57 +272,68 @@ class AMQPLinkRedirect(AMQPLinkError):
     """
 
     def __init__(self, condition, description=None, info=None):
-        self.hostname = info.get(b'hostname', b'').decode('utf-8')
-        self.network_host = info.get(b'network-host', b'').decode('utf-8')
-        self.port = int(info.get(b'port', SECURE_PORT))
-        self.address = info.get(b'address', b'').decode('utf-8')
-        super(AMQPLinkError, self).__init__(condition, description=description, info=info)
+        self.hostname = info.get(b"hostname", b"").decode("utf-8")
+        self.network_host = info.get(b"network-host", b"").decode("utf-8")
+        self.port = int(info.get(b"port", SECURE_PORT))
+        self.address = info.get(b"address", b"").decode("utf-8")
+        super(AMQPLinkRedirect, self).__init__(
+            condition, description=description, info=info
+        )
 
 
 class AuthenticationException(AMQPException):
     """
-
+    Authentication exception
     """
 
 
 class TokenExpired(AuthenticationException):
     """
-
+    Token expired exception
     """
 
 
 class TokenAuthFailure(AuthenticationException):
     """
-
+    Token authentication failure
     """
+
     def __init__(self, status_code, status_description, **kwargs):
-        encoding = kwargs.get("encoding", 'utf-8')
+        encoding = kwargs.get("encoding", "utf-8")
         self.status_code = status_code
         self.status_description = status_description
-        message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
+        message = "CBS Token authentication failed.\nStatus code: {}".format(
+            self.status_code
+        )
         if self.status_description:
             try:
-                message += "\nDescription: {}".format(self.status_description.decode(encoding))
+                message += "\nDescription: {}".format(
+                    self.status_description.decode(encoding)
+                )
             except (TypeError, AttributeError):
                 message += "\nDescription: {}".format(self.status_description)
-        super(TokenAuthFailure, self).__init__(condition=ErrorCondition.ClientError, message=message)
+        super(TokenAuthFailure, self).__init__(
+            condition=ErrorCondition.ClientError, message=message
+        )
 
 
 class MessageException(AMQPException):
     """
-
+    Message exception
     """
 
 
 class MessageSendFailed(MessageException):
     """
-
+    Message send failed
     """
 
 
 class ErrorResponse(object):
     """
+    Error response
     """
+
     def __init__(self, **kwargs):
         self.condition = kwargs.get("condition")
         self.description = kwargs.get("description")

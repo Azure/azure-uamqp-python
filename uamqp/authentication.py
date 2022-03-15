@@ -1,41 +1,32 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 import time
-import urllib
 from collections import namedtuple
 from functools import partial
 
-from .sasl import SASLAnonymousCredential, SASLPlainCredential
-from .utils import generate_sas_token
-
-from .constants import (
+from uamqp.constants import (
     AUTH_DEFAULT_EXPIRATION_SECONDS,
     TOKEN_TYPE_JWT,
     TOKEN_TYPE_SASTOKEN,
     AUTH_TYPE_CBS,
-    AUTH_TYPE_SASL_PLAIN
+    AUTH_TYPE_SASL_PLAIN,
 )
-
-try:
-    from urlparse import urlparse
-    from urllib import quote_plus  # type: ignore
-except ImportError:
-    from urllib.parse import urlparse, quote_plus
+from uamqp.sasl import SASLAnonymousCredential, SASLPlainCredential
+from uamqp.utils import generate_sas_token
 
 AccessToken = namedtuple("AccessToken", ["token", "expires_on"])
 
 
-def _generate_sas_access_token(auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS):
+def _generate_sas_access_token(
+    auth_uri, sas_name, sas_key, expiry_in=AUTH_DEFAULT_EXPIRATION_SECONDS
+):
     expires_on = int(time.time() + expiry_in)
     token = generate_sas_token(auth_uri, sas_name, sas_key, expires_on)
-    return AccessToken(
-        token,
-        expires_on
-    )
+    return AccessToken(token, expires_on)
 
 
 class SASLPlainAuth(object):
@@ -52,14 +43,7 @@ class _CBSAuth(object):
     #  1. naming decision, suffix with Auth vs Credential
     auth_type = AUTH_TYPE_CBS
 
-    def __init__(
-        self,
-        uri,
-        audience,
-        token_type,
-        get_token,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, token_type, get_token, **kwargs):
         """
         CBS authentication using JWT tokens.
 
@@ -101,13 +85,7 @@ class _CBSAuth(object):
 class JWTTokenAuth(_CBSAuth):
     # TODO:
     #  1. naming decision, suffix with Auth vs Credential
-    def __init__(
-        self,
-        uri,
-        audience,
-        get_token,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, get_token, **kwargs):
         """
         CBS authentication using JWT tokens.
 
@@ -125,21 +103,16 @@ class JWTTokenAuth(_CBSAuth):
         :type token_type: str
 
         """
-        super(JWTTokenAuth, self).__init__(uri, audience, kwargs.pop("kwargs", TOKEN_TYPE_JWT), get_token)
+        super(JWTTokenAuth, self).__init__(
+            uri, audience, kwargs.pop("kwargs", TOKEN_TYPE_JWT), get_token
+        )
         self.get_token = get_token
 
 
 class SASTokenAuth(_CBSAuth):
     # TODO:
     #  1. naming decision, suffix with Auth vs Credential
-    def __init__(
-        self,
-        uri,
-        audience,
-        username,
-        password,
-        **kwargs
-    ):
+    def __init__(self, uri, audience, username, password, **kwargs):
         """
         CBS authentication using SAS tokens.
 
@@ -171,12 +144,14 @@ class SASTokenAuth(_CBSAuth):
         expires_in = kwargs.pop("expires_in", AUTH_DEFAULT_EXPIRATION_SECONDS)
         expires_on = kwargs.pop("expires_on", None)
         expires_in, expires_on = self._set_expiry(expires_in, expires_on)
-        self.get_token = partial(_generate_sas_access_token, uri, username, password, expires_in)
+        self.get_token = partial(
+            _generate_sas_access_token, uri, username, password, expires_in
+        )
         super(SASTokenAuth, self).__init__(
             uri,
             audience,
             kwargs.pop("token_type", TOKEN_TYPE_SASTOKEN),
             self.get_token,
             expires_in=expires_in,
-            expires_on=expires_on
+            expires_on=expires_on,
         )

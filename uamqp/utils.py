@@ -1,19 +1,18 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
-import six
 import datetime
+import time
 from base64 import b64encode
 from hashlib import sha256
 from hmac import HMAC
 from urllib.parse import urlencode, quote_plus
-import time
 
-from .types import TYPE, VALUE, AMQPTypes
-from ._encode import encode_payload
+from uamqp._encode import encode_payload
+from uamqp.amqp_types import TYPE, VALUE, AMQPTypes
 
 
 class UTC(datetime.tzinfo):
@@ -48,8 +47,8 @@ def utc_now():
     return datetime.datetime.now(tz=TZ_UTC)
 
 
-def encode(value, encoding='UTF-8'):
-    return value.encode(encoding) if isinstance(value, six.text_type) else value
+def encode(value, encoding="UTF-8"):
+    return value.encode(encoding) if isinstance(value, str) else value
 
 
 def generate_sas_token(audience, policy, key, expiry=None):
@@ -70,16 +69,12 @@ def generate_sas_token(audience, policy, key, expiry=None):
     encoded_key = key.encode("utf-8")
 
     ttl = int(expiry)
-    sign_key = '%s\n%d' % (encoded_uri, ttl)
-    signature = b64encode(HMAC(encoded_key, sign_key.encode('utf-8'), sha256).digest())
-    result = {
-        'sr': audience,
-        'sig': signature,
-        'se': str(ttl)
-    }
+    sign_key = "%s\n%d" % (encoded_uri, ttl)
+    signature = b64encode(HMAC(encoded_key, sign_key.encode("utf-8"), sha256).digest())
+    result = {"sr": audience, "sig": signature, "se": str(ttl)}
     if policy:
-        result['skn'] = encoded_policy
-    return 'SharedAccessSignature ' + urlencode(result)
+        result["skn"] = encoded_policy
+    return "SharedAccessSignature " + urlencode(result)
 
 
 def add_batch(batch, message):
@@ -89,7 +84,7 @@ def add_batch(batch, message):
     batch.data.append(output)
 
 
-def encode_str(data, encoding='utf-8'):
+def encode_str(data, encoding="utf-8"):
     try:
         return data.encode(encoding)
     except AttributeError:
@@ -101,16 +96,14 @@ def normalized_data_body(data, **kwargs):
     encoding = kwargs.get("encoding", "utf-8")
     if isinstance(data, list):
         return [encode_str(item, encoding) for item in data]
-    else:
-        return [encode_str(data, encoding)]
+    return [encode_str(data, encoding)]
 
 
 def normalized_sequence_body(sequence):
     # A helper method to normalize input into AMQP Sequence Body format
     if isinstance(sequence, list) and all([isinstance(b, list) for b in sequence]):
         return sequence
-    elif isinstance(sequence, list):
-        return [sequence]
+    return [sequence]
 
 
 def get_message_encoded_size(message):

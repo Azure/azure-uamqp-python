@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # This is a fork of the transport.py which was originally written by Barry Pederson and
 # maintained by the Celery project: https://github.com/celery/py-amqp.
 #
@@ -30,54 +30,50 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 import asyncio
 import errno
-import re
+import logging
 import socket
 import ssl
 import struct
-from ssl import SSLError
-from contextlib import contextmanager
 from io import BytesIO
-import logging
-from threading import Lock
+from ssl import SSLError
 
 import certifi
 
-from .._platform import KNOWN_TCP_OPTS, SOL_TCP, pack, unpack
-from .._encode import encode_frame
-from .._decode import decode_frame, decode_empty_frame
-from ..constants import TLS_HEADER_FRAME
-from .._transport import (
+from uamqp._decode import decode_frame, decode_empty_frame
+from uamqp._encode import encode_frame
+from uamqp._platform import SOL_TCP
+from uamqp._transport import (
     AMQP_FRAME,
     get_errno,
     to_host_port,
-    DEFAULT_SOCKET_SETTINGS,
-    IPV6_LITERAL,
     SIGNED_INT_MAX,
     _UNAVAIL,
     set_cloexec,
-    AMQP_PORT
+    AMQP_PORT,
+    _get_tcp_socket_defaults,
 )
-
+from uamqp.constants import TLS_HEADER_FRAME
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def get_running_loop():
     try:
-        import asyncio  # pylint: disable=import-error
         return asyncio.get_running_loop()
     except AttributeError:  # 3.6
         loop = None
         try:
             loop = asyncio._get_running_loop()  # pylint: disable=protected-access
         except AttributeError:
-            _LOGGER.warning('This version of Python is deprecated, please upgrade to >= v3.6')
+            _LOGGER.warning(
+                "This version of Python is deprecated, please upgrade to >= v3.6"
+            )
         if loop is None:
-            _LOGGER.warning('No running event loop')
+            _LOGGER.warning("No running event loop")
             loop = asyncio.get_event_loop()
         return loop
 
@@ -85,9 +81,18 @@ def get_running_loop():
 class AsyncTransport(object):
     """Common superclass for TCP and SSL transports."""
 
-    def __init__(self, host, port=AMQP_PORT, connect_timeout=None,
-                 read_timeout=None, write_timeout=None, ssl=False,
-                 socket_settings=None, raise_on_initial_eintr=True, **kwargs):
+    def __init__(
+        self,  # pylint: disable=unused-argument
+        host,
+        port=AMQP_PORT,
+        connect_timeout=None,
+        read_timeout=None,
+        write_timeout=None,
+        ssl=False,  # pylint: disable=redefined-outer-name
+        socket_settings=None,
+        raise_on_initial_eintr=True,
+        **kwargs
+    ):
         self.connected = False
         self.sock = None
         self.reader = None
@@ -108,19 +113,23 @@ class AsyncTransport(object):
         if sslopts in [True, False, None, {}]:
             return sslopts
         try:
-            if 'context' in sslopts:
-                return self._build_ssl_context(sslopts, **sslopts.pop('context'))
-            ssl_version = sslopts.get('ssl_version')
+            if "context" in sslopts:
+                return self._build_ssl_context(sslopts, **sslopts.pop("context"))
+            ssl_version = sslopts.get("ssl_version")
             if ssl_version is None:
                 ssl_version = ssl.PROTOCOL_TLS
 
             # Set SNI headers if supported
-            server_hostname = sslopts.get('server_hostname')
-            if (server_hostname is not None) and (hasattr(ssl, 'HAS_SNI') and ssl.HAS_SNI) and (hasattr(ssl, 'SSLContext')):
+            server_hostname = sslopts.get("server_hostname")
+            if (
+                (server_hostname is not None)
+                and (hasattr(ssl, "HAS_SNI") and ssl.HAS_SNI)
+                and (hasattr(ssl, "SSLContext"))
+            ):
                 context = ssl.SSLContext(ssl_version)
-                cert_reqs = sslopts.get('cert_reqs', ssl.CERT_REQUIRED)
-                certfile = sslopts.get('certfile')
-                keyfile = sslopts.get('keyfile')
+                cert_reqs = sslopts.get("cert_reqs", ssl.CERT_REQUIRED)
+                certfile = sslopts.get("certfile")
+                keyfile = sslopts.get("keyfile")
                 context.verify_mode = cert_reqs
                 if cert_reqs != ssl.CERT_NONE:
                     context.check_hostname = True
@@ -129,9 +138,13 @@ class AsyncTransport(object):
                 return context
             return True
         except TypeError:
-            raise TypeError('SSL configuration must be a dictionary, or the value True.')
+            raise TypeError(
+                "SSL configuration must be a dictionary, or the value True."
+            )
 
-    def _build_ssl_context(self, sslopts, check_hostname=None, **ctx_options):
+    def _build_ssl_context(
+        self, sslopts, check_hostname=None, **ctx_options
+    ):  # pylint: disable=unused-argument,no-self-use
         ctx = ssl.create_default_context(**ctx_options)
         ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.load_verify_locations(cafile=certifi.where())
@@ -145,12 +158,14 @@ class AsyncTransport(object):
                 return
             await self._connect(self.host, self.port, self.connect_timeout)
             self._init_socket(
-                self.socket_settings, self.read_timeout, self.write_timeout,
+                self.socket_settings,
+                self.read_timeout,
+                self.write_timeout,
             )
             self.reader, self.writer = await asyncio.open_connection(
                 sock=self.sock,
                 ssl=self.sslopts,
-                server_hostname=self.host if self.sslopts else None
+                server_hostname=self.host if self.sslopts else None,
             )
             # we've sent the banner; signal connect
             # EINTR, EAGAIN, EWOULDBLOCK would signal that the banner
@@ -180,7 +195,8 @@ class AsyncTransport(object):
             # first, resolve the address for a single address family
             try:
                 entries = await self.loop.getaddrinfo(
-                    host, port, family=family, type=socket.SOCK_STREAM, proto=SOL_TCP)
+                    host, port, family=family, type=socket.SOCK_STREAM, proto=SOL_TCP
+                )
                 entries_num = len(entries)
             except socket.gaierror:
                 # we may have depleted all our options
@@ -188,10 +204,11 @@ class AsyncTransport(object):
                     # if getaddrinfo succeeded before for another address
                     # family, reraise the previous socket.error since it's more
                     # relevant to users
-                    raise (e
-                           if e is not None
-                           else socket.error(
-                               "failed to resolve broker hostname"))
+                    raise (
+                        e
+                        if e is not None
+                        else socket.error("failed to resolve broker hostname")
+                    )
                 continue  # pragma: no cover
 
             # now that we have address(es) for the hostname, connect to broker
@@ -217,7 +234,9 @@ class AsyncTransport(object):
                     # hurray, we established connection
                     return
 
-    def _init_socket(self, socket_settings, read_timeout, write_timeout):
+    def _init_socket(
+        self, socket_settings, read_timeout, write_timeout
+    ):  # pylint: disable=unused-argument
         self.sock.settimeout(None)  # set socket back to blocking mode
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self._set_socket_options(socket_settings)
@@ -235,36 +254,20 @@ class AsyncTransport(object):
 
         self.sock.settimeout(1)  # set socket back to non-blocking mode
 
-    def _get_tcp_socket_defaults(self, sock):
-        tcp_opts = {}
-        for opt in KNOWN_TCP_OPTS:
-            enum = None
-            if opt == 'TCP_USER_TIMEOUT':
-                try:
-                    from socket import TCP_USER_TIMEOUT as enum
-                except ImportError:
-                    # should be in Python 3.6+ on Linux.
-                    enum = 18
-            elif hasattr(socket, opt):
-                enum = getattr(socket, opt)
-
-            if enum:
-                if opt in DEFAULT_SOCKET_SETTINGS:
-                    tcp_opts[enum] = DEFAULT_SOCKET_SETTINGS[opt]
-                elif hasattr(socket, opt):
-                    tcp_opts[enum] = sock.getsockopt(
-                        SOL_TCP, getattr(socket, opt))
-        return tcp_opts
-
     def _set_socket_options(self, socket_settings):
-        tcp_opts = self._get_tcp_socket_defaults(self.sock)
+        tcp_opts = _get_tcp_socket_defaults(self.sock)
         if socket_settings:
             tcp_opts.update(socket_settings)
         for opt, val in tcp_opts.items():
             self.sock.setsockopt(SOL_TCP, opt, val)
 
-    async def _read(self, toread, initial=False, buffer=None,
-              _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR)):
+    async def _read(
+        self,
+        toread,
+        initial=False,
+        buffer=None,
+        _errnos=(errno.ENOENT, errno.EAGAIN, errno.EINTR),
+    ):
         # According to SSL_read(3), it can at most return 16kb of data.
         # Thus, we use an internal read buffer like TCPTransport._read
         # to get the exact number of bytes wanted.
@@ -276,16 +279,18 @@ class AsyncTransport(object):
         try:
             while toread:
                 try:
-                    view[nbytes:nbytes + toread] = await self.reader.readexactly(toread)
+                    view[nbytes : nbytes + toread] = await self.reader.readexactly(
+                        toread
+                    )
                     nbytes = toread
                 except asyncio.IncompleteReadError as exc:
                     pbytes = len(exc.partial)
-                    view[nbytes:nbytes + pbytes] = exc.partial
+                    view[nbytes : nbytes + pbytes] = exc.partial
                     nbytes = pbytes
                 except socket.error as exc:
                     # ssl.sock.read may cause a SSLerror without errno
                     # http://bugs.python.org/issue10272
-                    if isinstance(exc, SSLError) and 'timed out' in str(exc):
+                    if isinstance(exc, SSLError) and "timed out" in str(exc):
                         raise socket.timeout()
                     # ssl.sock.read may cause ENOENT if the
                     # operation couldn't be performed (Issue celery#1414).
@@ -295,7 +300,7 @@ class AsyncTransport(object):
                         continue
                     raise
                 if not nbytes:
-                    raise IOError('Server unexpectedly closed connection')
+                    raise IOError("Server unexpectedly closed connection")
 
                 length += nbytes
                 toread -= nbytes
@@ -318,30 +323,43 @@ class AsyncTransport(object):
         self.sock = None
         self.connected = False
 
-    async def read(self, verify_frame_type=0, **kwargs):  # TODO: verify frame type?
+    async def read(
+        self, verify_frame_type=0, **kwargs
+    ):  # pylint: disable=unused-argument
+        # TODO: verify frame type?
         async with self.socket_lock:
             read_frame_buffer = BytesIO()
             try:
                 frame_header = memoryview(bytearray(8))
-                read_frame_buffer.write(await self._read(8, buffer=frame_header, initial=True))
+                read_frame_buffer.write(
+                    await self._read(8, buffer=frame_header, initial=True)
+                )
 
-                channel = struct.unpack('>H', frame_header[6:])[0]
+                channel = struct.unpack(">H", frame_header[6:])[0]
                 size = frame_header[0:4]
                 if size == AMQP_FRAME:  # Empty frame or AMQP header negotiation
                     return frame_header, channel, None
-                size = struct.unpack('>I', size)[0]
+                size = struct.unpack(">I", size)[0]
                 offset = frame_header[4]
-                frame_type = frame_header[5]
+                # frame_type = frame_header[5]
 
                 # >I is an unsigned int, but the argument to sock.recv is signed,
                 # so we know the size can be at most 2 * SIGNED_INT_MAX
                 payload_size = size - len(frame_header)
                 payload = memoryview(bytearray(payload_size))
                 if size > SIGNED_INT_MAX:
-                    read_frame_buffer.write(await self._read(SIGNED_INT_MAX, buffer=payload))
-                    read_frame_buffer.write(await self._read(size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]))
+                    read_frame_buffer.write(
+                        await self._read(SIGNED_INT_MAX, buffer=payload)
+                    )
+                    read_frame_buffer.write(
+                        await self._read(
+                            size - SIGNED_INT_MAX, buffer=payload[SIGNED_INT_MAX:]
+                        )
+                    )
                 else:
-                    read_frame_buffer.write(await self._read(payload_size, buffer=payload))
+                    read_frame_buffer.write(
+                        await self._read(payload_size, buffer=payload)
+                    )
             except (socket.timeout, asyncio.IncompleteReadError):
                 read_frame_buffer.write(self._read_buffer.getvalue())
                 self._read_buffer = read_frame_buffer
@@ -350,7 +368,7 @@ class AsyncTransport(object):
             except (OSError, IOError, SSLError, socket.error) as exc:
                 # Don't disconnect for ssl read time outs
                 # http://bugs.python.org/issue10272
-                if isinstance(exc, SSLError) and 'timed out' in str(exc):
+                if isinstance(exc, SSLError) and "timed out" in str(exc):
                     raise socket.timeout()
                 if get_errno(exc) not in _UNAVAIL:
                     self.connected = False
@@ -368,20 +386,22 @@ class AsyncTransport(object):
                 self.connected = False
             raise
 
-    async def receive_frame(self, *args, **kwargs):
+    async def receive_frame(self, *args, **kwargs):  # pylint: disable=unused-argument
         try:
-            header, channel, payload = await self.read(**kwargs) 
+            header, channel, payload = await self.read(**kwargs)
             if not payload:
                 decoded = decode_empty_frame(header)
             else:
                 decoded = decode_frame(payload)
             # TODO: Catch decode error and return amqp:decode-error
-            #_LOGGER.info("ICH%d <- %r", channel, decoded)
+            # _LOGGER.info("ICH%d <- %r", channel, decoded)
             return channel, decoded
         except (socket.timeout, asyncio.IncompleteReadError, asyncio.TimeoutError):
             return None, None
 
-    async def receive_frame_with_lock(self, *args, **kwargs):
+    async def receive_frame_with_lock(
+        self, *args, **kwargs
+    ):  # pylint: disable=unused-argument
         try:
             async with self.socket_lock:
                 header, channel, payload = await self.read(**kwargs)
@@ -398,17 +418,21 @@ class AsyncTransport(object):
         if performative is None:
             data = header
         else:
-            encoded_channel = struct.pack('>H', channel)
+            encoded_channel = struct.pack(">H", channel)
             data = header + encoded_channel + performative
 
         await self.write(data)
-        #_LOGGER.info("OCH%d -> %r", channel, frame)
+        # _LOGGER.info("OCH%d -> %r", channel, frame)
 
     async def negotiate(self):
         if not self.sslopts:
             return
         await self.write(TLS_HEADER_FRAME)
-        channel, returned_header = await self.receive_frame(verify_frame_type=None)
+        # receive_frame returns tuple, [0] for channel, [1] for returned header
+        returned_header = (await self.receive_frame(verify_frame_type=None))[1]
         if returned_header[1] == TLS_HEADER_FRAME:
-            raise ValueError("Mismatching TLS header protocol. Excpected: {}, received: {}".format(
-                TLS_HEADER_FRAME, returned_header[1]))
+            raise ValueError(
+                "Mismatching TLS header protocol. Expected: {!r}, received: {!r}".format(
+                    TLS_HEADER_FRAME, returned_header[1]
+                )
+            )

@@ -1,47 +1,37 @@
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
-import uuid
+# pylint: disable=protected-access
+
 import logging
-from io import BytesIO
+import uuid
 
-from ._decode import decode_payload
-from .constants import DEFAULT_LINK_CREDIT, Role
-from .endpoints import Target
-from .link import Link
-from .message import Message, Properties, Header
-from .constants import (
-    DEFAULT_LINK_CREDIT,
-    SessionState,
-    SessionTransferState,
-    LinkDeliverySettleReason,
-    LinkState
-)
-from .performatives import (
-    AttachFrame,
-    DetachFrame,
+from uamqp._decode import decode_payload
+from uamqp.constants import LinkState
+from uamqp.constants import Role
+from uamqp.link import Link
+from uamqp.performatives import (
     TransferFrame,
     DispositionFrame,
-    FlowFrame,
 )
-
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ReceiverLink(Link):
-
     def __init__(self, session, handle, source_address, **kwargs):
-        name = kwargs.pop('name', None) or str(uuid.uuid4())
+        name = kwargs.pop("name", None) or str(uuid.uuid4())
         role = Role.Receiver
-        if 'target_address' not in kwargs:
-            kwargs['target_address'] = "receiver-link-{}".format(name)
-        super(ReceiverLink, self).__init__(session, handle, name, role, source_address=source_address, **kwargs)
-        self.on_message_received = kwargs.get('on_message_received')
-        self.on_transfer_received = kwargs.get('on_transfer_received')
+        if "target_address" not in kwargs:
+            kwargs["target_address"] = "receiver-link-{}".format(name)
+        super(ReceiverLink, self).__init__(
+            session, handle, name, role, source_address=source_address, **kwargs
+        )
+        self.on_message_received = kwargs.get("on_message_received")
+        self.on_transfer_received = kwargs.get("on_transfer_received")
         if not self.on_message_received and not self.on_transfer_received:
             raise ValueError("Must specify either a message or transfer handler.")
 
@@ -49,9 +39,9 @@ class ReceiverLink(Link):
         try:
             if self.on_message_received:
                 return self.on_message_received(message)
-            elif self.on_transfer_received:
+            if self.on_transfer_received:
                 return self.on_transfer_received(frame, message)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Handler function failed with error: %r", e)
         return None
 
@@ -67,7 +57,9 @@ class ReceiverLink(Link):
 
     def _incoming_transfer(self, frame):
         if self.network_trace:
-            _LOGGER.info("<- %r", TransferFrame(*frame), extra=self.network_trace_params)
+            _LOGGER.info(
+                "<- %r", TransferFrame(*frame), extra=self.network_trace_params
+            )
         self.current_link_credit -= 1
         self.delivery_count += 1
         self.received_delivery_id = frame[1]  # delivery_id
@@ -95,13 +87,24 @@ class ReceiverLink(Link):
             last=delivery_id,
             settled=True,
             state=delivery_state,
-            batchable=None
+            batchable=None,
         )
         if self.network_trace:
-            _LOGGER.info("-> %r", DispositionFrame(*disposition_frame), extra=self.network_trace_params)
+            _LOGGER.info(
+                "-> %r",
+                DispositionFrame(*disposition_frame),
+                extra=self.network_trace_params,
+            )
         self._session._outgoing_disposition(disposition_frame)
 
     def send_disposition(self, delivery_id, delivery_state=None):
         if self._is_closed:
             raise ValueError("Link already closed.")
         self._outgoing_disposition(delivery_id, delivery_state)
+
+    @classmethod
+    def from_incoming_frame(cls, session, handle, frame):
+        # check link_create_from_endpoint in C lib
+        raise NotImplementedError(
+            "Pending"
+        )  # TODO: Assuming we establish all links for now...
