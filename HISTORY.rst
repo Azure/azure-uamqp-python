@@ -3,6 +3,12 @@
 Release History
 ===============
 
+1.5.3 (2022-03-22)
++++++++++++++++++++
+
+- Updated OpenSSL dependency to 1.1.1n for wheels of manylinux and macOS.
+
+
 1.5.2 (2022-03-15)
 +++++++++++++++++++
 
