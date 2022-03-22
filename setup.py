@@ -93,7 +93,7 @@ def get_build_env():
 def get_generator_flags():
     flags = ["-G"]
     if is_win:
-        flags.append("\"Visual Studio 15 2017\"")
+        flags.append("\"Visual Studio 16 2019\"")
         flags.append("-A")
         flags.append("ARM64" if platform.machine() == "ARM64" else "x64" if is_x64 else "Win32")
     else:
