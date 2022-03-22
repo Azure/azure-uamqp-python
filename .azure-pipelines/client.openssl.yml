@@ -2,7 +2,7 @@ trigger: none
 pr: none
 
 variables:
-  OpenSSLVersion: '1.0.2u'
+  OpenSSLVersion: '1.1.1n'
   MacOSXDeploymentTarget: '10.9'
 
 jobs:
