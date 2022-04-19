@@ -283,7 +283,10 @@ class AMQPClient(object):
             self.message_handler = None
         self._shutdown = True
         if self._keep_alive_thread:
-            self._keep_alive_thread.join()
+            try:
+                self._keep_alive_thread.join()
+            except RuntimeError:  # Probably thread failed to start in .open()
+                logging.info("Keep alive thread failed to join.", exc_info=True)
             self._keep_alive_thread = None
         if not self._session:
             return  # already closed.
