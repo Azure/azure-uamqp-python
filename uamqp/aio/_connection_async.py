@@ -16,7 +16,7 @@ from enum import Enum
 import asyncio
 
 from ._transport_async import AsyncTransport
-from ._sasl_async import SASLTransport, SASLWithWebSocket
+from ._sasl_async import SASLTransport
 from ._session_async import Session
 from ..performatives import OpenFrame, CloseFrame
 from .._connection import get_local_timeout
@@ -77,10 +77,7 @@ class Connection(object):
         if transport:
             self.transport = transport
         elif 'sasl_credential' in kwargs:
-            sasl_transport = SASLWithWebSocket if (
-                self._transport_type is TransportType.AmqpOverWebsocket or kwargs.get("http_proxy")
-                ) else SASLTransport
-            self._transport = sasl_transport(
+            self.transport = SASLTransport(
                 host=parsed_url.netloc,
                 credential=kwargs['sasl_credential'],
                 **kwargs
