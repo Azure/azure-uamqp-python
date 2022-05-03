@@ -12,7 +12,7 @@ import socket
 from ssl import SSLError
 
 from ._transport import Transport
-from .sasl import SASLTransport
+from .sasl import SASLTransport, SASLWithWebSocket
 from .session import Session
 from .performatives import OpenFrame, CloseFrame
 from .constants import (
@@ -22,7 +22,8 @@ from .constants import (
     MAX_FRAME_SIZE_BYTES,
     HEADER_FRAME,
     ConnectionState,
-    EMPTY_FRAME
+    EMPTY_FRAME,
+    TransportType
 )
 
 from .error import (
@@ -77,12 +78,18 @@ class Connection(object):
      Default value is `0.1`.
     :keyword bool network_trace: Whether to log the network traffic. Default value is `False`. If enabled, frames
      will be logged at the logging.INFO level.
+    :keyword str transport_type: Determines if the transport type is Amqp or AmqpOverWebSocket.
+     Defaults to TransportType.Amqp. It will be AmqpOverWebSocket if using http_proxy.
+    :keyword Dict http_proxy: HTTP proxy settings. This must be a dictionary with the following
+     keys: `'proxy_hostname'` (str value) and `'proxy_port'` (int value). When using these settings,
+     the transport_type would be AmqpOverWebSocket.
     """
 
     def __init__(self, endpoint, **kwargs):
         # type(str, Any) -> None
         parsed_url = urlparse(endpoint)
         self._hostname = parsed_url.hostname
+        self._transport_type = kwargs.pop('transport_type', TransportType.Amqp)
         if parsed_url.port:
             self._port = parsed_url.port
         elif parsed_url.scheme == 'amqps':
@@ -95,13 +102,16 @@ class Connection(object):
         if transport:
             self._transport = transport
         elif 'sasl_credential' in kwargs:
-            self._transport = SASLTransport(
+            sasl_transport = SASLWithWebSocket if (
+                self._transport_type is TransportType.AmqpOverWebsocket or kwargs.get("http_proxy")
+                ) else SASLTransport
+            self._transport = sasl_transport(
                 host=parsed_url.netloc,
                 credential=kwargs['sasl_credential'],
                 **kwargs
             )
         else:
-            self._transport = Transport(parsed_url.netloc, **kwargs)
+            self._transport = Transport(parsed_url.netloc, kwargs.get('transport_type'), **kwargs)
 
         self._container_id = kwargs.pop('container_id', None) or str(uuid.uuid4())  # type: str
         self._max_frame_size = kwargs.pop('max_frame_size', MAX_FRAME_SIZE_BYTES)  # type: int

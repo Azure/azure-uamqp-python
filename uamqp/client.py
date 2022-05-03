@@ -37,6 +37,7 @@ from .constants import (
     SenderSettleMode,
     ReceiverSettleMode,
     LinkDeliverySettleReason,
+    TransportType,
     SEND_DISPOSITION_ACCEPT,
     SEND_DISPOSITION_REJECT,
     AUTH_TYPE_CBS,
@@ -157,6 +158,10 @@ class AMQPClient(object):
         self._receive_settle_mode = kwargs.pop('receive_settle_mode', ReceiverSettleMode.Second)
         self._desired_capabilities = kwargs.pop('desired_capabilities', None)
 
+        # transport
+        self._transport_type = kwargs.pop('transport_type', TransportType.Amqp)
+        self._http_proxy = kwargs.pop('http_proxy', None)
+
     def __enter__(self):
         """Run Client in a context manager."""
         self.open()
@@ -260,7 +265,9 @@ class AMQPClient(object):
                 channel_max=self._channel_max,
                 idle_timeout=self._idle_timeout,
                 properties=self._properties,
-                network_trace=self._network_trace
+                network_trace=self._network_trace,
+                transport_type=self._transport_type,
+                http_proxy=self._http_proxy
             )
             self._connection.open()
         if not self._session:

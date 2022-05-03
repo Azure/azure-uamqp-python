@@ -217,6 +217,8 @@ class AMQPClientAsync(AMQPClientSync):
                 max_frame_size=self._max_frame_size,
                 channel_max=self._channel_max,
                 idle_timeout=self._idle_timeout,
+                transport_type=self._transport_type,
+                http_proxy=self._http_proxy,
                 properties=self._properties,
                 network_trace=self._network_trace
             )
