@@ -73,22 +73,7 @@ class SASLExternalCredential(object):
     def start(self):
         return b''
 
-class SASLTransport(AsyncTransport):
-    def __init__(self, host, credential, connect_timeout=None, ssl=None, **kwargs):
-        self.credential = credential
-        ssl = ssl or True
-        self._transport_type = kwargs.get('transport_type', TransportType.Amqp)
-        if self._transport_type is TransportType.AmqpOverWebsocket or kwargs.get("http_proxy"):
-            self._transport = WebSocketTransportAsync(
-                        host,
-                        port=WEBSOCKET_PORT,
-                        connect_timeout=connect_timeout,
-                        ssl=ssl,
-                        http_proxy=kwargs.get("http_proxy"),
-                        **kwargs
-                    )
-        super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
-
+class SASLTransportMixinAsync():
     async def negotiate(self):
         await self.write(SASL_HEADER_FRAME)
         _, returned_header = await self.receive_frame()
@@ -114,12 +99,25 @@ class SASLTransport(AsyncTransport):
         else:
             raise ValueError("SASL negotiation failed.\nOutcome: {}\nDetails: {}".format(*fields))
 
-# class SASLWithWebSocket(AsyncTransport, SASLTransportMixinAsync):
+class SASLTransport(AsyncTransport, SASLTransportMixinAsync):
+    def __init__(self, host, credential, connect_timeout=None, ssl=None, **kwargs):
+        self.credential = credential
+        ssl = ssl or True
+        super(SASLTransport, self).__init__(host, connect_timeout=connect_timeout, ssl=ssl, **kwargs)
 
-#     def __init__(
-#         self, host, credential, port=WEBSOCKET_PORT, connect_timeout=None, ssl=None, **kwargs
-#         ): # pylint: disable=super-init-not-called
-#         self.credential = credential
-#         ssl = ssl or True
-        
-        
+class SASLWithWebSocket(WebSocketTransportAsync, SASLTransportMixinAsync):
+    def __init__(
+        self, host, credential, port=WEBSOCKET_PORT, connect_timeout=None, ssl=None, **kwargs
+        ): # pylint: disable=super-init-not-called
+        self.credential = credential
+        ssl = ssl or True
+        http_proxy = kwargs.pop('http_proxy', None)
+        self._transport = WebSocketTransportAsync(
+            host,
+            port=port,
+            connect_timeout=connect_timeout,
+            ssl=ssl,
+            http_proxy=http_proxy,
+            **kwargs
+        )
+        super().__init__(host, port, connect_timeout, ssl, **kwargs)
