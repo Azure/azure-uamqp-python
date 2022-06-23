@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.6.0 (Unreleased)
++++++++++++++++++++
+
+- Added `data`, `value`, `sequence` properties to `uamqp.Message`, which return the body if the body type corresponds.
+
 1.5.3 (2022-03-23)
 +++++++++++++++++++
 

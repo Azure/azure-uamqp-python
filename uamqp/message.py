@@ -235,6 +235,33 @@ class Message(object):
     def delivery_annotations(self, value):
         self._delivery_annotations = value
 
+    @property
+    def data(self):
+        if not self._message or not self._body:
+            return None
+        # pylint: disable=protected-access
+        if self._body.type == c_uamqp.MessageBodyType.DataType:
+            return self._body.data
+        return None
+
+    @property
+    def sequence(self):
+        if not self._message or not self._body:
+            return None
+        # pylint: disable=protected-access
+        if self._body.type == c_uamqp.MessageBodyType.SequenceType:
+            return self._body.data
+        return None
+
+    @property
+    def value(self):
+        if not self._message or not self._body:
+            return None
+        # pylint: disable=protected-access
+        if self._body.type == c_uamqp.MessageBodyType.ValueType:
+            return self._body.data
+        return None
+
     @classmethod
     def decode_from_bytes(cls, data):
         """Decode an AMQP message from a bytearray.

@@ -285,6 +285,9 @@ def test_message_body_data_type():
     assert check_list[0] == multiple_data[0]
     assert check_list[1] == multiple_data[1].encode("UTF-8")
     assert str(multiple_data_message)
+    assert multiple_data_message.data == multiple_data_message.get_data()
+    assert multiple_data_message.value is None
+    assert multiple_data_message.sequence is None
 
     with pytest.raises(TypeError):
         Message(body={"key": "value"}, body_type=MessageBodyType.Data)
@@ -324,6 +327,10 @@ def test_message_body_value_type():
     assert isinstance(string_value_message._body, ValueBody)
     assert str(compound_list_value_message)
 
+    assert compound_list_value_message.value == compound_list_value_message.get_data()
+    assert compound_list_value_message.data is None
+    assert compound_list_value_message.sequence is None
+
 
 def test_message_body_sequence_type():
 
@@ -343,6 +350,9 @@ def test_message_body_sequence_type():
     assert check_list[0] == multiple_lists[0]
     assert check_list[1] == multiple_lists[1]
     assert str(multiple_lists_message)
+    assert multiple_lists_message.sequence == multiple_lists_message.get_data()
+    assert multiple_lists_message.value is None
+    assert multiple_lists_message.data is None
 
     with pytest.raises(TypeError):
         Message(body={"key": "value"}, body_type=MessageBodyType.Sequence)
