@@ -1,4 +1,7 @@
-FROM ubuntu:16.04
+# internal users should provide MCR registry to build via 'docker build . --build-arg REGISTRY="mcr.microsoft.com/mirror/docker/library/"'
+# public OSS users should simply leave this argument blank or ignore its presence entirely
+ARG REGISTRY="mcr.microsoft.com/mirror/docker/library/"
+FROM ${REGISTRY}ubuntu:18.04
 
 # To test a script:
 # docker run --rm -it -v %cd%:/data local/valgrind
