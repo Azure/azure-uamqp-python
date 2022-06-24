@@ -1,3 +1,4 @@
+# need to remove this folder
 FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Build cmake 3.11
