@@ -226,6 +226,10 @@ class Message(object):
         self._annotations = value
 
     @property
+    def message_annotations(self):
+        return self.annotations
+
+    @property
     def delivery_annotations(self):
         if self._need_further_parse:
             self._parse_message_properties()
@@ -756,6 +760,14 @@ class BatchMessage(Message):
                 yield new_message
                 _logger.debug("Sent all batched data.")
                 break
+
+    @property
+    def data(self):
+        """Returns an iterable source of data, where each value will be considered the
+         body of a single message in the batch.
+        :rtype: iterable
+        """
+        return self._body_gen
 
     def gather(self):
         """Return all the messages represented by this object. This will convert
@@ -1377,6 +1389,15 @@ class MessageHeader(object):
                 "priority": self.priority,
             }
         )
+
+    @property
+    def ttl(self):
+        """
+        Alias for time_to_live.
+
+        :rtype: int
+        """
+        return self.time_to_live
 
     def get_header_obj(self):
         """Get the underlying C reference from this object.

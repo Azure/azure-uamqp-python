@@ -386,7 +386,7 @@ class AMQPClient(object):
             return False
         return True
 
-    def do_work(self):
+    def do_work(self, **kwargs): # pylint: disable=unused-argument
         """Run a single connection iteration.
         This will return `True` if the connection is still open
         and ready to be used for further work, or `False` if it needs
