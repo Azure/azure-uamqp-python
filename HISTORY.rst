@@ -7,6 +7,9 @@ Release History
 +++++++++++++++++++
 
 - Added `data`, `value`, `sequence` properties to `uamqp.Message`, which return the body if the body type corresponds.
+- Added `message_annotations` property to `uamqp.Message`, which is an alias for the `annotations` instance variable.
+- Added `data` property to `uamqp.BatchMessage`, which returns the iterable body of the batch.
+- Added `ttl` property to `uamqp.MessageHeader`, which is an alias for the `time_to_live` instance variable.
 
 1.5.3 (2022-03-23)
 +++++++++++++++++++
