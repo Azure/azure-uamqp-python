@@ -66,7 +66,7 @@ class AMQPAuth(object):
         return value.encode(self._encoding) if isinstance(value, six.text_type) else value
 
     def set_io(self, hostname, port, http_proxy, transport_type):
-        if transport_type.value == TransportType.AmqpOverWebsocket.value or http_proxy is not None:
+        if transport_type and transport_type.value == TransportType.AmqpOverWebsocket.value or http_proxy is not None:
             self.set_wsio(hostname, port or constants.DEFAULT_AMQP_WSS_PORT, http_proxy)
         else:
             self.set_tlsio(hostname, port or constants.DEFAULT_AMQPS_PORT)
