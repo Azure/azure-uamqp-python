@@ -15,8 +15,6 @@ jobs:
 
     timeoutInMinutes: 120
 
-    dependsOn: 'MacOS'
-
     pool:
       vmImage: 'ubuntu-18.04'
 
