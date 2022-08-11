@@ -140,7 +140,7 @@ static void* socketio_CloneOption(const char* name, const void* value)
         }
         else
         {
-            LogError("Cannot clone option %s (not supported)", name);
+            LogError("Cannot clone option %s (not suppported)", name);
         }
     }
     else
@@ -288,7 +288,7 @@ static int initiate_socket_connection(SOCKET_IO_INSTANCE* socket_io_instance)
     int result;
     int flags;
     struct addrinfo* addr = NULL;
-    struct sockaddr* connect_addr = NULL;
+    struct sockaddr_in6* connect_addr = NULL;
     struct sockaddr_un addrInfoUn;
     socklen_t connect_addr_len;
 
@@ -310,8 +310,8 @@ static int initiate_socket_connection(SOCKET_IO_INSTANCE* socket_io_instance)
             }
             else
             {
-                connect_addr = addr->ai_addr;
-                connect_addr_len = sizeof(*addr->ai_addr);
+                connect_addr = (struct sockaddr_in6*) addr->ai_addr;
+                connect_addr_len = sizeof(struct sockaddr_in6);
                 result = 0;
             }
         }
@@ -331,7 +331,7 @@ static int initiate_socket_connection(SOCKET_IO_INSTANCE* socket_io_instance)
             // No need to add NULL terminator due to the above memset
             (void)memcpy(addrInfoUn.sun_path, socket_io_instance->hostname, hostname_len);
 
-            connect_addr = (struct sockaddr*)&addrInfoUn;
+            connect_addr = (struct sockaddr_in6*)&addrInfoUn;
             connect_addr_len = sizeof(addrInfoUn);
             result = 0;
         }
@@ -347,7 +347,7 @@ static int initiate_socket_connection(SOCKET_IO_INSTANCE* socket_io_instance)
         }
         else
         {
-            result = connect(socket_io_instance->socket, connect_addr, connect_addr_len);
+            result = connect(socket_io_instance->socket, (struct sockaddr *) connect_addr, connect_addr_len);
             if ((result != 0) && (errno != EINPROGRESS))
             {
                 LogError("Failure: connect failure %d.", errno);
@@ -810,7 +810,7 @@ int socketio_open(CONCRETE_IO_HANDLE socket_io, ON_IO_OPEN_COMPLETE on_io_open_c
         }
         else
         {
-            socket_io_instance->socket = socket (socket_io_instance->address_type == ADDRESS_TYPE_IP ? AF_INET : AF_UNIX, SOCK_STREAM, 0);
+            socket_io_instance->socket = socket (socket_io_instance->address_type == ADDRESS_TYPE_IP ? AF_INET6 : AF_UNIX, SOCK_STREAM, 0);
             if (socket_io_instance->socket < SOCKET_SUCCESS)
             {
                 LogError("Failure: socket create failure %d.", socket_io_instance->socket);
@@ -939,14 +939,14 @@ int socketio_send(CONCRETE_IO_HANDLE socket_io, const void* buffer, size_t size,
                 ssize_t send_result = send(socket_io_instance->socket, buffer, size, MSG_NOSIGNAL);
                 if ((size_t)send_result != size)
                 {
-                    if (send_result == SOCKET_SEND_FAILURE && errno != EAGAIN)
+                    if (send_result == SOCKET_SEND_FAILURE && errno != EAGAIN && errno != ENOBUFS)
                     {
                         LogError("Failure: sending socket failed. errno=%d (%s).", errno, strerror(errno));
                         result = MU_FAILURE;
                     }
                     else
                     {
-                        /*send says "come back later" with EAGAIN - likely the socket buffer cannot accept more data*/
+                        /*send says "come back later" with EAGAIN, ENOBUFS - likely the socket buffer cannot accept more data*/
                         /* queue data */
                         size_t bytes_sent = (send_result < 0 ? 0 : send_result);
 
@@ -1002,7 +1002,7 @@ void socketio_dowork(CONCRETE_IO_HANDLE socket_io)
                 {
                     if (send_result == INVALID_SOCKET)
                     {
-                        if (errno == EAGAIN) /*send says "come back later" with EAGAIN - likely the socket buffer cannot accept more data*/
+                        if (errno == EAGAIN  || errno == ENOBUFS) /*send says "come back later" with EAGAIN, ENOBUFS - likely the socket buffer cannot accept more data*/
                         {
                             /*do nothing until next dowork */
                             break;
@@ -1224,4 +1224,3 @@ const IO_INTERFACE_DESCRIPTION* socketio_get_interface_description(void)
 {
     return &socket_io_interface_description;
 }
-
