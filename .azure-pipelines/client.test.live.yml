@@ -84,6 +84,7 @@ jobs:
 
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
+        condition: succeededOrFailed()
         inputs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
