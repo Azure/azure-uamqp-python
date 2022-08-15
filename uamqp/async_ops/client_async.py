@@ -360,7 +360,7 @@ class AMQPClientAsync(client.AMQPClient):
             return False
         return True
 
-    async def do_work_async(self):
+    async def do_work_async(self, **kwargs):    # pylint: disable=unused-argument
         """Run a single connection iteration asynchronously.
         This will return `True` if the connection is still open
         and ready to be used for further work, or `False` if it needs
