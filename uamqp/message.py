@@ -250,7 +250,10 @@ class Message(object):
 
     @property
     def sequence(self):
-        if not self._message or not self._body:
+        try:
+            if not self._message or not self._body:
+                return None
+        except AttributeError:
             return None
         # pylint: disable=protected-access
         if self._body.type == c_uamqp.MessageBodyType.SequenceType:
@@ -259,7 +262,10 @@ class Message(object):
 
     @property
     def value(self):
-        if not self._message or not self._body:
+        try:
+            if not self._message or not self._body:
+                return None
+        except AttributeError:
             return None
         # pylint: disable=protected-access
         if self._body.type == c_uamqp.MessageBodyType.ValueType:
