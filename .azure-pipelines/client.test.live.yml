@@ -141,8 +141,8 @@ jobs:
           pipeline: 119 # azure-uamqp-python - openssl
           project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
-      - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
-        displayName: 'Select Xcode 11.3.1'
+      - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
+        displayName: 'Select Xcode 13.1'
 
       - script: source ./install_python_osx.sh
         displayName: 'Install Official Python'
