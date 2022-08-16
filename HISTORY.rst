@@ -6,6 +6,8 @@ Release History
 1.6.0 (Unreleased)
 +++++++++++++++++++
 
+This version and all future versions will require Python 3.7+, Python 3.6 is no longer supported.
+
 - Added `data`, `value`, `sequence` properties to `uamqp.Message`, which return the body if the body type corresponds.
 - Added `message_annotations` property to `uamqp.Message`, which is an alias for the `annotations` instance variable.
 - Added `data` property to `uamqp.BatchMessage`, which returns the iterable body of the batch.
