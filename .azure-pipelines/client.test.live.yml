@@ -17,6 +17,7 @@ jobs:
     timeoutInMinutes: 120
 
     strategy:
+      maxParallel: 1
       matrix:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
@@ -108,6 +109,7 @@ jobs:
       vmImage: 'macOS-11'
 
     strategy:
+      maxParallel: 1
       matrix:
         Python 3.7:
           PythonBin: 'python3'
@@ -219,6 +221,7 @@ jobs:
       vmImage: 'ubuntu-18.04'
 
     strategy:
+      maxParallel: 1
       matrix:
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
