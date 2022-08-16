@@ -85,8 +85,8 @@ jobs:
       - script: sudo ls /Applications/
         displayName: 'List All apps'
 
-      - script: sudo xcode-select --switch /Applications/Xcode_11.3.1.app
-        displayName: 'Select Xcode 11.3.1'
+      - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
+        displayName: 'Select Xcode 13.1'
 
       - script: source ./install_python_osx.sh
         displayName: 'Install Official Python'
