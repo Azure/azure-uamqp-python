@@ -103,6 +103,8 @@ jobs:
 
     timeoutInMinutes: 120
 
+    dependsOn: 'Windows'
+
     pool:
       vmImage: 'macOS-11'
 
@@ -212,6 +214,8 @@ jobs:
   - job: 'Linux'
 
     timeoutInMinutes: 120
+
+    dependsOn: 'MacOS'
 
     pool:
       vmImage: 'ubuntu-18.04'
