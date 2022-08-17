@@ -30,3 +30,6 @@ def test_keep_alive_thread_fail_to_start():
         assert type(exc) == RuntimeError
         client.close()
         assert not client._keep_alive_thread
+
+    # check that kwargs can be passed to client.do_work
+    client.do_work(fake_kwarg="ignore")

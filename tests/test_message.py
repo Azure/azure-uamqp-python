@@ -200,6 +200,10 @@ def test_deepcopy_batch_message():
     batch_message = list(message_batch._body_gen)[0]
     batch_copy_message = list(message_batch_copy._body_gen)[0]
     assert len(list(message_batch._body_gen)) == len(list(message_batch_copy._body_gen))
+    assert len(list(message_batch.data)) == len(list(message_batch_copy._body_gen))
+    assert list(list(message_batch.data)[0].data) == list(list(message_batch_copy._body_gen)[0].data)
+    assert message_batch.value is None
+    assert message_batch.sequence is None
 
     # check message attributes are equal to deepcopied message attributes
     assert list(batch_message.get_data()) == list(batch_copy_message.get_data())
@@ -207,6 +211,7 @@ def test_deepcopy_batch_message():
     assert batch_message.state == batch_copy_message.state
     assert batch_message.application_properties == batch_copy_message.application_properties
     assert batch_message.annotations == batch_copy_message.annotations
+    assert batch_message.annotations == batch_copy_message.message_annotations
     assert batch_message.delivery_annotations == batch_copy_message.delivery_annotations
     assert batch_message.settled == batch_copy_message.settled
     assert batch_message.properties.message_id == batch_copy_message.properties.message_id
@@ -224,6 +229,7 @@ def test_deepcopy_batch_message():
     assert batch_message.properties.reply_to_group_id == batch_copy_message.properties.reply_to_group_id
     assert batch_message.header.delivery_count == batch_copy_message.header.delivery_count
     assert batch_message.header.time_to_live == batch_copy_message.header.time_to_live
+    assert batch_message.header.ttl == batch_copy_message.header.time_to_live
     assert batch_message.header.first_acquirer == batch_copy_message.header.first_acquirer
     assert batch_message.header.durable == batch_copy_message.header.durable
     assert batch_message.header.priority == batch_copy_message.header.priority
@@ -285,6 +291,9 @@ def test_message_body_data_type():
     assert check_list[0] == multiple_data[0]
     assert check_list[1] == multiple_data[1].encode("UTF-8")
     assert str(multiple_data_message)
+    assert list(multiple_data_message.data) == list(multiple_data_message.get_data())
+    assert multiple_data_message.value is None
+    assert multiple_data_message.sequence is None
 
     with pytest.raises(TypeError):
         Message(body={"key": "value"}, body_type=MessageBodyType.Data)
@@ -324,6 +333,10 @@ def test_message_body_value_type():
     assert isinstance(string_value_message._body, ValueBody)
     assert str(compound_list_value_message)
 
+    assert compound_list_value_message.value == compound_list_value_message.get_data()
+    assert compound_list_value_message.data is None
+    assert compound_list_value_message.sequence is None
+
 
 def test_message_body_sequence_type():
 
@@ -343,6 +356,9 @@ def test_message_body_sequence_type():
     assert check_list[0] == multiple_lists[0]
     assert check_list[1] == multiple_lists[1]
     assert str(multiple_lists_message)
+    assert list(multiple_lists_message.sequence) == list(multiple_lists_message.get_data())
+    assert multiple_lists_message.value is None
+    assert multiple_lists_message.data is None
 
     with pytest.raises(TypeError):
         Message(body={"key": "value"}, body_type=MessageBodyType.Sequence)
