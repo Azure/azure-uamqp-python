@@ -511,7 +511,7 @@ static int add_certificates_to_store(const char* trustedCertificate, HCERTSTORE 
             LogError("Cannot encode trusted certificate");
             result = MU_FAILURE;
         }
-        else if (CertAddEncodedCertificateToStore(hCertStore, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, trustedCertificateEncoded, trustedCertificateEncodedLen, CERT_STORE_ADD_NEW, NULL) != TRUE)
+        else if (CertAddEncodedCertificateToStore(hCertStore, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, trustedCertificateEncoded, trustedCertificateEncodedLen, CERT_STORE_ADD_REPLACE_EXISTING, NULL) != TRUE)
         {
             lastError = GetLastError();
             LogError("CertAddEncodedCertificateToStore failed with error 0x%08x", lastError);
