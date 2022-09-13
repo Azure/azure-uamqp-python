@@ -1,0 +1,25 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+    "Cython",
+    "cmake",
+]
+
+[tool.cibuildwheel]
+# skip musl and pypy
+skip = ["*-musllinux*", "pp*"] 
+test-requires = "pytest"
+test-command = "python -X dev -m pytest {project}/tests"
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.9"
+CMAKE_OSX_DEPLOYMENT_TARGET = "10.9"
+CMAKE_OSX_ARCHITECTURES = "x86_64"
+UAMQP_USE_OPENSSL = true
+UAMQP_REBUILD_PYX = true
+UAMQP_SUPPRESS_LINK_FLAGS = true
+OPENSSL_ROOT_DIR = "/tmp/openssl"
+OPENSSL_INCLUDE_DIR = "/tmp/openssl/include"
+LDFLAGS = "-mmacosx-version-min=10.9 -L/tmp/openssl/lib"
+CFLAGS = "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
