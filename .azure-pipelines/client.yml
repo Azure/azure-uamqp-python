@@ -1,5 +1,5 @@
 trigger:
-  - master
+  - main
 
 variables:
   PythonVersion37: '3.7'
