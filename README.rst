@@ -6,7 +6,7 @@ uAMQP for Python
 .. image:: https://img.shields.io/pypi/pyversions/uamqp.svg
     :target: https://pypi.python.org/pypi/uamqp/
 
-.. image:: https://dev.azure.com/azure-sdk/public/_apis/build/status/python/azure-uamqp-python%20-%20client?branchName=master
+.. image:: https://dev.azure.com/azure-sdk/public/_apis/build/status/python/azure-uamqp-python%20-%20client?branchName=main
     :target: https://dev.azure.com/azure-sdk/public/_build?definitionId=89
 
 An AMQP 1.0 client library for Python.
