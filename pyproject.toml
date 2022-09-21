@@ -23,3 +23,7 @@ OPENSSL_ROOT_DIR = "/tmp/openssl"
 OPENSSL_INCLUDE_DIR = "/tmp/openssl/include"
 LDFLAGS = "-mmacosx-version-min=10.9 -L/tmp/openssl/lib"
 CFLAGS = "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
+
+[tool.cibuildwheel.linux]
+before-build = "apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config"
+environment = {OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl", LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib", CPATH="/opt/pyca/cryptography/openssl/include"}
