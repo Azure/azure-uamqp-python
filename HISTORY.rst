@@ -3,6 +3,11 @@
 Release History
 ===============
 
+1.6.1 (2022-10-06)
++++++++++++++++++++
+
+- Added support for handling of duplicate certificates in `azure-c-shared-utility` dependency by using `CERT_STORE_ADD_REPLACE_EXISTING` parameter in the `CertAddEncodedCertificateToStore` function call. (azure-sdk-for-python issue #26034)
+
 1.6.0 (2022-08-18)
 +++++++++++++++++++
 
