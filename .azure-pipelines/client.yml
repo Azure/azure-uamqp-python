@@ -69,16 +69,16 @@ jobs:
       - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
         displayName: 'Select Xcode 13.1'
 
-      - script: source ./install_python_osx.sh
-        displayName: 'Install Official Python'
+      # - script: source ./install_python_osx.sh
+      #   displayName: 'Install Official Python'
 
-      - script: |
-          echo "Prepending PATH environment variable with directory: /usr/local/bin"
-          echo "##vso[task.prependpath]/usr/local/bin"
-          export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
-          echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-          echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-        displayName: 'Prepare PATH'
+      # - script: |
+      #     echo "Prepending PATH environment variable with directory: /usr/local/bin"
+      #     echo "##vso[task.prependpath]/usr/local/bin"
+      #     export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
+      #     echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+      #     echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+      #   displayName: 'Prepare PATH'
 
       - bash: |
           set -o errexit
@@ -143,15 +143,14 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CIBW_PRERELEASE_PYTHONS: True
-          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+          CIBW_ARCHS_WINDOWS: x86
 
       - script: ls ./dist
         displayName: 'Check output'
 
       ## we will need to update this. this won't do the write thing when we are generating multiple wheels
       - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+          $whlfile = Get-ChildItem -Filter *64.whl dist | Select-Object -First 1 -ExpandProperty Name
           python -m pip install --ignore-installed ./dist/$whlfile
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
@@ -203,6 +202,8 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
       - script: ls ./dist
         displayName: 'Check output'
