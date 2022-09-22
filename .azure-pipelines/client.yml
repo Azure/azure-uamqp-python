@@ -143,6 +143,8 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
       - script: ls ./dist
         displayName: 'Check output'
