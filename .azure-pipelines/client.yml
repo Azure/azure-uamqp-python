@@ -144,6 +144,9 @@ jobs:
         env:
           CIBW_PRERELEASE_PYTHONS: True
 
+      - script: ls ./dist
+        displayName: 'Check output'
+
       ## we will need to update this. this won't do the write thing when we are generating multiple wheels
       - powershell: |
           $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
