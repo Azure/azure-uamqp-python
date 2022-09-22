@@ -90,7 +90,7 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CIBW_PRERELEASE_PYTHONS: True
-          CIBW_ARCHS_MACOS: x86_64 universal2
+          CIBW_ARCHS_MACOS: x86_64
 
       - script: ls ./dist
         displayName: 'Check output'
