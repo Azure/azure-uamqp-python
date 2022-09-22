@@ -49,6 +49,10 @@ jobs:
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
 
     steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '3.9'
+
       - task: DownloadPipelineArtifact@1
         displayName: 'Download OpenSSL artifact'
         inputs:
