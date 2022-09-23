@@ -378,34 +378,34 @@ jobs:
 #           versionSpec: '$(PythonVersion)'
 #       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-#   - job: 'SDK_LiveTest_macOS1015_38'
-#     timeoutInMinutes: 300
-#     dependsOn: 'MacOS'
-#     pool:
-#       name: 'Azure Pipelines'
-#       vmImage: 'macOS-11'
-#     strategy:
-#       matrix:
-#         # EventHub Python 3.8:
-#         #   SDK: 'EventHub'
-#         # ServiceBus Python 3.8:
-#         #   SDK: 'ServiceBus'
-#         EventHub Python 3.11:
-#           SDK: 'EventHub'
-#         ServiceBus Python 3.11:
-#           SDK: 'ServiceBus'
-#     variables:
-#       PythonBin: 'python3'
-#       PythonVersion: '$(PythonVersion311)'
-#       MacOSXDeploymentTarget: '10.9'
-#       PythonVersion382: '3.11'
-#       OSArch: 'MacOS'
-#       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
-#     steps:
-#       - template: /.azure-pipelines/use-python-version.yml
-#         parameters:
-#           versionSpec: '$(PythonVersion)'
-#       - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  - job: 'SDK_LiveTest_macOS1015_38'
+    timeoutInMinutes: 300
+    dependsOn: 'MacOS'
+    pool:
+      name: 'Azure Pipelines'
+      vmImage: 'macOS-11'
+    strategy:
+      matrix:
+        # EventHub Python 3.8:
+        #   SDK: 'EventHub'
+        # ServiceBus Python 3.8:
+        #   SDK: 'ServiceBus'
+        EventHub Python 3.11:
+          SDK: 'EventHub'
+        ServiceBus Python 3.11:
+          SDK: 'ServiceBus'
+    variables:
+      PythonBin: 'python3'
+      PythonVersion: '$(PythonVersion311)'
+      MacOSXDeploymentTarget: '10.9'
+      PythonVersion382: '3.11'
+      OSArch: 'MacOS'
+      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+      - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
 #   - job: 'SDK_LiveTest_ubuntu1804_39'
 #     timeoutInMinutes: 300
