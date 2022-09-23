@@ -270,7 +270,7 @@ jobs:
           python --version
           curl -sS $(GetPip) | python - --user
           python -m pip --version
-          python -m pip install setuptools
+          python -m pip install setuptools --force
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
