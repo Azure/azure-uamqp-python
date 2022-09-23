@@ -9,307 +9,307 @@ variables:
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
-  # - job: 'sdist'
-  #   displayName: 'Source Distribution'
+  - job: 'sdist'
+    displayName: 'Source Distribution'
 
-  #   pool:
-  #     vmImage: 'ubuntu-20.04'
+    pool:
+      vmImage: 'ubuntu-20.04'
 
-  #   steps:
-  #     - template: /.azure-pipelines/use-python-version.yml
-  #       parameters:
-  #         versionSpec: '$(PythonVersion37)'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion37)'
 
-  #     - script: |
-  #         echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
-  #         echo "##vso[task.prependpath]$HOME/.local/bin"
-  #       displayName: 'Prepare PATH'
+      - script: |
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
 
-  #     - script: |
-  #         python --version
-  #         curl -sS $(GetPip) | python - --user
-  #         python -m pip --version
-  #         python -m pip install --user -r dev_requirements.txt
-  #       displayName: 'Install dependencies'
-  #     - script: python setup.py sdist
-  #       displayName: 'Build uAMQP sdist'
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
+      - script: python setup.py sdist
+        displayName: 'Build uAMQP sdist'
 
-  #     - script: ls ./dist
-  #       displayName: 'Check output'
+      - script: ls ./dist
+        displayName: 'Check output'
 
-  #     - task: PublishBuildArtifacts@1
-  #       displayName: 'Publish sdist artifact'
-  #       inputs:
-  #         artifactName: uamqp-sdist
-  #         pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish sdist artifact'
+        inputs:
+          artifactName: uamqp-sdist
+          pathToPublish: 'dist'
 
-  # - job: 'MacOS'
+  - job: 'MacOS'
 
-  #   pool:
-  #     vmImage: 'macOS-11'
+    pool:
+      vmImage: 'macOS-11'
 
-  #   strategy:
-  #     matrix:
-  #       Python 3.7:
-  #         PythonBin: 'python3'
-  #         PythonVersion: '$(PythonVersion37)'
-  #         BWFilter: 'cp37-*'
-  #       Python 3.8:
-  #         PythonBin: 'python3'
-  #         PythonVersion: '$(PythonVersion38)'
-  #         BWFilter: 'cp38-*'
-  #       Python 3.9:
-  #         PythonBin: 'python3'
-  #         PythonVersion: '$(PythonVersion39)'
-  #         BWFilter: 'cp39-*'
-  #       Python 3.10:
-  #         PythonBin: 'python3'
-  #         PythonVersion: '$(PythonVersion310)'
-  #         BWFilter: 'cp310-*'
+    strategy:
+      matrix:
+        Python 3.7:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-*'
+        Python 3.8:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-*'
+        Python 3.9:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-*'
+        Python 3.10:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-*'
 
-  #   variables:
-  #     MacOSXDeploymentTarget: '10.9'
-  #     OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-  #     PythonVersion37: '3.7.6'
-  #     PythonVersion38: '3.8.2'
-  #     PythonVersion39: '3.9.0'
-  #     PythonVersion310: '3.10.0'
+    variables:
+      MacOSXDeploymentTarget: '10.9'
+      OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
+      PythonVersion37: '3.7.6'
+      PythonVersion38: '3.8.2'
+      PythonVersion39: '3.9.0'
+      PythonVersion310: '3.10.0'
 
-  #   steps:
-  #     - task: DownloadPipelineArtifact@1
-  #       displayName: 'Download OpenSSL artifact'
-  #       inputs:
-  #         artifactName: openssl-macosx$(MacOSXDeploymentTarget)
-  #         buildType: specific
-  #         buildVersionToDownload: latest
-  #         downloadPath: $(Agent.BuildDirectory)
-  #         pipeline: 119 # azure-uamqp-python - openssl
-  #         project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
+    steps:
+      - task: DownloadPipelineArtifact@1
+        displayName: 'Download OpenSSL artifact'
+        inputs:
+          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
+          buildType: specific
+          buildVersionToDownload: latest
+          downloadPath: $(Agent.BuildDirectory)
+          pipeline: 119 # azure-uamqp-python - openssl
+          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
-  #     - script: sudo ls /Applications/
-  #       displayName: 'List All apps'
+      - script: sudo ls /Applications/
+        displayName: 'List All apps'
 
-  #     - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
-  #       displayName: 'Select Xcode 13.1'
+      - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
+        displayName: 'Select Xcode 13.1'
 
-  #     - script: source ./install_python_osx.sh
-  #       displayName: 'Install Official Python'
+      - script: source ./install_python_osx.sh
+        displayName: 'Install Official Python'
 
-  #     - script: |
-  #         echo "Prepending PATH environment variable with directory: /usr/local/bin"
-  #         echo "##vso[task.prependpath]/usr/local/bin"
-  #         export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
-  #         echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-  #         echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-  #       displayName: 'Prepare PATH'
+      - script: |
+          echo "Prepending PATH environment variable with directory: /usr/local/bin"
+          echo "##vso[task.prependpath]/usr/local/bin"
+          export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
+          echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+          echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+        displayName: 'Prepare PATH'
 
-  #     - script: |
-  #         $(PythonBin) --version
-  #         curl -sS $(GetPip) | $(PythonBin) - --user
-  #         $(PythonBin) -m pip --version
-  #         $(PythonBin) -m pip install --user -r dev_requirements.txt
-  #       displayName: 'Install dependencies'
+      - script: |
+          $(PythonBin) --version
+          curl -sS $(GetPip) | $(PythonBin) - --user
+          $(PythonBin) -m pip --version
+          $(PythonBin) -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
 
-  #     - bash: |
-  #         set -o errexit
-  #         $(PythonBin) -m pip install cibuildwheel==2.10.1
-  #       displayName: Install cibuildwheel 2.10.1
+      - bash: |
+          set -o errexit
+          $(PythonBin) -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
 
-  #     - pwsh: |
-  #         cibuildwheel --output-dir dist .
-  #       displayName: 'Build uAMQP Wheel'
-  #       env:
-  #         CIBW_PRERELEASE_PYTHONS: True
-  #         CIBW_ARCHS_MACOS: x86_64
-  #         CIBW_BUILD: $(BWFilter)
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_ARCHS_MACOS: x86_64
+          CIBW_BUILD: $(BWFilter)
 
-  #     - script: ls ./dist
-  #       displayName: 'Check output'
+      - script: ls ./dist
+        displayName: 'Check output'
 
-  #     - script: |
-  #         $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-  #       displayName: 'Run tests'
+      - script: |
+          $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
 
-  #     - task: PublishTestResults@2
-  #       displayName: 'Publish test results'
-  #       condition: succeededOrFailed()
-  #       inputs:
-  #         testResultsFiles: '**/test-results-*.xml'
-  #         testResultsFormat: 'JUnit'
-  #         testRunTitle: 'MacOS Python $(PythonVersion)'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'MacOS Python $(PythonVersion)'
 
-  #     - task: PublishBuildArtifacts@1
-  #       displayName: 'Publish wheel artifact'
-  #       inputs:
-  #         artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
-  #         pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
-  # - job: 'Windows'
+  - job: 'Windows'
 
-  #   pool:
-  #     vmImage: 'windows-2019'
+    pool:
+      vmImage: 'windows-2019'
 
-  #   strategy:
-  #     matrix:
-  #       x64 Python 3.7:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion37)'
-  #         BWFilter: 'cp37-win_amd64'
-  #       x64 Python 3.8:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion38)'
-  #         BWFilter: 'cp38-win_amd64'
-  #       x64 Python 3.9:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion39)'
-  #         BWFilter: 'cp39-win_amd64'
-  #       x64 Python 3.10:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion310)'
-  #         BWFilter: 'cp310-win_amd64'
-  #       x86 Python 3.7:
-  #         PythonArchitecture: 'x86'
-  #         PythonVersion: '$(PythonVersion37)'
-  #         BWFilter: 'cp37-win32'
-  #       x86 Python 3.8:
-  #         PythonArchitecture: 'x86'
-  #         PythonVersion: '$(PythonVersion38)'
-  #         BWFilter: 'cp38-win32'
-  #       x86 Python 3.9:
-  #         PythonArchitecture: 'x86'
-  #         PythonVersion: '$(PythonVersion39)'
-  #         BWFilter: 'cp39-win32'
-  #       x86 Python 3.10:
-  #         PythonArchitecture: 'x86'
-  #         PythonVersion: '$(PythonVersion310)'
-  #         BWFilter: 'cp310-win32'
+    strategy:
+      matrix:
+        x64 Python 3.7:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-win_amd64'
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-win_amd64'
+        x64 Python 3.9:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-win_amd64'
+        x64 Python 3.10:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-win_amd64'
+        x86 Python 3.7:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-win32'
+        x86 Python 3.8:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-win32'
+        x86 Python 3.9:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-win32'
+        x86 Python 3.10:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-win32'
 
-  #   steps:
-  #     - template: /.azure-pipelines/use-python-version.yml
-  #       parameters:
-  #         architecture: '$(PythonArchitecture)'
-  #         versionSpec: '$(PythonVersion)'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
 
-  #     - powershell: |
-  #         python --version
-  #         Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-  #         python -m pip --version
-  #         python -m pip install -r dev_requirements.txt
-  #       displayName: 'Install dependencies'
-  #       env:
-  #         PYTHONWARNINGS: ignore:DEPRECATION
+      - powershell: |
+          python --version
+          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+          python -m pip --version
+          python -m pip install -r dev_requirements.txt
+        displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
 
-  #     - pwsh: |
-  #         python -m pip install cibuildwheel==2.10.1
-  #       displayName: Install cibuildwheel 2.10.1
+      - pwsh: |
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
 
-  #     - pwsh: |
-  #         cibuildwheel --output-dir dist .
-  #       displayName: 'Build uAMQP Wheel'
-  #       env:
-  #         CIBW_PRERELEASE_PYTHONS: True
-  #         CIBW_BUILD: $(BWFilter)
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: $(BWFilter)
 
-  #     - script: dir dist
-  #       displayName: 'Check output'
+      - script: dir dist
+        displayName: 'Check output'
 
-  #     - powershell: |
-  #         $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-  #         python -m pip install --ignore-installed ./dist/$whlfile
-  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-  #       displayName: 'Run tests'
+      - powershell: |
+          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+          python -m pip install --ignore-installed ./dist/$whlfile
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
 
-  #     - task: PublishTestResults@2
-  #       displayName: 'Publish test results'
-  #       condition: succeededOrFailed()
-  #       inputs:
-  #         testResultsFiles: '**/test-results-*.xml'
-  #         testResultsFormat: 'JUnit'
-  #         testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-  #     - task: PublishBuildArtifacts@1
-  #       displayName: 'Publish wheel artifact'
-  #       inputs:
-  #         artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-  #         pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
-  # - job: 'Linux'
+  - job: 'Linux'
 
-  #   pool:
-  #     vmImage: 'ubuntu-20.04'
+    pool:
+      vmImage: 'ubuntu-20.04'
 
-  #   strategy:
-  #     matrix:
-  #       Python 3.7:
-  #         PythonVersion: '$(PythonVersion37)'
-  #         BWFilter: 'cp37-*'
-  #       Python 3.8:
-  #         PythonVersion: '$(PythonVersion38)'
-  #         BWFilter: 'cp38-*'
-  #       Python 3.9:
-  #         PythonVersion: '$(PythonVersion39)'
-  #         BWFilter: 'cp39-*'
-  #       Python 3.10:
-  #         PythonVersion: '$(PythonVersion310)'
-  #         BWFilter: 'cp310-*'
+    strategy:
+      matrix:
+        Python 3.7:
+          PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-*'
+        Python 3.8:
+          PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-*'
+        Python 3.9:
+          PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-*'
+        Python 3.10:
+          PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-*'
 
-  #   steps:
-  #     - template: /.azure-pipelines/use-python-version.yml
-  #       parameters:
-  #         versionSpec: '$(PythonVersion)'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
 
-  #     - script: |
-  #         echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
-  #         echo "##vso[task.prependpath]$HOME/.local/bin"
-  #       displayName: 'Prepare PATH'
+      - script: |
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
 
-  #     - script: |
-  #         python --version
-  #         curl -sS $(GetPip) | python - --user
-  #         python -m pip --version
-  #         python -m pip install setuptools --force
-  #         python -m pip install --user -r dev_requirements.txt
-  #       displayName: 'Install dependencies'
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install setuptools --force
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
 
-  #     - bash: |
-  #         set -o errexit
-  #         python -m pip install cibuildwheel==2.10.1
-  #       displayName: Install cibuildwheel 2.10.1
+      - bash: |
+          set -o errexit
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
 
-  #     - pwsh: |
-  #         cibuildwheel --output-dir dist .
-  #       displayName: 'Build uAMQP Wheel'
-  #       env:
-  #         CIBW_BUILD: $(BWFilter)
-  #         CIBW_PRERELEASE_PYTHONS: True
-  #         CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-  #         CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_BUILD: $(BWFilter)
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
-  #     - script: ls ./dist
-  #       displayName: 'Check output'
+      - script: ls ./dist
+        displayName: 'Check output'
 
-  #     - script: |
-  #         python -m pip install --user --ignore-installed ./dist/*.whl
-  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-  #       displayName: 'Run tests'
+      - script: |
+          python -m pip install --user --ignore-installed ./dist/*.whl
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
 
-  #     - task: PublishTestResults@2
-  #       displayName: 'Publish test results'
-  #       condition: succeededOrFailed()
-  #       inputs:
-  #         testResultsFiles: '**/test-results-*.xml'
-  #         testResultsFormat: 'JUnit'
-  #         testRunTitle: 'Linux Python $(PythonVersion)'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Linux Python $(PythonVersion)'
 
-  #     - task: PublishBuildArtifacts@1
-  #       displayName: 'Publish wheel artifact'
-  #       inputs:
-  #         artifactName: uamqp-linux-$(PythonVersion)-whl
-  #         pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-linux-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
   - job: 'ManyLinux'
 
