@@ -384,3 +384,11 @@ jobs:
         inputs:
           artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
           pathToPublish: 'dist'
+
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'ManyLinux2014 Python $(PythonVersion)'
