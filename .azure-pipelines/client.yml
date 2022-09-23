@@ -210,7 +210,6 @@ jobs:
         displayName: 'Build uAMQP Wheel'
         env:
           CIBW_PRERELEASE_PYTHONS: True
-          CIBW_ARCHS_WINDOWS: AMD64
           CIBW_BUILD: $(BWFilter)
 
       - script: dir dist
