@@ -6,7 +6,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
-  PythonVersion311: '3.11'
+  PythonVersion311: '3.11.0-rc.2'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
