@@ -6,6 +6,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
+  PythonVersion311: '3.11.0-rc.2'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -19,30 +20,46 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
-        x64 Python 3.7:
+        # x64 Python 3.7:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion37)'
+        #   BWFilter: 'cp37-win_amd64'
+        # x64 Python 3.8:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-win_amd64'
+        # x64 Python 3.9:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-win_amd64'
+        # x64 Python 3.10:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-win_amd64'
+        x64 Python 3.11:
           PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-        x64 Python 3.9:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion39)'
-        x64 Python 3.10:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion310)'
-        x86 Python 3.7:
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win_amd64'
+        # x86 Python 3.7:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion37)'
+        #   BWFilter: 'cp37-win32'
+        # x86 Python 3.8:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-win32'
+        # x86 Python 3.9:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-win32'
+        # x86 Python 3.10:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-win32'
+        x86 Python 3.11:
           PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-        x86 Python 3.8:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion38)'
-        x86 Python 3.9:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion39)'
-        x86 Python 3.10:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion310)'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win32'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -59,10 +76,16 @@ jobs:
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
 
-      - script: python setup.py bdist_wheel
+      - pwsh: |
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          UAMQP_REBUILD_PYX: 'True'
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: $(BWFilter)
 
       - script: dir dist
         displayName: 'Check output'
@@ -103,26 +126,32 @@ jobs:
 
     timeoutInMinutes: 120
 
-    dependsOn: 'Windows'
-
     pool:
       vmImage: 'macOS-11'
 
     strategy:
       maxParallel: 1
       matrix:
-        Python 3.7:
+        # Python 3.7:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion37)'
+        #   BWFilter: 'cp37-macosx_x86_64'
+        # Python 3.8:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-macosx_x86_64'
+        # Python 3.9:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-macosx_x86_64'
+        # Python 3.10:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-macosx_x86_64'
+        Python 3.11:
           PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion38)'
-        Python 3.9:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion39)'
-        Python 3.10:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion310)'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-macosx_x86_64'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -131,6 +160,7 @@ jobs:
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
+      PythonVersion311: '3.11.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -164,18 +194,25 @@ jobs:
           $(PythonBin) -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
-      - script: $(PythonBin) setup.py bdist_wheel
+      - bash: |
+          set -o errexit
+          $(PythonBin) -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
-          CMAKE_OSX_ARCHITECTURES: 'x86_64'
-          CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
-          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
-          OPENSSL_ROOT_DIR: $(OpenSSLDir)
-          UAMQP_REBUILD_PYX: 'True'
-          UAMQP_USE_OPENSSL: 'True'
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_ARCHS_MACOS: x86_64
+          CIBW_BUILD: $(BWFilter)
+          UAMQP_USE_OPENSSL: true
+          UAMQP_REBUILD_PYX: true
+          UAMQP_SUPPRESS_LINK_FLAGS: true
+          OPENSSL_ROOT_DIR: "/tmp/openssl"
+          OPENSSL_INCLUDE_DIR: "/tmp/openssl/include"
+          LDFLAGS: "-mmacosx-version-min=10.9 -L/tmp/openssl/lib"
+          CFLAGS: "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -215,22 +252,27 @@ jobs:
 
     timeoutInMinutes: 120
 
-    dependsOn: 'MacOS'
-
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
 
     strategy:
       maxParallel: 1
       matrix:
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-        Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-        Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
+        # Python 3.7:
+        #   PythonVersion: '$(PythonVersion37)'
+        #   BWFilter: 'cp7-manylinux_x86_64'
+        # Python 3.8:
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-manylinux_x86_64'
+        # Python 3.9:
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-manylinux_x86_64'
+        # Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-manylinux_x86_64'
+        Python 3.11:
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-manylinux_x86_64'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -246,13 +288,23 @@ jobs:
           python --version
           curl -sS $(GetPip) | python - --user
           python -m pip --version
+          python -m pip install setuptools --force
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
-      - script: python setup.py bdist_wheel
+      - bash: |
+          set -o errexit
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          UAMQP_REBUILD_PYX: 'True'
+          CIBW_BUILD: $(BWFilter)
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -288,87 +340,103 @@ jobs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
-  - job: 'SDK_LiveTest_windows2019_37'
-    timeoutInMinutes: 300
-    dependsOn: 'Windows'
-    pool:
-      name: 'azsdk-pool-mms-win-2019-general'
-      vmImage: 'MMS2019'
-    strategy:
-      matrix:
-        EventHub x64 Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-          SDK: 'EventHub'
-        EventHub x64 Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          SDK: 'EventHub'
-        ServiceBus x64 Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-          SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          SDK: 'ServiceBus'
-    variables:
-      PythonArchitecture: 'x64'
-      OSArch: 'Windows'
-      DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+#   - job: 'SDK_LiveTest_windows2019_37'
+#     timeoutInMinutes: 300
+#     dependsOn: 'Windows'
+#     pool:
+#       name: 'azsdk-pool-mms-win-2019-general'
+#       vmImage: 'MMS2019'
+#     strategy:
+#       matrix:
+#         # EventHub x64 Python 3.7:
+#         #   PythonVersion: '$(PythonVersion37)'
+#         #   SDK: 'EventHub'
+#         # EventHub x64 Python 3.10:
+#         #   PythonVersion: '$(PythonVersion310)'
+#         #   SDK: 'EventHub'
+#         EventHub x64 Python 3.11:
+#           PythonVersion: '$(PythonVersion311)'
+#           SDK: 'EventHub'
+#         # ServiceBus x64 Python 3.7:
+#         #   PythonVersion: '$(PythonVersion37)'
+#         #   SDK: 'ServiceBus'
+#         # ServiceBus x64 Python 3.10:
+#         #   PythonVersion: '$(PythonVersion310)'
+#         #   SDK: 'ServiceBus'
+#         ServiceBus x64 Python 3.11:
+#           PythonVersion: '$(PythonVersion311)'
+#           SDK: 'ServiceBus'
+#     variables:
+#       PythonArchitecture: 'x64'
+#       OSArch: 'Windows'
+#       DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
+#     steps:
+#       - template: /.azure-pipelines/use-python-version.yml
+#         parameters:
+#           architecture: '$(PythonArchitecture)'
+#           versionSpec: '$(PythonVersion)'
+#       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_macOS1015_38'
-    timeoutInMinutes: 300
-    dependsOn: 'MacOS'
-    pool:
-      name: 'Azure Pipelines'
-      vmImage: 'macOS-11'
-    strategy:
-      matrix:
-        EventHub Python 3.8:
-          SDK: 'EventHub'
-        ServiceBus Python 3.8:
-          SDK: 'ServiceBus'
-    variables:
-      PythonBin: 'python3'
-      PythonVersion: '$(PythonVersion38)'
-      MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.8.2'
-      OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+#   - job: 'SDK_LiveTest_macOS1015_38'
+#     timeoutInMinutes: 300
+#     dependsOn: 'MacOS'
+#     pool:
+#       name: 'Azure Pipelines'
+#       vmImage: 'macOS-11'
+#     strategy:
+#       matrix:
+#         # EventHub Python 3.8:
+#         #   SDK: 'EventHub'
+#         # ServiceBus Python 3.8:
+#         #   SDK: 'ServiceBus'
+#         EventHub Python 3.11:
+#           SDK: 'EventHub'
+#         ServiceBus Python 3.11:
+#           SDK: 'ServiceBus'
+#     variables:
+#       PythonBin: 'python3'
+#       PythonVersion: '$(PythonVersion311)'
+#       MacOSXDeploymentTarget: '10.9'
+#       PythonVersion382: '3.11'
+#       OSArch: 'MacOS'
+#       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
+#     steps:
+#       - template: /.azure-pipelines/use-python-version.yml
+#         parameters:
+#           versionSpec: '$(PythonVersion)'
+#       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_ubuntu1804_39'
-    timeoutInMinutes: 300
-    dependsOn: 'Linux'
-    pool:
-      name: 'azsdk-pool-mms-ubuntu-1804-general'
-      vmImage: 'MMSUbuntu18.04'
-    strategy:
-      matrix:
-        EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'EventHub'
-        EventHub Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          SDK: 'EventHub'
-        ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'ServiceBus'
-        ServiceBus Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          SDK: 'ServiceBus'
-    variables:
-      OSArch: 'Linux'
-      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+#   - job: 'SDK_LiveTest_ubuntu1804_39'
+#     timeoutInMinutes: 300
+#     dependsOn: 'Linux'
+#     pool:
+#       name: 'azsdk-pool-mms-ubuntu-1804-general'
+#       vmImage: 'MMSUbuntu18.04'
+#     strategy:
+#       matrix:
+#         # EventHub Python 3.9:
+#         #   PythonVersion: '$(PythonVersion39)'
+#         #   SDK: 'EventHub'
+#         # EventHub Python 3.10:
+#         #   PythonVersion: '$(PythonVersion310)'
+#         #   SDK: 'EventHub'
+#         EventHub Python 3.11:
+#           PythonVersion: '$(PythonVersion311)'
+#           SDK: 'EventHub'
+#         # ServiceBus Python 3.9:
+#         #   PythonVersion: '$(PythonVersion39)'
+#         #   SDK: 'ServiceBus'
+#         # ServiceBus Python 3.10:
+#         #   PythonVersion: '$(PythonVersion310)'
+#         #   SDK: 'ServiceBus'
+#         ServiceBus Python 3.11:
+#           PythonVersion: '$(PythonVersion310)'
+#           SDK: 'ServiceBus'
+#     variables:
+#       OSArch: 'Linux'
+#       DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+#     steps:
+#       - template: /.azure-pipelines/use-python-version.yml
+#         parameters:
+#           versionSpec: '$(PythonVersion)'
+#       - template: /.azure-pipelines/test-eh-sb-sdk.yml
