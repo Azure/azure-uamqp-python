@@ -219,6 +219,7 @@ jobs:
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+          $(PythonBin) -m pip install --user pytest==6.2.4 --force
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
