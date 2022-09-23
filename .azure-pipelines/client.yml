@@ -316,38 +316,27 @@ jobs:
     condition: ne(variables['System.TeamProject'], 'public')
 
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
 
     strategy:
       matrix:
-        Python37m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
+        Python37m-manylinux2014:
           PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux1_x86_64'
-        Python38-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp37-*'
+        Python38-manylinux2014:
           PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux1_x86_64'
-        Python39-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp38-*'
+        Python39-manylinux2014:
           PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux1_x86_64'
-        Python37m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux2010_x86_64'
-        Python38-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux2010_x86_64'
-        Python39-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp39-*'
+        Python310-manylinux2014:
           PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux2010_x86_64'
-        Python310-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp310-cp310'
-          Platform: 'manylinux2010_x86_64'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp310-*'
+
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -380,7 +369,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
           CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
-          CIBW_MANYLINUX_*_IMAGE:
+          CIBW_MANYLINUX_*_IMAGE: manylinux2014
 
       - script: ls ./dist
         displayName: 'Check output'
