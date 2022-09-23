@@ -1,6 +1,6 @@
 trigger:
-   - main
- 
+  - main
+
 variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
@@ -310,3 +310,83 @@ jobs:
         inputs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
+
+  - job: 'ManyLinux'
+
+    condition: ne(variables['System.TeamProject'], 'public')
+
+    pool:
+      vmImage: 'ubuntu-18.04'
+
+    strategy:
+      matrix:
+        Python37m-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux1_x86_64'
+        Python38-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp38-cp38'
+          Platform: 'manylinux1_x86_64'
+        Python39-manylinux1:
+          ContainerImage: 'manylinux_crypto_x64'
+          PythonVersion: 'cp39-cp39'
+          Platform: 'manylinux1_x86_64'
+        Python37m-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp37-cp37m'
+          Platform: 'manylinux2010_x86_64'
+        Python38-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp38-cp38'
+          Platform: 'manylinux2010_x86_64'
+        Python39-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp39-cp39'
+          Platform: 'manylinux2010_x86_64'
+        Python310-manylinux2010:
+          ContainerImage: 'manylinux2010_crypto_x64'
+          PythonVersion: 'cp310-cp310'
+          Platform: 'manylinux2010_x86_64'
+
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+
+      - script: |
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
+
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install setuptools --force
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
+
+      - bash: |
+          set -o errexit
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_BUILD: $(BWFilter)
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+          CIBW_MANYLINUX_*_IMAGE:
+
+      - script: ls ./dist
+        displayName: 'Check output'
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifacts'
+        inputs:
+          artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
+          pathToPublish: 'wheelhouse'
