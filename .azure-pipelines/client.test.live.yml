@@ -220,6 +220,7 @@ jobs:
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
           $(PythonBin) -m pip install --user pytest==6.2.4 --force
+          $(PythonBin) -m pip install --user pytest-asyncio==0.12.0 --force
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
@@ -400,7 +401,7 @@ jobs:
       MacOSXDeploymentTarget: '10.9'
       PythonVersion382: '3.11'
       OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion382)-whl'
+      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
