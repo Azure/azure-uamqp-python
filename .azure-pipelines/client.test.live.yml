@@ -160,7 +160,7 @@ jobs:
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
-      PythonVersion311: '3.11.0'
+      #PythonVersion311: '3.11.0-rc.2'
 
     steps:
       - task: DownloadPipelineArtifact@1
