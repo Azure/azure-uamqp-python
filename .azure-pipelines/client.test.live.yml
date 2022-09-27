@@ -291,8 +291,8 @@ jobs:
           curl -sS $(GetPip) | python - --user
           python -m pip --version
           python -m pip install setuptools --force
-          python -m pip install --user -r dev_requirements.txt
           curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
+          python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
       - bash: |
@@ -314,6 +314,7 @@ jobs:
 
       - script: |
           python -m pip install --user --ignore-installed ./dist/*.whl
+          python -m pip install --user pytest==6.2.4 --force
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
