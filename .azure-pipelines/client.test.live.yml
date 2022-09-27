@@ -352,21 +352,21 @@ jobs:
 #       vmImage: 'MMS2019'
 #     strategy:
 #       matrix:
-#         # EventHub x64 Python 3.7:
-#         #   PythonVersion: '$(PythonVersion37)'
-#         #   SDK: 'EventHub'
-#         # EventHub x64 Python 3.10:
-#         #   PythonVersion: '$(PythonVersion310)'
-#         #   SDK: 'EventHub'
+        # EventHub x64 Python 3.7:
+        #   PythonVersion: '$(PythonVersion37)'
+        #   SDK: 'EventHub'
+        # EventHub x64 Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   SDK: 'EventHub'
 #         EventHub x64 Python 3.11:
 #           PythonVersion: '$(PythonVersion311)'
 #           SDK: 'EventHub'
-#         # ServiceBus x64 Python 3.7:
-#         #   PythonVersion: '$(PythonVersion37)'
-#         #   SDK: 'ServiceBus'
-#         # ServiceBus x64 Python 3.10:
-#         #   PythonVersion: '$(PythonVersion310)'
-#         #   SDK: 'ServiceBus'
+        # ServiceBus x64 Python 3.7:
+        #   PythonVersion: '$(PythonVersion37)'
+        #   SDK: 'ServiceBus'
+        # ServiceBus x64 Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   SDK: 'ServiceBus'
 #         ServiceBus x64 Python 3.11:
 #           PythonVersion: '$(PythonVersion311)'
 #           SDK: 'ServiceBus'
@@ -389,10 +389,10 @@ jobs:
 #       vmImage: 'macOS-11'
 #     strategy:
 #       matrix:
-        # EventHub Python 3.8:
-        #   SDK: 'EventHub'
-        # ServiceBus Python 3.8:
-        #   SDK: 'ServiceBus'
+#         EventHub Python 3.8:
+#           SDK: 'EventHub'
+#         ServiceBus Python 3.8:
+#           SDK: 'ServiceBus'
 #         EventHub Python 3.11:
 #           SDK: 'EventHub'
 #         ServiceBus Python 3.11:
@@ -410,37 +410,37 @@ jobs:
 #           versionSpec: '$(PythonVersion)'
 #       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-#   - job: 'SDK_LiveTest_ubuntu1804_39'
-#     timeoutInMinutes: 300
-#     dependsOn: 'Linux'
-#     pool:
-#       name: 'azsdk-pool-mms-ubuntu-1804-general'
-#       vmImage: 'MMSUbuntu18.04'
-#     strategy:
-#       matrix:
-#         # EventHub Python 3.9:
-#         #   PythonVersion: '$(PythonVersion39)'
-#         #   SDK: 'EventHub'
-#         # EventHub Python 3.10:
-#         #   PythonVersion: '$(PythonVersion310)'
-#         #   SDK: 'EventHub'
-#         EventHub Python 3.11:
-#           PythonVersion: '$(PythonVersion311)'
-#           SDK: 'EventHub'
-#         # ServiceBus Python 3.9:
-#         #   PythonVersion: '$(PythonVersion39)'
-#         #   SDK: 'ServiceBus'
-#         # ServiceBus Python 3.10:
-#         #   PythonVersion: '$(PythonVersion310)'
-#         #   SDK: 'ServiceBus'
-#         ServiceBus Python 3.11:
-#           PythonVersion: '$(PythonVersion310)'
-#           SDK: 'ServiceBus'
-#     variables:
-#       OSArch: 'Linux'
-#       DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-#     steps:
-#       - template: /.azure-pipelines/use-python-version.yml
-#         parameters:
-#           versionSpec: '$(PythonVersion)'
-#       - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  - job: 'SDK_LiveTest_ubuntu1804_39'
+    timeoutInMinutes: 300
+    dependsOn: 'Linux'
+    pool:
+      name: 'azsdk-pool-mms-ubuntu-1804-general'
+      vmImage: 'MMSUbuntu18.04'
+    strategy:
+      matrix:
+        # EventHub Python 3.9:
+        #   PythonVersion: '$(PythonVersion39)'
+        #   SDK: 'EventHub'
+        # EventHub Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   SDK: 'EventHub'
+        EventHub Python 3.11:
+          PythonVersion: '$(PythonVersion311)'
+          SDK: 'EventHub'
+        # ServiceBus Python 3.9:
+        #   PythonVersion: '$(PythonVersion39)'
+        #   SDK: 'ServiceBus'
+        # ServiceBus Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   SDK: 'ServiceBus'
+        ServiceBus Python 3.11:
+          PythonVersion: '$(PythonVersion311)'
+          SDK: 'ServiceBus'
+    variables:
+      OSArch: 'Linux'
+      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
+      - template: /.azure-pipelines/test-eh-sb-sdk.yml
