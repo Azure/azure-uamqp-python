@@ -34,9 +34,10 @@ steps:
     displayName: 'Get name of whl file to install'
   - script: |
       python --version
-      python -m pip install pytest
       echo "Installing $DownloadArtifactWhl"
-      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
+      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
+      python -m pip install pytest
       cd $(SdkPath)
       python -m pip install futures
       python -m pip install --ignore-installed .
