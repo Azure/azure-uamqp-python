@@ -260,18 +260,18 @@ jobs:
     strategy:
       maxParallel: 1
       matrix:
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp7-manylinux_x86_64'
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-manylinux_x86_64'
-        Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-manylinux_x86_64'
-        Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-manylinux_x86_64'
+#         Python 3.7:
+#           PythonVersion: '$(PythonVersion37)'
+#           BWFilter: 'cp7-manylinux_x86_64'
+#         Python 3.8:
+#           PythonVersion: '$(PythonVersion38)'
+#           BWFilter: 'cp38-manylinux_x86_64'
+#         Python 3.9:
+#           PythonVersion: '$(PythonVersion39)'
+#           BWFilter: 'cp39-manylinux_x86_64'
+#         Python 3.10:
+#           PythonVersion: '$(PythonVersion310)'
+#           BWFilter: 'cp310-manylinux_x86_64'
         Python 3.11:
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-manylinux_x86_64'
