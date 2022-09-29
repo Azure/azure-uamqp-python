@@ -39,6 +39,7 @@ steps:
       python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
       cd $(SdkPath)
       python -m pip install futures
+      python -m pip install .
       python -m pip install -r dev_requirements.txt
       python -m pip list
       python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
