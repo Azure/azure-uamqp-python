@@ -73,9 +73,6 @@ steps:
       AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
       AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
       AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
-      SERVICEBUS_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
-      SERVICEBUS_CLIENT_ID: $(aad-azure-sdk-test-client-id)
-      SERVICEBUS_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
       AZURE_TEST_RUN_LIVE: 'true'
   - pwsh: |
       eng/common/scripts/Import-AzModules.ps1
