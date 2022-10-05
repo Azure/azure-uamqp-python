@@ -22,16 +22,19 @@ steps:
       echo "Tests: $(TestResultsPath)"
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
     displayName: 'Clone azure-sdk-for-python'
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Downloading artifact'
-    inputs:
-      source: 'current'
-      patterns: '$(DownloadArtifactFolder)/*.whl'
-  - pwsh: |
-      $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
-      Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
-      Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
-    displayName: 'Get name of whl file to install'
+  #- task: DownloadPipelineArtifact@2
+  #  displayName: 'Downloading artifact'
+  #  inputs:
+  #    source: 'current'
+  #    patterns: '$(DownloadArtifactFolder)/*.whl'
+  #- pwsh: |
+  #    $whlfile = Get-ChildItem -Filter *.whl $(Pipeline.Workspace)/$(DownloadArtifactFolder) | Select-Object -First 1 -ExpandProperty Name
+  #    Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
+  #    Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
+  #  displayName: 'Get name of whl file to install'
+  - template: $(SdkPath)/eng/common/TestResources/deploy-test-resources.yml
+    parameters:
+      ServiceDirectory: 'servicebus'
   - script: |
       python --version
       python -m pip install pytest
@@ -53,6 +56,10 @@ steps:
       SERVICEBUS_CLIENT_ID: $(aad-azure-sdk-test-client-id)
       SERVICEBUS_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
       AZURE_TEST_RUN_LIVE: 'true'
+  - template: $(SdkPath)/eng/common/TestResources/remove-test-resources.yml
+    parameters:
+      ServiceDirectory: 'servicebus'
+  - template: /eng/common/TestResources/remove-test-resources.yml
   - task: PublishTestResults@2
     displayName: 'Publish test results'
     condition: succeededOrFailed()

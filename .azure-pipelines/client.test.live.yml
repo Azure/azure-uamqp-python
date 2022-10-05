@@ -9,95 +9,95 @@ variables:
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
-  - job: 'Windows'
-
-    pool:
-      vmImage: 'windows-2019'
-
-    timeoutInMinutes: 120
-
-    strategy:
-      maxParallel: 1
-      matrix:
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-        #x64 Python 3.8:
-        #  PythonArchitecture: 'x64'
-        #  PythonVersion: '$(PythonVersion38)'
-        #x64 Python 3.9:
-        #  PythonArchitecture: 'x64'
-        #  PythonVersion: '$(PythonVersion39)'
-        #x64 Python 3.10:
-        #  PythonArchitecture: 'x64'
-        #  PythonVersion: '$(PythonVersion310)'
-        #x86 Python 3.7:
-        #  PythonArchitecture: 'x86'
-        #  PythonVersion: '$(PythonVersion37)'
-        #x86 Python 3.8:
-        #  PythonArchitecture: 'x86'
-        #  PythonVersion: '$(PythonVersion38)'
-        #x86 Python 3.9:
-        #  PythonArchitecture: 'x86'
-        #  PythonVersion: '$(PythonVersion39)'
-        #x86 Python 3.10:
-        #  PythonArchitecture: 'x86'
-        #  PythonVersion: '$(PythonVersion310)'
-
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
-
-      - powershell: |
-          python --version
-          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-          python -m pip --version
-          python -m pip install -r dev_requirements.txt
-        displayName: 'Install dependencies'
-        env:
-          PYTHONWARNINGS: ignore:DEPRECATION
-
-      - script: python setup.py bdist_wheel
-        displayName: 'Build uAMQP Wheel'
-        env:
-          UAMQP_REBUILD_PYX: 'True'
-
-      - script: dir dist
-        displayName: 'Check output'
-
-      - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-          python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
-
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
-
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+#  - job: 'Windows'
+#
+#    pool:
+#      vmImage: 'windows-2019'
+#
+#    timeoutInMinutes: 120
+#
+#    strategy:
+#      maxParallel: 1
+#      matrix:
+#        x64 Python 3.7:
+#          PythonArchitecture: 'x64'
+#          PythonVersion: '$(PythonVersion37)'
+#        #x64 Python 3.8:
+#        #  PythonArchitecture: 'x64'
+#        #  PythonVersion: '$(PythonVersion38)'
+#        #x64 Python 3.9:
+#        #  PythonArchitecture: 'x64'
+#        #  PythonVersion: '$(PythonVersion39)'
+#        #x64 Python 3.10:
+#        #  PythonArchitecture: 'x64'
+#        #  PythonVersion: '$(PythonVersion310)'
+#        #x86 Python 3.7:
+#        #  PythonArchitecture: 'x86'
+#        #  PythonVersion: '$(PythonVersion37)'
+#        #x86 Python 3.8:
+#        #  PythonArchitecture: 'x86'
+#        #  PythonVersion: '$(PythonVersion38)'
+#        #x86 Python 3.9:
+#        #  PythonArchitecture: 'x86'
+#        #  PythonVersion: '$(PythonVersion39)'
+#        #x86 Python 3.10:
+#        #  PythonArchitecture: 'x86'
+#        #  PythonVersion: '$(PythonVersion310)'
+#
+#    steps:
+#      - template: /.azure-pipelines/use-python-version.yml
+#        parameters:
+#          architecture: '$(PythonArchitecture)'
+#          versionSpec: '$(PythonVersion)'
+#
+#      - powershell: |
+#          python --version
+#          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+#          python -m pip --version
+#          python -m pip install -r dev_requirements.txt
+#        displayName: 'Install dependencies'
+#        env:
+#          PYTHONWARNINGS: ignore:DEPRECATION
+#
+#      - script: python setup.py bdist_wheel
+#        displayName: 'Build uAMQP Wheel'
+#        env:
+#          UAMQP_REBUILD_PYX: 'True'
+#
+#      - script: dir dist
+#        displayName: 'Check output'
+#
+#      - powershell: |
+#          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+#          python -m pip install --ignore-installed ./dist/$whlfile
+#          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+#          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+#        displayName: 'Run tests'
+#        env:
+#          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+#          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+#          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+#          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+#          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+#          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+#          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+#          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+#          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+#          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+#
+#      - task: PublishTestResults@2
+#        displayName: 'Publish test results'
+#        condition: succeededOrFailed()
+#        inputs:
+#          testResultsFiles: '**/test-results-*.xml'
+#          testResultsFormat: 'JUnit'
+#          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+#
+#      - task: PublishBuildArtifacts@1
+#        displayName: 'Publish wheel artifact'
+#        inputs:
+#          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+#          pathToPublish: 'dist'
 
 #  - job: 'MacOS'
 #
@@ -290,7 +290,7 @@ jobs:
 
   - job: 'SDK_LiveTest_windows2019_37'
     timeoutInMinutes: 300
-    dependsOn: 'Windows'
+#    dependsOn: 'Windows'
     pool:
       name: 'azsdk-pool-mms-win-2019-general'
       vmImage: 'MMS2019'
@@ -311,7 +311,7 @@ jobs:
     variables:
       PythonArchitecture: 'x64'
       OSArch: 'Windows'
-      DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
+#      DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
