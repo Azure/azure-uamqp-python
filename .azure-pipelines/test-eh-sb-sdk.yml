@@ -56,6 +56,11 @@ steps:
   #    Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
   #    Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
   #  displayName: 'Get name of whl file to install'
+  - template: /eng/common/testproxy/test-proxy-tool.yml
+    parameters:
+      runProxy: true
+      rootFolder: azure-sdk-for-python
+      templateRoot: azure-sdk-for-python
   - script: |
       python --version
       python -m pip install pytest
@@ -88,6 +93,7 @@ steps:
         -CI `
         -Force `
         -Verbose
+    workingDirectory: azure-sdk-for-python
     displayName: Remove test resources
     condition: and(eq(variables['CI_HAS_DEPLOYED_RESOURCES'], 'true'), ne(variables['Skip.RemoveTestResources'], 'true'))
     continueOnError: true
