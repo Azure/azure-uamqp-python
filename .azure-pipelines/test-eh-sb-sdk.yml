@@ -56,8 +56,7 @@ steps:
   #    Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
   #    Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
   #  displayName: 'Get name of whl file to install'
-  - template: /eng/common/testproxy/test-proxy-tool.yml
-    workingDirectory: azure-sdk-for-python
+  - template: /.azure-pipelines/test-proxy-tool.yml
     parameters:
       runProxy: true
       rootFolder: azure-sdk-for-python
