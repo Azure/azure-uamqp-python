@@ -57,6 +57,7 @@ steps:
   #    Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
   #  displayName: 'Get name of whl file to install'
   - template: /eng/common/testproxy/test-proxy-tool.yml
+    workingDirectory: azure-sdk-for-python
     parameters:
       runProxy: true
       rootFolder: azure-sdk-for-python
