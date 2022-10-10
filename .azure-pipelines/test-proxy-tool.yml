@@ -48,6 +48,8 @@ steps:
 
     # nohup does NOT continue beyond the current session if you use it within powershell
     - bash: |
+        ls ${{parameters.templateRoot}}
+        ls $(Build.BinariesDirectory)/test-proxy/test-proxy
         touch ${{ parameters.templateRoot }}/test-proxy.log
         nohup $(Build.BinariesDirectory)/test-proxy/test-proxy > ${{ parameters.templateRoot }}/test-proxy.log &
       displayName: "Run the testproxy - linux/mac"
