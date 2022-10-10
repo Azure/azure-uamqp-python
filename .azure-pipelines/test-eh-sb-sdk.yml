@@ -56,7 +56,6 @@ steps:
       Write-Output "##vso[task.setvariable variable=DownloadArtifactWhl]$whlfile"
       Get-ChildItem $(Pipeline.Workspace)/$(DownloadArtifactFolder)
     displayName: 'Get name of whl file to install'
-    python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
   - template: /.azure-pipelines/test-proxy-tool.yml
     parameters:
       runProxy: true
@@ -66,6 +65,7 @@ steps:
       python --version
       python -m pip install pytest
       echo "Installing $(DownloadArtifactWhl)"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
       cd $(SdkPath)
       python -m pip install futures
       python -m pip install .
