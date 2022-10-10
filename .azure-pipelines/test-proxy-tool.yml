@@ -48,6 +48,7 @@ steps:
 
     # nohup does NOT continue beyond the current session if you use it within powershell
     - bash: |
+        ls $(Build.BinariesDirectory)
         ls ${{parameters.templateRoot}}
         ls $(Build.BinariesDirectory)/test-proxy/test-proxy
         touch ${{ parameters.templateRoot }}/test-proxy.log
