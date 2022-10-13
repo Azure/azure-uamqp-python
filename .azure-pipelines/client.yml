@@ -118,7 +118,7 @@ jobs:
 
       - bash: |
           set -o errexit
-          $(PythonBin) -m pip install cibuildwheel==2.10.1
+          $(PythonBin) -m pip install cibuildwheel==2.10.1 --force
         displayName: Install cibuildwheel 2.10.1
 
       - pwsh: |
@@ -288,6 +288,7 @@ jobs:
           curl -sS $(GetPip) | python - --user
           python -m pip --version
           python -m pip install setuptools --force
+          curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
@@ -373,6 +374,7 @@ jobs:
           curl -sS $(GetPip) | python - --user
           python -m pip --version
           python -m pip install setuptools --force
+          curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
