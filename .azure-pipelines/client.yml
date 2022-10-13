@@ -118,7 +118,7 @@ jobs:
 
       - bash: |
           set -o errexit
-          $(PythonBin) -m pip install cibuildwheel==2.10.1 --force
+          $(PythonBin) -m pip install --user cibuildwheel==2.10.1 --force
         displayName: Install cibuildwheel 2.10.1
 
       - pwsh: |
@@ -134,6 +134,8 @@ jobs:
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+          $(PythonBin) -m pip install --user pytest==6.2.4 --force
+          $(PythonBin) -m pip install --user pytest-asyncio==0.12.0 --force
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
