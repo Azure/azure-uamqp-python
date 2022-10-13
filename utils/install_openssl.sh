@@ -3,8 +3,8 @@ set -xe
 
 OPENSSL_URL="https://www.openssl.org/source/"
 
-export OPENSSL_VERSION="openssl-1.1.1n"
-export OPENSSL_SHA256="40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a"
+export OPENSSL_VERSION="openssl-1.1.1q"
+export OPENSSL_SHA256="d7939ce614029cdff0b6c20f0e2e5703158a489a72b2507b8bd51bf8c8fd10ca"
 # We need a base set of flags because on Windows using MSVC
 # enable-ec_nistp_64_gcc_128 doesn't work since there's no 128-bit type
 export OPENSSL_BUILD_FLAGS_WINDOWS="no-ssl3 no-ssl3-method no-zlib no-shared no-comp no-dynamic-engine"
