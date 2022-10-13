@@ -6,6 +6,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
+  PythonVersion311: '3.11.0-rc.2'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -66,6 +67,10 @@ jobs:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion310)'
           BWFilter: 'cp310-*'
+        Python 3.11:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-*'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -74,6 +79,7 @@ jobs:
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
+      PythonVersion311: '3.11.0-rc.2'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -169,6 +175,10 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion310)'
           BWFilter: 'cp310-win_amd64'
+        x64 Python 3.11:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win_amd64'
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
@@ -185,6 +195,10 @@ jobs:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion310)'
           BWFilter: 'cp310-win32'
+        x86 Python 3.11:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win32'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -255,6 +269,9 @@ jobs:
         Python 3.10:
           PythonVersion: '$(PythonVersion310)'
           BWFilter: 'cp310-*'
+        Python 3.11:
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-*'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -336,6 +353,10 @@ jobs:
           PythonVersion: '$(PythonVersion310)'
           Platform: 'manylinux2014_x86_64'
           BWFilter: 'cp310-*'
+        Python311-manylinux2014:
+          PythonVersion: '$(PythonVersion311)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp311-*'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
