@@ -40,26 +40,26 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-win_amd64'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-win32'
-        x86 Python 3.8:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-win32'
-        x86 Python 3.9:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-win32'
-        x86 Python 3.10:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-win32'
-        x86 Python 3.11:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-win32'
+        # x86 Python 3.7:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion37)'
+        #   BWFilter: 'cp37-win32'
+        # x86 Python 3.8:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-win32'
+        # x86 Python 3.9:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-win32'
+        # x86 Python 3.10:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-win32'
+        # x86 Python 3.11:
+        #   PythonArchitecture: 'x86'
+        #   PythonVersion: '$(PythonVersion311)'
+        #   BWFilter: 'cp311-win32'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -125,6 +125,8 @@ jobs:
   - job: 'MacOS'
 
     timeoutInMinutes: 120
+
+    dependsOn: 'Windows'
 
     pool:
       vmImage: 'macOS-11'
@@ -253,6 +255,8 @@ jobs:
   - job: 'Linux'
 
     timeoutInMinutes: 120
+
+    dependsOn: 'MacOS'
 
     pool:
       vmImage: 'ubuntu-20.04'
