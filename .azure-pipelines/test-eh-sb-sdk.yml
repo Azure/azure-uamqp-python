@@ -63,9 +63,10 @@ steps:
       templateRoot: azure-sdk-for-python
   - script: |
       python --version
+      echo "Installing $DownloadArtifactWhl"
+      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
       python -m pip install pytest
-      echo "Installing $(DownloadArtifactWhl)"
-      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)
       cd $(SdkPath)
       python -m pip install futures
       python -m pip install .
