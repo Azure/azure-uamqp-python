@@ -393,7 +393,7 @@ jobs:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '$(PythonVersion311)'
+      PythonVersion: '3.11.0rc2'
       MacOSXDeploymentTarget: '10.9'
       PythonVersion382: '3.11'
       OSArch: 'MacOS'
