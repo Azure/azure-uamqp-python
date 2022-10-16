@@ -394,10 +394,11 @@ jobs:
     variables:
       PythonBin: 'python3'
       PythonVersion: '3.11.0rc2'
+      Python311WheelVer: '3.11.0rc.2'
       MacOSXDeploymentTarget: '10.9'
       PythonVersion382: '3.11'
       OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
+      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(Python311WheelVer)-whl'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
