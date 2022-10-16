@@ -126,7 +126,7 @@ jobs:
 
     timeoutInMinutes: 120
 
-    dependsOn: 'Windows'
+    #dependsOn: 'Windows'
 
     pool:
       vmImage: 'macOS-11'
