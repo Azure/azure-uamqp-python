@@ -402,7 +402,7 @@ jobs:
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
-          versionSpec: '$(Python311WheelVer)'
+          versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
   # - job: 'SDK_LiveTest_ubuntu1804_39'
