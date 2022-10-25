@@ -6,7 +6,7 @@ variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
-  PythonVersion311: '3.11.0-rc.2'
+  PythonVersion311: '3.11.0'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -162,7 +162,7 @@ jobs:
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
-      PythonVersion311: '3.11.0rc2'
+      PythonVersion311: '3.11.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -184,6 +184,7 @@ jobs:
       - script: |
           echo "Prepending PATH environment variable with directory: /usr/local/bin"
           echo "##vso[task.prependpath]/usr/local/bin"
+          echo "$(PythonVersion)"
           export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
           echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
           echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
@@ -393,12 +394,11 @@ jobs:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '3.11.0rc2'
-      Python311WheelVer: '3.11.0rc.2'
+      PythonVersion: '3.11.0'
       MacOSXDeploymentTarget: '10.9'
       PythonVersion382: '3.11'
       OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(Python311WheelVer)-whl'
+      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
