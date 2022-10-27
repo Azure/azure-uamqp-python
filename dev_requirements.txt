@@ -1,4 +1,4 @@
-cython==0.29.21
+cython==0.29.32
 setuptools>=27.1.2
 wheel>=0.32.0
 pytest==6.2.4; python_version >= '3.10'
@@ -7,4 +7,4 @@ pytest-asyncio==0.12.0; python_version >= '3.7'
 docutils>=0.14
 pygments>=2.2.0
 pylint==2.3.1; python_version >= '3.7'
-cibuildwheel
+cibuildwheel==2.10.1

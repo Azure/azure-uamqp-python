@@ -1,11 +1,12 @@
 trigger:
-  - main
-
+   - main
+ 
 variables:
   PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
+  PythonVersion311: '3.11.0'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -13,7 +14,7 @@ jobs:
     displayName: 'Source Distribution'
 
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -53,15 +54,23 @@ jobs:
         Python 3.7:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-*'
         Python 3.8:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-*'
         Python 3.9:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-*'
         Python 3.10:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-*'
+        Python 3.11:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-*'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -70,6 +79,7 @@ jobs:
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
+      PythonVersion311: '3.11.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -106,24 +116,26 @@ jobs:
           $(PythonBin) -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
-      - script: $(PythonBin) setup.py bdist_wheel
+      - bash: |
+          set -o errexit
+          $(PythonBin) -m pip install --user cibuildwheel==2.10.1 --force
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          CFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -I$(OpenSSLDir)/include
-          CMAKE_OSX_ARCHITECTURES: 'x86_64'
-          CMAKE_OSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          LDFLAGS: -mmacosx-version-min=$(MacOSXDeploymentTarget) -L$(OpenSSLDir)/lib
-          MACOSX_DEPLOYMENT_TARGET: $(MacOSXDeploymentTarget)
-          OPENSSL_INCLUDE_DIR: $(OpenSSLDir)/include
-          OPENSSL_ROOT_DIR: $(OpenSSLDir)
-          UAMQP_REBUILD_PYX: 'True'
-          UAMQP_USE_OPENSSL: 'True'
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_ARCHS_MACOS: x86_64
+          CIBW_BUILD: $(BWFilter)
 
       - script: ls ./dist
         displayName: 'Check output'
 
       - script: |
           $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+          $(PythonBin) -m pip install --user pytest==6.2.4 --force
+          $(PythonBin) -m pip install --user pytest-asyncio==0.12.0 --force
           pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
           pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
         displayName: 'Run tests'
@@ -152,27 +164,43 @@ jobs:
         x64 Python 3.7:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-win_amd64'
         x64 Python 3.8:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-win_amd64'
         x64 Python 3.9:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-win_amd64'
         x64 Python 3.10:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-win_amd64'
+        x64 Python 3.11:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win_amd64'
         x86 Python 3.7:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-win32'
         x86 Python 3.8:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-win32'
         x86 Python 3.9:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-win32'
         x86 Python 3.10:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-win32'
+        x86 Python 3.11:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win32'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -189,10 +217,16 @@ jobs:
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
 
-      - script: python setup.py bdist_wheel
+      - pwsh: |
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          UAMQP_REBUILD_PYX: 'True'
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: $(BWFilter)
 
       - script: dir dist
         displayName: 'Check output'
@@ -221,18 +255,25 @@ jobs:
   - job: 'Linux'
 
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
 
     strategy:
       matrix:
         Python 3.7:
           PythonVersion: '$(PythonVersion37)'
+          BWFilter: 'cp37-*'
         Python 3.8:
           PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-*'
         Python 3.9:
           PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-*'
         Python 3.10:
           PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-*'
+        Python 3.11:
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-*'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -248,13 +289,24 @@ jobs:
           python --version
           curl -sS $(GetPip) | python - --user
           python -m pip --version
+          python -m pip install setuptools --force
+          curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
 
-      - script: python setup.py bdist_wheel
+      - bash: |
+          set -o errexit
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
         env:
-          UAMQP_REBUILD_PYX: 'True'
+          CIBW_BUILD: $(BWFilter)
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -284,61 +336,84 @@ jobs:
     condition: ne(variables['System.TeamProject'], 'public')
 
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
 
     strategy:
       matrix:
-        Python37m-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux1_x86_64'
-        Python38-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux1_x86_64'
-        Python39-manylinux1:
-          ContainerImage: 'manylinux_crypto_x64'
-          PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux1_x86_64'
-        Python37m-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp37-cp37m'
-          Platform: 'manylinux2010_x86_64'
-        Python38-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp38-cp38'
-          Platform: 'manylinux2010_x86_64'
-        Python39-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp39-cp39'
-          Platform: 'manylinux2010_x86_64'
-        Python310-manylinux2010:
-          ContainerImage: 'manylinux2010_crypto_x64'
-          PythonVersion: 'cp310-cp310'
-          Platform: 'manylinux2010_x86_64'
+        Python37-manylinux2014:
+          PythonVersion: '$(PythonVersion37)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp37-*'
+        Python38-manylinux2014:
+          PythonVersion: '$(PythonVersion38)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp38-*'
+        Python39-manylinux2014:
+          PythonVersion: '$(PythonVersion39)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp39-*'
+        Python310-manylinux2014:
+          PythonVersion: '$(PythonVersion310)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp310-*'
+        Python311-manylinux2014:
+          PythonVersion: '$(PythonVersion311)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp311-*'
 
     steps:
-      - task: Docker@1
-        displayName: 'Build and test with Docker'
-        inputs:
-          azureContainerRegistry: azuresdkimages.azurecr.io
-          azureSubscriptionEndpoint: 'Azure SDK ACR'
-          command: 'Run an image'
-          containerCommand: '/data/build_many_linux.sh'
-          envVars: |
-            PLATFORM=$(Platform)
-            PYTHON_VERSION=$(PythonVersion)
-            UAMQP_REBUILD_PYX=True
-          imageName: '$(ContainerImage)'
-          qualifyImageName: true
-          runInBackground: false
-          volumes: '$(System.DefaultWorkingDirectory):/data'
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          versionSpec: '$(PythonVersion)'
 
-      - script: ls ./wheelhouse
+      - script: |
+          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+          echo "##vso[task.prependpath]$HOME/.local/bin"
+        displayName: 'Prepare PATH'
+
+      - script: |
+          python --version
+          curl -sS $(GetPip) | python - --user
+          python -m pip --version
+          python -m pip install setuptools --force
+          curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
+          python -m pip install --user -r dev_requirements.txt
+        displayName: 'Install dependencies'
+
+      - bash: |
+          set -o errexit
+          python -m pip install cibuildwheel==2.10.1
+        displayName: Install cibuildwheel 2.10.1
+
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_BUILD: $(BWFilter)
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+          CIBW_MANYLINUX_*_IMAGE: manylinux2014
+
+      - script: ls ./dist
         displayName: 'Check output'
+
+      - script: |
+          python -m pip install --user --ignore-installed ./dist/*.whl
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
 
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifacts'
         inputs:
           artifactName: uamqp-$(Platform)-$(PythonVersion)-x64-whl
-          pathToPublish: 'wheelhouse'
+          pathToPublish: 'dist'
+
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'ManyLinux2014 Python $(PythonVersion)'

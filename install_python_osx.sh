@@ -8,6 +8,9 @@ fi
 if [[ "$PYTHONVERSION" =~ ^3.10 ]]; then
   PACKAGE_TYPE="macos11"
 fi
+if [[ "$PYTHONVERSION" =~ ^3.11 ]]; then
+  PACKAGE_TYPE="macos11"
+fi
 
 
 # Handle prerelease versions
