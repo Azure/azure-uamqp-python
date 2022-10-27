@@ -3,6 +3,15 @@
 Release History
 ===============
 
+1.6.2 (2022-10-27)
++++++++++++++++++++
+
+- Added support for python 3.11
+- Updated OpenSSL dependency to 1.1.1q
+- Updated cython dependency to 0.29.32
+- Dropped support for manylinux2010
+- Using cibuildwheel to generate wheels
+
 1.6.1 (2022-10-11)
 +++++++++++++++++++
 
