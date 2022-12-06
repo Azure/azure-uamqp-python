@@ -6,7 +6,6 @@
 
 # pylint: disable=super-init-not-called,arguments-differ
 
-import six
 from uamqp import c_uamqp, compat, utils
 
 
@@ -50,7 +49,7 @@ class AMQPSymbol(AMQPType):
         self._c_type = self._c_wrapper(value, encoding)
 
     def _c_wrapper(self, value, encoding='UTF-8'):
-        value = value.encode(encoding) if isinstance(value, six.text_type) else value
+        value = value.encode(encoding) if isinstance(value, str) else value
         return c_uamqp.symbol_value(value)
 
 
@@ -74,7 +73,7 @@ class AMQPChar(AMQPType):
     def _c_wrapper(self, value, encoding='UTF-8'):
         if len(value) > 1:
             raise ValueError("Value must be a single character.")
-        value = value.encode(encoding) if isinstance(value, six.text_type) else value
+        value = value.encode(encoding) if isinstance(value, str) else value
         return c_uamqp.char_value(value)
 
 
