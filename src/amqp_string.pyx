@@ -44,11 +44,7 @@ cdef class AMQPString(StructBase):
 
     def __str__(self):
         as_bytes = c_strings.STRING_c_str(self._c_value)
-        try:
-            return as_bytes.decode('UTF-8')
-        except UnicodeDecodeError:
-            pass
-        return str(as_bytes)
+        return str(as_bytes, encoding="UTF-8", errors="ignore" )
 
     def __unicode__(self):
         as_bytes = c_strings.STRING_c_str(self._c_value)
