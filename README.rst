@@ -50,7 +50,7 @@ If you are running Alpine, you can build a wheel using `cibuildwheel <https://ci
   i. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
   ii. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64". If left blank cibuildwheel will generate wheels for all supported python versions. For more information check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
 
-2. After those changes install cibuildwheel and get it to generate a wheel in the wheelhouse folder.
+2. install cibuildwheel and get it to generate a wheel in the wheelhouse folder.
 
 .. code:: shell
 
