@@ -43,11 +43,11 @@ If you are running Alpine, you can build a wheel using `cibuildwheel <https://ci
 
     $ git clone https://github.com/Azure/azure-uamqp-python.git
 
-1. open pyproject.toml and make the following changes
+
+1. Open pyproject.toml and make the following changes
  a. Under [tool.cibuildwheel]
   i. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
-  ii. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64"
-     If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
+  ii. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64". If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
 
 2. After those changes install cibuildwheel
 .. code:: shell
