@@ -38,7 +38,8 @@ If you are running a Linux distro that does not support `ManyLinux1 <https://www
     $ apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config python3-dev python3-pip
     $ pip3 install uamqp --no-binary :all:
 
-If you are running Alpine, you can build a wheel using `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`: 
+If you are running Alpine, you can build a wheel using `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`__: 
+
 .. code:: shell
 
     $ git clone https://github.com/Azure/azure-uamqp-python.git
