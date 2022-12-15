@@ -38,12 +38,23 @@ If you are running a Linux distro that does not support `ManyLinux1 <https://www
     $ apt-get install -y build-essential libssl-dev uuid-dev cmake libcurl4-openssl-dev pkg-config python3-dev python3-pip
     $ pip3 install uamqp --no-binary :all:
 
-If you are running Alpine, you can install from source:
-
+If you are running Alpine, you can build a wheel using `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`: 
 .. code:: shell
 
-    $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl-dev build-base
-    $ pip3 install uamqp --no-binary :all:
+    $ git clone https://github.com/Azure/azure-uamqp-python.git
+
+    open pyproject.toml and make the following changes
+
+    1. Under [tool.cibuildwheel]
+
+       a. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
+       b. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64"
+          If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
+    2. pip install dev_requirements.txt
+    3. Make sure docker is running
+    4. cibuildwheel --platform linux
+    5. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
+
 
 If you are running Red Hat, you can install from source:
 
