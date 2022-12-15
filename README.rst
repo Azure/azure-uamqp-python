@@ -49,19 +49,14 @@ If you are running Alpine, you can build a wheel using `cibuildwheel <https://ci
   i. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
   ii. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64". If left blank cibuildwheel will generate wheels for all supported python versions. For more information check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
 
-2. After those changes install cibuildwheel
+2. After those changes install cibuildwheel and get it to generate a wheel
 
 .. code:: shell
 
-    2. pip install cibuildwheel
+    $ pip install cibuildwheel
+    $ cibuildwheel --platform linux
 
-3. Make sure docker is running and run the following
-
-.. code:: shell
-
-    4. cibuildwheel --platform linux
-
-5. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
+3. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
 
 
 If you are running Red Hat, you can install from source:
