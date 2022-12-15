@@ -43,17 +43,18 @@ If you are running Alpine, you can build a wheel using `cibuildwheel <https://ci
 
     $ git clone https://github.com/Azure/azure-uamqp-python.git
 
-    open pyproject.toml and make the following changes
+open pyproject.toml and make the following changes
 
-    1. Under [tool.cibuildwheel]
-
-       a. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
-       b. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64"
-          If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
+1. Under [tool.cibuildwheel]
+  a. Change skip = ["*-musllinux*", "pp*"] to skip = ["manylinux*","pp*"]
+  b. If you want to build for a specific python version for ex. py39, add this line right after the line above build = "cp39-musllinux_x86_64"
+     If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
+.. code:: shell
     2. pip install dev_requirements.txt
-    3. Make sure docker is running
+3. Make sure docker is running
+.. code:: shell
     4. cibuildwheel --platform linux
-    5. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
+5. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
 
 
 If you are running Red Hat, you can install from source:
