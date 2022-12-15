@@ -51,11 +51,13 @@ open pyproject.toml and make the following changes
      If left blank cibuildwheel will generate wheels for all supported python versions. For more check the `options <https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip>`__
 
 .. code:: shell
+
     2. pip install dev_requirements.txt
 
 3. Make sure docker is running
 
 .. code:: shell
+    
     4. cibuildwheel --platform linux
 
 5. That will kickstart the process and generate a wheel for you in the wheelhouse folder, which can be used with Alpine
