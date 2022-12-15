@@ -2,7 +2,7 @@ steps:
   - pwsh: |
       $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
       $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
-      $EHIgnoreTests='--ignore=tests/perfstress_tests'
+      $EHIgnoreTests='--ignore=tests/perfstress_tests --ignore=tests/scripts'
       $EHSdkType='eventhub'
       Write-Output "##vso[task.setvariable variable=SdkType;]$EHSdkType"
       Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
