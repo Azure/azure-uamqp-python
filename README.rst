@@ -42,7 +42,7 @@ If you are running Alpine, you can install from source:
 
 .. code:: shell
 
-    $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl-dev build-base
+    $ apk add --update python3 py-pip python3-dev cmake gcc g++ openssl1.1-compat-dev build-base
     $ pip3 install uamqp --no-binary :all:
 
 If you are running Red Hat, you can install from source:
