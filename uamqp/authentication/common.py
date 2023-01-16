@@ -170,7 +170,7 @@ class SASLPlain(AMQPAuth):
     """
 
     def __init__(
-            self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
+            self, hostname, username, password, port=None,
             verify=None, http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
@@ -206,7 +206,7 @@ class SASLAnonymous(AMQPAuth):
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None,
+    def __init__(self, hostname, port=None, verify=None,
                  http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
