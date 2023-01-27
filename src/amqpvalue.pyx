@@ -291,7 +291,11 @@ cdef class AMQPValue(StructBase):
 
     def __str__(self):
         as_bytes = self._as_string()
-        return str(as_bytes, encoding="UTF-8", errors="ignore" )
+        try:
+            return as_bytes.decode('UTF-8)
+        except UnicodeDecodeError:
+            pass
+        return str(as_bytes)
 
     def __unicode__(self):
         as_bytes = self._as_string()
