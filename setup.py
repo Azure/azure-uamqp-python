@@ -168,7 +168,7 @@ class build_ext(build_ext_orig):
         # Configure
         configure_command = [
             "cmake",
-            cwd + "/src/vendor/azure-uamqp-c/",
+            "\"" + cwd + "/src/vendor/azure-uamqp-c/\"",
             generator_flags,
             "-Duse_openssl:bool={}".format("ON" if use_openssl else "OFF"),
             "-Duse_default_uuid:bool=ON ", # Should we use libuuid in the system or light one?
