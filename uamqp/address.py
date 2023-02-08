@@ -6,7 +6,6 @@
 
 import logging
 
-import six
 from uamqp import c_uamqp, compat, constants, utils
 
 _logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class Address(object):
     """
 
     def __init__(self, address, encoding='UTF-8'):
-        address = address.encode(encoding) if isinstance(address, six.text_type) else address
+        address = address.encode(encoding) if isinstance(address, str) else address
         self.parsed_address = self._validate_address(address)
         self._encoding = encoding
         self._address = None
@@ -128,7 +127,7 @@ class Address(object):
 
     @distribution_mode.setter
     def distribution_mode(self, value):
-        mode = value.encode(self._encoding) if isinstance(value, six.text_type) else value
+        mode = value.encode(self._encoding) if isinstance(value, str) else value
         self._address.distribution_mode = mode
 
     def _validate_address(self, address):
@@ -200,7 +199,7 @@ class Source(Address):
          Set to None if the filter should not be encoded as a described value.
         :type descriptor: bytes or None
         """
-        value = value.encode(self._encoding) if isinstance(value, six.text_type) else value
+        value = value.encode(self._encoding) if isinstance(value, str) else value
         filter_set = c_uamqp.dict_value()
         filter_key = c_uamqp.symbol_value(name)
         filter_value = utils.data_factory(value, encoding=self._encoding)

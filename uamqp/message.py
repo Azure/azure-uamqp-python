@@ -8,7 +8,6 @@
 
 import logging
 
-import six
 from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
@@ -365,10 +364,10 @@ class Message(object):
         We categorize object of type list/list of lists into ValueType (not into SequenceType) due to
         compatibility with old uamqp version.
         """
-        if isinstance(body, (six.text_type, six.binary_type)):
+        if isinstance(body, (str, bytes)):
             self._body = DataBody(self._message)
             self._body.append(body)
-        elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+        elif isinstance(body, list) and all([isinstance(b, (str, bytes)) for b in body]):
             self._body = DataBody(self._message)
             for value in body:
                 self._body.append(value)
@@ -379,9 +378,9 @@ class Message(object):
     def _set_body_by_body_type(self, body, body_type):
         if body_type == constants.MessageBodyType.Data:
             self._body = DataBody(self._message)
-            if isinstance(body, (six.text_type, six.binary_type)):
+            if isinstance(body, (str, bytes)):
                 self._body.append(body)
-            elif isinstance(body, list) and all([isinstance(b, (six.text_type, six.binary_type)) for b in body]):
+            elif isinstance(body, list) and all([isinstance(b, (str, bytes)) for b in body]):
                 for value in body:
                     self._body.append(value)
             else:
@@ -961,9 +960,9 @@ class MessageProperties(object):
 
     @user_id.setter
     def user_id(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("user_id must be bytes or str.")
         # user_id is type of binary according to the spec.
         # convert byte string into bytearray then wrap the data into c_uamqp.BinaryValue.
@@ -993,9 +992,9 @@ class MessageProperties(object):
 
     @subject.setter
     def subject(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("subject must be bytes or str.")
         self._subject = value
 
@@ -1031,9 +1030,9 @@ class MessageProperties(object):
 
     @content_type.setter
     def content_type(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("content_type must be bytes or str.")
         self._content_type = value
 
@@ -1043,9 +1042,9 @@ class MessageProperties(object):
 
     @content_encoding.setter
     def content_encoding(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("content_encoding must be bytes or str.")
         self._content_encoding = value
 
@@ -1055,7 +1054,7 @@ class MessageProperties(object):
 
     @absolute_expiry_time.setter
     def absolute_expiry_time(self, value):
-        if value is not None and not isinstance(value, six.integer_types):
+        if value is not None and not isinstance(value, int):
             raise TypeError("absolute_expiry_time must be an integer.")
         self._absolute_expiry_time = value
 
@@ -1065,7 +1064,7 @@ class MessageProperties(object):
 
     @creation_time.setter
     def creation_time(self, value):
-        if value is not None and not isinstance(value, six.integer_types):
+        if value is not None and not isinstance(value, int):
             raise TypeError("creation_time must be an integer.")
         self._creation_time = value
 
@@ -1075,9 +1074,9 @@ class MessageProperties(object):
 
     @group_id.setter
     def group_id(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("group_id must be bytes or str.")
         self._group_id = value
 
@@ -1087,7 +1086,7 @@ class MessageProperties(object):
 
     @group_sequence.setter
     def group_sequence(self, value):
-        if value is not None and not isinstance(value, six.integer_types):
+        if value is not None and not isinstance(value, int):
             raise TypeError("group_sequence must be an integer.")
         self._group_sequence = value
 
@@ -1097,9 +1096,9 @@ class MessageProperties(object):
 
     @reply_to_group_id.setter
     def reply_to_group_id(self, value):
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             value = value.encode(self._encoding)
-        elif value is not None and not isinstance(value, six.binary_type):
+        elif value is not None and not isinstance(value, bytes):
             raise TypeError("reply_to_group_id must be bytes or str.")
         self._reply_to_group_id = value
 
@@ -1178,9 +1177,7 @@ class DataBody(MessageBody):
     """
 
     def __str__(self):
-        if six.PY3:
-            return "".join(d.decode(self._encoding) for d in self.data)
-        return "".join(self.data)
+        return "".join(d.decode(self._encoding) for d in self.data)
 
     def __unicode__(self):
         return u"".join(d.decode(self._encoding) for d in self.data)
@@ -1203,9 +1200,9 @@ class DataBody(MessageBody):
         :param data: The data to append.
         :type data: str or bytes
         """
-        if isinstance(data, six.text_type):
+        if isinstance(data, str):
             self._message.add_body_data(data.encode(self._encoding))
-        elif isinstance(data, six.binary_type):
+        elif isinstance(data, bytes):
             self._message.add_body_data(data)
 
     @property
@@ -1229,7 +1226,7 @@ class ValueBody(MessageBody):
         data = self.data
         if not data:
             return ""
-        if six.PY3 and isinstance(data, six.binary_type):
+        if isinstance(data, bytes):
             return data.decode(self._encoding)
         return str(data)
 
@@ -1237,7 +1234,7 @@ class ValueBody(MessageBody):
         data = self.data
         if not data:
             return u""
-        if isinstance(data, six.binary_type):
+        if isinstance(data, bytes):
             return data.decode(self._encoding)
         return unicode(data)  # pylint: disable=undefined-variable
 
@@ -1280,24 +1277,21 @@ class SequenceBody(MessageBody):
     """
 
     def __str__(self):
-        if six.PY3:
-            output_str = ""
-            for sequence_section in self.data:
-                for d in sequence_section:
-                    if isinstance(d, six.binary_type):
-                        output_str += d.decode(self._encoding)
-                    else:
-                        output_str += str(d)
-            return output_str
-
-        return "".join(str(d) for sequence_section in self.data for d in sequence_section)
+        output_str = ""
+        for sequence_section in self.data:
+            for d in sequence_section:
+                if isinstance(d, bytes):
+                    output_str += d.decode(self._encoding)
+                else:
+                    output_str += str(d)
+        return output_str
 
     def __unicode__(self):
         output_unicode = u""
 
         for sequence_section in self.data:
             for d in sequence_section:
-                if isinstance(d, six.binary_type):
+                if isinstance(d, bytes):
                     output_unicode += d.decode(self._encoding)
                 else:
                     output_unicode += unicode(d)  # pylint: disable=undefined-variable

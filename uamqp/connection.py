@@ -9,7 +9,6 @@ import threading
 import time
 import uuid
 
-import six
 import uamqp
 from uamqp import c_uamqp, compat, errors, utils
 
@@ -72,9 +71,9 @@ class Connection(object):
                  encoding='UTF-8'):
         uamqp._Platform.initialize()  # pylint: disable=protected-access
         self.container_id = container_id if container_id else str(uuid.uuid4())
-        if isinstance(self.container_id, six.text_type):
+        if isinstance(self.container_id, str):
             self.container_id = self.container_id.encode(encoding)
-        self.hostname = hostname.encode(encoding) if isinstance(hostname, six.text_type) else hostname
+        self.hostname = hostname.encode(encoding) if isinstance(hostname, str) else hostname
         self.auth = sasl
         self._cbs = None
         self.error_policy = error_policy or errors.ErrorPolicy()

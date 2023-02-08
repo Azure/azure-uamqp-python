@@ -9,7 +9,6 @@
 import logging
 
 import certifi
-import six
 from uamqp import c_uamqp, constants
 from uamqp.constants import TransportType
 
@@ -63,7 +62,7 @@ class AMQPAuth(object):
         return config
 
     def _encode(self, value):
-        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
+        return value.encode(self._encoding) if isinstance(value, str) else value
 
     def set_io(self, hostname, port, http_proxy, transport_type):
         if transport_type and transport_type.value == TransportType.AmqpOverWebsocket.value or http_proxy is not None:
