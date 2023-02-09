@@ -2,6 +2,13 @@
 
 Release History
 ===============
+1.6.4 (2023-02-09)
++++++++++++++++++++
+
+- Updated OpenSSL dependency to 1.1.1t
+- Updated submodules to support OpenSSL 3.0 compilation
+- Removed dependency on six 
+- Fixed a bug that caused the wrong port to selected for websockets when a port was not passed in
 
 1.6.3 (2022-10-27)
 +++++++++++++++++++
