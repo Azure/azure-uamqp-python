@@ -354,7 +354,7 @@ jobs:
     dependsOn: 'Windows'
     pool:
       name: azsdk-pool-mms-win-2022-general
-      vmImage: MMS2022Compliant
+      vmImage: windows-2022
     strategy:
       matrix:
         EventHub x64 Python 3.7:
