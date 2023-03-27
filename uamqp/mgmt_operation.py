@@ -7,7 +7,6 @@
 import logging
 import uuid
 
-import six
 # from uamqp.session import Session
 from uamqp import Message, c_uamqp, compat, constants, errors
 
@@ -71,7 +70,7 @@ class MgmtOperation(object):
             self.mgmt_error = None
 
     def _encode(self, value):
-        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
+        return value.encode(self._encoding) if isinstance(value, str) else value
 
     def _management_open_complete(self, result):
         """Callback run when the send/receive links are open and ready

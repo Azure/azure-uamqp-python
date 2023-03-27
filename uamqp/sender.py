@@ -7,7 +7,6 @@
 import logging
 import uuid
 
-import six
 from uamqp import c_uamqp, constants, errors, utils
 
 _logger = logging.getLogger(__name__)
@@ -86,10 +85,10 @@ class MessageSender(object):
                  desired_capabilities=None):
         # pylint: disable=protected-access
         if name:
-            self.name = name.encode(encoding) if isinstance(name, six.text_type) else name
+            self.name = name.encode(encoding) if isinstance(name, str) else name
         else:
             self.name = str(uuid.uuid4()).encode(encoding)
-        source = source.encode(encoding) if isinstance(source, six.text_type) else source
+        source = source.encode(encoding) if isinstance(source, str) else source
         role = constants.Role.Sender
 
         self.source = c_uamqp.Messaging.create_source(source)

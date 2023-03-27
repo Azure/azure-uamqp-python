@@ -11,7 +11,6 @@ import uuid
 import logging
 from datetime import timedelta, datetime
 
-import six
 from uamqp import c_uamqp
 
 logger = logging.getLogger(__name__)
@@ -114,15 +113,15 @@ def data_factory(value, encoding='UTF-8'):
         result = value
     elif isinstance(value, bool):
         result = c_uamqp.bool_value(value)
-    elif isinstance(value, six.text_type):
+    elif isinstance(value, str):
         result = c_uamqp.string_value(value.encode(encoding))
-    elif isinstance(value, six.binary_type):
+    elif isinstance(value, bytes):
         result = c_uamqp.string_value(value)
     elif isinstance(value, uuid.UUID):
         result = c_uamqp.uuid_value(value)
     elif isinstance(value, bytearray):
         result = c_uamqp.binary_value(value)
-    elif isinstance(value, six.integer_types):
+    elif isinstance(value, int):
         result = _convert_py_number(value)
     elif isinstance(value, float):
         result = c_uamqp.double_value(value)

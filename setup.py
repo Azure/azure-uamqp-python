@@ -285,7 +285,6 @@ setup(
     ext_modules=extensions,
     install_requires=[
         "certifi>=2017.4.17",
-        "six~=1.0"
     ],
     cmdclass={
         'build_ext': build_ext,

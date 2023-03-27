@@ -9,7 +9,6 @@
 import logging
 
 import certifi
-import six
 from uamqp import c_uamqp, constants
 from uamqp.constants import TransportType
 
@@ -63,7 +62,7 @@ class AMQPAuth(object):
         return config
 
     def _encode(self, value):
-        return value.encode(self._encoding) if isinstance(value, six.text_type) else value
+        return value.encode(self._encoding) if isinstance(value, str) else value
 
     def set_io(self, hostname, port, http_proxy, transport_type):
         if transport_type and transport_type.value == TransportType.AmqpOverWebsocket.value or http_proxy is not None:
@@ -170,7 +169,7 @@ class SASLPlain(AMQPAuth):
     """
 
     def __init__(
-            self, hostname, username, password, port=constants.DEFAULT_AMQPS_PORT,
+            self, hostname, username, password, port=None,
             verify=None, http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)
@@ -206,7 +205,7 @@ class SASLAnonymous(AMQPAuth):
     :type encoding: str
     """
 
-    def __init__(self, hostname, port=constants.DEFAULT_AMQPS_PORT, verify=None,
+    def __init__(self, hostname, port=None, verify=None,
                  http_proxy=None, transport_type=TransportType.Amqp, encoding='UTF-8'):
         self._encoding = encoding
         self.hostname = self._encode(hostname)

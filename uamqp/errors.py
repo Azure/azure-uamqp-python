@@ -4,7 +4,6 @@
 # license information.
 #--------------------------------------------------------------------------
 
-import six
 from uamqp import c_uamqp, constants, utils
 
 
@@ -137,10 +136,10 @@ class ConnectionClose(AMQPConnectionError):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) \
             else condition.decode(encoding)
         if self.description:
-            if isinstance(self.description, six.text_type):
+            if isinstance(self.description, str):
                 message += u": {}".format(self.description)
             else:
                 message += u": {}".format(self.description.decode(self._encoding))
@@ -159,10 +158,10 @@ class LinkDetach(AMQPConnectionError):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) \
             else condition.decode(encoding)
         if self.description:
-            if isinstance(self.description, six.text_type):
+            if isinstance(self.description, str):
                 message += u": {}".format(self.description)
             else:
                 message += u": {}".format(self.description.decode(self._encoding))
@@ -205,7 +204,7 @@ class TokenAuthFailure(AuthenticationException):
         self.description = description
         message = "CBS Token authentication failed.\nStatus code: {}".format(self.status_code)
         if self.description:
-            if isinstance(self.description, six.text_type):
+            if isinstance(self.description, str):
                 message += u"\nDescription: {}".format(self.description)
             else:
                 message += u"\nDescription: {}".format(self.description.decode(self._encoding))
@@ -227,10 +226,10 @@ class MessageException(MessageResponse):
         self.description = description
         self.info = info
         self.action = None
-        message = six.text_type(condition) if isinstance(condition, constants.ErrorCodes) \
+        message = str(condition) if isinstance(condition, constants.ErrorCodes) \
             else condition.decode(encoding)
         if self.description:
-            if isinstance(self.description, six.text_type):
+            if isinstance(self.description, str):
                 message += u": {}".format(self.description)
             else:
                 message += u": {}".format(self.description.decode(self._encoding))
@@ -273,12 +272,12 @@ class MessageRejected(MessageResponse):
         self._encoding = encoding
         self._info = info
         if condition:
-            self.error_condition = condition.encode(encoding) if isinstance(condition, six.text_type) else condition
+            self.error_condition = condition.encode(encoding) if isinstance(condition, str) else condition
         else:
             self.error_condition = b"amqp:internal-error"
         self.error_description = None
         if description:
-            self.error_description = description.encode(encoding) if isinstance(description, six.text_type) \
+            self.error_description = description.encode(encoding) if isinstance(description, str) \
                 else description
         else:
             self.error_description = b""

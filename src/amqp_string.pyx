@@ -6,7 +6,6 @@
 
 # Python imports
 import logging
-import six
 
 # C imports
 cimport c_strings
@@ -21,7 +20,7 @@ cpdef create_empty_string():
 
 
 cpdef create_string_from_value(value, encoding='UTF-8'):
-    if isinstance(value, six.text_type):
+    if isinstance(value, str):
         value = value.encode(encoding)
     new_string = AMQPString()
     new_string.construct(<const char*>value)
@@ -45,19 +44,14 @@ cdef class AMQPString(StructBase):
 
     def __str__(self):
         as_bytes = c_strings.STRING_c_str(self._c_value)
-        if six.PY3:
-            try:
-                return as_bytes.decode('UTF-8')
-            except UnicodeDecodeError:
-                pass
-        return str(as_bytes)
+        return str(as_bytes, encoding="UTF-8", errors="ignore" )
 
     def __unicode__(self):
         as_bytes = c_strings.STRING_c_str(self._c_value)
         try:
-            return six.text_type(as_bytes.decode('UTF-8'))
+            return str(as_bytes.decode('UTF-8'))
         except UnicodeDecodeError:
-            return six.text_type(as_bytes)
+            return str(as_bytes)
 
     def __eq__(self, AMQPString other):
         if c_strings.STRING_compare(self._c_value, other._c_value) == 0:
