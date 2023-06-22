@@ -7,6 +7,7 @@ parameters:
 
 steps:
   - pwsh: |
+        python -m pip install requests --force
         ${{ parameters.templateRoot }}/eng/common/scripts/trust-proxy-certificate.ps1
     displayName: 'Language Specific Certificate Trust'
     condition: and(succeeded(), ${{ parameters.condition }})
@@ -25,7 +26,6 @@ steps:
         --add-source https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-net/nuget/v3/index.json `
         --version $version
   - pwsh: |
-      pip -m install requests --force
     displayName: "Install test-proxy"
     condition: and(succeeded(), ${{ parameters.condition }})
 
