@@ -2,6 +2,11 @@
 
 Release History
 ===============
+1.6.5 (2023-07-12)
++++++++++++++++++++
+
+- Few more updates to submodules to support OpenSSL 3.0 compilation
+
 1.6.4 (2023-02-09)
 +++++++++++++++++++
 
