@@ -78,8 +78,8 @@ jobs:
           PYTHONWARNINGS: ignore:DEPRECATION
 
       - pwsh: |
-          python -m pip install cibuildwheel==2.10.1
-        displayName: Install cibuildwheel 2.10.1
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -200,8 +200,8 @@ jobs:
       
       - bash: |
           set -o errexit
-          $(PythonBin) -m pip install --user cibuildwheel==2.10.1 --force
-        displayName: Install cibuildwheel 2.10.1
+          $(PythonBin) -m pip install --user cibuildwheel==2.16.2 --force
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -303,8 +303,8 @@ jobs:
 
       - bash: |
           set -o errexit
-          python -m pip install cibuildwheel==2.10.1
-        displayName: Install cibuildwheel 2.10.1
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
