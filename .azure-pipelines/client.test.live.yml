@@ -7,6 +7,7 @@ variables:
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
   PythonVersion311: '3.11.0'
+  PythonVersion312: '3.12.0'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -41,6 +42,10 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-win_amd64'
+        x64 Python 3.12:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-win_amd64'
         # x86 Python 3.7:
         #   PythonArchitecture: 'x86'
         #   PythonVersion: '$(PythonVersion37)'
@@ -155,6 +160,10 @@ jobs:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-macosx_x86_64'
+        Python 3.12:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-macosx_x86_64'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
@@ -164,6 +173,7 @@ jobs:
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
       PythonVersion311: '3.11.0'
+      PythonVersion312: '3.12.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -281,6 +291,9 @@ jobs:
         Python 3.11:
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-manylinux_x86_64'
+        Python 3.12:
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-manylinux_x86_64'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -361,13 +374,13 @@ jobs:
         EventHub x64 Python 3.7:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'EventHub'
-        EventHub x64 Python 3.11:
+        EventHub x64 Python 3.12:
           PythonVersion: '$(PythonVersion311)'
           SDK: 'EventHub'
         ServiceBus x64 Python 3.7:
           PythonVersion: '$(PythonVersion37)'
           SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.11:
+        ServiceBus x64 Python 3.12:
           PythonVersion: '$(PythonVersion311)'
           SDK: 'ServiceBus'
     variables:
@@ -389,15 +402,15 @@ jobs:
       vmImage: 'macOS-11'
     strategy:
       matrix:
-        EventHub Python 3.11:
+        EventHub Python 3.12:
           SDK: 'EventHub'
-        ServiceBus Python 3.11:
+        ServiceBus Python 3.12:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '3.11.0'
+      PythonVersion: '3.12.0'
       MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.11'
+      PythonVersion382: '3.12'
       OSArch: 'MacOS'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
     steps:
@@ -417,13 +430,13 @@ jobs:
         EventHub Python 3.9:
           PythonVersion: '$(PythonVersion39)'
           SDK: 'EventHub'
-        EventHub Python 3.11:
+        EventHub Python 3.12:
           PythonVersion: '$(PythonVersion311)'
           SDK: 'EventHub'
         ServiceBus Python 3.9:
           PythonVersion: '$(PythonVersion39)'
           SDK: 'ServiceBus'
-        ServiceBus Python 3.11:
+        ServiceBus Python 3.12:
           PythonVersion: '$(PythonVersion311)'
           SDK: 'ServiceBus'
     variables:
