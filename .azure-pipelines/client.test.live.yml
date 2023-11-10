@@ -14,7 +14,11 @@ jobs:
 
     pool:
       name: azsdk-pool-mms-win-2022-general
-      vmImage: windows-2022
+      vmImage: MMS2022
+    variables:
+      VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
+      VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
+      VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
 
     timeoutInMinutes: 120
 
@@ -72,6 +76,31 @@ jobs:
         displayName: 'Install dependencies'
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
+      
+      - pwsh: |
+          Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
+          # In order of component appearance in the install command below, these are the names of the components
+          # as they in the VS Installer UI. (What you would do locally.)
+          #   C# and Visual Basic Roslyn Compilers (components pane)
+          #   C++ 2022 Redistributable Update (components pane)
+          #   C++ CMake tools for Windows (components pane)
+          #   MSBuild (components pane)
+          #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
+          #   Native Desktop Workload (workloads pane)
+          $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
+            --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
+            --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
+            --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+            --add Microsoft.Component.MSBuild `
+            --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            --add Microsoft.VisualStudio.Workload.NativeDesktop `
+            --quiet --wait --norestart
+        displayName: Install build script requirements
+      
+      - script: |
+          call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
+          sdk_build_conda -c %arguments%
+        displayName: Assemble Visual Studio Packages
 
       - pwsh: |
           python -m pip install cibuildwheel==2.16.2
