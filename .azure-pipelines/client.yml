@@ -2,7 +2,6 @@ trigger:
    - main
  
 variables:
-  PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
@@ -52,10 +51,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 3.7:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-*'
         Python 3.8:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion38)'
@@ -80,7 +75,6 @@ jobs:
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
@@ -168,10 +162,6 @@ jobs:
 
     strategy:
       matrix:
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-win_amd64'
         x64 Python 3.8:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
@@ -192,10 +182,6 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-win_amd64'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-win32'
         x86 Python 3.8:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion38)'
@@ -274,9 +260,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-*'
         Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           BWFilter: 'cp38-*'
@@ -358,10 +341,6 @@ jobs:
 
     strategy:
       matrix:
-        Python37-manylinux2014:
-          PythonVersion: '$(PythonVersion37)'
-          Platform: 'manylinux2014_x86_64'
-          BWFilter: 'cp37-*'
         Python38-manylinux2014:
           PythonVersion: '$(PythonVersion38)'
           Platform: 'manylinux2014_x86_64'
