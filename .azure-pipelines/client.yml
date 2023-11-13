@@ -241,13 +241,9 @@ jobs:
             --add Microsoft.VisualStudio.Workload.NativeDesktop `
             --quiet --wait --norestart
         displayName: Install build script requirements
-      
+
       - script: |
           call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-          sdk_build_conda -c %arguments%
-        displayName: Assemble Visual Studio Packages
-
-      - pwsh: |
           python -m pip install cibuildwheel==2.16.2
         displayName: Install cibuildwheel 2.16.2
 
