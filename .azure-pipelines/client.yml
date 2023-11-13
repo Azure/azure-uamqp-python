@@ -19,7 +19,7 @@ jobs:
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
-          versionSpec: '$(PythonVersion37)'
+          versionSpec: '$(PythonVersion38)'
 
       - script: |
           echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
