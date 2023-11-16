@@ -2,11 +2,11 @@ trigger:
    - main
  
 variables:
-  PythonVersion37: '3.7'
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10.0'
   PythonVersion311: '3.11.0'
+  PythonVersion312: '3.12.0'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
-          versionSpec: '$(PythonVersion37)'
+          versionSpec: '$(PythonVersion38)'
 
       - script: |
           echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
@@ -51,10 +51,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 3.7:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-*'
         Python 3.8:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion38)'
@@ -71,15 +67,19 @@ jobs:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-*'
+        Python 3.12:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-*'
 
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion37: '3.7.6'
       PythonVersion38: '3.8.2'
       PythonVersion39: '3.9.0'
       PythonVersion310: '3.10.0'
       PythonVersion311: '3.11.0'
+      PythonVersion312: '3.12.0'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -118,8 +118,8 @@ jobs:
 
       - bash: |
           set -o errexit
-          $(PythonBin) -m pip install --user cibuildwheel==2.10.1 --force
-        displayName: Install cibuildwheel 2.10.1
+          $(PythonBin) -m pip install --user cibuildwheel==2.16.2 --force
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -158,14 +158,14 @@ jobs:
 
     pool:
       name: azsdk-pool-mms-win-2022-general
-      vmImage: windows-2022
+      vmImage: MMS2022
+    variables:
+      VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
+      VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
+      VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
 
     strategy:
       matrix:
-        x64 Python 3.7:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-win_amd64'
         x64 Python 3.8:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
@@ -182,10 +182,10 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-win_amd64'
-        x86 Python 3.7:
-          PythonArchitecture: 'x86'
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-win32'
+        x64 Python 3.12:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-win_amd64'
         x86 Python 3.8:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion38)'
@@ -202,6 +202,10 @@ jobs:
           PythonArchitecture: 'x86'
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-win32'
+        x86 Python 3.12:
+          PythonArchitecture: 'x86'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-win32'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -219,8 +223,29 @@ jobs:
           PYTHONWARNINGS: ignore:DEPRECATION
 
       - pwsh: |
-          python -m pip install cibuildwheel==2.10.1
-        displayName: Install cibuildwheel 2.10.1
+          Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
+          # In order of component appearance in the install command below, these are the names of the components
+          # as they in the VS Installer UI. (What you would do locally.)
+          #   C# and Visual Basic Roslyn Compilers (components pane)
+          #   C++ 2022 Redistributable Update (components pane)
+          #   C++ CMake tools for Windows (components pane)
+          #   MSBuild (components pane)
+          #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
+          #   Native Desktop Workload (workloads pane)
+          $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
+            --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
+            --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
+            --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+            --add Microsoft.Component.MSBuild `
+            --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            --add Microsoft.VisualStudio.Workload.NativeDesktop `
+            --quiet --wait --norestart
+        displayName: Install build script requirements
+
+      - script: |
+          call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -260,9 +285,6 @@ jobs:
 
     strategy:
       matrix:
-        Python 3.7:
-          PythonVersion: '$(PythonVersion37)'
-          BWFilter: 'cp37-*'
         Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           BWFilter: 'cp38-*'
@@ -275,6 +297,9 @@ jobs:
         Python 3.11:
           PythonVersion: '$(PythonVersion311)'
           BWFilter: 'cp311-*'
+        Python 3.12:
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-*'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -297,8 +322,8 @@ jobs:
 
       - bash: |
           set -o errexit
-          python -m pip install cibuildwheel==2.10.1
-        displayName: Install cibuildwheel 2.10.1
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -341,10 +366,6 @@ jobs:
 
     strategy:
       matrix:
-        Python37-manylinux2014:
-          PythonVersion: '$(PythonVersion37)'
-          Platform: 'manylinux2014_x86_64'
-          BWFilter: 'cp37-*'
         Python38-manylinux2014:
           PythonVersion: '$(PythonVersion38)'
           Platform: 'manylinux2014_x86_64'
@@ -361,6 +382,10 @@ jobs:
           PythonVersion: '$(PythonVersion311)'
           Platform: 'manylinux2014_x86_64'
           BWFilter: 'cp311-*'
+        Python312-manylinux2014:
+          PythonVersion: '$(PythonVersion312)'
+          Platform: 'manylinux2014_x86_64'
+          BWFilter: 'cp312-*'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -383,8 +408,8 @@ jobs:
 
       - bash: |
           set -o errexit
-          python -m pip install cibuildwheel==2.10.1
-        displayName: Install cibuildwheel 2.10.1
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
       - pwsh: |
           cibuildwheel --output-dir dist .

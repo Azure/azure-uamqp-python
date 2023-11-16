@@ -21,7 +21,7 @@ import pdb
 MANIFEST_LOCATION = "https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json"
 
 MAX_INSTALLER_RETRY = 3
-CURRENT_UBUNTU_VERSION = "18.04"  # full title is ubuntu-18.04
+CURRENT_UBUNTU_VERSION = "20.04"  # full title is ubuntu-20.04
 
 UNIX_INSTALL_ARRAY = ["sh", "setup.sh"]
 WIN_INSTALL_ARRAY = ["pwsh", "setup.ps1"]
