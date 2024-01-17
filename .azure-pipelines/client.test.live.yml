@@ -101,7 +101,7 @@ jobs:
           python -m pip install cibuildwheel==2.16.2
         displayName: Install cibuildwheel 2.16.2
 
-      - pwsh: |
+      - script: |
           call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
           cibuildwheel --output-dir dist .
         displayName: 'Build uAMQP Wheel'
