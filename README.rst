@@ -15,7 +15,7 @@ Disclaimer
 ============
 
 This repo is no longer in active maintenance and we plan on deprecating it sometime in the first quarter of 2025. The EventHubs & Service Bus client libraries are now using the 
-python based AMQP library which is under active development. If there is interest in using the new python library as standalone, please share your interest in this `issue <https://github.com/Azure/azure-uamqp-python/issues/374>`.
+python based AMQP library which is under active development. If there is interest in using the new python library as standalone, please share your interest in this `issue <https://github.com/Azure/azure-uamqp-python/issues/374>`__.
 
 uAMQP for Python requires Python 3.6+ starting from v1.5, and Python 2.7 is no longer supported. If Python 2.7 is required, please install uAMQP v1.4.3:
 
