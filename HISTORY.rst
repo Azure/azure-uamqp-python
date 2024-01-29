@@ -2,6 +2,11 @@
 
 Release History
 ===============
+1.6.8 (2024-01-29)
++++++++++++++++++++
+
+- Incorporate fixes from `PR <https://github.com/Azure/azure-uamqp-c/pull/447>`__
+
 1.6.7 (2024-01-17)
 +++++++++++++++++++
 
