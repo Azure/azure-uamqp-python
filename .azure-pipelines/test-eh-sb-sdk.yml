@@ -25,6 +25,7 @@ steps:
       echo "SDKPath: $(SdkPath)"
       echo "Tests: $(TestResultsPath)"
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
+      git checkout bde74f3d6cea2bd5601896f0310437674748079d
     displayName: 'Clone azure-sdk-for-python'
   - pwsh: | 
       eng/common/scripts/Import-AzModules.ps1
