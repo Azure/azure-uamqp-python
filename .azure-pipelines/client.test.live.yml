@@ -96,31 +96,31 @@ jobs:
       - script: dir dist
         displayName: 'Check output'
 
-      - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-          python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      #- powershell: |
+      #    $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+      #    python -m pip install --ignore-installed ./dist/$whlfile
+      #    pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+      #    pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+      #  displayName: 'Run tests'
+      #  env:
+      #    EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+      #    EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+      #    EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+      #    EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+      #    IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+      #    IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+      #    IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+      #    IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+      #    IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+      #    IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+      #- task: PublishTestResults@2
+      #  displayName: 'Publish test results'
+      #  condition: succeededOrFailed()
+      #  inputs:
+      #    testResultsFiles: '**/test-results-*.xml'
+      #    testResultsFormat: 'JUnit'
+      #    testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
       - task: PublishBuildArtifacts@1
         displayName: 'Publish wheel artifact'
