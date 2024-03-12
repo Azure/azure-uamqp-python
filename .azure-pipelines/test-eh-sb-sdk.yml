@@ -24,7 +24,7 @@ steps:
   - script: |
       echo "SDKPath: $(SdkPath)"
       echo "Tests: $(TestResultsPath)"
-      git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch
+      git clone https://github.com/Azure/azure-sdk-for-python.git
       git checkout bde74f3d6cea2bd5601896f0310437674748079d
     displayName: 'Clone azure-sdk-for-python'
   - pwsh: | 
