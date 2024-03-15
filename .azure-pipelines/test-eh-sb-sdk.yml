@@ -61,19 +61,42 @@ steps:
       runProxy: true
       rootFolder: azure-sdk-for-python
       templateRoot: azure-sdk-for-python
-  - script: |
+
+  - pwsh: |
+      echo "Operating in $(SdkPath)"
       python --version
       echo "Installing $DownloadArtifactWhl"
       echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
       python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
       python -m pip install pytest
-      cd $(SdkPath)
+      python -m pip install futures
+      python -m pip install -r dev_requirements.txt --force
+      python -m pip install .
+      python -m pip list
+      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+    displayName: 'Run tests'
+    workingDirectory: $(SdkPath)
+    env:
+      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
+      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
+      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
+      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
+      AZURE_TEST_RUN_LIVE: 'true'
+
+  - script: |
+      echo "Operating in $(SdkPath)"
+      python --version
+      echo "Installing $DownloadArtifactWhl"
+      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
+      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
+      python -m pip install pytest
       python -m pip install futures
       python -m pip install .
       python -m pip install -r dev_requirements.txt
       python -m pip list
       python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
     displayName: 'Run tests'
+    workingDirectory: $(SdkPath)
     env:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)

@@ -10,352 +10,352 @@ variables:
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
-  - job: 'Windows'
+  # - job: 'Windows'
 
-    pool:
-      name: azsdk-pool-mms-win-2022-general
-      vmImage: MMS2022
-    variables:
-      VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
-      VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
-      VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
+  #   pool:
+  #     name: azsdk-pool-mms-win-2022-general
+  #     vmImage: MMS2022
+  #   variables:
+  #     VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
+  #     VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
+  #     VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
 
-    timeoutInMinutes: 120
+  #   timeoutInMinutes: 120
 
-    strategy:
-      maxParallel: 1
-      matrix:
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-win_amd64'
-        x64 Python 3.9:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-win_amd64'
-        x64 Python 3.10:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-win_amd64'
-        x64 Python 3.11:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-win_amd64'
-        x64 Python 3.12:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion312)'
-          BWFilter: 'cp312-win_amd64'
+  #   strategy:
+  #     maxParallel: 1
+  #     matrix:
+  #       x64 Python 3.8:
+  #         PythonArchitecture: 'x64'
+  #         PythonVersion: '$(PythonVersion38)'
+  #         BWFilter: 'cp38-win_amd64'
+  #       x64 Python 3.9:
+  #         PythonArchitecture: 'x64'
+  #         PythonVersion: '$(PythonVersion39)'
+  #         BWFilter: 'cp39-win_amd64'
+  #       x64 Python 3.10:
+  #         PythonArchitecture: 'x64'
+  #         PythonVersion: '$(PythonVersion310)'
+  #         BWFilter: 'cp310-win_amd64'
+  #       x64 Python 3.11:
+  #         PythonArchitecture: 'x64'
+  #         PythonVersion: '$(PythonVersion311)'
+  #         BWFilter: 'cp311-win_amd64'
+  #       x64 Python 3.12:
+  #         PythonArchitecture: 'x64'
+  #         PythonVersion: '$(PythonVersion312)'
+  #         BWFilter: 'cp312-win_amd64'
             
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
+  #   steps:
+  #     - template: /.azure-pipelines/use-python-version.yml
+  #       parameters:
+  #         architecture: '$(PythonArchitecture)'
+  #         versionSpec: '$(PythonVersion)'
 
-      - powershell: |
-          python --version
-          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-          python -m pip --version
-          python -m pip install -r dev_requirements.txt
-        displayName: 'Install dependencies'
-        env:
-          PYTHONWARNINGS: ignore:DEPRECATION
+  #     - powershell: |
+  #         python --version
+  #         Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+  #         python -m pip --version
+  #         python -m pip install -r dev_requirements.txt
+  #       displayName: 'Install dependencies'
+  #       env:
+  #         PYTHONWARNINGS: ignore:DEPRECATION
       
-      - pwsh: |
-          Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
-          # In order of component appearance in the install command below, these are the names of the components
-          # as they in the VS Installer UI. (What you would do locally.)
-          #   C# and Visual Basic Roslyn Compilers (components pane)
-          #   C++ 2022 Redistributable Update (components pane)
-          #   C++ CMake tools for Windows (components pane)
-          #   MSBuild (components pane)
-          #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
-          #   Native Desktop Workload (workloads pane)
-          $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
-            --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
-            --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
-            --add Microsoft.VisualStudio.Component.VC.CMake.Project `
-            --add Microsoft.Component.MSBuild `
-            --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-            --add Microsoft.VisualStudio.Workload.NativeDesktop `
-            --quiet --wait --norestart
-        displayName: Install build script requirements
+  #     - pwsh: |
+  #         Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
+  #         # In order of component appearance in the install command below, these are the names of the components
+  #         # as they in the VS Installer UI. (What you would do locally.)
+  #         #   C# and Visual Basic Roslyn Compilers (components pane)
+  #         #   C++ 2022 Redistributable Update (components pane)
+  #         #   C++ CMake tools for Windows (components pane)
+  #         #   MSBuild (components pane)
+  #         #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
+  #         #   Native Desktop Workload (workloads pane)
+  #         $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
+  #           --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
+  #           --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
+  #           --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+  #           --add Microsoft.Component.MSBuild `
+  #           --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+  #           --add Microsoft.VisualStudio.Workload.NativeDesktop `
+  #           --quiet --wait --norestart
+  #       displayName: Install build script requirements
    
-      - script: |
-          call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-          python -m pip install cibuildwheel==2.16.2
-        displayName: Install cibuildwheel 2.16.2
+  #     - script: |
+  #         call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
+  #         python -m pip install cibuildwheel==2.16.2
+  #       displayName: Install cibuildwheel 2.16.2
 
-      - pwsh: |
-          cibuildwheel --output-dir dist .
-        displayName: 'Build uAMQP Wheel'
-        env:
-          CIBW_PRERELEASE_PYTHONS: True
-          CIBW_BUILD: $(BWFilter)
+  #     - pwsh: |
+  #         cibuildwheel --output-dir dist .
+  #       displayName: 'Build uAMQP Wheel'
+  #       env:
+  #         CIBW_PRERELEASE_PYTHONS: True
+  #         CIBW_BUILD: $(BWFilter)
 
-      - script: dir dist
-        displayName: 'Check output'
+  #     - script: dir dist
+  #       displayName: 'Check output'
 
-      - powershell: |
-          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-          python -m pip install --ignore-installed ./dist/$whlfile
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+  #     - powershell: |
+  #         $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+  #         python -m pip install --ignore-installed ./dist/$whlfile
+  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+  #       displayName: 'Run tests'
+  #       env:
+  #         EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+  #         EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+  #         EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+  #         EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+  #         IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+  #         IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+  #         IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+  #         IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+  #         IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+  #         IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+  #     - task: PublishTestResults@2
+  #       displayName: 'Publish test results'
+  #       condition: succeededOrFailed()
+  #       inputs:
+  #         testResultsFiles: '**/test-results-*.xml'
+  #         testResultsFormat: 'JUnit'
+  #         testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+  #     - task: PublishBuildArtifacts@1
+  #       displayName: 'Publish wheel artifact'
+  #       inputs:
+  #         artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+  #         pathToPublish: 'dist'
 
-  - job: 'MacOS'
+  # - job: 'MacOS'
 
-    timeoutInMinutes: 120
+  #   timeoutInMinutes: 120
 
-    dependsOn: 'Windows'
+  #   dependsOn: 'Windows'
 
-    pool:
-      vmImage: 'macOS-11'
+  #   pool:
+  #     vmImage: 'macOS-11'
 
-    strategy:
-      maxParallel: 1
-      matrix:
-        Python 3.8:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-macosx_x86_64'
-        Python 3.9:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-macosx_x86_64'
-        Python 3.10:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-macosx_x86_64'
-        Python 3.11:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-macosx_x86_64'
-        Python 3.12:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion312)'
-          BWFilter: 'cp312-macosx_x86_64'
+  #   strategy:
+  #     maxParallel: 1
+  #     matrix:
+  #       Python 3.8:
+  #         PythonBin: 'python3'
+  #         PythonVersion: '$(PythonVersion38)'
+  #         BWFilter: 'cp38-macosx_x86_64'
+  #       Python 3.9:
+  #         PythonBin: 'python3'
+  #         PythonVersion: '$(PythonVersion39)'
+  #         BWFilter: 'cp39-macosx_x86_64'
+  #       Python 3.10:
+  #         PythonBin: 'python3'
+  #         PythonVersion: '$(PythonVersion310)'
+  #         BWFilter: 'cp310-macosx_x86_64'
+  #       Python 3.11:
+  #         PythonBin: 'python3'
+  #         PythonVersion: '$(PythonVersion311)'
+  #         BWFilter: 'cp311-macosx_x86_64'
+  #       Python 3.12:
+  #         PythonBin: 'python3'
+  #         PythonVersion: '$(PythonVersion312)'
+  #         BWFilter: 'cp312-macosx_x86_64'
 
-    variables:
-      MacOSXDeploymentTarget: '10.9'
-      OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-      PythonVersion38: '3.8.2'
-      PythonVersion39: '3.9.0'
-      PythonVersion310: '3.10.0'
-      PythonVersion311: '3.11.0'
-      PythonVersion312: '3.12.0'
+  #   variables:
+  #     MacOSXDeploymentTarget: '10.9'
+  #     OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
+  #     PythonVersion38: '3.8.2'
+  #     PythonVersion39: '3.9.0'
+  #     PythonVersion310: '3.10.0'
+  #     PythonVersion311: '3.11.0'
+  #     PythonVersion312: '3.12.0'
 
-    steps:
-      - task: DownloadPipelineArtifact@1
-        displayName: 'Download OpenSSL artifact'
-        inputs:
-          artifactName: openssl-macosx$(MacOSXDeploymentTarget)
-          buildType: specific
-          buildVersionToDownload: latest
-          downloadPath: $(Agent.BuildDirectory)
-          pipeline: 119 # azure-uamqp-python - openssl
-          project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
+  #   steps:
+  #     - task: DownloadPipelineArtifact@1
+  #       displayName: 'Download OpenSSL artifact'
+  #       inputs:
+  #         artifactName: openssl-macosx$(MacOSXDeploymentTarget)
+  #         buildType: specific
+  #         buildVersionToDownload: latest
+  #         downloadPath: $(Agent.BuildDirectory)
+  #         pipeline: 119 # azure-uamqp-python - openssl
+  #         project: '29ec6040-b234-4e31-b139-33dc4287b756' # public
 
-      - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
-        displayName: 'Select Xcode 13.1'
+  #     - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
+  #       displayName: 'Select Xcode 13.1'
 
-      - script: source ./install_python_osx.sh
-        displayName: 'Install Official Python'
+  #     - script: source ./install_python_osx.sh
+  #       displayName: 'Install Official Python'
 
-      - script: |
-          echo "Prepending PATH environment variable with directory: /usr/local/bin"
-          echo "##vso[task.prependpath]/usr/local/bin"
-          echo "$(PythonVersion)"
-          export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
-          echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-          echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
-        displayName: 'Prepare PATH'
+  #     - script: |
+  #         echo "Prepending PATH environment variable with directory: /usr/local/bin"
+  #         echo "##vso[task.prependpath]/usr/local/bin"
+  #         echo "$(PythonVersion)"
+  #         export PYTHON_SHORT_VER=`echo $(PythonVersion) | cut -d . -f 1,2`
+  #         echo "Prepending PATH environment variable with directory: $HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+  #         echo "##vso[task.prependpath]$HOME/Library/Python/$PYTHON_SHORT_VER/bin"
+  #       displayName: 'Prepare PATH'
 
-      - script: |
-          $(PythonBin) --version
-          curl -sS $(GetPip) | $(PythonBin) - --user
-          python -m pip --version
-          $(PythonBin) -m pip install --user -r dev_requirements.txt
-        displayName: 'Install dependencies'
+  #     - script: |
+  #         $(PythonBin) --version
+  #         curl -sS $(GetPip) | $(PythonBin) - --user
+  #         python -m pip --version
+  #         $(PythonBin) -m pip install --user -r dev_requirements.txt
+  #       displayName: 'Install dependencies'
       
-      - bash: |
-          set -o errexit
-          $(PythonBin) -m pip install --user cibuildwheel==2.16.2 --force
-        displayName: Install cibuildwheel 2.16.2
+  #     - bash: |
+  #         set -o errexit
+  #         $(PythonBin) -m pip install --user cibuildwheel==2.16.2 --force
+  #       displayName: Install cibuildwheel 2.16.2
 
-      - pwsh: |
-          cibuildwheel --output-dir dist .
-        displayName: 'Build uAMQP Wheel'
-        env:
-          CIBW_PRERELEASE_PYTHONS: True
-          CIBW_ARCHS_MACOS: x86_64
-          CIBW_BUILD: $(BWFilter)
-          UAMQP_USE_OPENSSL: true
-          UAMQP_REBUILD_PYX: true
-          UAMQP_SUPPRESS_LINK_FLAGS: true
-          OPENSSL_ROOT_DIR: "/tmp/openssl"
-          OPENSSL_INCLUDE_DIR: "/tmp/openssl/include"
-          LDFLAGS: "-mmacosx-version-min=10.9 -L/tmp/openssl/lib"
-          CFLAGS: "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
+  #     - pwsh: |
+  #         cibuildwheel --output-dir dist .
+  #       displayName: 'Build uAMQP Wheel'
+  #       env:
+  #         CIBW_PRERELEASE_PYTHONS: True
+  #         CIBW_ARCHS_MACOS: x86_64
+  #         CIBW_BUILD: $(BWFilter)
+  #         UAMQP_USE_OPENSSL: true
+  #         UAMQP_REBUILD_PYX: true
+  #         UAMQP_SUPPRESS_LINK_FLAGS: true
+  #         OPENSSL_ROOT_DIR: "/tmp/openssl"
+  #         OPENSSL_INCLUDE_DIR: "/tmp/openssl/include"
+  #         LDFLAGS: "-mmacosx-version-min=10.9 -L/tmp/openssl/lib"
+  #         CFLAGS: "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
 
-      - script: ls ./dist
-        displayName: 'Check output'
+  #     - script: ls ./dist
+  #       displayName: 'Check output'
 
-      - script: |
-          $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
-          $(PythonBin) -m pip install --user pytest==6.2.4 --force
-          $(PythonBin) -m pip install --user pytest-asyncio==0.12.0 --force
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+  #     - script: |
+  #         $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+  #         $(PythonBin) -m pip install --user pytest==6.2.4 --force
+  #         $(PythonBin) -m pip install --user pytest-asyncio==0.12.0 --force
+  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+  #       displayName: 'Run tests'
+  #       env:
+  #         EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+  #         EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+  #         EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+  #         EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+  #         IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+  #         IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+  #         IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+  #         IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+  #         IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+  #         IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'MacOS Python $(PythonVersion)'
+  #     - task: PublishTestResults@2
+  #       displayName: 'Publish test results'
+  #       condition: succeededOrFailed()
+  #       inputs:
+  #         testResultsFiles: '**/test-results-*.xml'
+  #         testResultsFormat: 'JUnit'
+  #         testRunTitle: 'MacOS Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+  #     - task: PublishBuildArtifacts@1
+  #       displayName: 'Publish wheel artifact'
+  #       inputs:
+  #         artifactName: uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl
+  #         pathToPublish: 'dist'
 
-  - job: 'Linux'
+  # - job: 'Linux'
 
-    timeoutInMinutes: 120
+  #   timeoutInMinutes: 120
 
-    dependsOn: 'MacOS'
+  #   dependsOn: 'MacOS'
 
-    pool:
-      vmImage: 'ubuntu-20.04'
+  #   pool:
+  #     vmImage: 'ubuntu-20.04'
 
-    strategy:
-      maxParallel: 1
-      matrix:
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-manylinux_x86_64'
-        Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-manylinux_x86_64'
-        Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-manylinux_x86_64'
-        Python 3.11:
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-manylinux_x86_64'
-        Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          BWFilter: 'cp312-manylinux_x86_64'
+  #   strategy:
+  #     maxParallel: 1
+  #     matrix:
+  #       Python 3.8:
+  #         PythonVersion: '$(PythonVersion38)'
+  #         BWFilter: 'cp38-manylinux_x86_64'
+  #       Python 3.9:
+  #         PythonVersion: '$(PythonVersion39)'
+  #         BWFilter: 'cp39-manylinux_x86_64'
+  #       Python 3.10:
+  #         PythonVersion: '$(PythonVersion310)'
+  #         BWFilter: 'cp310-manylinux_x86_64'
+  #       Python 3.11:
+  #         PythonVersion: '$(PythonVersion311)'
+  #         BWFilter: 'cp311-manylinux_x86_64'
+  #       Python 3.12:
+  #         PythonVersion: '$(PythonVersion312)'
+  #         BWFilter: 'cp312-manylinux_x86_64'
 
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
+  #   steps:
+  #     - template: /.azure-pipelines/use-python-version.yml
+  #       parameters:
+  #         versionSpec: '$(PythonVersion)'
 
-      - script: |
-          echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
-          echo "##vso[task.prependpath]$HOME/.local/bin"
-        displayName: 'Prepare PATH'
+  #     - script: |
+  #         echo "Prepending PATH environment variable with directory: $HOME/.local/bin"
+  #         echo "##vso[task.prependpath]$HOME/.local/bin"
+  #       displayName: 'Prepare PATH'
 
-      - script: |
-          python --version
-          curl -sS $(GetPip) | python - --user
-          python -m pip --version
-          python -m pip install setuptools --force
-          curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
-          python -m pip install --user -r dev_requirements.txt
-        displayName: 'Install dependencies'
+  #     - script: |
+  #         python --version
+  #         curl -sS $(GetPip) | python - --user
+  #         python -m pip --version
+  #         python -m pip install setuptools --force
+  #         curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb && sudo dpkg -i libffi6_3.2.1-8_amd64.deb
+  #         python -m pip install --user -r dev_requirements.txt
+  #       displayName: 'Install dependencies'
 
-      - bash: |
-          set -o errexit
-          python -m pip install cibuildwheel==2.16.2
-        displayName: Install cibuildwheel 2.16.2
+  #     - bash: |
+  #         set -o errexit
+  #         python -m pip install cibuildwheel==2.16.2
+  #       displayName: Install cibuildwheel 2.16.2
 
-      - pwsh: |
-          cibuildwheel --output-dir dist .
-        displayName: 'Build uAMQP Wheel'
-        env:
-          CIBW_BUILD: $(BWFilter)
-          CIBW_PRERELEASE_PYTHONS: True
-          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+  #     - pwsh: |
+  #         cibuildwheel --output-dir dist .
+  #       displayName: 'Build uAMQP Wheel'
+  #       env:
+  #         CIBW_BUILD: $(BWFilter)
+  #         CIBW_PRERELEASE_PYTHONS: True
+  #         CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
+  #         CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
 
-      - script: ls ./dist
-        displayName: 'Check output'
+  #     - script: ls ./dist
+  #       displayName: 'Check output'
 
-      - script: |
-          python -m pip install --user --ignore-installed ./dist/*.whl
-          python -m pip install --user pytest==6.2.4 --force
-          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-        displayName: 'Run tests'
-        env:
-          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+  #     - script: |
+  #         python -m pip install --user --ignore-installed ./dist/*.whl
+  #         python -m pip install --user pytest==6.2.4 --force
+  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+  #       displayName: 'Run tests'
+  #       env:
+  #         EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+  #         EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+  #         EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+  #         EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+  #         IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+  #         IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+  #         IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+  #         IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+  #         IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+  #         IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish test results'
-        condition: succeededOrFailed()
-        inputs:
-          testResultsFiles: '**/test-results-*.xml'
-          testResultsFormat: 'JUnit'
-          testRunTitle: 'Linux Python $(PythonVersion)'
+  #     - task: PublishTestResults@2
+  #       displayName: 'Publish test results'
+  #       condition: succeededOrFailed()
+  #       inputs:
+  #         testResultsFiles: '**/test-results-*.xml'
+  #         testResultsFormat: 'JUnit'
+  #         testRunTitle: 'Linux Python $(PythonVersion)'
 
-      - task: PublishBuildArtifacts@1
-        displayName: 'Publish wheel artifact'
-        inputs:
-          artifactName: uamqp-linux-$(PythonVersion)-whl
-          pathToPublish: 'dist'
+  #     - task: PublishBuildArtifacts@1
+  #       displayName: 'Publish wheel artifact'
+  #       inputs:
+  #         artifactName: uamqp-linux-$(PythonVersion)-whl
+  #         pathToPublish: 'dist'
 
-  - job: 'SDK_LiveTest_windows2019_37'
+  - job: 'SDK_LiveTest_windows2022_37'
     timeoutInMinutes: 300
     dependsOn: 'Windows'
     pool:
@@ -386,56 +386,56 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_macOS1015_38'
-    timeoutInMinutes: 300
-    dependsOn: 'MacOS'
-    pool:
-      name: 'Azure Pipelines'
-      vmImage: 'macOS-11'
-    strategy:
-      matrix:
-        EventHub Python 3.12:
-          SDK: 'EventHub'
-        ServiceBus Python 3.12:
-          SDK: 'ServiceBus'
-    variables:
-      PythonBin: 'python3'
-      PythonVersion: '3.12.0'
-      MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.12'
-      OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  # - job: 'SDK_LiveTest_macOS1015_38'
+  #   timeoutInMinutes: 300
+  #   dependsOn: 'MacOS'
+  #   pool:
+  #     name: 'Azure Pipelines'
+  #     vmImage: 'macOS-11'
+  #   strategy:
+  #     matrix:
+  #       EventHub Python 3.12:
+  #         SDK: 'EventHub'
+  #       ServiceBus Python 3.12:
+  #         SDK: 'ServiceBus'
+  #   variables:
+  #     PythonBin: 'python3'
+  #     PythonVersion: '3.12.0'
+  #     MacOSXDeploymentTarget: '10.9'
+  #     PythonVersion382: '3.12'
+  #     OSArch: 'MacOS'
+  #     DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
+  #   steps:
+  #     - template: /.azure-pipelines/use-python-version.yml
+  #       parameters:
+  #         versionSpec: '$(PythonVersion)'
+  #     - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_ubuntu1804_39'
-    timeoutInMinutes: 300
-    dependsOn: 'Linux'
-    pool:
-      name: 'azsdk-pool-mms-ubuntu-2004-general'
-      vmImage: 'ubuntu-20.04'
-    strategy:
-      matrix:
-        EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'EventHub'
-        EventHub Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'ServiceBus'
-        ServiceBus Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'ServiceBus'
-    variables:
-      OSArch: 'Linux'
-      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  # - job: 'SDK_LiveTest_ubuntu1804_39'
+  #   timeoutInMinutes: 300
+  #   dependsOn: 'Linux'
+  #   pool:
+  #     name: 'azsdk-pool-mms-ubuntu-2004-general'
+  #     vmImage: 'ubuntu-20.04'
+  #   strategy:
+  #     matrix:
+  #       EventHub Python 3.9:
+  #         PythonVersion: '$(PythonVersion39)'
+  #         SDK: 'EventHub'
+  #       EventHub Python 3.12:
+  #         PythonVersion: '$(PythonVersion312)'
+  #         SDK: 'EventHub'
+  #       ServiceBus Python 3.9:
+  #         PythonVersion: '$(PythonVersion39)'
+  #         SDK: 'ServiceBus'
+  #       ServiceBus Python 3.12:
+  #         PythonVersion: '$(PythonVersion312)'
+  #         SDK: 'ServiceBus'
+  #   variables:
+  #     OSArch: 'Linux'
+  #     DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+  #   steps:
+  #     - template: /.azure-pipelines/use-python-version.yml
+  #       parameters:
+  #         versionSpec: '$(PythonVersion)'
+  #     - template: /.azure-pipelines/test-eh-sb-sdk.yml
