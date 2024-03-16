@@ -29,22 +29,22 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion38)'
           BWFilter: 'cp38-win_amd64'
-        x64 Python 3.9:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-win_amd64'
-        x64 Python 3.10:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-win_amd64'
-        x64 Python 3.11:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-win_amd64'
-        x64 Python 3.12:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion312)'
-          BWFilter: 'cp312-win_amd64'
+        # x64 Python 3.9:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-win_amd64'
+        # x64 Python 3.10:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-win_amd64'
+        # x64 Python 3.11:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion311)'
+        #   BWFilter: 'cp311-win_amd64'
+        # x64 Python 3.12:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion312)'
+        #   BWFilter: 'cp312-win_amd64'
             
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -366,15 +366,15 @@ jobs:
         EventHub x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'EventHub'
-        EventHub x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
+        # EventHub x64 Python 3.12:
+        #   PythonVersion: '$(PythonVersion312)'
+        #   SDK: 'EventHub'
         ServiceBus x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'ServiceBus'
+        # ServiceBus x64 Python 3.12:
+        #   PythonVersion: '$(PythonVersion312)'
+        #   SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       OSArch: 'Windows'
