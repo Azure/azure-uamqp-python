@@ -12,7 +12,7 @@ cimport c_amqpvalue
 cdef extern from "azure_uamqp_c/message_receiver.h":
 
     cdef enum MESSAGE_RECEIVER_STATE_TAG:
-        MESSAGE_RECEIVER_STATE_IDLE,
+        MESSAGE_RECEIVER_STATE_IDLE = 1,    # because C code uses `MU_DEFINE_ENUM`
         MESSAGE_RECEIVER_STATE_OPENING,
         MESSAGE_RECEIVER_STATE_OPEN,
         MESSAGE_RECEIVER_STATE_CLOSING,
