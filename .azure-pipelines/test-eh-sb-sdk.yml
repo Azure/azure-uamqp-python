@@ -26,6 +26,7 @@ steps:
       echo "Tests: $(TestResultsPath)"
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
     displayName: 'Clone azure-sdk-for-python'
+
   - pwsh: | 
       eng/common/scripts/Import-AzModules.ps1
 
@@ -63,6 +64,13 @@ steps:
       templateRoot: azure-sdk-for-python
 
   - pwsh: |
+      python -m pip install azure-sdk-for-python/tools/azure-sdk-tools[build]
+      sdk_build "azure-eventhub,azure-eventhub-checkpointstoreblob-aio,azure-eventhub-checkpointstoreblob" -d $(Build.ArtifactStagingDirectory)
+    displayName: 'Build the EH Wheels Separately'
+    workingDirectory: $(Build.SourcesDirectory)/azure-sdk-for-python
+    condition: eq(variables['SDK'], 'EventHub')
+
+  - pwsh: |
       echo "Operating in $(SdkPath)"
       python --version
       echo "Installing $DownloadArtifactWhl"
@@ -70,8 +78,13 @@ steps:
       python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
       python -m pip install pytest
       python -m pip install futures
-      python -m pip install -r dev_requirements.txt --force
-      python -m pip install .
+      python -m pip install ../../core/azure-core
+      python -m pip install ../../identity/azure-identity
+      python -m pip install azure-mgmt-eventhub<=10.1.0
+      python -m pip install azure-mgmt-resource==20.0.0
+      python -m pip install "aiohttp; python_version<'3.12'"
+      python -m pip install websocket-client
+      Get-ChildItem -R -Path $(Build.ArtifactStagingDirectory) -Filter *.whl | ForEach-Object { python -m pip install $_.FullName }
       python -m pip list
       python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
     displayName: 'Run tests'
@@ -83,26 +96,6 @@ steps:
       AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
       AZURE_TEST_RUN_LIVE: 'true'
 
-  - script: |
-      echo "Operating in $(SdkPath)"
-      python --version
-      echo "Installing $DownloadArtifactWhl"
-      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
-      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
-      python -m pip install pytest
-      python -m pip install futures
-      python -m pip install -e .
-      python -m pip install -r dev_requirements.txt
-      python -m pip list
-      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
-    displayName: 'Run tests'
-    workingDirectory: $(SdkPath)
-    env:
-      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
-      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
-      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
-      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
-      AZURE_TEST_RUN_LIVE: 'true'
   - pwsh: |
       eng/common/scripts/Import-AzModules.ps1
 
