@@ -23,7 +23,7 @@ extends:
         displayName: 'Source Distribution'
 
         pool:
-          image: $(LINUXVMIMAGEIMAGE)
+          image: $(LINUXVMIMAGE)
           name: $(LINUXPOOL)
           os: linux
 
