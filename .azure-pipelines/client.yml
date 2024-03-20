@@ -17,7 +17,7 @@ extends:
     - stage: 
       displayName: 'Build and Test'
       variables:
-        - template: /.azure-pipelines/templates/variables.yml
+        - template: /.azure-pipelines/templates/variables/variables.yml
       jobs:
       - job: 'sdist'
         displayName: 'Source Distribution'
