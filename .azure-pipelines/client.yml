@@ -284,6 +284,11 @@ extends:
               testResultsFormat: 'JUnit'
               testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
+          - pwsh: |
+              Get-ChildItem -Path build/
+              Remove-Item -Path build/ -Recurse -Force
+            displayName: Cleanup Compiler Artifacts
+
           - template: /.azure-pipelines/templates/steps/publish-1es-artifact.yml
             parameters:
               ArtifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
