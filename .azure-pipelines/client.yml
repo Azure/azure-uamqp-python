@@ -285,7 +285,6 @@ extends:
               testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
           - pwsh: |
-              Get-ChildItem -Path build/
               Remove-Item -Path build/ -Recurse -Force
             displayName: Cleanup Compiler Artifacts
 
