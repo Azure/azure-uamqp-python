@@ -61,6 +61,8 @@ extends:
           vmImage: $(MACVMIMAGE)
           os: macOS
 
+        condition: false
+
         strategy:
           matrix:
             Python 3.8:
@@ -220,6 +222,10 @@ extends:
               BWFilter: 'cp312-win32'
 
         steps:
+          - pwsh: |
+              Get-ChildItem -Path C:/1ESPT/Python -Recurse | % { Write-Host $_.FullName }
+            displayName: Dump 1ES Folder Before Build Work
+
           - template: /.azure-pipelines/use-python-version.yml
             parameters:
               architecture: '$(PythonArchitecture)'
@@ -285,6 +291,10 @@ extends:
               testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
           - pwsh: |
+              Get-ChildItem -Path C:/1ESPT/Python -Recurse | % { Write-Host $_.FullName }
+            displayName: Dump 1ES Folder After Build Work
+
+          - pwsh: |
               Remove-Item -Path build/ -Recurse -Force
             displayName: Cleanup Compiler Artifacts
 
@@ -294,6 +304,8 @@ extends:
               ArtifactPath: 'dist'
 
       - job: 'Linux'
+
+        condition: false
 
         pool:
           name: $(LINUXPOOL)
