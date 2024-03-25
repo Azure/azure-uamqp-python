@@ -291,12 +291,12 @@ extends:
               testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
           - pwsh: |
-              Get-ChildItem -Path C:/1ESPT/Python -Recurse | % { Write-Host $_.FullName }
-            displayName: Dump 1ES Folder After Build Work
-
-          - pwsh: |
               Remove-Item -Path build/ -Recurse -Force
             displayName: Cleanup Compiler Artifacts
+
+          - pwsh: |
+              Get-ChildItem -Path C:/1ESPT/Python -Recurse | % { Write-Host $_.FullName }
+            displayName: Dump 1ES Folder After Build Work
 
           - template: /.azure-pipelines/templates/steps/publish-1es-artifact.yml
             parameters:
