@@ -61,8 +61,6 @@ extends:
           vmImage: $(MACVMIMAGE)
           os: macOS
 
-        condition: false
-
         strategy:
           matrix:
             Python 3.8:
@@ -304,8 +302,6 @@ extends:
               ArtifactPath: 'dist'
 
       - job: 'Linux'
-
-        condition: false
 
         pool:
           name: $(LINUXPOOL)
