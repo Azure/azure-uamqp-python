@@ -4,9 +4,9 @@ trigger:
 variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
-  PythonVersion310: '3.10.0'
-  PythonVersion311: '3.11.0'
-  PythonVersion312: '3.12.0'
+  PythonVersion310: '3.10'
+  PythonVersion311: '3.11'
+  PythonVersion312: '3.12'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 
@@ -89,11 +89,11 @@ extends:
         variables:
           MacOSXDeploymentTarget: '10.9'
           OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
-          PythonVersion38: '3.8.2'
-          PythonVersion39: '3.9.0'
-          PythonVersion310: '3.10.0'
-          PythonVersion311: '3.11.0'
-          PythonVersion312: '3.12.0'
+          PythonVersion38: '3.8'
+          PythonVersion39: '3.9'
+          PythonVersion310: '3.10'
+          PythonVersion311: '3.11'
+          PythonVersion312: '3.12'
 
         steps:
           - task: DownloadPipelineArtifact@1
