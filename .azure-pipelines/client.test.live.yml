@@ -4,9 +4,9 @@ trigger:
 variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
-  PythonVersion310: '3.10.0'
-  PythonVersion311: '3.11.0'
-  PythonVersion312: '3.12.0'
+  PythonVersion310: '3.10'
+  PythonVersion311: '3.11'
+  PythonVersion312: '3.12'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
