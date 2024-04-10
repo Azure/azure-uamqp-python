@@ -134,6 +134,7 @@ extends:
             displayName: Install cibuildwheel 2.16.2
 
           - pwsh: |
+              $(PythonBin) -m pip install --user cibuildwheel==2.16.2 --force
               cibuildwheel --output-dir dist .
             displayName: 'Build uAMQP Wheel'
             env:
