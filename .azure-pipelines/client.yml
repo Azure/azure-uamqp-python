@@ -145,7 +145,7 @@ extends:
             displayName: 'Check output'
 
           - script: |
-              $(PythonBin) -m pip install --user --ignore-installed ./dist/*.whl
+              $(PythonBin) -m pip install --ignore-installed ./dist/*.whl
               $(PythonBin) -m pip install pytest==6.2.4 --force
               $(PythonBin) -m pip install pytest-asyncio==0.12.0 --force
               pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
