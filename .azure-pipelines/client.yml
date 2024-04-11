@@ -110,8 +110,9 @@ extends:
           - script: sudo xcode-select --switch /Applications/Xcode_13.1.app
             displayName: 'Select Xcode 13.1'
 
-          - script: source ./install_python_osx.sh
-            displayName: 'Install Official Python'
+          - template: /.azure-pipelines/use-python-version.yml
+            parameters:
+              versionSpec: '$(PythonVersion)'
 
           - script: |
               echo "Prepending PATH environment variable with directory: /usr/local/bin"
@@ -122,8 +123,6 @@ extends:
             displayName: 'Prepare PATH'
 
           - script: |
-              $(PythonBin) --version
-              curl -sS $(GetPip) | $(PythonBin) - --user
               $(PythonBin) -m pip --version
               $(PythonBin) -m pip install --user -r dev_requirements.txt
             displayName: 'Install dependencies'
