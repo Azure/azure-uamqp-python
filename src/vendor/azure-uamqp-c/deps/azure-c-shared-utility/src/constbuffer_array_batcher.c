@@ -6,6 +6,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_c_shared_utility/constbuffer_array_batcher.h"
 #include "azure_c_shared_utility/memory_data.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDLE* payloads, uint32_t count)
 {
@@ -24,7 +25,7 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
     else
     {
         uint32_t i;
-        uint32_t total_buffer_count = 0;
+        size_t total_buffer_count = 0;
         uint32_t* header_memory;
 
         for (i = 0; i < count; i++)
@@ -45,16 +46,18 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
             /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_003: [ Otherwise constbuffer_array_batcher_batch shall obtain the number of buffers used by each CONSTBUFFER_ARRAY. ]*/
 
             /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_004: [ constbuffer_array_batcher_batch shall allocate memory for the header buffer (enough to hold the entire batch header namingly (count + 1) uint32_t values). ]*/
-            header_memory = malloc(sizeof(uint32_t) * (count + 1));
-            if (header_memory == NULL)
+            size_t count_size_t = (size_t)count;  // handle -Werror=type-limits
+            size_t malloc_size = safe_add_size_t(count_size_t, 1);
+            malloc_size = safe_multiply_size_t(malloc_size, sizeof(uint32_t));
+            if (malloc_size == SIZE_MAX ||
+                (header_memory = malloc(malloc_size)) == NULL)
             {
                 /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_010: [ If any error occurrs, constbuffer_array_batcher_batch shall fail and return NULL. ]*/
-                LogError("malloc failed");
+                LogError("malloc failed, size:%zu", malloc_size);
             }
             else
             {
                 CONSTBUFFER_HANDLE* all_buffers;
-                uint32_t all_buffers_array_size;
 
                 /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_005: [ count shall be written as the first uint32_t in the header memory. ]*/
                 write_uint32_t((void*)&header_memory[0], count);
@@ -73,9 +76,14 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
                 }
 
                 /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_007: [ constbuffer_array_batcher_batch shall allocate enough memory for all the buffer handles in all the arrays + one extra header buffer handle. ]*/
-                all_buffers_array_size = total_buffer_count + 1;
-                all_buffers = malloc(sizeof(CONSTBUFFER_HANDLE) * ((size_t)all_buffers_array_size));
-                if (all_buffers == NULL)
+                size_t all_buffers_array_size = safe_add_size_t(total_buffer_count, 1);
+                malloc_size = safe_multiply_size_t(sizeof(CONSTBUFFER_HANDLE), (all_buffers_array_size));
+
+                if (malloc_size == SIZE_MAX)
+                {
+                    LogError("malloc size is invalid");
+                }
+                else if ((all_buffers = malloc(malloc_size)) == NULL)
                 {
                     /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_010: [ If any error occurrs, constbuffer_array_batcher_batch shall fail and return NULL. ]*/
                     LogError("malloc failed");
@@ -84,9 +92,12 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
                 {
                     uint32_t current_index = 0;
 
-                    /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_008: [ constbuffer_array_batcher_batch shall populate the first handle in the newly allocated handles array with the header buffer handle. ]*/
-                    all_buffers[current_index] = CONSTBUFFER_CreateWithMoveMemory((void*)header_memory, sizeof(uint32_t) * (count + 1));
-                    if (all_buffers[current_index] == NULL)
+                    size_t move_memory_size = safe_multiply_size_t(sizeof(uint32_t), ((size_t)count + 1));
+                    if (move_memory_size == SIZE_MAX)
+                    {
+                        LogError("invalid malloc size in CONSTBUFFER_CreateWithMoveMemory");
+                    }
+                    else if ((all_buffers[current_index] = CONSTBUFFER_CreateWithMoveMemory((void*)header_memory, move_memory_size)) == NULL)
                     {
                         /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_010: [ If any error occurrs, constbuffer_array_batcher_batch shall fail and return NULL. ]*/
                         LogError("CONSTBUFFER_CreateWithMoveMemory failed");
@@ -107,14 +118,26 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
 
                             for (j = 0; j < buffer_count; j++)
                             {
+#ifdef _MSC_VER
+#pragma warning(disable:6386) // warning C6386: Buffer overrun while writing to 'all_buffers'
+#endif
                                 all_buffers[current_index++] = constbuffer_array_get_buffer(payloads[i], j);
+#ifdef _MSC_VER
+#pragma warning (default:6386)
+#endif
                             }
                         }
 
-                        result = constbuffer_array_create(all_buffers, all_buffers_array_size);
+                        result = constbuffer_array_create(all_buffers, (uint32_t)all_buffers_array_size);
                         for (i = 0; i < all_buffers_array_size; i++)
                         {
+#ifdef _MSC_VER
+#pragma warning(disable:6385) // warning C6385: Reading invalid data from 'all_buffers'
+#endif
                             CONSTBUFFER_DecRef(all_buffers[i]);
+#ifdef _MSC_VER
+#pragma warning (default:6385)
+#endif
                         }
 
                         if (result == NULL)
@@ -124,7 +147,7 @@ CONSTBUFFER_ARRAY_HANDLE constbuffer_array_batcher_batch(CONSTBUFFER_ARRAY_HANDL
                         else
                         {
                             free(all_buffers);
-
+                            all_buffers = NULL;
                             goto all_ok;
                         }
                     }
@@ -207,11 +230,14 @@ CONSTBUFFER_ARRAY_HANDLE* constbuffer_array_batcher_unbatch(CONSTBUFFER_ARRAY_HA
                 else
                 {
                     /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_017: [ constbuffer_array_batcher_unbatch shall allocate enough memory to hold the handles for buffer arrays that will be unbatched. ]*/
-                    result = malloc(sizeof(CONSTBUFFER_ARRAY_HANDLE) * batch_payload_count);
-                    if (result == NULL)
+                    size_t batch_payload_count_size_t = (size_t)batch_payload_count;  // handle -Werror=type-limits
+                    size_t malloc_size = safe_multiply_size_t(sizeof(CONSTBUFFER_ARRAY_HANDLE), batch_payload_count_size_t);
+                    if (malloc_size == SIZE_MAX ||
+                        (result = malloc(malloc_size)) == NULL)
                     {
                         /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_022: [ If any error occurs, constbuffer_array_batcher_unbatch shall fail and return NULL. ]*/
-                        LogError("malloc failed");
+                        LogError("malloc failed, size:%zu", malloc_size);
+                        result = NULL;
                     }
                     else
                     {
@@ -240,11 +266,14 @@ CONSTBUFFER_ARRAY_HANDLE* constbuffer_array_batcher_unbatch(CONSTBUFFER_ARRAY_HA
                                 }
                                 else
                                 {
-                                    CONSTBUFFER_HANDLE* payload_buffers = malloc(sizeof(CONSTBUFFER_HANDLE) * buffer_count);
-                                    if (payload_buffers == NULL)
+                                    CONSTBUFFER_HANDLE* payload_buffers;
+                                    size_t buffer_count_size_t = (size_t)buffer_count;  // handle -Werror=type-limits
+                                    malloc_size = safe_multiply_size_t(sizeof(CONSTBUFFER_HANDLE), buffer_count_size_t);
+                                    if (malloc_size == SIZE_MAX || 
+                                        (payload_buffers = malloc(malloc_size)) == NULL)
                                     {
                                         /* Codes_SRS_CONSTBUFFER_ARRAY_BATCHER_01_022: [ If any error occurs, constbuffer_array_batcher_unbatch shall fail and return NULL. ]*/
-                                        LogError("malloc failed");
+                                        LogError("malloc failed, size:%zu", malloc_size);
                                         break;
                                     }
 

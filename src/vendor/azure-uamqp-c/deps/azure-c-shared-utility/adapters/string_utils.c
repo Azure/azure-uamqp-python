@@ -10,6 +10,7 @@
 #include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xlogging.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 #include "azure_c_shared_utility/string_utils.h"
 
@@ -19,22 +20,30 @@ IMPLEMENT_MOCKABLE_FUNCTION(, char*, vsprintf_char, const char*, format, va_list
     int neededSize = vsnprintf(NULL, 0, format, va);
     if (neededSize < 0)
     {
-        LogError("failure in vsnprintf");
+        LogError("failure in vsnprintf, neededSize=%d", neededSize);
         result = NULL;
     }
     else
     {
-        result = (char*)malloc(((unsigned long long)neededSize + 1) * sizeof(char));
-        if (result == NULL)
+        size_t len = safe_add_size_t((unsigned long long)neededSize, 1);
+        size_t malloc_size = safe_multiply_size_t(len, sizeof(char));
+        if (malloc_size == SIZE_MAX)
+        {
+            LogError("invalid malloc size, size:%zu", malloc_size);
+            result = NULL;
+            /*return as is*/
+        }
+        else if ((result = (char*)malloc(malloc_size)) == NULL)
         {
             LogError("failure in malloc");
             /*return as is*/
         }
         else
         {
-            if (vsnprintf(result, (unsigned long long)neededSize + 1, format, va) != neededSize)
+            int out_len = vsnprintf(result, len, format, va);
+            if (out_len != neededSize)
             {
-                LogError("inconsistent vsnprintf behavior");
+                LogError("inconsistent vsnprintf behavior, len=%zu, out_len=%d", len, out_len);
                 free(result);
                 result = NULL;
             }
@@ -54,8 +63,15 @@ IMPLEMENT_MOCKABLE_FUNCTION(, wchar_t*, vsprintf_wchar, const wchar_t*, format, 
     }
     else
     {
-        result = (wchar_t*)malloc(((unsigned long long)neededSize + 1)*sizeof(wchar_t));
-        if (result == NULL)
+        size_t malloc_size = safe_add_size_t((unsigned long long)neededSize, 1);
+        malloc_size = safe_multiply_size_t(malloc_size, sizeof(wchar_t));
+        if (malloc_size == SIZE_MAX)
+        {
+            LogError("invalid malloc size");
+            result = NULL;
+            /*return as is*/
+        }
+        else if ((result = (wchar_t*)malloc(malloc_size)) == NULL)
         {
             LogError("failure in malloc");
             /*return as is*/
@@ -169,8 +185,15 @@ IMPLEMENT_MOCKABLE_FUNCTION(, wchar_t*, mbs_to_wcs, const char*, source)
         }
         else
         {
-            result = (wchar_t*)malloc(sizeof(wchar_t)*(nwc+1));
-            if (result == NULL)
+            size_t malloc_size = safe_add_size_t(nwc, 1);
+            malloc_size = safe_multiply_size_t(malloc_size, sizeof(wchar_t));
+            if (malloc_size == SIZE_MAX)
+            {
+                LogError("invalid malloc size");
+                result = NULL;
+                /*return as is*/
+            }
+            else if ((result = (wchar_t*)malloc(malloc_size)) == NULL)
             {
                 LogError("failure in malloc");
                 /*return as is*/
@@ -216,8 +239,15 @@ IMPLEMENT_MOCKABLE_FUNCTION(, char*, wcs_to_mbs, const wchar_t*, source)
         }
         else
         {
-            result = (char*)malloc(sizeof(char)*(nc + 1));
-            if (result == NULL)
+            size_t malloc_size = safe_add_size_t(nc, 1);
+            malloc_size = safe_multiply_size_t(malloc_size, sizeof(char));
+            if (malloc_size == SIZE_MAX)
+            {
+                LogError("invalid malloc size");
+                result = NULL;
+                /*return as is*/
+            }
+            else if ((result = (char*)malloc(malloc_size)) == NULL)
             {
                 LogError("failure in malloc");
                 /*return as is*/
