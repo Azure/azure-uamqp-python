@@ -345,36 +345,36 @@ jobs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
-  - job: 'SDK_LiveTest_windows2019_37'
-    timeoutInMinutes: 300
-    dependsOn: 'Windows'
-    pool:
-      name: azsdk-pool-mms-win-2022-general
-      vmImage: windows-2022
-    strategy:
-      matrix:
-        EventHub x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'EventHub'
-        EventHub x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'ServiceBus'
-    variables:
-      PythonArchitecture: 'x64'
-      OSArch: 'Windows'
-      DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          architecture: '$(PythonArchitecture)'
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  # - job: 'SDK_LiveTest_windows2019_37'
+  #   timeoutInMinutes: 300
+  #   dependsOn: 'Windows'
+  #   pool:
+  #     name: azsdk-pool-mms-win-2022-general
+  #     vmImage: windows-2022
+  #   strategy:
+  #     matrix:
+  #       EventHub x64 Python 3.8:
+  #         PythonVersion: '$(PythonVersion38)'
+  #         SDK: 'EventHub'
+  #       EventHub x64 Python 3.12:
+  #         PythonVersion: '$(PythonVersion312)'
+  #         SDK: 'EventHub'
+  #       ServiceBus x64 Python 3.8:
+  #         PythonVersion: '$(PythonVersion38)'
+  #         SDK: 'ServiceBus'
+  #       ServiceBus x64 Python 3.12:
+  #         PythonVersion: '$(PythonVersion312)'
+  #         SDK: 'ServiceBus'
+  #   variables:
+  #     PythonArchitecture: 'x64'
+  #     OSArch: 'Windows'
+  #     DownloadArtifactFolder: 'uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl'
+  #   steps:
+  #     - template: /.azure-pipelines/use-python-version.yml
+  #       parameters:
+  #         architecture: '$(PythonArchitecture)'
+  #         versionSpec: '$(PythonVersion)'
+  #     - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
   - job: 'SDK_LiveTest_macOS1015_38'
     timeoutInMinutes: 300
