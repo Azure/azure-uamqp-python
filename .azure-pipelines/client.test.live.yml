@@ -10,129 +10,129 @@ variables:
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
-  # - job: 'Windows'
+  - job: 'Windows'
 
-  #   pool:
-  #     name: azsdk-pool-mms-win-2022-general
-  #     vmImage: MMS2022
-  #   variables:
-  #     VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
-  #     VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
-  #     VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
+    pool:
+      name: azsdk-pool-mms-win-2022-general
+      vmImage: MMS2022
+    variables:
+      VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
+      VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
+      VS_ENTERPRISE_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
 
-  #   timeoutInMinutes: 120
+    timeoutInMinutes: 120
 
-  #   strategy:
-  #     maxParallel: 1
-  #     matrix:
-  #       x64 Python 3.8:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion38)'
-  #         BWFilter: 'cp38-win_amd64'
-  #       x64 Python 3.9:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion39)'
-  #         BWFilter: 'cp39-win_amd64'
-  #       x64 Python 3.10:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion310)'
-  #         BWFilter: 'cp310-win_amd64'
-  #       x64 Python 3.11:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion311)'
-  #         BWFilter: 'cp311-win_amd64'
-  #       x64 Python 3.12:
-  #         PythonArchitecture: 'x64'
-  #         PythonVersion: '$(PythonVersion312)'
-  #         BWFilter: 'cp312-win_amd64'
+    strategy:
+      maxParallel: 1
+      matrix:
+        x64 Python 3.8:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion38)'
+          BWFilter: 'cp38-win_amd64'
+        x64 Python 3.9:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion39)'
+          BWFilter: 'cp39-win_amd64'
+        x64 Python 3.10:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion310)'
+          BWFilter: 'cp310-win_amd64'
+        x64 Python 3.11:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion311)'
+          BWFilter: 'cp311-win_amd64'
+        x64 Python 3.12:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion312)'
+          BWFilter: 'cp312-win_amd64'
             
-  #   steps:
-  #     - template: /.azure-pipelines/use-python-version.yml
-  #       parameters:
-  #         architecture: '$(PythonArchitecture)'
-  #         versionSpec: '$(PythonVersion)'
+    steps:
+      - template: /.azure-pipelines/use-python-version.yml
+        parameters:
+          architecture: '$(PythonArchitecture)'
+          versionSpec: '$(PythonVersion)'
 
-  #     - powershell: |
-  #         python --version
-  #         Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
-  #         python -m pip --version
-  #         python -m pip install -r dev_requirements.txt
-  #       displayName: 'Install dependencies'
-  #       env:
-  #         PYTHONWARNINGS: ignore:DEPRECATION
+      - powershell: |
+          python --version
+          Invoke-WebRequest -UseBasicParsing -Uri $(GetPip) | Select-Object -ExpandProperty Content | python
+          python -m pip --version
+          python -m pip install -r dev_requirements.txt
+        displayName: 'Install dependencies'
+        env:
+          PYTHONWARNINGS: ignore:DEPRECATION
       
-  #     - pwsh: |
-  #         Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
-  #         # In order of component appearance in the install command below, these are the names of the components
-  #         # as they in the VS Installer UI. (What you would do locally.)
-  #         #   C# and Visual Basic Roslyn Compilers (components pane)
-  #         #   C++ 2022 Redistributable Update (components pane)
-  #         #   C++ CMake tools for Windows (components pane)
-  #         #   MSBuild (components pane)
-  #         #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
-  #         #   Native Desktop Workload (workloads pane)
-  #         $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
-  #           --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
-  #           --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
-  #           --add Microsoft.VisualStudio.Component.VC.CMake.Project `
-  #           --add Microsoft.Component.MSBuild `
-  #           --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-  #           --add Microsoft.VisualStudio.Workload.NativeDesktop `
-  #           --quiet --wait --norestart
-  #       displayName: Install build script requirements
+      - pwsh: |
+          Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
+          # In order of component appearance in the install command below, these are the names of the components
+          # as they in the VS Installer UI. (What you would do locally.)
+          #   C# and Visual Basic Roslyn Compilers (components pane)
+          #   C++ 2022 Redistributable Update (components pane)
+          #   C++ CMake tools for Windows (components pane)
+          #   MSBuild (components pane)
+          #   MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest) (components pane)
+          #   Native Desktop Workload (workloads pane)
+          $(VS_INSTALLER_PATH) --installPath $(VS_ENTERPRISE_PATH) `
+            --add Microsoft.VisualStudio.Component.Roslyn.Compiler `
+            --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest `
+            --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+            --add Microsoft.Component.MSBuild `
+            --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            --add Microsoft.VisualStudio.Workload.NativeDesktop `
+            --quiet --wait --norestart
+        displayName: Install build script requirements
    
-  #     - script: |
-  #         call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-  #         python -m pip install cibuildwheel==2.16.2
-  #       displayName: Install cibuildwheel 2.16.2
+      - script: |
+          call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
+          python -m pip install cibuildwheel==2.16.2
+        displayName: Install cibuildwheel 2.16.2
 
-  #     - pwsh: |
-  #         cibuildwheel --output-dir dist .
-  #       displayName: 'Build uAMQP Wheel'
-  #       env:
-  #         CIBW_PRERELEASE_PYTHONS: True
-  #         CIBW_BUILD: $(BWFilter)
+      - pwsh: |
+          cibuildwheel --output-dir dist .
+        displayName: 'Build uAMQP Wheel'
+        env:
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: $(BWFilter)
 
-  #     - script: dir dist
-  #       displayName: 'Check output'
+      - script: dir dist
+        displayName: 'Check output'
 
-  #     - powershell: |
-  #         $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
-  #         python -m pip install --ignore-installed ./dist/$whlfile
-  #         pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
-  #         pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
-  #       displayName: 'Run tests'
-  #       env:
-  #         EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
-  #         EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
-  #         EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
-  #         EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
-  #         IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
-  #         IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
-  #         IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
-  #         IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
-  #         IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
-  #         IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
+      - powershell: |
+          $whlfile = Get-ChildItem -Filter *.whl dist | Select-Object -First 1 -ExpandProperty Name
+          python -m pip install --ignore-installed ./dist/$whlfile
+          pytest tests --doctest-modules --junitxml=junit/test-results-c.xml
+          pytest samples --doctest-modules --junitxml=junit/test-results-live.xml
+        displayName: 'Run tests'
+        env:
+          EVENT_HUB_HOSTNAME: $(python-eh-livetest-event-hub-hostname)
+          EVENT_HUB_NAME: $(python-eh-livetest-event-hub-name)
+          EVENT_HUB_SAS_POLICY: $(python-eh-livetest-event-hub-sas-policy)
+          EVENT_HUB_SAS_KEY: $(python-eh-livetest-event-hub-sas-key)
+          IOTHUB_HOSTNAME: $(python-iothub-livetest-host-name)
+          IOTHUB_HUB_NAME: $(python-iothub-livetest-hub-name)
+          IOTHUB_DEVICE: $(python-eh-livetest-event-hub-iothub-device)
+          IOTHUB_ENDPOINT: $(python-iothub-livetest-endpoint)
+          IOTHUB_SAS_POLICY: $(python-iothub-livetest-sas-policy)
+          IOTHUB_SAS_KEY: $(python-iothub-livetest-sas-key)
 
-  #     - task: PublishTestResults@2
-  #       displayName: 'Publish test results'
-  #       condition: succeededOrFailed()
-  #       inputs:
-  #         testResultsFiles: '**/test-results-*.xml'
-  #         testResultsFormat: 'JUnit'
-  #         testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
+      - task: PublishTestResults@2
+        displayName: 'Publish test results'
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-results-*.xml'
+          testResultsFormat: 'JUnit'
+          testRunTitle: 'Windows $(PythonArchitecture) Python $(PythonVersion)'
 
-  #     - task: PublishBuildArtifacts@1
-  #       displayName: 'Publish wheel artifact'
-  #       inputs:
-  #         artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
-  #         pathToPublish: 'dist'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish wheel artifact'
+        inputs:
+          artifactName: uamqp-win$(PythonArchitecture)-$(PythonVersion)-whl
+          pathToPublish: 'dist'
 
   - job: 'MacOS'
 
     timeoutInMinutes: 120
 
-    #dependsOn: 'Windows'
+    dependsOn: 'Windows'
 
     pool:
       vmImage: 'macOS-11'
