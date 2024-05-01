@@ -68,13 +68,14 @@ endif()
 
 # System-specific compiler flags
 if(MSVC)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
 elseif(UNIX) #LINUX OR APPLE
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
     if(NOT (IN_OPENWRT OR APPLE))
-        set (CMAKE_C_FLAGS "-D_POSIX_C_SOURCE=200112L ${CMAKE_C_FLAGS}")
+        # _XOPEN_SOURCE=500 is required for glibc to expose random and srandom.
+        set (CMAKE_C_FLAGS "-D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=500 ${CMAKE_C_FLAGS}")
     endif()
 endif()
 
@@ -264,4 +265,3 @@ function(setTargetBuildProperties stbp_target)
         set_target_properties(${stbp_target} PROPERTIES XCODE_ATTRIBUTE_GCC_WARN_UNUSED_VARIABLE "YES")
     endif()
 endfunction()
-
