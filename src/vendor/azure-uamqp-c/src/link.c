@@ -10,6 +10,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_c_shared_utility/singlylinkedlist.h"
 #include "azure_c_shared_utility/tickcounter.h"
+#include "azure_c_shared_utility/safe_math.h"
 #include "azure_uamqp_c/link.h"
 #include "azure_uamqp_c/session.h"
 #include "azure_uamqp_c/amqpvalue.h"
@@ -57,7 +58,7 @@ typedef struct LINK_INSTANCE_TAG
     sequence_no initial_delivery_count;
     uint64_t max_message_size;
     uint64_t peer_max_message_size;
-    int32_t current_link_credit;
+    uint32_t current_link_credit;
     uint32_t max_link_credit;
     uint32_t available;
     fields attach_properties;
@@ -279,7 +280,6 @@ static int send_attach(LINK_INSTANCE* link, const char* name, handle handle, rol
         {
             (void)attach_set_properties(attach, link->attach_properties);
         }
-
         if (link->desired_capabilities != NULL)
         {
             if(attach_set_desired_capabilities(attach, link->desired_capabilities) != 0)
@@ -413,9 +413,9 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                     }
                 }
             }
-        }
 
-        flow_destroy(flow_handle);
+            flow_destroy(flow_handle);
+        }
     }
     else if (is_transfer_type_by_descriptor(descriptor))
     {
@@ -452,10 +452,12 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                     /* If this is a continuation transfer or if this is the first chunk of a multi frame transfer */
                     if ((link_instance->received_payload_size > 0) || more)
                     {
-                        unsigned char* new_received_payload = (unsigned char*)realloc(link_instance->received_payload, link_instance->received_payload_size + payload_size);
-                        if (new_received_payload == NULL)
+                        unsigned char* new_received_payload;;
+                        size_t realloc_size = safe_add_size_t((size_t)link_instance->received_payload_size, payload_size);
+                        if (realloc_size == SIZE_MAX ||
+                            (new_received_payload = (unsigned char*)realloc(link_instance->received_payload, realloc_size)) == NULL)
                         {
-                            LogError("Could not allocate memory for the received payload");
+                            LogError("Could not allocate memory for the received payload, size:%zu", realloc_size);
                         }
                         else
                         {
@@ -1121,7 +1123,6 @@ int link_get_peer_max_message_size(LINK_HANDLE link, uint64_t* peer_max_message_
 
     return result;
 }
-
 int link_get_desired_capabilities(LINK_HANDLE link, AMQP_VALUE* desired_capabilities)
 {
     int result;
@@ -1734,7 +1735,6 @@ void link_dowork(LINK_HANDLE link)
     else
     {
         tickcounter_ms_t current_tick;
-
         if (link->current_link_credit <= 0)
         {
             link->current_link_credit = link->max_link_credit;
