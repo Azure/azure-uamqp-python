@@ -486,6 +486,10 @@ extends:
                       # - 'uamqp-winx86-3.9-whl'
 
                 - pwsh: |
+                    Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force | % { Write-Host $_.FullName }
+                  displayName: Dump visible artifacts
+
+                - pwsh: |
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force `
                       | Where-Object { $_.Name -like "*.tgz" } `
                       | Copy-Item -Destination "$(Build.ArtifactStagingDirectory)"

@@ -4,5 +4,6 @@ parameters:
 steps:
   - ${{ each artifact in parameters.ArtifactList }}:
     - download: current
+      displayName: "Download ${{ artifact }}"
       artifact: ${{ artifact }}
       timeoutInMinutes: 5
