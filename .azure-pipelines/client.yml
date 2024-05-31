@@ -491,7 +491,7 @@ extends:
 
                 - pwsh: |
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force `
-                      | Where-Object { $_.Name -like "*.tgz" } `
+                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
                       | Copy-Item -Destination "$(Build.ArtifactStagingDirectory)"
 
                     Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force | % { Write-Host $_.FullName }
