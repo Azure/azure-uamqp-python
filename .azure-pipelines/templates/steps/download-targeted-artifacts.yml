@@ -2,7 +2,7 @@ parameters:
   ArtifactList: []
 
 steps:
-  - ${{ for artifact in parameters.ArtifactList }}:
+  - ${{ each artifact in parameters.ArtifactList }}:
     - download: current
       artifact: ${{ artifact }}
       timeoutInMinutes: 5
