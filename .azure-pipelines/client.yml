@@ -509,6 +509,8 @@ extends:
                       - 'uamqp-winx86-3.12-whl'
 
                 - pwsh: |
+                    Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
+                      | % { Write-Host $_.FullName }
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force `
                       | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
                       | Copy-Item -Destination "$(Build.ArtifactStagingDirectory)"
