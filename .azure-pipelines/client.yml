@@ -509,14 +509,13 @@ extends:
                       - 'uamqp-winx86-3.12-whl'
 
                 - pwsh: |
+                    Write-Host "This is the artifact staging directory"
+                    Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force
+                    
+                    Write-Host "Trying a manual copy of artifacts into staging directory"
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
                       | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
-                      | % { Write-Host $_.FullName }
-                    
-                    Write-Host "Copying artifacts into staging directory"
-                    Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force `
-                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
-                      | Copy-Item -Destination "$(Build.ArtifactStagingDirectory)"
+                      | % { Copy-Item -Path $_.FullName -Destination (Join-Path $(Build.ArtifactStagingDirectory) $_.Name) -Force }
 
                     Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force | % { Write-Host $_.FullName }
                   displayName: Move artifact to $(Build.ArtifactStagingDirectory)
