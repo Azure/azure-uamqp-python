@@ -510,7 +510,10 @@ extends:
 
                 - pwsh: |
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
+                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
                       | % { Write-Host $_.FullName }
+                    
+                    Write-Host "Copying artifacts into staging directory"
                     Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force `
                       | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
                       | Copy-Item -Destination "$(Build.ArtifactStagingDirectory)"
