@@ -509,13 +509,21 @@ extends:
                       - 'uamqp-winx86-3.12-whl'
 
                 - pwsh: |
-                    Write-Host "This is the artifact staging directory"
+                    Write-Host "This is the artifact staging directory folder"
                     Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force
-                    
-                    Write-Host "Trying a manual copy of artifacts into staging directory"
-                    Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
-                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") } `
-                      | % { Copy-Item -Path $_.FullName -Destination (Join-Path $(Build.ArtifactStagingDirectory) $_.Name) -Force }
 
+                    Write-Host "This is the contents of the pipeline workspace folder"
+                    Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
+
+                    Write-Host "Trying a manual copy of artifacts into staging directory"
+                    $itemsForCopy = Get-ChildItem "$(Pipeline.Workspace)" -Recurse -Force
+                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") }
+
+                    foreach ($item in $itemsForCopy) {
+                      Write-Host "Copying $($item.FullName) to $(Build.ArtifactStagingDirectory)"
+                      Copy-Item -Path $item.FullName -Destination $(Build.ArtifactStagingDirectory) -Force
+                    }
+
+                    Write-Host "Now I'm dumping the artifact staging directory again"
                     Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force | % { Write-Host $_.FullName }
                   displayName: Move artifact to $(Build.ArtifactStagingDirectory)
