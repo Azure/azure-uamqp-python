@@ -519,7 +519,7 @@ extends:
                       $source = $item.FullName
 
                       $relPath = Resolve-Path -relative $source
-                      $dest = Join-Path $(Build.ArtifactStagingDirectory) $relPath $item.Name
+                      $dest = Join-Path $(Build.ArtifactStagingDirectory) $relPath
 
                       Write-Host "Copying $source to $dest"
                       Copy-Item -Path $source -Destination $dest -Force
