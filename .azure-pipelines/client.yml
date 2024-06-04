@@ -526,7 +526,7 @@ extends:
                       $destinationFolder = Join-Path $(Build.ArtifactStagingDirectory) $folderRelPath
 
                       if (!(Test-Path $destinationFolder)){
-                        Create-Item -Path $destinationFolder -ItemType Directory -Force
+                        New-Item -Path $destinationFolder -ItemType Directory -Force
                       }
                       Write-Host "Copying $source to $destinationFile"
                       Copy-Item -Path $source -Destination $destinationFile -Force
