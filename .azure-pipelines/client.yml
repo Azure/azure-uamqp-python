@@ -509,13 +509,16 @@ extends:
                       - 'uamqp-winx86-3.12-whl'
 
                 - pwsh: |
-                    $root = "$(Pipeline.Workspace)"
+                    $root = "$(Pipeline.Workspace)
                     $itemsForCopy = Get-ChildItem  $root -Recurse -Force
                       | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") }
 
+                    Push-Location $root
+
                     foreach ($item in $itemsForCopy) {
                       $source = $item.FullName
-                      $relPath = Get-RelativePath - Path $source -RelativeTo $root
+
+                      $relPath = Resolve-Path -relative $source
                       $dest = Join-Path $(Build.ArtifactStagingDirectory) $relPath $item.Name
 
                       Write-Host "Copying $source to $dest"
