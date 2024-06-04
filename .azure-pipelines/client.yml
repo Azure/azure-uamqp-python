@@ -517,12 +517,19 @@ extends:
 
                     foreach ($item in $itemsForCopy) {
                       $source = $item.FullName
+                      $sourceFolder = $item.DirectoryName
 
-                      $relPath = Resolve-Path -relative $source
-                      $dest = Join-Path $(Build.ArtifactStagingDirectory) $relPath
+                      $fileRelPath = (Resolve-Path -relative $source).Substring(2)
+                      $destinationFile = Join-Path $(Build.ArtifactStagingDirectory) $relPath
 
-                      Write-Host "Copying $source to $dest"
-                      Copy-Item -Path $source -Destination $dest -Force
+                      $folderRelPath = (Resolve-Path -relative $sourceFolder).Substring(2)
+                      $destinationFolder = Join-Path $(Build.ArtifactStagingDirectory) $folderRelPath
+
+                      if (!(Test-Path $destinationFolder)){
+                        Create-Item -Path $destinationFolder -ItemType Directory -Force
+                      }
+                      Write-Host "Copying $source to $destinationFile"
+                      Copy-Item -Path $source -Destination $destinationFile -Force
                     }
 
                     Write-Host "Artifacts for Publish"
