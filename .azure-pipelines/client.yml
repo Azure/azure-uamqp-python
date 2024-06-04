@@ -509,7 +509,7 @@ extends:
                       - 'uamqp-winx86-3.12-whl'
 
                 - pwsh: |
-                    $root = "$(Pipeline.Workspace)
+                    $root = "$(Pipeline.Workspace)"
                     $itemsForCopy = Get-ChildItem  $root -Recurse -Force
                       | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") }
 
