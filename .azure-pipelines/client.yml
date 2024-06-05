@@ -520,7 +520,7 @@ extends:
                       $sourceFolder = $item.DirectoryName
 
                       $fileRelPath = (Resolve-Path -relative $source).Substring(2)
-                      $destinationFile = Join-Path $(Build.ArtifactStagingDirectory) $relPath
+                      $destinationFile = Join-Path $(Build.ArtifactStagingDirectory) $fileRelPath
 
                       $folderRelPath = (Resolve-Path -relative $sourceFolder).Substring(2)
                       $destinationFolder = Join-Path $(Build.ArtifactStagingDirectory) $folderRelPath
