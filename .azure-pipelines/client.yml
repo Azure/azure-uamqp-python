@@ -14,7 +14,7 @@ extends:
   template: /.azure-pipelines/templates/stages/1es-redirect.yml
   parameters:
     stages:
-    - stage: 
+    - stage: Build_and_Test
       displayName: 'Build and Test'
       variables:
         - template: /.azure-pipelines/templates/variables/image.yml
@@ -460,3 +460,94 @@ extends:
               testResultsFiles: '**/test-results-*.xml'
               testResultsFormat: 'JUnit'
               testRunTitle: 'ManyLinux2014 Python $(PythonVersion)'
+
+    - stage: Release
+      dependsOn: Build_and_Test
+
+      jobs:
+        - deployment: Publish
+          environment: 'package-publish'
+          pool:
+            name: azsdk-pool-mms-ubuntu-2004-general
+            image: azsdk-pool-mms-ubuntu-2004-1espt
+            os: linux
+
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                - checkout: self
+
+                - template: /.azure-pipelines/templates/steps/download-targeted-artifacts.yml
+                  parameters:
+                    ArtifactList: 
+                      - 'uamqp-sdist'
+                      - 'uamqp-linux-3.8-whl'
+                      - 'uamqp-linux-3.9-whl'
+                      - 'uamqp-linux-3.10-whl'
+                      - 'uamqp-linux-3.11-whl'
+                      - 'uamqp-linux-3.12-whl'
+                      - 'uamqp-macosx10.9-3.8-whl'
+                      - 'uamqp-macosx10.9-3.9-whl'
+                      - 'uamqp-macosx10.9-3.10-whl'
+                      - 'uamqp-macosx10.9-3.11-whl'
+                      - 'uamqp-macosx10.9-3.12-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.8-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.9-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.10-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.11-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.12-x64-whl'
+                      - 'uamqp-winx64-3.8-whl'
+                      - 'uamqp-winx64-3.9-whl'
+                      - 'uamqp-winx64-3.10-whl'
+                      - 'uamqp-winx64-3.11-whl'
+                      - 'uamqp-winx64-3.12-whl'
+                      - 'uamqp-winx86-3.8-whl'
+                      - 'uamqp-winx86-3.9-whl'
+                      - 'uamqp-winx86-3.10-whl'
+                      - 'uamqp-winx86-3.11-whl'
+                      - 'uamqp-winx86-3.12-whl'
+
+                - pwsh: |
+                    $root = "$(Pipeline.Workspace)"
+                    $itemsForCopy = Get-ChildItem  $root -Recurse -Force
+                      | Where-Object { ($_.Name -like "*.tar.gz" -or $_.Name -like "*.whl") }
+
+                    Push-Location $root
+
+                    foreach ($item in $itemsForCopy) {
+                      $source = $item.FullName
+                      $sourceFolder = $item.DirectoryName
+
+                      $fileRelPath = (Resolve-Path -relative $source).Substring(2)
+                      $destinationFile = Join-Path $(Build.ArtifactStagingDirectory) $fileRelPath
+
+                      $folderRelPath = (Resolve-Path -relative $sourceFolder).Substring(2)
+                      $destinationFolder = Join-Path $(Build.ArtifactStagingDirectory) $folderRelPath
+
+                      if (!(Test-Path $destinationFolder)){
+                        New-Item -Path $destinationFolder -ItemType Directory -Force
+                      }
+                      Copy-Item -Path $source -Destination $destinationFile -Force
+                    }
+
+                    Write-Host "Artifacts for Publish"
+                    Get-ChildItem "$(Build.ArtifactStagingDirectory)" -Recurse -Force | % { Write-Host $_.FullName }
+                  displayName: Move artifact to $(Build.ArtifactStagingDirectory)
+
+                - task: EsrpRelease@7
+                  displayName: 'Publish to ESRP'
+                  inputs:
+                    ConnectedServiceName: 'Azure SDK Engineering System'
+                    ClientId: '5f81938c-2544-4f1f-9251-dd9de5b8a81b'
+                    KeyVaultName: 'AzureSDKEngKeyVault'
+                    AuthCertName: 'azure-sdk-esrp-release-auth-certificate'
+                    SignCertName: 'azure-sdk-esrp-release-sign-certificate'
+                    Intent: 'PackageDistribution'
+                    ContentType: 'PyPI'
+                    FolderLocation: $(Build.ArtifactStagingDirectory)
+                    Owners: $(Build.RequestedForEmail)
+                    Approvers: $(Build.RequestedForEmail)
+                    ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
+                    MainPublisher: 'ESRPRELPACMANTEST'
+                    DomainTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
