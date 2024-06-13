@@ -13,7 +13,7 @@ cimport c_xio
 cdef extern from "azure_c_shared_utility/platform.h":
 
     cdef enum PLATFORM_INFO_OPTION_TAG:
-        PLATFORM_INFO_OPTION_DEFAULT,
+        PLATFORM_INFO_OPTION_DEFAULT = 1,   # because C code uses `MU_DEFINE_ENUM`
         PLATFORM_INFO_OPTION_RETRIEVE_SQM,
 
     int platform_init()
