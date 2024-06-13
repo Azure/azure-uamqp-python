@@ -8,11 +8,20 @@
 #include "azure_c_shared_utility/uniqueid.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/xlogging.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 #define UUID_STRING_LENGTH          36
 #define UUID_STRING_SIZE            (UUID_STRING_LENGTH + 1)
 #define __SUCCESS__                 0
-#define UUID_FORMAT_STRING          "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+#define HEXA_DIGIT_VAL(c) \
+    ((((c) >= '0') && ((c) <= '9')) \
+        ? ((c) - '0') \
+        : (((c) >= 'a') && ((c) <= 'f')) \
+            ? ((c) - 'a' + 10) \
+            : (((c) >= 'A') && ((c) <= 'F')) ? ((c) - 'A' + 10) : -1)
+#define MUST_BE_DASH(pos) \
+    (pos == 8 || pos == 13 || pos == 18 || pos == 23)
+
 
 int UUID_from_string(const char* uuid_string, UUID_T* uuid)
 {
@@ -47,15 +56,7 @@ int UUID_from_string(const char* uuid_string, UUID_T* uuid)
             {
                 if (uuid_string[i] == '-')
                 {
-                    i++;
-                }
-                else
-                {
-                    char double_hex_digit[3] = { 0, 0, 0 };
-
-                    (void)memcpy(double_hex_digit, uuid_string + i, 2);
-
-                    if (sscanf(double_hex_digit, "%02hhx", uuid_bytes + j) != 1)
+                    if (!MUST_BE_DASH(i))
                     {
                         // Codes_SRS_UUID_09_009: [ If uuid fails to be generated, UUID_from_string shall return a non-zero value ]
                         LogError("Failed decoding UUID string (%lu)", (unsigned long)i);
@@ -64,6 +65,31 @@ int UUID_from_string(const char* uuid_string, UUID_T* uuid)
                     }
                     else
                     {
+                        i++;
+                    }
+                }
+                else
+                {
+                    int higherOrderDigit = HEXA_DIGIT_VAL(uuid_string[i]);
+                    int lowerOrderDigit = HEXA_DIGIT_VAL(uuid_string[i + 1]);
+
+#ifdef _MSC_VER
+#pragma warning(disable:6328) // warning C6328: Size mismatch
+#endif
+                    if (higherOrderDigit == -1 || lowerOrderDigit == -1)
+#ifdef _MSC_VER
+#pragma warning (default:6328)
+#endif
+                    {
+                        // Codes_SRS_UUID_09_009: [ If uuid fails to be generated, UUID_from_string shall return a non-zero value ]
+                        LogError("Failed decoding UUID string (%lu)", (unsigned long)i);
+                        result = MU_FAILURE;
+                        break;
+                    }
+                    else
+                    {
+                        // Multiplying the higherOrderDigit by 16.
+                        uuid_bytes[j] = (char)((higherOrderDigit << 4) + lowerOrderDigit);
                         i += 2;
                         j++;
                     }
@@ -78,6 +104,7 @@ int UUID_from_string(const char* uuid_string, UUID_T* uuid)
 char* UUID_to_string(const UUID_T* uuid)
 {
     char* result;
+    size_t malloc_size;
 
     // Codes_SRS_UUID_09_011: [ If uuid is NULL, UUID_to_string shall return a non-zero value ]
     if (uuid == NULL)
@@ -85,8 +112,13 @@ char* UUID_to_string(const UUID_T* uuid)
         LogError("Invalid argument (uuid is NULL)");
         result = NULL;
     }
+    else if ((malloc_size = safe_multiply_size_t(sizeof(char), UUID_STRING_SIZE)) == SIZE_MAX)
+    {
+        LogError("Invalid malloc size");
+        result = NULL;
+    }
     // Codes_SRS_UUID_09_012: [ UUID_to_string shall allocate a valid UUID string (uuid_string) as per RFC 4122 ]
-    else if ((result = (char*)malloc(sizeof(char) * UUID_STRING_SIZE)) == NULL)
+    else if ((result = (char*)malloc(malloc_size)) == NULL)
     {
         // Codes_SRS_UUID_09_013: [ If uuid_string fails to be allocated, UUID_to_string shall return NULL ]
         LogError("Failed allocating UUID string");
@@ -128,11 +160,12 @@ int UUID_generate(UUID_T* uuid)
     else
     {
         char* uuid_string;
-
-        if ((uuid_string = (char*)malloc(sizeof(char) * UUID_STRING_SIZE)) == NULL)
+        size_t malloc_size;
+        if ((malloc_size = safe_multiply_size_t(sizeof(char), UUID_STRING_SIZE)) == SIZE_MAX || 
+            (uuid_string = (char*)malloc(malloc_size)) == NULL)
         {
             // Codes_SRS_UUID_09_003: [ If the UUID string fails to be obtained, UUID_generate shall fail and return a non-zero value ]
-            LogError("Failed allocating UUID string");
+            LogError("Failed allocating UUID string, size=%zu", malloc_size);
             result = MU_FAILURE;
         }
         else

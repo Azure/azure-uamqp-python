@@ -238,6 +238,7 @@ set(source_c_files
     ${CONDITION_C_FILE}
     ${LOCK_C_FILE}
     ${TIMER_C_FILE}
+    ${RANDOM_C_FILE}
     ${STRING_UTILS_C_FILE}
     ${PLATFORM_C_FILE}
     ${SOCKETIO_C_FILE}

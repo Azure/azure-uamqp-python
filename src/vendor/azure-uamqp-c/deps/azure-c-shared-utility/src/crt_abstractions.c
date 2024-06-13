@@ -14,6 +14,7 @@
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 // VS 2008 does not have INFINITY and all the nice goodies...
 #if defined (TIZENRT)
@@ -597,7 +598,7 @@ float strtof_s(const char* nptr, char** endptr)
             result = NAN;
             break;
         case FST_NUMBER:
-            val = fraction * pow(10.0, (double)exponential) * (double)signal;
+            val = fraction * pow((double)10.0, (double)exponential) * (double)signal;
             if ((val >= ((double)FLT_MAX * (-1.0))) && (val <= (double)FLT_MAX))
             {
                 /*Codes_SRS_CRT_ABSTRACTIONS_21_016: [The strtof_s must return the float that represents the value in the initial part of the string. If any.]*/
@@ -655,7 +656,13 @@ long double strtold_s(const char* nptr, char** endptr)
             break;
         case FST_NAN:
             /*Codes_SRS_CRT_ABSTRACTIONS_21_034: [If the string is 'NAN' or 'NAN(...)' (ignoring case), the strtold_s must return 0.0 and points endptr to the first character after the 'NAN' sequence.]*/
-            result = (long double)((float)NAN);
+#ifdef _MSC_VER
+#pragma warning(disable:26451) // warning C26451: overflow in constant arithmetic
+#endif
+            result = (long double)NAN;
+#ifdef _MSC_VER
+#pragma warning (default:26451)
+#endif
             break;
         case FST_NUMBER:
             if ((exponential != DBL_MAX_10_EXP || (fraction <= 1.7976931348623158)) &&
@@ -706,11 +713,13 @@ int mallocAndStrcpy_s(char** destination, const char* source)
     }
     else
     {
+        char* temp;
         size_t l = strlen(source);
-        char* temp = (char*)malloc(l + 1);
+        size_t malloc_size = safe_add_size_t(l, 1);
 
         /*Codes_SRS_CRT_ABSTRACTIONS_99_037: [Upon failure to allocate memory for the destination, the function will return ENOMEM.]*/
-        if (temp == NULL)
+        if (malloc_size == SIZE_MAX ||
+            (temp = (char*)malloc(malloc_size)) == NULL)
         {
             result = ENOMEM;
         }

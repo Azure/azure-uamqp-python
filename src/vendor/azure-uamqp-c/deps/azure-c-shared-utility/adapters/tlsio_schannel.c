@@ -21,6 +21,7 @@
 #include "azure_c_shared_utility/singlylinkedlist.h"
 #include "azure_c_shared_utility/shared_util_options.h"
 #include "azure_c_shared_utility/gballoc.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 #define TLSIO_STATE_VALUES                        \
     TLSIO_STATE_NOT_OPEN,                         \
@@ -515,13 +516,15 @@ static int send_chunk(CONCRETE_IO_HANDLE tls_io, const void* buffer, size_t size
             }
             else
             {
+                unsigned char* out_buffer;
                 SecBuffer security_buffers[4];
                 SecBufferDesc security_buffers_desc;
-                size_t needed_buffer = sizes.cbHeader + size + sizes.cbTrailer;
-                unsigned char* out_buffer = (unsigned char*)malloc(needed_buffer);
-                if (out_buffer == NULL)
+                size_t needed_buffer = safe_add_size_t(sizes.cbHeader, size);
+                needed_buffer = safe_add_size_t(needed_buffer, sizes.cbTrailer);
+                if (needed_buffer == SIZE_MAX ||
+                    (out_buffer = (unsigned char*)malloc(needed_buffer)) == NULL)
                 {
-                    LogError("malloc failed");
+                    LogError("malloc failed, size:%zu", needed_buffer);
                     result = MU_FAILURE;
                 }
                 else
@@ -553,7 +556,7 @@ static int send_chunk(CONCRETE_IO_HANDLE tls_io, const void* buffer, size_t size
                     }
                     else
                     {
-                        if (xio_send(tls_io_instance->socket_io, out_buffer, security_buffers[0].cbBuffer + security_buffers[1].cbBuffer + security_buffers[2].cbBuffer, on_send_complete, callback_context) != 0)
+                        if (xio_send(tls_io_instance->socket_io, out_buffer, (size_t)security_buffers[0].cbBuffer + (size_t)security_buffers[1].cbBuffer + (size_t)security_buffers[2].cbBuffer, on_send_complete, callback_context) != 0)
                         {
                             LogError("xio_send failed");
                             result = MU_FAILURE;
@@ -835,8 +838,18 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                     }
                     break;
                 }
-                FreeContextBuffer(output_buffers[0].pvBuffer);
-                FreeContextBuffer(output_buffers[1].pvBuffer);
+
+                if (output_buffers[0].pvBuffer != NULL)
+                {
+                    FreeContextBuffer(output_buffers[0].pvBuffer);
+                    output_buffers[0].pvBuffer = NULL;
+                }
+
+                if (output_buffers[1].pvBuffer != NULL)
+                {
+                    FreeContextBuffer(output_buffers[1].pvBuffer);
+                    output_buffers[1].pvBuffer = NULL;
+                }
             }
             else if (tls_io_instance->tlsio_state == TLSIO_STATE_OPEN)
             {
@@ -977,8 +990,18 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                             }
                         }
                     }
-                    FreeContextBuffer(output_buffers[0].pvBuffer);
-                    FreeContextBuffer(output_buffers[1].pvBuffer);
+
+                    if (output_buffers[0].pvBuffer != NULL)
+                    {
+                        FreeContextBuffer(output_buffers[0].pvBuffer);
+                        output_buffers[0].pvBuffer = NULL;
+                    }
+
+                    if (output_buffers[1].pvBuffer != NULL)
+                    {
+                        FreeContextBuffer(output_buffers[1].pvBuffer);
+                        output_buffers[1].pvBuffer = NULL;
+                    }
                     break;
                 }
 
@@ -1069,10 +1092,12 @@ CONCRETE_IO_HANDLE tlsio_schannel_create(void* io_create_parameters)
         {
             (void)memset(result, 0, sizeof(TLS_IO_INSTANCE));
 
-            result->host_name = (SEC_TCHAR*)malloc(sizeof(SEC_TCHAR) * (1 + strlen(tls_io_config->hostname)));
-            if (result->host_name == NULL)
+            size_t malloc_size = safe_add_size_t(strlen(tls_io_config->hostname), 1);
+            malloc_size = safe_multiply_size_t(malloc_size, sizeof(SEC_TCHAR));
+            if (malloc_size == SIZE_MAX ||
+                (result->host_name = (SEC_TCHAR*)malloc(malloc_size)) == NULL)
             {
-                LogError("malloc failed");
+                LogError("malloc failed, size:%zu", malloc_size);
                 free(result);
                 result = NULL;
             }
@@ -1162,30 +1187,38 @@ void tlsio_schannel_destroy(CONCRETE_IO_HANDLE tls_io)
         if (tls_io_instance->received_bytes != NULL)
         {
             free(tls_io_instance->received_bytes);
+            tls_io_instance->received_bytes = NULL;
         }
 
         if (tls_io_instance->trustedCertificate != NULL)
         {
             free(tls_io_instance->trustedCertificate);
+            tls_io_instance->trustedCertificate = NULL;
         }
 
         if (tls_io_instance->x509_schannel_handle != NULL)
         {
             x509_schannel_destroy(tls_io_instance->x509_schannel_handle);
+            tls_io_instance->x509_schannel_handle = NULL;
         }
 
         if (tls_io_instance->x509certificate != NULL)
         {
             free(tls_io_instance->x509certificate);
+            tls_io_instance->x509certificate = NULL;
         }
 
         if (tls_io_instance->x509privatekey != NULL)
         {
             free(tls_io_instance->x509privatekey);
+            tls_io_instance->x509privatekey = NULL;
         }
 
         xio_destroy(tls_io_instance->socket_io);
+        tls_io_instance->socket_io = NULL;
+
         free(tls_io_instance->host_name);
+        tls_io_instance->host_name = NULL;
 
         first_pending_io = singlylinkedlist_get_head_item(tls_io_instance->pending_io_list);
         while (first_pending_io != NULL)

@@ -20,11 +20,12 @@
 #include "azure_c_shared_utility/uws_frame_encoder.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/utf8_checker.h"
-#include "azure_c_shared_utility/gb_rand.h"
+#include "azure_c_shared_utility/random.h"
 #include "azure_c_shared_utility/azure_base64.h"
 #include "azure_c_shared_utility/optionhandler.h"
 #include "azure_c_shared_utility/map.h"
 #include "azure_c_shared_utility/shared_util_options.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 static const char* UWS_CLIENT_OPTIONS = "uWSClientOptions";
 
@@ -96,6 +97,7 @@ typedef struct UWS_CLIENT_INSTANCE_TAG
     ON_WS_CLOSE_COMPLETE on_ws_close_complete;
     void* on_ws_close_complete_context;
     unsigned char* stream_buffer;
+    size_t stream_buffer_size;
     size_t stream_buffer_count;
     unsigned char* fragment_buffer;
     size_t fragment_buffer_count;
@@ -290,11 +292,12 @@ UWS_CLIENT_HANDLE uws_client_create(const char* hostname, unsigned int port, con
                                 }
                                 else
                                 {
-                                    result->protocols = (WS_INSTANCE_PROTOCOL*)malloc(sizeof(WS_INSTANCE_PROTOCOL) * protocol_count);
-                                    if (result->protocols == NULL)
+                                    size_t malloc_size = safe_multiply_size_t(sizeof(WS_INSTANCE_PROTOCOL), protocol_count);
+                                    if (malloc_size == SIZE_MAX ||
+                                        (result->protocols = (WS_INSTANCE_PROTOCOL*)malloc(malloc_size)) == NULL)
                                     {
                                         /* Codes_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then uws_client_create shall fail and return NULL. ]*/
-                                        LogError("Cannot allocate memory for the protocols array.");
+                                        LogError("Cannot allocate memory for the protocols array. size=%zu", malloc_size);
                                         xio_destroy(result->underlying_io);
                                         singlylinkedlist_destroy(result->pending_sends);
                                         Map_Destroy(result->request_headers);
@@ -473,11 +476,12 @@ UWS_CLIENT_HANDLE uws_client_create_with_io(const IO_INTERFACE_DESCRIPTION* io_i
                                 }
                                 else
                                 {
-                                    result->protocols = (WS_INSTANCE_PROTOCOL*)malloc(sizeof(WS_INSTANCE_PROTOCOL) * protocol_count);
-                                    if (result->protocols == NULL)
+                                    size_t malloc_size = safe_multiply_size_t(sizeof(WS_INSTANCE_PROTOCOL), protocol_count);
+                                    if (malloc_size == SIZE_MAX ||
+                                        (result->protocols = (WS_INSTANCE_PROTOCOL*)malloc(malloc_size)) == NULL)
                                     {
                                         /* Codes_SRS_UWS_CLIENT_01_414: [ If allocating memory for the copied protocol information fails then uws_client_create shall fail and return NULL. ]*/
-                                        LogError("Cannot allocate memory for the protocols array.");
+                                        LogError("Cannot allocate memory for the protocols array. size=%zu", malloc_size);
                                         xio_destroy(result->underlying_io);
                                         singlylinkedlist_destroy(result->pending_sends);
                                         Map_Destroy(result->request_headers);
@@ -545,6 +549,8 @@ void uws_client_destroy(UWS_CLIENT_HANDLE uws_client)
     {
         free(uws_client->stream_buffer);
         free(uws_client->fragment_buffer);
+        uws_client->stream_buffer = NULL;
+        uws_client->fragment_buffer = NULL;
 
         /* Codes_SRS_UWS_CLIENT_01_021: [ uws_client_destroy shall perform a close action if the uws instance has already been open. ]*/
         switch (uws_client->uws_state)
@@ -566,9 +572,11 @@ void uws_client_destroy(UWS_CLIENT_HANDLE uws_client)
             for (i = 0; i < uws_client->protocol_count; i++)
             {
                 free(uws_client->protocols[i].protocol);
+                uws_client->protocols[i].protocol = NULL;
             }
 
             free(uws_client->protocols);
+            uws_client->protocols = NULL;
         }
 
         /* Codes_SRS_UWS_CLIENT_01_019: [ uws_client_destroy shall free all resources associated with the uws instance. ]*/
@@ -700,9 +708,11 @@ static char* get_request_headers(MAP_HANDLE headers)
             length += strlen(keys[i]) + strlen(values[i]) + 4;
         }
 
-        if ((result = (char*)malloc(sizeof(char) * (length + 1))) == NULL)
+        size_t malloc_size = safe_multiply_size_t(safe_add_size_t(length, 1), sizeof(char));
+        if (malloc_size == SIZE_MAX ||
+            (result = (char*)malloc(malloc_size)) == NULL)
         {
-            LogError("Failed allocating string for request headers");
+            LogError("Failed allocating string for request headers, size=%zu", malloc_size);
             result = NULL;
         }
         else
@@ -776,7 +786,7 @@ static void on_underlying_io_open_complete(void* context, IO_OPEN_RESULT open_re
                 /* Codes_SRS_UWS_CLIENT_01_090: [ The nonce MUST be selected randomly for each connection. ]*/
                 for (i = 0; i < sizeof(nonce); i++)
                 {
-                    nonce[i] = (unsigned char)gb_rand();
+                    nonce[i] = (unsigned char)RANDOM_generate();
                 }
 
                 /* Codes_SRS_UWS_CLIENT_01_497: [ The nonce needed for the upgrade request shall be Base64 encoded with Azure_Base64_Encode_Bytes. ]*/
@@ -829,8 +839,9 @@ static void on_underlying_io_open_complete(void* context, IO_OPEN_RESULT open_re
                     }
                     else
                     {
-                        upgrade_request = (char*)malloc(upgrade_request_length + 1);
-                        if (upgrade_request == NULL)
+                        size_t malloc_size = safe_add_size_t((size_t)upgrade_request_length, 1);
+                        if (malloc_size == SIZE_MAX ||
+                            (upgrade_request = (char*)malloc(malloc_size)) == NULL)
                         {
                             /* Codes_SRS_UWS_CLIENT_01_406: [ If not enough memory can be allocated to construct the WebSocket upgrade request, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
                             LogError("Cannot allocate memory for the WebSocket upgrade request");
@@ -863,6 +874,7 @@ static void on_underlying_io_open_complete(void* context, IO_OPEN_RESULT open_re
                             }
 
                             free(upgrade_request);
+                            upgrade_request = NULL;
                         }
                     }
 
@@ -1041,8 +1053,10 @@ static int ParseHttpResponse(const char* src, int* dst)
 static int process_frame_fragment(UWS_CLIENT_INSTANCE *uws_client, size_t length, size_t needed_bytes)
 {
     int result;
-    unsigned char *new_fragment_bytes = (unsigned char *)realloc(uws_client->fragment_buffer, uws_client->fragment_buffer_count + length);
-    if (new_fragment_bytes == NULL)
+    unsigned char* new_fragment_bytes;
+    size_t realloc_size = safe_add_size_t(uws_client->fragment_buffer_count, length);
+    if (realloc_size == SIZE_MAX ||
+        (new_fragment_bytes = (unsigned char*)realloc(uws_client->fragment_buffer, realloc_size)) == NULL)
     {
         /* Codes_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
         LogError("Cannot allocate memory for received data");
@@ -1093,8 +1107,12 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
             case UWS_STATE_WAITING_FOR_UPGRADE_RESPONSE:
             {
                 /* Codes_SRS_UWS_CLIENT_01_378: [ When on_underlying_io_bytes_received is called while the uws is OPENING, the received bytes shall be accumulated in order to attempt parsing the WebSocket Upgrade response. ]*/
-                unsigned char* new_received_bytes = (unsigned char*)realloc(uws_client->stream_buffer, uws_client->stream_buffer_count + size + 1);
-                if (new_received_bytes == NULL)
+                unsigned char* new_received_bytes;
+
+                //size_t realloc_size = uws_client->stream_buffer_count + size + 1; **using safe int**
+                uws_client->stream_buffer_size = safe_add_size_t(safe_add_size_t(uws_client->stream_buffer_count, size), 1);
+                if (uws_client->stream_buffer_size == SIZE_MAX || 
+                    (new_received_bytes = (unsigned char*)realloc(uws_client->stream_buffer, uws_client->stream_buffer_size)) == NULL)
                 {
                     /* Codes_SRS_UWS_CLIENT_01_379: [ If allocating memory for accumulating the bytes fails, uws shall report that the open failed by calling the on_ws_open_complete callback passed to uws_client_open_async with WS_OPEN_ERROR_NOT_ENOUGH_MEMORY. ]*/
                     indicate_ws_open_complete_error_and_close(uws_client, WS_OPEN_ERROR_NOT_ENOUGH_MEMORY);
@@ -1116,8 +1134,12 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
             case UWS_STATE_CLOSING_WAITING_FOR_CLOSE:
             {
                 /* Codes_SRS_UWS_CLIENT_01_385: [ If the state of the uws instance is OPEN, the received bytes shall be used for decoding WebSocket frames. ]*/
-                unsigned char* new_received_bytes = (unsigned char*)realloc(uws_client->stream_buffer, uws_client->stream_buffer_count + size + 1);
-                if (new_received_bytes == NULL)
+                unsigned char* new_received_bytes;
+
+                //size_t realloc_size = uws_client->stream_buffer_count + size + 1; **using safe int**
+                uws_client->stream_buffer_size = safe_add_size_t(safe_add_size_t(uws_client->stream_buffer_count, size), 1);
+                if (uws_client->stream_buffer_size == SIZE_MAX ||
+                    (new_received_bytes = (unsigned char*)realloc(uws_client->stream_buffer, uws_client->stream_buffer_size)) == NULL)
                 {
                     /* Codes_SRS_UWS_CLIENT_01_418: [ If allocating memory for the bytes accumulated for decoding WebSocket frames fails, an error shall be indicated by calling the on_ws_error callback with WS_ERROR_NOT_ENOUGH_MEMORY. ]*/
                     LogError("Cannot allocate memory for received data");
@@ -1211,7 +1233,9 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
 
                     /* Codes_SRS_UWS_CLIENT_01_277: [ To receive WebSocket data, an endpoint listens on the underlying network connection. ]*/
                     /* Codes_SRS_UWS_CLIENT_01_278: [ Incoming data MUST be parsed as WebSocket frames as defined in Section 5.2. ]*/
-                    if (uws_client->stream_buffer_count >= needed_bytes)
+                    if (uws_client->stream_buffer_count >= needed_bytes && 
+                        uws_client->stream_buffer_size > 1   // validate uws_client->stream_buffer[1] access
+                        )
                     {
                         unsigned char has_error = 0;
 
@@ -1232,7 +1256,9 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                         {
                             /* Codes_SRS_UWS_CLIENT_01_165: [ If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length. ]*/
                             needed_bytes += 2;
-                            if (uws_client->stream_buffer_count >= needed_bytes)
+                            if (uws_client->stream_buffer_count >= needed_bytes && 
+                                uws_client->stream_buffer_size > 3   // validate access upto stream_buffer[3]
+                                )
                             {
                                 /* Codes_SRS_UWS_CLIENT_01_167: [ Multibyte length quantities are expressed in network byte order. ]*/
                                 length = ((size_t)(uws_client->stream_buffer[2]) << 8) + (size_t)uws_client->stream_buffer[3];
@@ -1248,7 +1274,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                 }
                                 else
                                 {
-                                    needed_bytes += (size_t)length;
+                                    needed_bytes = safe_add_size_t(needed_bytes, length);
                                 }
                             }
                         }
@@ -1258,7 +1284,7 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                             needed_bytes += 8;
                             if (uws_client->stream_buffer_count >= needed_bytes)
                             {
-                                if ((uws_client->stream_buffer[2] & 0x80) != 0)
+                                if (uws_client->stream_buffer_size <= 2 || (uws_client->stream_buffer[2] & 0x80) != 0)
                                 {
                                     LogError("Bad frame: received a 64 bit length frame with the highest bit set");
 
@@ -1266,10 +1292,15 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                     indicate_ws_error(uws_client, WS_ERROR_BAD_FRAME_RECEIVED);
                                     has_error = 1;
                                 }
+                                else if (uws_client->stream_buffer_size <= 9)  // validate access upto stream_buffer[9] below
+                                {
+                                    indicate_ws_error(uws_client, WS_ERROR_BAD_FRAME_RECEIVED);
+                                    has_error = 1;
+                                }
                                 else
                                 {
                                     /* Codes_SRS_UWS_CLIENT_01_167: [ Multibyte length quantities are expressed in network byte order. ]*/
-                                    length = (size_t)(((uint64_t)(uws_client->stream_buffer[2]) << 56) +
+                                    uint64_t length_uint64 = (((uint64_t)(uws_client->stream_buffer[2]) << 56) +
                                         (((uint64_t)uws_client->stream_buffer[3]) << 48) +
                                         (((uint64_t)uws_client->stream_buffer[4]) << 40) +
                                         (((uint64_t)uws_client->stream_buffer[5]) << 32) +
@@ -1278,7 +1309,12 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                         (((uint64_t)uws_client->stream_buffer[8]) << 8) +
                                         (uint64_t)(uws_client->stream_buffer[9]));
 
-                                    if (length < 65536)
+                                    length = (size_t)(length_uint64);
+                                    needed_bytes = safe_add_size_t(needed_bytes, length);
+
+                                    if (length < 65536 ||
+                                        length_uint64 >= (SIZE_MAX/2) ||   // limit max pack size to 1/2 process memory
+                                        needed_bytes == SIZE_MAX)
                                     {
                                         /* Codes_SRS_UWS_CLIENT_01_168: [ Note that in all cases, the minimal number of bytes MUST be used to encode the length, for example, the length of a 124-byte-long string can't be encoded as the sequence 126, 0, 124. ]*/
                                         LogError("Bad frame: received a %u length on the 64 bit length", (unsigned int)length);
@@ -1287,16 +1323,12 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                         indicate_ws_error(uws_client, WS_ERROR_BAD_FRAME_RECEIVED);
                                         has_error = 1;
                                     }
-                                    else
-                                    {
-                                        needed_bytes += length;
-                                    }
                                 }
                             }
                         }
                         else
                         {
-                            needed_bytes += length;
+                            needed_bytes = safe_add_size_t(needed_bytes, length);
                         }
 
                         if ((has_error == 0) &&
@@ -1391,7 +1423,19 @@ static void on_underlying_io_bytes_received(void* context, const unsigned char* 
                                 /* Codes_SRS_UWS_CLIENT_01_282: [ If the frame comprises an unfragmented message (Section 5.4), it is said that _A WebSocket Message Has Been Received_ with type /type/ and data /data/. ]*/
                                 if (is_final)
                                 {
-                                    uws_client->on_ws_frame_received(uws_client->on_ws_frame_received_context, WS_FRAME_TYPE_BINARY, uws_client->stream_buffer + needed_bytes - length, length);
+                                    size_t stream_buffer_idx = safe_add_size_t(uws_client->stream_buffer, needed_bytes);
+                                    stream_buffer_idx = safe_subtract_size_t(stream_buffer_idx, length);
+                                    if (stream_buffer_idx != SIZE_MAX)
+                                    {
+                                        uws_client->on_ws_frame_received(uws_client->on_ws_frame_received_context, WS_FRAME_TYPE_BINARY, (const unsigned char*)stream_buffer_idx, length);
+                                    }
+                                    else
+                                    {
+                                        LogError("Invalid packet length, stream_buffer_idx=%zu", stream_buffer_idx);
+                                        indicate_ws_error(uws_client, WS_ERROR_BAD_FRAME_RECEIVED);
+                                        decode_stream = 1;
+                                        break;
+                                    }
                                 }
                                 else
                                 {
