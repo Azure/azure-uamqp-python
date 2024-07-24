@@ -16,6 +16,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 #ifdef USE_OPENSSL
 #include "azure_c_shared_utility/x509_openssl.h"
+#include "openssl/engine.h"
 #elif USE_WOLFSSL
 #define WOLFSSL_OPTIONS_IGNORE_SYS
 #include "wolfssl/options.h"
@@ -26,6 +27,7 @@
 #include "mbedtls/ssl.h"
 #endif
 #include "azure_c_shared_utility/shared_util_options.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 #define TEMP_BUFFER_SIZE 1024
 
@@ -44,7 +46,13 @@ typedef struct HTTP_HANDLE_DATA_TAG
     const char* x509privatekey;
     const char* x509certificate;
     const char* certificates; /*a list of CA certificates*/
-#if USE_MBEDTLS
+#if USE_OPENSSL
+    OPTION_OPENSSL_KEY_TYPE x509privatekeytype;
+#ifndef OPENSSL_NO_ENGINE
+    char* engineId;
+    ENGINE* engine;
+#endif // OPENSSL_NO_ENGINE
+#elif USE_MBEDTLS
     mbedtls_x509_crt cert;
     mbedtls_pk_context key;
     mbedtls_x509_crt trusted_certificates;
@@ -111,52 +119,107 @@ HTTP_HANDLE HTTPAPI_CreateConnection(const char* hostName)
         httpHandleData = (HTTP_HANDLE_DATA*)malloc(sizeof(HTTP_HANDLE_DATA));
         if (httpHandleData != NULL)
         {
-            size_t hostURL_size = strlen("https://") + strlen(hostName) + 1;
-            httpHandleData->hostURL = malloc(hostURL_size);
+            size_t hostURL_size = safe_add_size_t(strlen("https://"), strlen(hostName));
+            hostURL_size = safe_add_size_t(hostURL_size, 1);
+
+            if (hostURL_size == SIZE_MAX)
+            {
+                LogError("invalid malloc size");
+                httpHandleData->hostURL = NULL;
+            }
+            else
+            {
+                httpHandleData->hostURL = malloc(hostURL_size);
+            }
+
             if (httpHandleData->hostURL == NULL)
             {
                 LogError("unable to malloc");
                 free(httpHandleData);
                 httpHandleData = NULL;
             }
+            else if ((strcpy_s(httpHandleData->hostURL, hostURL_size, "https://") != 0) ||
+                    (strcat_s(httpHandleData->hostURL, hostURL_size, hostName) != 0))
+            {
+                LogError("unable to set hostURL");
+                free(httpHandleData->hostURL);
+                free(httpHandleData);
+                httpHandleData = NULL;
+            }
+            else if ((httpHandleData->curl = curl_easy_init()) == NULL)
+            {
+                LogError("unable to init cURL structure");
+                free(httpHandleData->hostURL);
+                free(httpHandleData);
+                httpHandleData = NULL;
+            }
             else
             {
-                if ((strcpy_s(httpHandleData->hostURL, hostURL_size, "https://") == 0) &&
-                    (strcat_s(httpHandleData->hostURL, hostURL_size, hostName) == 0))
+#ifdef USE_BEARSSL
+                // Gate testing currently supports version of cURL prior to cURL's BearSSL or SecureTransport support.
+                // To pass Gates, cannot directly reference CURLSSLBACKEND_BEARSSL or CURLSSLBACKEND_SECURETRANSPORT.
+                // Skipping validation of cURL's ssl backend.
+                LogInfo("If using BearSSL with the C SDK, please confirm cURL is also configured to use BearSSL.");
+#elif defined USE_OPENSSL || defined USE_WOLFSSL || defined USE_MBEDTLS
+
+                // Check C SDK TLS platform matches cURL's
+                const struct curl_tlssessioninfo* info = NULL;
+                CURLcode result = curl_easy_getinfo(httpHandleData->curl, CURLINFO_TLS_SSL_PTR, &info);
+
+                if (result != CURLE_OK || info == NULL)
                 {
-                    httpHandleData->curl = curl_easy_init();
-                    if (httpHandleData->curl == NULL)
-                    {
-                        free(httpHandleData->hostURL);
-                        free(httpHandleData);
-                        httpHandleData = NULL;
-                    }
-                    else
-                    {
-                        httpHandleData->timeout = 242 * 1000; /*242 seconds seems like a nice enough time. Reasone for 242:
-                                                                1. http://curl.haxx.se/libcurl/c/CURLOPT_TIMEOUT.html says Normally, name lookups can take a considerable time and limiting operations to less than a few minutes risk aborting perfectly normal operations.
-                                                                2. 256KB of data... at 9600 bps transfers in about 218 seconds. Add to that a buffer of 10%... round it up to 242 :)*/
-                        httpHandleData->lowSpeedTime = 0;
-                        httpHandleData->lowSpeedLimit = 0;
-                        httpHandleData->forbidReuse = 0;
-                        httpHandleData->freshConnect = 0;
-                        httpHandleData->verbose = 0;
-                        httpHandleData->x509certificate = NULL;
-                        httpHandleData->x509privatekey = NULL;
-                        httpHandleData->certificates = NULL;
-#if USE_MBEDTLS
-                        mbedtls_x509_crt_init(&httpHandleData->cert);
-                        mbedtls_pk_init(&httpHandleData->key);
-                        mbedtls_x509_crt_init(&httpHandleData->trusted_certificates);
-#endif
-                    }
+                    LogError("unable to get cURL backend SSL info");
                 }
                 else
                 {
-                    free(httpHandleData->hostURL);
-                    free(httpHandleData);
-                    httpHandleData = NULL;
+    #ifdef USE_OPENSSL
+                    if (CURLSSLBACKEND_OPENSSL != (int32_t)info->backend) 
+                    {
+                        char* SDKSSLName = "OpenSSL";
+    #elif USE_WOLFSSL
+                    if (CURLSSLBACKEND_WOLFSSL != (int32_t)info->backend)
+                    {
+                        char* SDKSSLName = "wolfSSL";
+    #elif USE_MBEDTLS
+                    if (CURLSSLBACKEND_MBEDTLS != (int32_t)info->backend)
+                    {
+                        char* SDKSSLName = "mbedTLS";
+    #else
+                    // Should not get here.
+    #endif
+                        LogError("curl_sslbackend (%d) currently used by cURL does not match TLS platform (%s) "
+                                 "used by C SDK on Linux or OSX. Please configure and compile cURL to use %s.",
+                                 info->backend, SDKSSLName, SDKSSLName);
+                    }
                 }
+#else // Other, possibly SecureTransport.
+                // Gate testing currently supports version of cURL prior to cURL's BearSSL or SecureTransport support.
+                // To pass Gates, cannot directly reference CURLSSLBACKEND_BEARSSL or CURLSSLBACKEND_SECURETRANSPORT.
+                // Skipping validation of cURL's ssl backend.
+                LogInfo("If using SecureTransport with the C SDK, please confirm cURL is also configured to use SecureTransport.");
+#endif 
+                httpHandleData->timeout = 242 * 1000; /*242 seconds seems like a nice enough time. Reasone for 242:
+                                                        1. http://curl.haxx.se/libcurl/c/CURLOPT_TIMEOUT.html says Normally, name lookups can take a considerable time and limiting operations to less than a few minutes risk aborting perfectly normal operations.
+                                                        2. 256KB of data... at 9600 bps transfers in about 218 seconds. Add to that a buffer of 10%... round it up to 242 :)*/
+                httpHandleData->lowSpeedTime = 0;
+                httpHandleData->lowSpeedLimit = 0;
+                httpHandleData->forbidReuse = 0;
+                httpHandleData->freshConnect = 0;
+                httpHandleData->verbose = 0;
+                httpHandleData->x509certificate = NULL;
+                httpHandleData->x509privatekey = NULL;
+                httpHandleData->certificates = NULL;
+#ifdef USE_OPENSSL
+                httpHandleData->x509privatekeytype = KEY_TYPE_DEFAULT;
+#ifndef OPENSSL_NO_ENGINE
+                httpHandleData->engineId = NULL;
+                httpHandleData->engine = NULL;
+#endif // OPENSSL_NO_ENGINE
+#elif USE_MBEDTLS
+                mbedtls_x509_crt_init(&httpHandleData->cert);
+                mbedtls_pk_init(&httpHandleData->key);
+                mbedtls_x509_crt_init(&httpHandleData->trusted_certificates);
+#endif
             }
         }
     }
@@ -170,8 +233,23 @@ void HTTPAPI_CloseConnection(HTTP_HANDLE handle)
     if (httpHandleData != NULL)
     {
         free(httpHandleData->hostURL);
+        httpHandleData->hostURL = NULL;
         curl_easy_cleanup(httpHandleData->curl);
-#if USE_MBEDTLS
+#ifdef USE_OPENSSL
+#ifndef OPENSSL_NO_ENGINE
+        if (httpHandleData->engine != NULL)
+        {
+            ENGINE_free(httpHandleData->engine);
+            httpHandleData->engine = NULL;
+        }
+
+        if (httpHandleData->engineId != NULL)
+        {
+            free(httpHandleData->engineId);
+            httpHandleData->engineId = NULL;
+        }
+#endif // OPENSSL_NO_ENGINE
+#elif USE_MBEDTLS
         mbedtls_x509_crt_free(&httpHandleData->cert);
         mbedtls_pk_free(&httpHandleData->key);
         mbedtls_x509_crt_free(&httpHandleData->trusted_certificates);
@@ -216,7 +294,20 @@ static size_t ContentWriteFunction(void *ptr, size_t size, size_t nmemb, void *u
         (ptr != NULL) &&
         (size * nmemb > 0))
     {
-        void* newBuffer = realloc(responseContentBuffer->buffer, responseContentBuffer->bufferSize + (size * nmemb));
+        size_t malloc_size = safe_multiply_size_t(size, nmemb);
+        malloc_size = safe_add_size_t(malloc_size, responseContentBuffer->bufferSize);
+
+        void* newBuffer;
+        if (malloc_size == SIZE_MAX)
+        {
+            LogError("Invalid buffer size");
+            newBuffer = NULL;
+        }
+        else
+        {
+            newBuffer = realloc(responseContentBuffer->buffer, malloc_size);
+        }
+
         if (newBuffer != NULL)
         {
             responseContentBuffer->buffer = newBuffer;
@@ -225,11 +316,12 @@ static size_t ContentWriteFunction(void *ptr, size_t size, size_t nmemb, void *u
         }
         else
         {
-            LogError("Could not allocate buffer of size %lu", (unsigned long)(responseContentBuffer->bufferSize + (size * nmemb)));
+            LogError("Could not allocate buffer of size %lu", (unsigned long)(malloc_size));
             responseContentBuffer->error = 1;
             if (responseContentBuffer->buffer != NULL)
             {
                 free(responseContentBuffer->buffer);
+                responseContentBuffer->buffer = NULL;
             }
         }
     }
@@ -255,13 +347,33 @@ static CURLcode ssl_ctx_callback(CURL *curl, void *ssl_ctx, void *userptr)
         HTTP_HANDLE_DATA *httpHandleData = (HTTP_HANDLE_DATA *)userptr;
 #ifdef USE_OPENSSL
         /*trying to set the x509 per device certificate*/
+#ifndef OPENSSL_NO_ENGINE
+        if (httpHandleData->x509privatekeytype == KEY_TYPE_ENGINE) {
+            ENGINE_load_builtin_engines();
+            httpHandleData->engine = ENGINE_by_id(httpHandleData->engineId);
+        }
+        if (httpHandleData->x509privatekeytype == KEY_TYPE_ENGINE && httpHandleData->engine == NULL)
+        {
+            LogError("unable to load engine by ID: %s", httpHandleData->engineId);
+            result = CURLE_SSL_CERTPROBLEM;
+        }
+        else if (
+            (httpHandleData->x509certificate != NULL) && (httpHandleData->x509privatekey != NULL) &&
+            (x509_openssl_add_credentials(ssl_ctx, httpHandleData->x509certificate, httpHandleData->x509privatekey, httpHandleData->x509privatekeytype, httpHandleData->engine) != 0)
+           )
+#else // OPENSSL_NO_ENGINE
         if (
             (httpHandleData->x509certificate != NULL) && (httpHandleData->x509privatekey != NULL) &&
-            (x509_openssl_add_credentials(ssl_ctx, httpHandleData->x509certificate, httpHandleData->x509privatekey, KEY_TYPE_DEFAULT, NULL) != 0)
+            (x509_openssl_add_credentials(ssl_ctx, httpHandleData->x509certificate, httpHandleData->x509privatekey, httpHandleData->x509privatekeytype) != 0)
            )
+#endif // OPENSSL_NO_ENGINE
         {
             LogError("unable to x509_openssl_add_credentials");
             result = CURLE_SSL_CERTPROBLEM;
+#ifndef OPENSSL_NO_ENGINE
+            ENGINE_free(httpHandleData->engine);
+            httpHandleData->engine = NULL;
+#endif // OPENSSL_NO_ENGINE
         }
         /*trying to set CA certificates*/
         else if (
@@ -271,6 +383,10 @@ static CURLcode ssl_ctx_callback(CURL *curl, void *ssl_ctx, void *userptr)
         {
             LogError("failure in x509_openssl_add_certificates");
             result = CURLE_SSL_CERTPROBLEM;
+#ifndef OPENSSL_NO_ENGINE
+            ENGINE_free(httpHandleData->engine);
+            httpHandleData->engine = NULL;
+#endif // OPENSSL_NO_ENGINE
         }
 #elif USE_WOLFSSL
         if (
@@ -364,8 +480,18 @@ HTTPAPI_RESULT HTTPAPI_ExecuteRequest(HTTP_HANDLE handle, HTTPAPI_REQUEST_TYPE r
     else
     {
         char* tempHostURL;
-        size_t tempHostURL_size = strlen(httpHandleData->hostURL) + strlen(relativePath) + 1;
-        tempHostURL = malloc(tempHostURL_size);
+        size_t tempHostURL_size = safe_add_size_t(strlen(httpHandleData->hostURL), strlen(relativePath));
+        tempHostURL_size = safe_add_size_t(tempHostURL_size, 1);
+        if (tempHostURL_size == SIZE_MAX)
+        {
+            LogError("Invalid malloc size");
+            tempHostURL = NULL;
+        }
+        else
+        {
+            tempHostURL = malloc(tempHostURL_size);
+        }
+
         if (tempHostURL == NULL)
         {
             result = HTTPAPI_ERROR;
@@ -702,6 +828,7 @@ HTTPAPI_RESULT HTTPAPI_ExecuteRequest(HTTP_HANDLE handle, HTTPAPI_REQUEST_TYPE r
                                         if (responseContentBuffer.buffer != NULL)
                                         {
                                             free(responseContentBuffer.buffer);
+                                            responseContentBuffer.buffer = NULL;
                                         }
                                     }
                                 }
@@ -764,6 +891,36 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
             httpHandleData->verbose = *(const long*)value;
             result = HTTPAPI_OK;
         }
+#ifdef USE_OPENSSL
+        else if (strcmp(OPTION_OPENSSL_PRIVATE_KEY_TYPE, optionName) == 0)
+        {
+            const OPTION_OPENSSL_KEY_TYPE type = *(const OPTION_OPENSSL_KEY_TYPE*)value;
+            if (type == KEY_TYPE_DEFAULT || type == KEY_TYPE_ENGINE)
+            {
+                httpHandleData->x509privatekeytype = type;
+                result = HTTPAPI_OK;
+            }
+            else
+            {
+                LogError("Unknown x509PrivatekeyType: %i", type);
+                result = HTTPAPI_ERROR;
+            }
+        }
+#ifndef OPENSSL_NO_ENGINE
+        else if (strcmp(OPTION_OPENSSL_ENGINE, optionName) == 0)
+        {
+            if (mallocAndStrcpy_s((char**)&httpHandleData->engineId, value) != 0)
+            {
+                LogError("unable to mallocAndStrcpy_s x509PrivatekeyType");
+                result = HTTPAPI_ERROR;
+            }
+            else
+            {
+                result = HTTPAPI_OK;
+            }
+        }
+#endif // OPENSSL_NO_ENGINE
+#endif
         else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0 || strcmp(OPTION_X509_ECC_KEY, optionName) == 0)
         {
             httpHandleData->x509privatekey = value;
@@ -845,8 +1002,18 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
                 {
                     if (proxy_data->username != NULL && proxy_data->password != NULL)
                     {
-                        size_t authLen = strlen(proxy_data->username)+strlen(proxy_data->password)+1;
-                        proxy_auth = malloc(authLen+1);
+                        size_t authLen = safe_add_size_t(strlen(proxy_data->username), strlen(proxy_data->password));
+                        authLen = safe_add_size_t(authLen, 2);
+                        if (authLen == SIZE_MAX)
+                        {
+                            LogError("Invalid malloc size");
+                            proxy_auth = NULL;
+                        }
+                        else
+                        {
+                            proxy_auth = malloc(authLen);
+                        }
+
                         if (proxy_auth == NULL)
                         {
                             LogError("failure allocating proxy authentication");
@@ -873,6 +1040,7 @@ HTTPAPI_RESULT HTTPAPI_SetOption(HTTP_HANDLE handle, const char* optionName, con
                                 }
                             }
                             free(proxy_auth);
+                            proxy_auth = NULL;
                         }
                     }
                     else
@@ -975,10 +1143,50 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
             }
             else
             {
-                /*return OK when the certificate has been clones successfully*/
+                /*return OK when the certificate has been cloned successfully*/
                 result = HTTPAPI_OK;
             }
         }
+#ifdef USE_OPENSSL
+        else if (strcmp(OPTION_OPENSSL_PRIVATE_KEY_TYPE, optionName) == 0)
+        {
+            const OPTION_OPENSSL_KEY_TYPE type = *(const OPTION_OPENSSL_KEY_TYPE*)value;
+            if (type == KEY_TYPE_DEFAULT || type == KEY_TYPE_ENGINE)
+            {
+                OPTION_OPENSSL_KEY_TYPE* temp = malloc(sizeof(OPTION_OPENSSL_KEY_TYPE));
+                if (temp == NULL)
+                {
+                    LogError("unable to clone x509PrivatekeyType");
+                    result = HTTPAPI_ERROR;
+                }
+                else
+                {
+                    *temp = type;
+                    *savedValue = temp;
+                    result = HTTPAPI_OK;
+                }
+            }
+            else
+            {
+                LogError("Unknown x509PrivatekeyType: %i", type);
+                result = HTTPAPI_ERROR;
+            }
+        }
+        else if (strcmp(OPTION_OPENSSL_ENGINE, optionName) == 0)
+        {
+            /*this is getting the engine. In this case, value is a pointer to a const char* that contains the engine as a null terminated string*/
+            if (mallocAndStrcpy_s((char**)savedValue, value) != 0)
+            {
+                LogError("unable to clone %s", optionName);
+                result = HTTPAPI_ERROR;
+            }
+            else
+            {
+                /*return OK when the engine has been cloned successfully*/
+                result = HTTPAPI_OK;
+            }
+        }
+#endif
         else if (strcmp(SU_OPTION_X509_PRIVATE_KEY, optionName) == 0 || strcmp(OPTION_X509_ECC_KEY, optionName) == 0)
         {
             /*this is getting the x509 private key. In this case, value is a pointer to a const char* that contains the private key as a null terminated string*/
@@ -989,7 +1197,7 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
             }
             else
             {
-                /*return OK when the private key has been clones successfully*/
+                /*return OK when the private key has been cloned successfully*/
                 result = HTTPAPI_OK;
             }
         }
@@ -1002,7 +1210,7 @@ HTTPAPI_RESULT HTTPAPI_CloneOption(const char* optionName, const void* value, co
             }
             else
             {
-                /*return OK when the certificates have been clones successfully*/
+                /*return OK when the certificates have been cloned successfully*/
                 result = HTTPAPI_OK;
             }
         }

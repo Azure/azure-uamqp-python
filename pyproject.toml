@@ -2,13 +2,14 @@
 requires = [
     "setuptools>=42",
     "wheel",
-    "Cython<3.0.0",
+    "Cython",
     "cmake",
 ]
 
 [tool.cibuildwheel]
 # skip musl and pypy
-skip = ["*-musllinux*", "pp*"] 
+skip = ["*-musllinux*", "pp*"]
+build="cp313-*"
 #test-requires = "pytest"
 #test-command = "python -X dev -m pytest {project}/tests"
 
@@ -28,4 +29,4 @@ CFLAGS = "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux2014"
 before-build = "bash utils/install_openssl.sh"
-environment = {OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl", LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib", CPATH="/opt/pyca/cryptography/openssl/include"}
+environment = {OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl", LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib", CPATH="/opt/pyca/cryptography/openssl/include", CFLAGS="-Wno-error=incompatible-pointer-types"}

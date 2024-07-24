@@ -14,6 +14,7 @@
 #include "azure_c_shared_utility/buffer_.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "azure_c_shared_utility/crt_abstractions.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 static double getExpiryValue(const char* expiryASCII)
 {
@@ -23,7 +24,7 @@ static double getExpiryValue(const char* expiryASCII)
     {
         if (expiryASCII[i] >= '0' && expiryASCII[i] <= '9')
         {
-            value = value * 10 + ((double)expiryASCII[i] - (double)'0');
+            value = value * 10.0 + ((double)expiryASCII[i] - (double)'0');
         }
         else
         {
@@ -152,17 +153,21 @@ bool SASToken_Validate(STRING_HANDLE sasToken)
             }
             else
             {
-                char* expiryASCII = (char*)malloc(seStop - seStart + 1);
+                char* expiryASCII;
+                size_t malloc_size = safe_subtract_size_t((size_t)seStop, (size_t)seStart);
+                malloc_size = safe_add_size_t(malloc_size, 1);
                 /*Codes_SRS_SASTOKEN_25_031: [**If malloc fails during validation then SASToken_Validate shall return false.**]***/
-                if (expiryASCII == NULL)
+                if (malloc_size == SIZE_MAX ||
+                    (expiryASCII = (char*)malloc(malloc_size)) == NULL)
                 {
+                    LogError("malloc error, size:%zu", malloc_size);
                     result = false;
                 }
                 else
                 {
                     double expiry;
                     // Add the Null terminator here
-                    memset(expiryASCII, 0, seStop - seStart + 1);
+                    memset(expiryASCII, 0, (size_t)seStop - (size_t)seStart + 1);
                     for (i = seStart; i < seStop; i++)
                     {
                         // The se contains the expiration values, if a & token is encountered then
