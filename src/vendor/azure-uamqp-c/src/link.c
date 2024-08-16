@@ -19,6 +19,7 @@
 #include "azure_uamqp_c/async_operation.h"
 
 #define DEFAULT_LINK_CREDIT 10000
+#define RECEIVER_MIN_LINK_CREDIT 1
 
 typedef struct DELIVERY_INSTANCE_TAG
 {
@@ -431,6 +432,12 @@ static void link_frame_received(void* context, AMQP_VALUE performative, uint32_t
                 AMQP_VALUE delivery_state;
                 bool more;
                 bool is_error;
+
+                if (link_instance->current_link_credit <= RECEIVER_MIN_LINK_CREDIT)
+                {
+                    link_instance->current_link_credit = link_instance->max_link_credit;
+                    send_flow(link_instance);
+                }
 
                 more = false;
                 /* Attempt to get more flag, default to false */
@@ -1471,7 +1478,7 @@ static void link_transfer_cancel_handler(ASYNC_OPERATION_HANDLE link_transfer_op
         pending_delivery->on_delivery_settled(pending_delivery->callback_context, pending_delivery->delivery_id, LINK_DELIVERY_SETTLE_REASON_CANCELLED, NULL);
     }
 
-    (void)singlylinkedlist_remove_if(((LINK_HANDLE)pending_delivery->link)->pending_deliveries, remove_pending_delivery_condition_function, pending_delivery);
+    (void)singlylinkedlist_remove_if(((LINK_HANDLE)pending_delivery->link)->pending_deliveries, remove_pending_delivery_condition_function, link_transfer_operation);
 
     async_operation_destroy(link_transfer_operation);
 }
@@ -1624,26 +1631,24 @@ ASYNC_OPERATION_HANDLE link_transfer_async(LINK_HANDLE link, message_format mess
                                         default:
                                         case SESSION_SEND_TRANSFER_ERROR:
                                             LogError("Failed session send transfer");
-                                            if (singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item) != 0)
+                                            if (singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item) == 0)
                                             {
-                                                LogError("Error removing pending delivery from the list");
+                                                async_operation_destroy(result);
                                             }
 
                                             *link_transfer_error = LINK_TRANSFER_ERROR;
-                                            async_operation_destroy(result);
                                             result = NULL;
                                             break;
 
                                         case SESSION_SEND_TRANSFER_BUSY:
                                             /* Ensure we remove from list again since sender will attempt to transfer again on flow on */
                                             LogError("Failed session send transfer");
-                                            if (singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item) != 0)
+                                            if (singlylinkedlist_remove(link->pending_deliveries, delivery_instance_list_item) == 0)
                                             {
-                                                LogError("Error removing pending delivery from the list");
+                                                async_operation_destroy(result);
                                             }
 
                                             *link_transfer_error = LINK_TRANSFER_BUSY;
-                                            async_operation_destroy(result);
                                             result = NULL;
                                             break;
 
