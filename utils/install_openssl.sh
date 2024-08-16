@@ -1,8 +1,9 @@
 #!/bin/bash
 set -xe
 
-OPENSSL_URL="https://www.openssl.org/source/"
+OPENSSL_URL="https://github.com/openssl/openssl/releases/download/"
 
+export OPENSSL_RELEASE="OpenSSL_1_1_1t"
 export OPENSSL_VERSION="openssl-1.1.1t"
 export OPENSSL_SHA256="8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b"
 # We need a base set of flags because on Windows using MSVC
@@ -18,7 +19,7 @@ function check_sha256sum {
     rm "${fname}.sha256"
 }
 
-curl -#O "${OPENSSL_URL}/${OPENSSL_VERSION}.tar.gz"
+curl -#O "${OPENSSL_URL}/${OPENSSL_RELEASE}/${OPENSSL_VERSION}.tar.gz"
 check_sha256sum ${OPENSSL_VERSION}.tar.gz ${OPENSSL_SHA256}
 tar zxf ${OPENSSL_VERSION}.tar.gz
 PATH=/opt/perl/bin:$PATH
