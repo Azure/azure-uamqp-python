@@ -18,7 +18,7 @@ function check_sha256sum {
     rm "${fname}.sha256"
 }
 
-curl -#O "${OPENSSL_URL}/${OPENSSL_VERSION}.tar.gz"
+curl -#LO "${OPENSSL_URL}/${OPENSSL_VERSION}.tar.gz"
 check_sha256sum ${OPENSSL_VERSION}.tar.gz ${OPENSSL_SHA256}
 tar zxf ${OPENSSL_VERSION}.tar.gz
 PATH=/opt/perl/bin:$PATH
