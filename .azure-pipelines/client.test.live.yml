@@ -135,7 +135,7 @@ jobs:
     dependsOn: 'Windows'
 
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macos-latest'
 
     strategy:
       maxParallel: 1
