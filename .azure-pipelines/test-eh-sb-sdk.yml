@@ -48,7 +48,7 @@ steps:
           @subscriptionConfiguration `
           -CI `
           -Force `
-          -Verbose | Out-Null `
+          -Verbose | Out-Null
     displayName: Deploy test resources
     env:
         TEMP: $(Agent.TempDirectory)
@@ -107,7 +107,7 @@ steps:
           -ServiceDirectory $(SDKType) `
           -CI `
           -Force `
-          -Verbose `
+          -Verbose
     displayName: Remove test resources
     condition: and(eq(variables['CI_HAS_DEPLOYED_RESOURCES'], 'true'), ne(variables['Skip.RemoveTestResources'], 'true'))
     continueOnError: true
