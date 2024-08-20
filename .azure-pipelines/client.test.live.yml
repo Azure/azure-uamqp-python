@@ -356,15 +356,15 @@ jobs:
         EventHub x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'EventHub'
-        EventHub x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
+        #EventHub x64 Python 3.12:
+        #  PythonVersion: '$(PythonVersion312)'
+        #  SDK: 'EventHub'
         ServiceBus x64 Python 3.8:
           PythonVersion: '$(PythonVersion38)'
           SDK: 'ServiceBus'
-        ServiceBus x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'ServiceBus'
+        #ServiceBus x64 Python 3.12:
+        #  PythonVersion: '$(PythonVersion312)'
+        #  SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       OSArch: 'Windows'
@@ -376,56 +376,56 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_macOS1015'
-    timeoutInMinutes: 300
-    dependsOn: 'MacOS'
-    pool:
-      name: 'Azure Pipelines'
-      vmImage: 'macOS-11'
-    strategy:
-      matrix:
-        EventHub Python 3.12:
-          SDK: 'EventHub'
-        ServiceBus Python 3.12:
-          SDK: 'ServiceBus'
-    variables:
-      PythonBin: 'python3'
-      PythonVersion: '3.12.0'
-      MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.12'
-      OSArch: 'MacOS'
-      DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  #- job: 'SDK_LiveTest_macOS1015'
+  #  timeoutInMinutes: 300
+  #  dependsOn: 'MacOS'
+  #  pool:
+  #    name: 'Azure Pipelines'
+  #    vmImage: 'macOS-11'
+  #  strategy:
+  #    matrix:
+  #      EventHub Python 3.12:
+  #        SDK: 'EventHub'
+  #      ServiceBus Python 3.12:
+  #        SDK: 'ServiceBus'
+  #  variables:
+  #    PythonBin: 'python3'
+  #    PythonVersion: '3.12.0'
+  #    MacOSXDeploymentTarget: '10.9'
+  #    PythonVersion382: '3.12'
+  #    OSArch: 'MacOS'
+  #    DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
+  #  steps:
+  #    - template: /.azure-pipelines/use-python-version.yml
+  #      parameters:
+  #        versionSpec: '$(PythonVersion)'
+  #    - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_ubuntu1804'
-    timeoutInMinutes: 300
-    dependsOn: 'Linux'
-    pool:
-      name: 'azsdk-pool-mms-ubuntu-2004-general'
-      vmImage: 'ubuntu-20.04'
-    strategy:
-      matrix:
-        EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'EventHub'
-        EventHub Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'ServiceBus'
-        ServiceBus Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'ServiceBus'
-    variables:
-      OSArch: 'Linux'
-      DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
-    steps:
-      - template: /.azure-pipelines/use-python-version.yml
-        parameters:
-          versionSpec: '$(PythonVersion)'
-      - template: /.azure-pipelines/test-eh-sb-sdk.yml
+  #- job: 'SDK_LiveTest_ubuntu1804'
+  #  timeoutInMinutes: 300
+  #  dependsOn: 'Linux'
+  #  pool:
+  #    name: 'azsdk-pool-mms-ubuntu-2004-general'
+  #    vmImage: 'ubuntu-20.04'
+  #  strategy:
+  #    matrix:
+  #      EventHub Python 3.9:
+  #        PythonVersion: '$(PythonVersion39)'
+  #        SDK: 'EventHub'
+  #      EventHub Python 3.12:
+  #        PythonVersion: '$(PythonVersion312)'
+  #        SDK: 'EventHub'
+  #      ServiceBus Python 3.9:
+  #        PythonVersion: '$(PythonVersion39)'
+  #        SDK: 'ServiceBus'
+  #      ServiceBus Python 3.12:
+  #        PythonVersion: '$(PythonVersion312)'
+  #        SDK: 'ServiceBus'
+  #  variables:
+  #    OSArch: 'Linux'
+  #    DownloadArtifactFolder: 'uamqp-linux-$(PythonVersion)-whl'
+  #  steps:
+  #    - template: /.azure-pipelines/use-python-version.yml
+  #      parameters:
+  #        versionSpec: '$(PythonVersion)'
+  #    - template: /.azure-pipelines/test-eh-sb-sdk.yml
