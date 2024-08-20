@@ -28,6 +28,7 @@ steps:
     displayName: 'Clone azure-sdk-for-python'
   - task: AzurePowerShell@5
     inputs:
+      workingDirectory: azure-sdk-for-python
       azureSubscription: azure-sdk-tests
       azurePowerShellVersion: LatestVersion
       pwsh: True
@@ -48,8 +49,6 @@ steps:
           -CI `
           -Force `
           -Verbose | Out-Null `
-
-    workingDirectory: azure-sdk-for-python
     displayName: Deploy test resources
     env:
         TEMP: $(Agent.TempDirectory)
@@ -88,21 +87,27 @@ steps:
       AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
       AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
       AZURE_TEST_RUN_LIVE: 'true'
-  - pwsh: |
-      eng/common/scripts/Import-AzModules.ps1
+  - task: AzurePowerShell@5
+    inputs:
+      workingDirectory: azure-sdk-for-python
+      azureSubscription: azure-sdk-tests
+      azurePowerShellVersion: LatestVersion
+      pwsh: True
+      ScriptType: InlineScript
+      Inline: |
+        eng/common/scripts/Import-AzModules.ps1
 
-      $subscriptionConfiguration = @'
-        $(sub-config-azure-cloud-test-resources)
-      '@ | ConvertFrom-Json -AsHashtable;
+        $subscriptionConfiguration = @'
+          $(sub-config-azure-cloud-test-resources)
+        '@ | ConvertFrom-Json -AsHashtable;
 
-      eng/common/TestResources/Remove-TestResources.ps1 `
-        @subscriptionConfiguration `
-        -ResourceType test `
-        -ServiceDirectory $(SDKType) `
-        -CI `
-        -Force `
-        -Verbose `
-    workingDirectory: azure-sdk-for-python
+        eng/common/TestResources/Remove-TestResources.ps1 `
+          @subscriptionConfiguration `
+          -ResourceType test `
+          -ServiceDirectory $(SDKType) `
+          -CI `
+          -Force `
+          -Verbose `
     displayName: Remove test resources
     condition: and(eq(variables['CI_HAS_DEPLOYED_RESOURCES'], 'true'), ne(variables['Skip.RemoveTestResources'], 'true'))
     continueOnError: true
