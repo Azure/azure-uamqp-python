@@ -68,22 +68,38 @@ steps:
       runProxy: true
       rootFolder: azure-sdk-for-python
       templateRoot: azure-sdk-for-python
-  - script: |
-      python --version
-      echo "Installing $DownloadArtifactWhl"
-      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
-      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
-      python -m pip install pytest
-      cd $(SdkPath)
-      python -m pip install futures
-      python -m pip install .
-      python -m pip install -r dev_requirements.txt
-      python -m pip list
-      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
-    displayName: 'Run tests'
+  - task: AzurePowerShell@5
+    displayName: Run Tests (AzurePowerShell@5)
     env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TEST_RUN_LIVE: 'true'
+      ${{ insert }}: ${{ parameters.EnvVars }}
+    inputs:
+      azureSubscription: ${{ parameters.ServiceConnection }}
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      ScriptType: InlineScript
+      Inline: >-
+        $account = (Get-AzContext).Account;
+        $env:AZURESUBSCRIPTION_CLIENT_ID = $account.Id;
+        $env:AZURESUBSCRIPTION_TENANT_ID = $account.Tenants;
+
+        Write-Host (Get-Command python).Source
+
+        python --version
+        echo "Installing $DownloadArtifactWhl"
+        echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
+        python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
+        python -m pip install pytest
+        cd $(SdkPath)
+        python -m pip install futures
+        python -m pip install .
+        python -m pip install -r dev_requirements.txt
+        python -m pip list
+        python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+        Write-Host "Last exit code: $LASTEXITCODE";
+        exit $LASTEXITCODE;
   - task: AzurePowerShell@5
     inputs:
       workingDirectory: azure-sdk-for-python
