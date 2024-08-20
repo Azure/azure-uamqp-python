@@ -83,9 +83,6 @@ steps:
     displayName: 'Run tests'
     env:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
-      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
-      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
-      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
       AZURE_TEST_RUN_LIVE: 'true'
   - task: AzurePowerShell@5
     inputs:
