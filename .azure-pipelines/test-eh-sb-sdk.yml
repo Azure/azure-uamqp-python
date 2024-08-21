@@ -75,7 +75,7 @@ steps:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TEST_RUN_LIVE: 'true'
     inputs:
-      azureSubscription: ${{ parameters.ServiceConnection }}
+      azureSubscription: azure-sdk-tests
       azurePowerShellVersion: LatestVersion
       pwsh: true
       ScriptType: InlineScript
