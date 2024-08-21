@@ -74,7 +74,6 @@ steps:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TEST_RUN_LIVE: 'true'
-      ${{ insert }}: ${{ parameters.EnvVars }}
     inputs:
       azureSubscription: ${{ parameters.ServiceConnection }}
       azurePowerShellVersion: LatestVersion
