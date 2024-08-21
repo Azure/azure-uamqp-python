@@ -1,26 +1,38 @@
 steps:
-  - pwsh: |
-      $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
-      $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
-      $EHIgnoreTests='--ignore=tests/perfstress_tests --ignore=tests/scripts'
-      $EHSdkType='eventhub'
-      Write-Output "##vso[task.setvariable variable=SdkType;]$EHSdkType"
-      Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
-      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$EHTestResultsPath"
-      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$EHIgnoreTests"
-    condition: eq(variables['SDK'], 'EventHub')
+  - task: AzurePowerShell@5
     displayName: 'Get variables if EventHub'
-  - pwsh: |
-      $SBSdkPath='azure-sdk-for-python/sdk/servicebus/azure-servicebus'
-      $SBTestResultsPath='servicebus/azure-servicebus/test-results-live.xml'
-      $SBIgnoreTests='--ignore=tests/perf_tests --ignore=tests/stress_tests'
-      $SBSdkType='servicebus'
-      Write-Output "##vso[task.setvariable variable=SdkType;]$SBSdkType"
-      Write-Output "##vso[task.setvariable variable=SdkPath;]$SBSdkPath"
-      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$SBTestResultsPath"
-      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$SBIgnoreTests"
-    condition: eq(variables['SDK'], 'ServiceBus')
+    condition: eq(variables['SDK'], 'EventHub')
+    inputs:
+      azureSubscription: azure-sdk-tests
+      ScriptType: InlineScript
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      Inline: |
+        $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+        $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
+        $EHIgnoreTests='--ignore=tests/perfstress_tests --ignore=tests/scripts'
+        $EHSdkType='eventhub'
+        Write-Output "##vso[task.setvariable variable=SdkType;]$EHSdkType"
+        Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
+        Write-Output "##vso[task.setvariable variable=TestResultsPath;]$EHTestResultsPath"
+        Write-Output "##vso[task.setvariable variable=IgnoreTests;]$EHIgnoreTests"
+  - task: AzurePowerShell@5
     displayName: 'Get variables if ServiceBus'
+    condition: eq(variables['SDK'], 'ServiceBus')
+    inputs:
+      azureSubscription: azure-sdk-tests
+      ScriptType: InlineScript
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      Inline: |
+        $SBSdkPath='azure-sdk-for-python/sdk/servicebus/azure-servicebus'
+        $SBTestResultsPath='servicebus/azure-servicebus/test-results-live.xml'
+        $SBIgnoreTests='--ignore=tests/perf_tests --ignore=tests/stress_tests'
+        $SBSdkType='servicebus'
+        Write-Output "##vso[task.setvariable variable=SdkType;]$SBSdkType"
+        Write-Output "##vso[task.setvariable variable=SdkPath;]$SBSdkPath"
+        Write-Output "##vso[task.setvariable variable=TestResultsPath;]$SBTestResultsPath"
+        Write-Output "##vso[task.setvariable variable=IgnoreTests;]$SBIgnoreTests"
   - script: |
       echo "SDKPath: $(SdkPath)"
       echo "Tests: $(TestResultsPath)"
@@ -87,6 +99,8 @@ steps:
         Write-Host (Get-Command python).Source
 
         python --version
+        dir
+        Write-Host "$(Agent.TempDirectory)"
         echo "Installing $DownloadArtifactWhl"
         echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
         python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
