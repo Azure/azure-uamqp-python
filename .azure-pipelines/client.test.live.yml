@@ -346,7 +346,7 @@ jobs:
   #        pathToPublish: 'dist'
 
   - job: 'SDK_LiveTest_windows2019'
-    timeoutInMinutes: 300
+    timeoutInMinutes: 420
     dependsOn: 'Windows'
     pool:
       name: azsdk-pool-mms-win-2022-general
