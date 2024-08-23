@@ -36,7 +36,7 @@ steps:
   - script: |
       echo "SDKPath: $(SdkPath)"
       echo "Tests: $(TestResultsPath)"
-      git clone -b swathipil/devtools/log-pipelinecred-usage https://github.com/swathipil/azure-sdk-for-python.git --single-branch --depth 1
+      git clone -b swathipil/sb/allow-not-testing-pyamqp https://github.com/swathipil/azure-sdk-for-python.git --single-branch --depth 1
     displayName: 'Clone azure-sdk-for-python'
   - task: AzurePowerShell@5
     inputs:
