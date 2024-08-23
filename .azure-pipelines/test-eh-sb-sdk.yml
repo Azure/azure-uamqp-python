@@ -95,7 +95,7 @@ steps:
         $account = (Get-AzContext).Account;
         $env:AZURESUBSCRIPTION_CLIENT_ID = $account.Id;
         $env:AZURESUBSCRIPTION_TENANT_ID = $account.Tenants;
-        $env:AZURE_SUBSCRIPTION_ID = $account.Subscription.Id;
+        $env:AZURE_SUBSCRIPTION_ID = (Get-AzContext).Subscription.Id;
 
         Write-Host (Get-Command python).Source
 
