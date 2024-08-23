@@ -87,6 +87,7 @@ steps:
       AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TEST_RUN_LIVE: 'true'
       PYTEST_LOG_LEVEL: 'INFO'
+      TEST_PYAMQP: 'false'
     inputs:
       azureSubscription: azure-sdk-tests
       azurePowerShellVersion: LatestVersion
