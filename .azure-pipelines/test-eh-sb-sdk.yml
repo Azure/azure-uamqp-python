@@ -84,9 +84,7 @@ steps:
     displayName: Run Tests (AzurePowerShell@5)
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
       AZURE_TEST_RUN_LIVE: 'true'
-      PYTEST_LOG_LEVEL: 'INFO'
       TEST_PYAMQP: 'false'
     inputs:
       azureSubscription: azure-sdk-tests
@@ -97,6 +95,7 @@ steps:
         $account = (Get-AzContext).Account;
         $env:AZURESUBSCRIPTION_CLIENT_ID = $account.Id;
         $env:AZURESUBSCRIPTION_TENANT_ID = $account.Tenants;
+        $env:AZURE_SUBSCRIPTION_ID = $account.Subscription.Id;
 
         Write-Host (Get-Command python).Source
 
