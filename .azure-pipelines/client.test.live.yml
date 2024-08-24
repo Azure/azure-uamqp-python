@@ -381,7 +381,7 @@ jobs:
     dependsOn: 'MacOS'
     pool:
       name: 'Azure Pipelines'
-      vmImage: 'macOS-11'
+      vmImage: 'macos-latest'
     strategy:
       matrix:
         EventHub Python 3.12:
