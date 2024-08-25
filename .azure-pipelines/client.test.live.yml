@@ -390,9 +390,8 @@ jobs:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '3.12.0'
+      PythonVersion: '3.12'
       MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.12'
       OSArch: 'MacOS'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
     steps:
