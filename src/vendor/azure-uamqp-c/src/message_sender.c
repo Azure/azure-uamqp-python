@@ -15,6 +15,7 @@
 #include "azure_uamqp_c/amqpvalue_to_string.h"
 #include "azure_uamqp_c/async_operation.h"
 #include "azure_uamqp_c/amqp_definitions.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 typedef enum MESSAGE_SEND_STATE_TAG
 {
@@ -37,6 +38,7 @@ typedef struct MESSAGE_WITH_CALLBACK_TAG
     MESSAGE_SENDER_HANDLE message_sender;
     MESSAGE_SEND_STATE message_send_state;
     tickcounter_ms_t timeout;
+    ASYNC_OPERATION_HANDLE transfer_async_operation;
 } MESSAGE_WITH_CALLBACK;
 
 DEFINE_ASYNC_OPERATION_CONTEXT(MESSAGE_WITH_CALLBACK);
@@ -74,8 +76,9 @@ static void remove_pending_message_by_index(MESSAGE_SENDER_HANDLE message_sender
 
     if (message_sender->message_count > 0)
     {
-        new_messages = (ASYNC_OPERATION_HANDLE*)realloc(message_sender->messages, sizeof(ASYNC_OPERATION_HANDLE) * (message_sender->message_count));
-        if (new_messages != NULL)
+        size_t realloc_size = safe_multiply_size_t(sizeof(ASYNC_OPERATION_HANDLE), (message_sender->message_count));
+        if (realloc_size != SIZE_MAX &&
+            (new_messages = (ASYNC_OPERATION_HANDLE*)realloc(message_sender->messages, realloc_size)) != NULL)
         {
             message_sender->messages = new_messages;
         }
@@ -105,12 +108,12 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
 {
     ASYNC_OPERATION_HANDLE pending_send = (ASYNC_OPERATION_HANDLE)context;
     MESSAGE_WITH_CALLBACK* message_with_callback = GET_ASYNC_OPERATION_CONTEXT(MESSAGE_WITH_CALLBACK, pending_send);
-    MESSAGE_SENDER_INSTANCE* message_sender = (MESSAGE_SENDER_INSTANCE*)message_with_callback->message_sender;
     (void)delivery_no;
 
     if (message_with_callback != NULL && 
         message_with_callback->on_message_send_complete != NULL)
     {
+        MESSAGE_SENDER_INSTANCE *message_sender = (MESSAGE_SENDER_INSTANCE *)message_with_callback->message_sender;
         switch (reason)
         {
         case LINK_DELIVERY_SETTLE_REASON_DISPOSITION_RECEIVED:
@@ -126,6 +129,7 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
                 if (descriptor == NULL)
                 {
                     LogError("Error getting descriptor for delivery state");
+                    message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, described);
                 }
                 else
                 {
@@ -137,9 +141,9 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
                     {
                         message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_ERROR, described);
                     }
-
-                    remove_pending_message(message_sender, pending_send);
                 }
+
+                remove_pending_message(message_sender, pending_send);
             }
 
             break;
@@ -149,6 +153,10 @@ static void on_delivery_settled(void* context, delivery_number delivery_no, LINK
             break;
         case LINK_DELIVERY_SETTLE_REASON_TIMEOUT:
             message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_TIMEOUT, NULL);
+            remove_pending_message(message_sender, pending_send);
+            break;
+        case LINK_DELIVERY_SETTLE_REASON_CANCELLED:
+            message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_CANCELLED, NULL);
             remove_pending_message(message_sender, pending_send);
             break;
         case LINK_DELIVERY_SETTLE_REASON_NOT_DELIVERED:
@@ -186,6 +194,23 @@ static void log_message_chunk(MESSAGE_SENDER_INSTANCE* message_sender, const cha
         }
     }
 #endif
+}
+
+// Auxiliary function to verify if a given message is still in the pending messages queue.
+static bool is_message_in_queue(MESSAGE_SENDER_HANDLE message_sender, ASYNC_OPERATION_HANDLE message)
+{
+    bool result = false;
+
+    for (size_t i = 0; i < message_sender->message_count; i++)
+    {
+        if (message_sender->messages[i] == message)
+        {
+            result = true;
+            break;
+        }
+    }
+
+    return result;
 }
 
 static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message_sender, ASYNC_OPERATION_HANDLE pending_send, MESSAGE_HANDLE message)
@@ -703,6 +728,14 @@ static SEND_ONE_MESSAGE_RESULT send_one_message(MESSAGE_SENDER_INSTANCE* message
                     }
                     else
                     {
+                        // For messages that get atomically sent and settled by link_transfer_async,
+                        // on_delivery_settled is invoked and the message destroyed.
+                        // So at this point we shall verify if the message still exists and is in the queue.
+                        if (is_message_in_queue(message_sender, pending_send))
+                        {
+                            message_with_callback->transfer_async_operation = transfer_async_operation;
+                        }
+
                         result = SEND_ONE_MESSAGE_OK;
                     }
                 }
@@ -971,6 +1004,8 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
     }
     else
     {
+        indicate_all_messages_as_error(message_sender);
+
         if ((message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPENING) ||
             (message_sender->message_sender_state == MESSAGE_SENDER_STATE_OPEN))
         {
@@ -990,8 +1025,6 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
         {
             result = 0;
         }
-
-        indicate_all_messages_as_error(message_sender);
     }
 
     return result;
@@ -1000,12 +1033,19 @@ int messagesender_close(MESSAGE_SENDER_HANDLE message_sender)
 static void messagesender_send_cancel_handler(ASYNC_OPERATION_HANDLE send_operation)
 {
     MESSAGE_WITH_CALLBACK* message_with_callback = GET_ASYNC_OPERATION_CONTEXT(MESSAGE_WITH_CALLBACK, send_operation);
+    MESSAGE_SENDER_HANDLE messager_sender = message_with_callback->message_sender;
+
     if (message_with_callback->on_message_send_complete != NULL)
     {
         message_with_callback->on_message_send_complete(message_with_callback->context, MESSAGE_SEND_CANCELLED, NULL);
     }
 
-    remove_pending_message(message_with_callback->message_sender, send_operation);
+    if (message_with_callback->transfer_async_operation != NULL)
+    {
+        async_operation_cancel(message_with_callback->transfer_async_operation);
+    }
+
+    remove_pending_message(messager_sender, send_operation);
 }
 
 ASYNC_OPERATION_HANDLE messagesender_send_async(MESSAGE_SENDER_HANDLE message_sender, MESSAGE_HANDLE message, ON_MESSAGE_SEND_COMPLETE on_message_send_complete, void* callback_context, tickcounter_ms_t timeout)
@@ -1034,11 +1074,14 @@ ASYNC_OPERATION_HANDLE messagesender_send_async(MESSAGE_SENDER_HANDLE message_se
             }
             else
             {
+                ASYNC_OPERATION_HANDLE* new_messages;
                 MESSAGE_WITH_CALLBACK* message_with_callback = GET_ASYNC_OPERATION_CONTEXT(MESSAGE_WITH_CALLBACK, result);
-                ASYNC_OPERATION_HANDLE* new_messages = (ASYNC_OPERATION_HANDLE*)realloc(message_sender->messages, sizeof(ASYNC_OPERATION_HANDLE) * (message_sender->message_count + 1));
-                if (new_messages == NULL)
+                size_t realloc_size = safe_add_size_t(message_sender->message_count, 1);
+                realloc_size = safe_multiply_size_t(realloc_size, sizeof(ASYNC_OPERATION_HANDLE));
+                if (realloc_size == SIZE_MAX ||
+                    (new_messages = (ASYNC_OPERATION_HANDLE*)realloc(message_sender->messages, realloc_size)) == NULL)
                 {
-                    LogError("Failed allocating memory for pending sends");
+                    LogError("Failed allocating memory for pending sends, size:%zu", realloc_size);
                     async_operation_destroy(result);
                     result = NULL;
                 }

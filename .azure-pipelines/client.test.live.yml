@@ -135,7 +135,7 @@ jobs:
     dependsOn: 'Windows'
 
     pool:
-      vmImage: 'macOS-11'
+      vmImage: 'macos-latest'
 
     strategy:
       maxParallel: 1
@@ -192,7 +192,7 @@ jobs:
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
-      
+  
       - bash: |
           set -o errexit
           python -m pip install cibuildwheel==2.16.2 --force
@@ -345,7 +345,7 @@ jobs:
           artifactName: uamqp-linux-$(PythonVersion)-whl
           pathToPublish: 'dist'
 
-  - job: 'SDK_LiveTest_windows2019_37'
+  - job: 'SDK_LiveTest_windows2019'
     timeoutInMinutes: 300
     dependsOn: 'Windows'
     pool:
@@ -376,12 +376,12 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_macOS1015_38'
+  - job: 'SDK_LiveTest_macOS1015'
     timeoutInMinutes: 300
     dependsOn: 'MacOS'
     pool:
       name: 'Azure Pipelines'
-      vmImage: 'macOS-11'
+      vmImage: 'macos-latest'
     strategy:
       matrix:
         EventHub Python 3.12:
@@ -390,9 +390,8 @@ jobs:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '3.12.0'
+      PythonVersion: '3.12'
       MacOSXDeploymentTarget: '10.9'
-      PythonVersion382: '3.12'
       OSArch: 'MacOS'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
     steps:
@@ -401,7 +400,7 @@ jobs:
           versionSpec: '$(PythonVersion)'
       - template: /.azure-pipelines/test-eh-sb-sdk.yml
 
-  - job: 'SDK_LiveTest_ubuntu1804_39'
+  - job: 'SDK_LiveTest_ubuntu1804'
     timeoutInMinutes: 300
     dependsOn: 'Linux'
     pool:

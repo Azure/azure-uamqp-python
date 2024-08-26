@@ -5,9 +5,11 @@
 #include <string.h>
 #include "azure_macro_utils/macro_utils.h"
 #include "azure_c_shared_utility/gballoc.h"
+#include "azure_c_shared_utility/xlogging.h"
 #include "azure_uamqp_c/session.h"
 #include "azure_uamqp_c/connection.h"
 #include "azure_uamqp_c/amqp_definitions.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 typedef enum LINK_ENDPOINT_STATE_TAG
 {
@@ -94,8 +96,9 @@ static void remove_link_endpoint(LINK_ENDPOINT_HANDLE link_endpoint)
             }
             else
             {
-                new_endpoints = (LINK_ENDPOINT_INSTANCE**)realloc(session_instance->link_endpoints, sizeof(LINK_ENDPOINT_INSTANCE*) * session_instance->link_endpoint_count);
-                if (new_endpoints != NULL)
+                size_t realloc_size = safe_multiply_size_t(sizeof(LINK_ENDPOINT_INSTANCE*), session_instance->link_endpoint_count);
+                if (realloc_size != SIZE_MAX &&
+                    (new_endpoints = (LINK_ENDPOINT_INSTANCE**)realloc(session_instance->link_endpoints, realloc_size)) != NULL)
                 {
                     session_instance->link_endpoints = new_endpoints;
                 }
@@ -1147,10 +1150,13 @@ LINK_ENDPOINT_HANDLE session_create_link_endpoint(SESSION_HANDLE session, const 
                 (void)memcpy(result->name, name, name_length + 1);
                 result->session = session;
 
-                new_link_endpoints = (LINK_ENDPOINT_INSTANCE**)realloc(session_instance->link_endpoints, sizeof(LINK_ENDPOINT_INSTANCE*) * (session_instance->link_endpoint_count + 1));
-                if (new_link_endpoints == NULL)
+                size_t realloc_size = safe_add_size_t((size_t)session_instance->link_endpoint_count, 1);
+                realloc_size = safe_multiply_size_t(realloc_size, sizeof(LINK_ENDPOINT_INSTANCE));
+                if (realloc_size == SIZE_MAX ||
+                    (new_link_endpoints = (LINK_ENDPOINT_INSTANCE**)realloc(session_instance->link_endpoints, realloc_size)) == NULL)
                 {
                     /* Codes_S_R_S_SESSION_01_045: [If allocating memory for the link endpoint fails, session_create_link_endpoint shall fail and return NULL.] */
+                    LogError("Cannot realloc new_link_endpoints, size:%zu", realloc_size);
                     free(result->name);
                     free(result);
                     result = NULL;
@@ -1607,9 +1613,13 @@ SESSION_SEND_TRANSFER_RESULT session_send_transfer(LINK_ENDPOINT_HANDLE link_end
                                             }
                                         }
 
-                                        transfer_frame_payload_count = (uint32_t)(temp_current_payload_index - current_payload_index + 1);
-                                        transfer_frame_payloads = (PAYLOAD*)calloc(1, (transfer_frame_payload_count * sizeof(PAYLOAD)));
-                                        if (transfer_frame_payloads == NULL)
+                                        //transfer_frame_payload_len = (uint32_t)(temp_current_payload_index - current_payload_index + 1); // use safe int
+                                        size_t payload_len = safe_subtract_size_t(temp_current_payload_index, current_payload_index);
+                                        payload_len = safe_add_size_t(payload_len, 1);
+                                        uint32_t transfer_frame_payload_len = payload_len < UINT32_MAX ? (uint32_t)payload_len : UINT32_MAX;
+
+                                        if (transfer_frame_payload_len == UINT32_MAX ||
+                                           (transfer_frame_payloads = (PAYLOAD*)calloc(1, (transfer_frame_payload_len * sizeof(PAYLOAD)))) == NULL)
                                         {
                                             amqpvalue_destroy(multi_transfer_amqp_value);
                                             break;
@@ -1619,7 +1629,7 @@ SESSION_SEND_TRANSFER_RESULT session_send_transfer(LINK_ENDPOINT_HANDLE link_end
                                         byte_counter = current_transfer_frame_payload_size;
                                         transfer_frame_payload_count = 0;
 
-                                        while (byte_counter > 0)
+                                        while (byte_counter > 0 && transfer_frame_payload_count < transfer_frame_payload_len)
                                         {
                                             if (payloads[current_payload_index].length - current_payload_pos > byte_counter)
                                             {

@@ -1,51 +1,70 @@
 steps:
-  - pwsh: |
-      $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
-      $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
-      $EHIgnoreTests='--ignore=tests/perfstress_tests --ignore=tests/scripts'
-      $EHSdkType='eventhub'
-      Write-Output "##vso[task.setvariable variable=SdkType;]$EHSdkType"
-      Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
-      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$EHTestResultsPath"
-      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$EHIgnoreTests"
-    condition: eq(variables['SDK'], 'EventHub')
+  - task: AzurePowerShell@5
     displayName: 'Get variables if EventHub'
-  - pwsh: |
-      $SBSdkPath='azure-sdk-for-python/sdk/servicebus/azure-servicebus'
-      $SBTestResultsPath='servicebus/azure-servicebus/test-results-live.xml'
-      $SBIgnoreTests='--ignore=tests/perf_tests --ignore=tests/stress_tests'
-      $SBSdkType='servicebus'
-      Write-Output "##vso[task.setvariable variable=SdkType;]$SBSdkType"
-      Write-Output "##vso[task.setvariable variable=SdkPath;]$SBSdkPath"
-      Write-Output "##vso[task.setvariable variable=TestResultsPath;]$SBTestResultsPath"
-      Write-Output "##vso[task.setvariable variable=IgnoreTests;]$SBIgnoreTests"
-    condition: eq(variables['SDK'], 'ServiceBus')
+    condition: eq(variables['SDK'], 'EventHub')
+    inputs:
+      azureSubscription: azure-sdk-tests
+      ScriptType: InlineScript
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      Inline: |
+        $EHSdkPath='azure-sdk-for-python/sdk/eventhub/azure-eventhub'
+        $EHTestResultsPath='eventhub/azure-eventhub/test-results-live.xml'
+        $EHIgnoreTests='--ignore=tests/perfstress_tests --ignore=tests/scripts'
+        $EHSdkType='eventhub'
+        Write-Output "##vso[task.setvariable variable=SdkType;]$EHSdkType"
+        Write-Output "##vso[task.setvariable variable=SdkPath;]$EHSdkPath"
+        Write-Output "##vso[task.setvariable variable=TestResultsPath;]$EHTestResultsPath"
+        Write-Output "##vso[task.setvariable variable=IgnoreTests;]$EHIgnoreTests"
+  - task: AzurePowerShell@5
     displayName: 'Get variables if ServiceBus'
+    condition: eq(variables['SDK'], 'ServiceBus')
+    inputs:
+      azureSubscription: azure-sdk-tests
+      ScriptType: InlineScript
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      Inline: |
+        $SBSdkPath='azure-sdk-for-python/sdk/servicebus/azure-servicebus'
+        $SBTestResultsPath='servicebus/azure-servicebus/test-results-live.xml'
+        $SBIgnoreTests='--ignore=tests/perf_tests --ignore=tests/stress_tests'
+        $SBSdkType='servicebus'
+        Write-Output "##vso[task.setvariable variable=SdkType;]$SBSdkType"
+        Write-Output "##vso[task.setvariable variable=SdkPath;]$SBSdkPath"
+        Write-Output "##vso[task.setvariable variable=TestResultsPath;]$SBTestResultsPath"
+        Write-Output "##vso[task.setvariable variable=IgnoreTests;]$SBIgnoreTests"
   - script: |
       echo "SDKPath: $(SdkPath)"
       echo "Tests: $(TestResultsPath)"
       git clone https://github.com/Azure/azure-sdk-for-python.git --single-branch --depth 1
     displayName: 'Clone azure-sdk-for-python'
-  - pwsh: | 
-      eng/common/scripts/Import-AzModules.ps1
+  - task: AzurePowerShell@5
+    inputs:
+      workingDirectory: azure-sdk-for-python
+      azureSubscription: azure-sdk-tests
+      azurePowerShellVersion: LatestVersion
+      pwsh: True
+      ScriptType: InlineScript
+      Inline: |
+        eng/common/scripts/Import-AzModules.ps1
 
-      $subscriptionConfiguration = @'
-        $(sub-config-azure-cloud-test-resources)
-      '@ | ConvertFrom-Json -AsHashtable;
+        $subscriptionConfiguration = @'
+          $(sub-config-azure-cloud-test-resources)
+        '@ | ConvertFrom-Json -AsHashtable;
 
-      eng/common/TestResources/New-TestResources.ps1 `
-        -ResourceType test `
-        -ServiceDirectory $(SDKType) `
-        -Location westus `
-        -DeleteAfterHours 8 `
-        @subscriptionConfiguration `
-        -CI `
-        -Force `
-        -Verbose | Out-Null
-    workingDirectory: azure-sdk-for-python
+        eng/common/TestResources/New-TestResources.ps1 `
+          -ResourceType test `
+          -ServiceDirectory $(SDKType) `
+          -Location westus `
+          -DeleteAfterHours 8 `
+          @subscriptionConfiguration `
+          -CI `
+          -Force `
+          -Verbose | Out-Null
     displayName: Deploy test resources
     env:
         TEMP: $(Agent.TempDirectory)
+        PoolSubnet: $(PoolSubnet)
   - task: DownloadPipelineArtifact@2
     displayName: 'Downloading artifact'
     inputs:
@@ -61,40 +80,59 @@ steps:
       runProxy: true
       rootFolder: azure-sdk-for-python
       templateRoot: azure-sdk-for-python
-  - script: |
-      python --version
-      echo "Installing $DownloadArtifactWhl"
-      echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
-      python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
-      python -m pip install pytest
-      cd $(SdkPath)
-      python -m pip install futures
-      python -m pip install .
-      python -m pip install -r dev_requirements.txt
-      python -m pip list
-      python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
-    displayName: 'Run tests'
+  - task: AzurePowerShell@5
+    displayName: Run Tests (AzurePowerShell@5)
     env:
-      AZURE_SUBSCRIPTION_ID: $(azure-subscription-id)
-      AZURE_TENANT_ID: $(aad-azure-sdk-test-tenant-id)
-      AZURE_CLIENT_ID: $(aad-azure-sdk-test-client-id)
-      AZURE_CLIENT_SECRET: $(aad-azure-sdk-test-client-secret)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       AZURE_TEST_RUN_LIVE: 'true'
-  - pwsh: |
-      eng/common/scripts/Import-AzModules.ps1
+      TEST_PYAMQP: 'false'
+    inputs:
+      azureSubscription: azure-sdk-tests
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      ScriptType: InlineScript
+      Inline: |
+        $account = (Get-AzContext).Account;
+        $env:AZURESUBSCRIPTION_CLIENT_ID = $account.Id;
+        $env:AZURESUBSCRIPTION_TENANT_ID = $account.Tenants;
+        $env:AZURE_SUBSCRIPTION_ID = (Get-AzContext).Subscription.Id;
 
-      $subscriptionConfiguration = @'
-        $(sub-config-azure-cloud-test-resources)
-      '@ | ConvertFrom-Json -AsHashtable;
+        Write-Host (Get-Command python).Source
 
-      eng/common/TestResources/Remove-TestResources.ps1 `
-        @subscriptionConfiguration `
-        -ResourceType test `
-        -ServiceDirectory $(SDKType) `
-        -CI `
-        -Force `
-        -Verbose
-    workingDirectory: azure-sdk-for-python
+        python --version
+        echo "Installing $DownloadArtifactWhl"
+        echo "Full name $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl)"
+        python -m pip install $(Pipeline.Workspace)/$(DownloadArtifactFolder)/$(DownloadArtifactWhl) --force
+        python -m pip install pytest
+        cd $(SdkPath)
+        python -m pip install futures
+        python -m pip install .
+        python -m pip install -r dev_requirements.txt
+        python -m pip list
+        python -m pytest tests -v --doctest-modules $(IgnoreTests) --junitxml=junit/$(TestResultsPath)
+        Write-Host "Last exit code: $LASTEXITCODE";
+        exit $LASTEXITCODE;
+  - task: AzurePowerShell@5
+    inputs:
+      workingDirectory: azure-sdk-for-python
+      azureSubscription: azure-sdk-tests
+      azurePowerShellVersion: LatestVersion
+      pwsh: True
+      ScriptType: InlineScript
+      Inline: |
+        eng/common/scripts/Import-AzModules.ps1
+
+        $subscriptionConfiguration = @'
+          $(sub-config-azure-cloud-test-resources)
+        '@ | ConvertFrom-Json -AsHashtable;
+
+        eng/common/TestResources/Remove-TestResources.ps1 `
+          @subscriptionConfiguration `
+          -ResourceType test `
+          -ServiceDirectory $(SDKType) `
+          -CI `
+          -Force `
+          -Verbose
     displayName: Remove test resources
     condition: and(eq(variables['CI_HAS_DEPLOYED_RESOURCES'], 'true'), ne(variables['Skip.RemoveTestResources'], 'true'))
     continueOnError: true

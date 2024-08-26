@@ -2,6 +2,11 @@
 
 Release History
 ===============
+1.6.10 (Unreleased)
++++++++++++++++++++
+
+- Incorporate fixes from `PR <https://github.com/Azure/azure-sdk-for-cpp/pull/5917>`__ to update vendor uamqp code.
+
 1.6.9 (2024-03-20)
 +++++++++++++++++++
 
