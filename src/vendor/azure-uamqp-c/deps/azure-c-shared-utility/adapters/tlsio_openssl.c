@@ -21,6 +21,7 @@
 #include "azure_c_shared_utility/shared_util_options.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/const_defines.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 typedef enum TLSIO_STATE_TAG
 {
@@ -607,10 +608,11 @@ static int openssl_static_locks_install(void)
     }
     else
     {
-        openssl_locks = malloc(CRYPTO_num_locks() * sizeof(LOCK_HANDLE));
-        if (openssl_locks == NULL)
+        size_t malloc_size = safe_multiply_size_t(CRYPTO_num_locks(), sizeof(LOCK_HANDLE));
+        if (malloc_size == SIZE_MAX ||
+            (openssl_locks = malloc(malloc_size)) == NULL)
         {
-            LogError("Failed to allocate locks");
+            LogError("Failed to allocate locks, size:%zu", malloc_size);
             result = MU_FAILURE;
         }
         else
@@ -759,11 +761,14 @@ void engine_destroy(TLS_IO_INSTANCE* tls)
 {
     if(tls->engine != NULL)
     {
+        #ifndef OPENSSL_NO_ENGINE
         ENGINE_free(tls->engine); // Release structural reference.
+        #endif // OPENSSL_NO_ENGINE
         tls->engine = NULL;
     }
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int engine_load(TLS_IO_INSTANCE* tls)
 {
     int result;
@@ -782,6 +787,7 @@ int engine_load(TLS_IO_INSTANCE* tls)
 
     return result;
 }
+#endif // OPENSSL_NO_ENGINE
 
 static void close_openssl_instance(TLS_IO_INSTANCE* tls_io_instance)
 {
@@ -844,10 +850,14 @@ static void on_underlying_io_open_complete(void* context, IO_OPEN_RESULT open_re
         }
         else
         {
+            LogError("Invalid open_result. Expected result is IO_OPEN_OK.");
             tls_io_instance->tlsio_state = TLSIO_STATE_NOT_OPEN;
             indicate_open_complete(tls_io_instance, IO_OPEN_ERROR);
-            LogError("Invalid tlsio_state. Expected state is TLSIO_STATE_OPENING_UNDERLYING_IO.");
         }
+    }
+    else
+    {
+        LogError("Invalid tlsio_state. Expected state is TLSIO_STATE_OPENING_UNDERLYING_IO.");
     }
 }
 
@@ -1052,7 +1062,7 @@ static int create_openssl_instance(TLS_IO_INSTANCE* tlsInstance)
 
     const SSL_METHOD* method = NULL;
 
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || (OPENSSL_VERSION_NUMBER >= 0x20000000L)
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
     if (tlsInstance->tls_version == VERSION_1_2)
     {
         method = TLSv1_2_method();
@@ -1077,6 +1087,7 @@ static int create_openssl_instance(TLS_IO_INSTANCE* tlsInstance)
         log_ERR_get_error("Failed allocating OpenSSL context.");
         result = MU_FAILURE;
     }
+    #ifndef OPENSSL_NO_ENGINE
     else if ((tlsInstance->engine_id != NULL) &&
              (engine_load(tlsInstance) != 0))
     {
@@ -1084,6 +1095,7 @@ static int create_openssl_instance(TLS_IO_INSTANCE* tlsInstance)
         tlsInstance->ssl_context = NULL;
         result = MU_FAILURE;
     }
+    #endif // OPENSSL_NO_ENGINE
     else if ((tlsInstance->cipher_list != NULL) &&
              (SSL_CTX_set_cipher_list(tlsInstance->ssl_context, tlsInstance->cipher_list)) != 1)
     {
@@ -1109,8 +1121,12 @@ static int create_openssl_instance(TLS_IO_INSTANCE* tlsInstance)
             tlsInstance->ssl_context, 
             tlsInstance->x509_certificate, 
             tlsInstance->x509_private_key,
+    #ifndef OPENSSL_NO_ENGINE
             tlsInstance->x509_private_key_type,
             tlsInstance->engine) != 0)
+    #else // OPENSSL_NO_ENGINE
+            tlsInstance->x509_private_key_type) != 0)
+    #endif // OPENSSL_NO_ENGINE
         )
     {
         engine_destroy(tlsInstance);
@@ -1248,7 +1264,7 @@ void tlsio_openssl_deinit(void)
 
 #if   (OPENSSL_VERSION_NUMBER < 0x10000000L)
     ERR_remove_state(0);
-#elif (OPENSSL_VERSION_NUMBER < 0x10100000L) || (OPENSSL_VERSION_NUMBER >= 0x20000000L)
+#elif (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
     ERR_remove_thread_state(NULL);
 #endif
 #if  (OPENSSL_VERSION_NUMBER >= 0x10002000L) &&  (OPENSSL_VERSION_NUMBER < 0x10010000L) && (SSL_COMP_free_compression_methods)
@@ -1376,7 +1392,9 @@ void tlsio_openssl_destroy(CONCRETE_IO_HANDLE tls_io)
             tls_io_instance->cipher_list = NULL;
         }
         free((void*)tls_io_instance->x509_certificate);
+        tls_io_instance->x509_certificate = NULL;
         free((void*)tls_io_instance->x509_private_key);
+        tls_io_instance->x509_private_key = NULL;
         close_openssl_instance(tls_io_instance);
         if (tls_io_instance->underlying_io != NULL)
         {
@@ -1384,6 +1402,7 @@ void tlsio_openssl_destroy(CONCRETE_IO_HANDLE tls_io)
             tls_io_instance->underlying_io = NULL;
         }
         free(tls_io_instance->hostname);
+        tls_io_instance->hostname = NULL;
         if (tls_io_instance->engine_id != NULL)
         {
             free(tls_io_instance->engine_id);
@@ -1640,9 +1659,11 @@ int tlsio_openssl_setoption(CONCRETE_IO_HANDLE tls_io, const char* optionName, c
 
             // Store the certificate
             len = strlen(cert);
-            tls_io_instance->certificate = malloc(len + 1);
-            if (tls_io_instance->certificate == NULL)
+            size_t malloc_size = safe_add_size_t(len, 1);
+            if (malloc_size == SIZE_MAX ||
+                (tls_io_instance->certificate = malloc(malloc_size)) == NULL)
             {
+                LogError("malloc failure, size:%zu", malloc_size);
                 result = MU_FAILURE;
             }
             else
@@ -1719,6 +1740,7 @@ int tlsio_openssl_setoption(CONCRETE_IO_HANDLE tls_io, const char* optionName, c
                 }
             }
         }
+        #ifndef OPENSSL_NO_ENGINE
         else if (strcmp(OPTION_OPENSSL_ENGINE, optionName) == 0)
         {
             ENGINE_load_builtin_engines();
@@ -1733,6 +1755,7 @@ int tlsio_openssl_setoption(CONCRETE_IO_HANDLE tls_io, const char* optionName, c
                 result = 0;
             }
         }
+        #endif // OPENSSL_NO_ENGINE
         else if (strcmp(OPTION_OPENSSL_PRIVATE_KEY_TYPE, optionName) == 0)
         {
             const OPTION_OPENSSL_KEY_TYPE type = *(const OPTION_OPENSSL_KEY_TYPE*)value;

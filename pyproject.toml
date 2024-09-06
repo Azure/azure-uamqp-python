@@ -8,7 +8,7 @@ requires = [
 
 [tool.cibuildwheel]
 # skip musl and pypy
-skip = ["*-musllinux*", "pp*"] 
+skip = ["*-musllinux*", "pp*","cp37-*", "*-win32"] 
 #test-requires = "pytest"
 #test-command = "python -X dev -m pytest {project}/tests"
 

@@ -22,7 +22,7 @@ static char* vprintf_alloc(const char* format, va_list va)
 {
     char* result;
     int neededSize = vsnprintf(NULL, 0, format, va);
-    if (neededSize < 0)
+    if (neededSize < 0 || (neededSize + 1) < 0)
     {
         result = NULL;
     }
@@ -138,7 +138,7 @@ static void lazyRegisterEventProvider(void)
         TLG_STATUS t = TraceLoggingRegister(g_hMyComponentProvider);
         if (SUCCEEDED(t))
         {
-            LogInfo("block_storage_2 ETW provider was registered succesfully (self test). Executable file full path name = %s", _pgmptr); /*_pgmptr comes from https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamea */
+            LogInfo("block_storage_2 ETW provider was registered succesfully (self test). Executable file full path name = %s", _pgmptr); /*_pgmptr comes from https://docs.microsoft.com/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamea */
         }
         else
         {

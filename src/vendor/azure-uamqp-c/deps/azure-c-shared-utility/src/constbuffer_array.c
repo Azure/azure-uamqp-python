@@ -18,7 +18,7 @@ typedef struct CONSTBUFFER_ARRAY_HANDLE_DATA_TAG
     bool created_with_moved_memory;
     CONSTBUFFER_HANDLE* buffers;
 #ifdef _MSC_VER
-    /*warning C4200: nonstandard extension used: zero-sized array in struct/union : looks very standard in C99 and it is called flexible array. Documentation-wise is a flexible array, but called "unsized" in Microsoft's docs*/ /*https://msdn.microsoft.com/en-us/library/b6fae073.aspx*/
+    /*warning C4200: nonstandard extension used: zero-sized array in struct/union : looks very standard in C99 and it is called flexible array. Documentation-wise is a flexible array, but called "unsized" in Microsoft's docs*/ /*https://msdn.microsoft.com/library/b6fae073.aspx*/
 #pragma warning(disable:4200)
 #endif
     CONSTBUFFER_HANDLE buffers_memory[];
@@ -236,7 +236,7 @@ IMPLEMENT_MOCKABLE_FUNCTION(, CONSTBUFFER_ARRAY_HANDLE, constbuffer_array_add_fr
     else
     {
         /*Codes_SRS_CONSTBUFFER_ARRAY_02_042: [ constbuffer_array_add_front shall allocate enough memory to hold all of constbuffer_array_handle existing CONSTBUFFER_HANDLE and constbuffer_handle. ]*/
-        result = REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE(CONSTBUFFER_ARRAY_HANDLE_DATA, (constbuffer_array_handle->nBuffers + 1) * sizeof(CONSTBUFFER_HANDLE));
+        result = REFCOUNT_TYPE_CREATE_WITH_EXTRA_SIZE(CONSTBUFFER_ARRAY_HANDLE_DATA, ((size_t)constbuffer_array_handle->nBuffers + 1) * sizeof(CONSTBUFFER_HANDLE));
         if (result == NULL)
         {
             /*Codes_SRS_CONSTBUFFER_ARRAY_02_011: [ If there any failures constbuffer_array_add_front shall fail and return NULL. ]*/
@@ -448,6 +448,7 @@ IMPLEMENT_MOCKABLE_FUNCTION(, void, constbuffer_array_dec_ref, CONSTBUFFER_ARRAY
             if (constbuffer_array_handle->created_with_moved_memory)
             {
                 free(constbuffer_array_handle->buffers);
+                constbuffer_array_handle->buffers = NULL;
             }
 
             REFCOUNT_TYPE_DESTROY(CONSTBUFFER_ARRAY_HANDLE_DATA, constbuffer_array_handle);

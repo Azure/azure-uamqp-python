@@ -59,7 +59,7 @@ Tests_SRS_UWS_CLIENT_01_211: [ One implication of this is that in absence of ext
 #include "azure_c_shared_utility/singlylinkedlist.h"
 #include "azure_c_shared_utility/tlsio.h"
 #include "azure_c_shared_utility/uws_frame_encoder.h"
-#include "azure_c_shared_utility/gb_rand.h"
+#include "azure_c_shared_utility/random.h"
 #include "azure_c_shared_utility/azure_base64.h"
 #include "azure_c_shared_utility/map.h"
 
@@ -2872,7 +2872,7 @@ TEST_FUNCTION(on_underlying_io_open_complete_with_OK_prepares_and_sends_the_WebS
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -2918,7 +2918,7 @@ TEST_FUNCTION(when_base64_encode_fails_on_underlying_io_open_complete_triggers_t
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -2956,7 +2956,7 @@ TEST_FUNCTION(when_allocating_memory_for_the_websocket_upgrade_request_fails_the
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -3004,7 +3004,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_NOT_ENOUGH_MEMORY_succee
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -3055,7 +3055,7 @@ TEST_FUNCTION(when_sending_the_upgrade_request_fails_the_error_WS_OPEN_ERROR_CAN
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -3107,7 +3107,7 @@ TEST_FUNCTION(uws_client_open_async_after_WS_OPEN_ERROR_CANNOT_SEND_UPGRADE_REQU
     /* get the random 16 bytes */
     for (i = 0; i < 16; i++)
     {
-        EXPECTED_CALL(gb_rand()).SetReturn((int)i);
+        EXPECTED_CALL(RANDOM_generate()).SetReturn((int)i);
         expected_nonce[i] = (unsigned char)i;
     }
 
@@ -6704,7 +6704,6 @@ TEST_FUNCTION(when_xio_close_fails_in_on_underlying_io_close_sent_and_CLOSE_init
     UWS_CLIENT_HANDLE uws_client;
     const char test_upgrade_response[] = "HTTP/1.1 101 Switching Protocols\r\n\r\n";
     const unsigned char close_frame[] = { 0x88, 0x00 };
-    int result;
 
     tlsio_config.hostname = "test_host";
     tlsio_config.port = 444;
@@ -6732,7 +6731,7 @@ TEST_FUNCTION(when_xio_close_fails_in_on_underlying_io_close_sent_and_CLOSE_init
         .IgnoreArgument_on_io_error_context();
 
     // act
-    result = uws_client_open_async(uws_client, test_on_ws_open_complete, (void*)0x4242, test_on_ws_frame_received, (void*)0x4243, test_on_ws_peer_closed, (void*)0x4301, test_on_ws_error, (void*)0x4244);
+    uws_client_open_async(uws_client, test_on_ws_open_complete, (void*)0x4242, test_on_ws_frame_received, (void*)0x4243, test_on_ws_peer_closed, (void*)0x4301, test_on_ws_error, (void*)0x4244);
 
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());

@@ -44,9 +44,10 @@ char* umocktypes_stringify_wcharptr(const wchar_t** value)
         {
             /* Codes_SRS_UMOCKTYPES_WCHARPTR_01_002: [ umocktypes_stringify_wcharptr shall return a string containing the string representation of value, enclosed by quotes ("value"). ] */
             const wchar_t* same_as_source = *value;
+            size_t num_characters;
             mbstate_t state;
             mbstate_t_init(&state);
-            size_t num_characters = wcsrtombs(NULL, &same_as_source, 0, &state);
+            num_characters = wcsrtombs(NULL, &same_as_source, 0, &state);
             if (num_characters == (size_t)(-1))
             {
                 UMOCK_LOG("failure to get the length of the string: %s", strerror(errno));
@@ -201,9 +202,10 @@ char* umocktypes_stringify_const_wcharptr(const wchar_t** value)
         {
             /* Codes_SRS_UMOCKTYPES_WCHARPTR_01_019: [ umocktypes_stringify_const_wcharptr shall return a string containing the string representation of value, enclosed by quotes ("value"). ] */
             const wchar_t* same_as_source = *value;
+            size_t num_characters;
             mbstate_t state;
             mbstate_t_init(&state);
-            size_t num_characters = wcsrtombs(NULL, &same_as_source, 0, &state);
+            num_characters = wcsrtombs(NULL, &same_as_source, 0, &state);
             if (num_characters == (size_t)(-1))
             {
                 UMOCK_LOG("failure to get the length of the string: %s", strerror(errno));
