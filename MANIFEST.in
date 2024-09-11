@@ -1,2 +1,2 @@
-include *.rst
+include *.md
 recursive-include src *
