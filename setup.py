@@ -249,9 +249,9 @@ extensions = [
     )
 ]
 
-with open('README.rst') as f:  # , encoding='utf-8'
+with open('README.md') as f:  # , encoding='utf-8'
     readme = f.read()
-with open('HISTORY.rst') as f:  # , encoding='utf-8'
+with open('HISTORY.md') as f:  # , encoding='utf-8'
     history = f.read()
 
 if USE_CYTHON:
@@ -262,7 +262,7 @@ setup(
     version=version,
     description='AMQP 1.0 Client Library for Python',
     long_description=readme + '\n\n' + history,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/markdown",
     license='MIT License',
     author='Microsoft Corporation',
     author_email='azpysdkhelp@microsoft.com',
