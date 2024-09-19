@@ -27,5 +27,5 @@ CFLAGS = "-mmacosx-version-min=10.9 -I/tmp/openssl/include"
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux2014"
-before-build = "bash utils/install_openssl.sh"
-environment = {OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl", LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib", CPATH="/opt/pyca/cryptography/openssl/include"}
+before-build = ["yum -y install perl-IPC-Cmd","bash utils/install_openssl.sh"]
+environment = {OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl", LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib64", CPATH="/opt/pyca/cryptography/openssl/include",UAMQP_REBUILD_PYX="True"}
