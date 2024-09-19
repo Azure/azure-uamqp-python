@@ -19,9 +19,9 @@ namespace amqplib_generator
     /// Class to produce the template output
     /// </summary>
     
-    #line 1 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
+    #line 1 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.TextTemplating", "17.0.0.0")]
-    public partial class amqp_definitions_type_h : amqp_definitions_type_hBase
+    public partial class amqp_definitions_h : amqp_definitions_hBase
     {
 #line hidden
         /// <summary>
@@ -31,7 +31,7 @@ namespace amqplib_generator
         {
             this.Write("\r\n");
             
-            #line 8 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
+            #line 8 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
  amqp amqp = Program.LoadAMQPTypes(); 
             
             #line default
@@ -43,608 +43,84 @@ namespace amqplib_generator
 // This file is generated. DO NOT EDIT it manually.
 // The generator that produces it is located at /uamqp_generator/uamqp_generator.sln
 
+#ifndef AMQP_DEFINITIONS_H
+#define AMQP_DEFINITIONS_H
+
+#ifdef __cplusplus
+#include <cstdint>
+extern ""C"" {
+#else
+#include <stdint.h>
+#include <stdbool.h>
+#endif
+
+#include ""azure_uamqp_c/amqpvalue.h""
+#include ""umock_c/umock_c_prod.h""
+
 ");
             
-            #line 16 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
- type type = Program.CurrentTypeObject; 
+            #line 30 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+  foreach (section section in amqp.Items.Where(item => item is section)) 
             
             #line default
             #line hidden
             
-            #line 17 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
- string type_name = type.name.ToLower().Replace('-', '_'); 
+            #line 31 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+  { 
             
             #line default
             #line hidden
             
-            #line 18 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
- string amqpDefinitionName = $"AMQP_DEFINITIONS_{type_name.ToUpper()}_H"; 
+            #line 32 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+      List<type> types = new List<type>(); 
             
             #line default
             #line hidden
-            this.Write("#ifndef ");
             
-            #line 19 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(amqpDefinitionName));
+            #line 33 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+      types.AddRange(section.Items.Where(item => item is type).Cast<type>()); 
             
             #line default
             #line hidden
-            this.Write("\r\n#define ");
             
-            #line 20 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(amqpDefinitionName));
+            #line 34 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+      foreach (type type in types) 
             
             #line default
             #line hidden
-            this.Write("\r\n\r\n\r\n#ifdef __cplusplus\r\n#include <cstdint>\r\nextern \"C\" {\r\n#else\r\n#include <stdi" +
-                    "nt.h>\r\n#include <stdbool.h>\r\n#endif\r\n\r\n#include \"azure_uamqp_c/amqpvalue.h\"\r\n#in" +
-                    "clude \"umock_c/umock_c_prod.h\"\r\n\r\n");
             
-            #line 34 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          if (type.@class == typeClass.composite) 
+            #line 35 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+      { 
             
             #line default
             #line hidden
             
-            #line 35 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          { 
+            #line 36 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+          string type_name = type.name.ToLower().Replace('-', '_'); 
             
             #line default
             #line hidden
-            this.Write("    typedef struct ");
+            this.Write("#include \"");
             
-            #line 36 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_INSTANCE_TAG* ");
-            
-            #line 36 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE;\r\n\r\n");
-            
-            #line 38 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              string arg_list = Program.GetMandatoryArgListMock(type); 
-            
-            #line default
-            #line hidden
-            this.Write("    MOCKABLE_FUNCTION(, ");
-            
-            #line 39 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 39 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_create ");
-            
-            #line 39 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(arg_list));
-            
-            #line default
-            #line hidden
-            this.Write(");\r\n    MOCKABLE_FUNCTION(, ");
-            
-            #line 40 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 40 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_clone, ");
-            
-            #line 40 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, value);\r\n    MOCKABLE_FUNCTION(, void, ");
-            
-            #line 41 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_destroy, ");
-            
-            #line 41 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 41 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(");\r\n    MOCKABLE_FUNCTION(, bool, is_");
-            
-            #line 42 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_type_by_descriptor, AMQP_VALUE, descriptor);\r\n    MOCKABLE_FUNCTION(, int, amqpv" +
-                    "alue_get_");
-            
-            #line 43 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(", AMQP_VALUE, value, ");
-            
-            #line 43 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE*, ");
-            
-            #line 43 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_handle);\r\n    MOCKABLE_FUNCTION(, AMQP_VALUE, amqpvalue_create_");
-            
-            #line 44 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 44 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 44 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(");\r\n\r\n");
-            
-            #line 46 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              foreach (field field in type.Items.Where(item => item is field)) 
-            
-            #line default
-            #line hidden
-            
-            #line 47 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              { 
-            
-            #line default
-            #line hidden
-            
-            #line 48 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  string field_name = field.name.ToLower().Replace('-', '_'); 
-            
-            #line default
-            #line hidden
-            
-            #line 49 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  string c_type = Program.GetCType(field.type, field.multiple == "true").Replace('-', '_').Replace(':', '_'); 
-            
-            #line default
-            #line hidden
-            
-            #line 50 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  type field_type = Program.GetTypeByName(field.type); 
-            
-            #line default
-            #line hidden
-            
-            #line 51 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  if ((field_type != null) && (field_type.@class == typeClass.composite)) c_type = field_type.name.ToUpper().Replace('-', '_').Replace(':', '_') + "_HANDLE"; 
-            
-            #line default
-            #line hidden
-            this.Write("    MOCKABLE_FUNCTION(, int, ");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_get_");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(field_name));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(c_type));
-            
-            #line default
-            #line hidden
-            this.Write("*, ");
-            
-            #line 52 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(field_name));
-            
-            #line default
-            #line hidden
-            this.Write("_value);\r\n    MOCKABLE_FUNCTION(, int, ");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_set_");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(field_name));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToUpper()));
-            
-            #line default
-            #line hidden
-            this.Write("_HANDLE, ");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(c_type));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 53 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(field_name));
-            
-            #line default
-            #line hidden
-            this.Write("_value);\r\n");
-            
-            #line 54 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              } 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n");
-            
-            #line 56 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          } 
-            
-            #line default
-            #line hidden
-            
-            #line 57 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          else 
-            
-            #line default
-            #line hidden
-            
-            #line 58 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          if (type.@class == typeClass.restricted) 
-            
-            #line default
-            #line hidden
-            
-            #line 59 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          { 
-            
-            #line default
-            #line hidden
-            
-            #line 60 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              string c_type = Program.GetCType(type.source, false).Replace('-', '_').Replace(':', '_'); 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n    typedef ");
-            
-            #line 62 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(c_type));
-            
-            #line default
-            #line hidden
-            this.Write(" ");
-            
-            #line 62 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write(";\r\n\r\n");
-            
-            #line 64 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              if (c_type != "AMQP_VALUE") 
-            
-            #line default
-            #line hidden
-            
-            #line 65 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              { 
-            
-            #line default
-            #line hidden
-            this.Write("    MOCKABLE_FUNCTION(, AMQP_VALUE, amqpvalue_create_");
-            
-            #line 66 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write(", ");
-            
-            #line 66 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write(", value);\r\n");
-            
-            #line 67 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              } 
-            
-            #line default
-            #line hidden
-            
-            #line 68 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              else 
-            
-            #line default
-            #line hidden
-            
-            #line 69 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              { 
-            
-            #line default
-            #line hidden
-            this.Write("    MOCKABLE_FUNCTION(, AMQP_VALUE, amqpvalue_create_");
-            
-            #line 70 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write(", AMQP_VALUE, value);\r\n    #define ");
-            
-            #line 71 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write("_clone amqpvalue_clone\r\n    #define ");
-            
-            #line 72 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write("_destroy amqpvalue_destroy\r\n");
-            
-            #line 73 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              } 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n");
-            
-            #line 75 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              if ((type.Items != null) && (type.Items.Where(item => item is descriptor).Count() > 0)) 
-            
-            #line default
-            #line hidden
-            
-            #line 76 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              { 
-            
-            #line default
-            #line hidden
-            this.Write("    MOCKABLE_FUNCTION(, bool, is_");
-            
-            #line 77 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_type_by_descriptor, AMQP_VALUE, descriptor);\r\n");
-            
-            #line 78 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              } 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n    #define amqpvalue_get_");
-            
-            #line 80 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name.ToLower()));
-            
-            #line default
-            #line hidden
-            this.Write(" amqpvalue_get_");
-            
-            #line 80 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type.source.Replace('-', '_').Replace(':', '_')));
-            
-            #line default
-            #line hidden
-            this.Write("\r\n\r\n");
-            
-            #line 82 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              if (type.Items != null) 
-            
-            #line default
-            #line hidden
-            
-            #line 83 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              { 
-            
-            #line default
-            #line hidden
-            
-            #line 84 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  foreach (choice choice in type.Items.Where(item => item is choice)) 
-            
-            #line default
-            #line hidden
-            
-            #line 85 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  { 
-            
-            #line default
-            #line hidden
-            
-            #line 86 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      if (type.@source == "symbol") 
-            
-            #line default
-            #line hidden
-            
-            #line 87 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      { 
-            
-            #line default
-            #line hidden
-            this.Write("    #define ");
-            
-            #line 88 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_");
-            
-            #line 88 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(choice.name.Replace('-', '_').Replace(':', '_')));
-            
-            #line default
-            #line hidden
-            this.Write(" \"");
-            
-            #line 88 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(choice.value));
+            #line 37 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+            this.Write(this.ToStringHelper.ToStringWithCulture($"azure_uamqp_c/amqp_definitions_{type_name}.h"));
             
             #line default
             #line hidden
             this.Write("\"\r\n");
             
-            #line 89 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      } 
+            #line 38 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+      } 
             
             #line default
             #line hidden
             
-            #line 90 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      else 
+            #line 39 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_h.tt"
+  } 
             
             #line default
             #line hidden
-            
-            #line 91 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      { 
-            
-            #line default
-            #line hidden
-            this.Write("    #define ");
-            
-            #line 92 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(type_name));
-            
-            #line default
-            #line hidden
-            this.Write("_");
-            
-            #line 92 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(choice.name.Replace('-', '_').Replace(':', '_')));
-            
-            #line default
-            #line hidden
-            this.Write(" ");
-            
-            #line 92 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(choice.value.Replace('-', '_').Replace(':', '_')));
-            
-            #line default
-            #line hidden
-            this.Write("\r\n");
-            
-            #line 93 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                      } 
-            
-            #line default
-            #line hidden
-            
-            #line 94 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-                  } 
-            
-            #line default
-            #line hidden
-            
-            #line 95 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-              } 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n");
-            
-            #line 97 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-          } 
-            
-            #line default
-            #line hidden
-            this.Write("\r\n#ifdef __cplusplus\r\n}\r\n#endif\r\n\r\n#endif /* ");
-            
-            #line 103 "C:\code\s1\azure-uamqp-c\uamqp_generator\amqp_definitions_type_h.tt"
-            this.Write(this.ToStringHelper.ToStringWithCulture(amqpDefinitionName));
-            
-            #line default
-            #line hidden
-            this.Write(" */\r\n");
+            this.Write("\r\n#ifdef __cplusplus\r\n}\r\n#endif\r\n\r\n#endif /* AMQP_DEFINITIONS_H */\r\n");
             return this.GenerationEnvironment.ToString();
         }
     }
@@ -656,7 +132,7 @@ namespace amqplib_generator
     /// Base class for this transformation
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.TextTemplating", "17.0.0.0")]
-    public class amqp_definitions_type_hBase
+    public class amqp_definitions_hBase
     {
         #region Fields
         private global::System.Text.StringBuilder generationEnvironmentField;

@@ -41,6 +41,7 @@
 #include "azure_c_shared_utility/vector.h"
 #include "azure_c_shared_utility/buffer_.h"
 #include "azure_c_shared_utility/tlsio_bearssl.h"
+#include "azure_c_shared_utility/safe_math.h"
 
 static const char *const OPTION_UNDERLYING_IO_OPTIONS = "underlying_io_options";
 
@@ -337,6 +338,7 @@ VECTOR_HANDLE decode_pem(const void *src, size_t len)
 					po.data = BUFFER_u_char(bv);
 					po.data_len = BUFFER_length(bv);
 					free(bv);
+					bv = NULL;
 					VECTOR_push_back(pem_list, &po, 1);
 					po.name = NULL;
 					po.data = NULL;
@@ -378,7 +380,9 @@ VECTOR_HANDLE decode_pem(const void *src, size_t len)
 
 			VECTOR_clear(pem_list);
 			free(po.name);
+			po.name = NULL;
 			BUFFER_delete(bv);
+			bv = NULL;
 			pem_list = NULL;
 		}
 	}
@@ -396,9 +400,15 @@ static void free_private_key(private_key *privkey)
         free(privkey->key.rsa.dp);
         free(privkey->key.rsa.q);
         free(privkey->key.rsa.p);
+        privkey->key.rsa.iq = NULL;
+        privkey->key.rsa.dq = NULL;
+        privkey->key.rsa.dp = NULL;
+        privkey->key.rsa.q = NULL;
+        privkey->key.rsa.p = NULL;
         break;
     case BR_KEYTYPE_EC:
         free(privkey->key.ec.x);
+        privkey->key.ec.x = NULL;
         break;
     default:
         LogError("Unknown private key type %d", privkey->key_type);
@@ -676,9 +686,12 @@ void free_ta_contents(br_x509_trust_anchor *ta)
 	case BR_KEYTYPE_RSA:
 		free(ta->pkey.key.rsa.n);
 		free(ta->pkey.key.rsa.e);
+		ta->pkey.key.rsa.n = NULL;
+		ta->pkey.key.rsa.e = NULL;
 		break;
 	case BR_KEYTYPE_EC:
 		free(ta->pkey.key.ec.q);
+		ta->pkey.key.ec.q = NULL;
 		break;
 	}
 }
@@ -689,6 +702,7 @@ void free_certificates(br_x509_certificate *certs, size_t num)
 
 	for (u = 0; u < num; u ++) {
 		free(certs[u].data);
+		certs[u].data = NULL;
 	}
 }
 
@@ -724,6 +738,7 @@ static int certificate_to_trust_anchor(br_x509_certificate *xc, br_x509_trust_an
             ta->dn.data = BUFFER_u_char(vdn);
             ta->dn.len = BUFFER_length(vdn);
             free(vdn);
+            vdn = NULL;
             ta->flags = 0;
 
             if (br_x509_decoder_isCA(&dc)) 
@@ -800,7 +815,16 @@ static size_t get_trusted_anchors(const char *certificates, size_t len, br_x509_
     }
     else
     {
-        anchArray = (br_x509_trust_anchor *)malloc(sizeof(br_x509_trust_anchor) * num);
+        size_t malloc_size = safe_multiply_size_t(sizeof(br_x509_trust_anchor), num);
+        if (malloc_size == SIZE_MAX)
+        {
+            LogError("Invalid buffer size for trustedanchors");
+            anchArray = NULL;
+        }
+        else
+        {
+            anchArray = (br_x509_trust_anchor*)malloc(malloc_size);
+        }
 
         if (anchArray == NULL)
         {
@@ -1568,6 +1592,7 @@ int tlsio_bearssl_setoption(CONCRETE_IO_HANDLE tls_io, const char *optionName, c
             {
                 // Free the memory if it has been previously allocated
                 free(tls_io_instance->x509_certificate);
+                tls_io_instance->x509_certificate = NULL;
             }
 
             if (mallocAndStrcpy_s(&tls_io_instance->x509_certificate, (const char *)value) != 0)
@@ -1597,6 +1622,7 @@ int tlsio_bearssl_setoption(CONCRETE_IO_HANDLE tls_io, const char *optionName, c
             {
                 // Free the memory if it has been previously allocated
                 free(tls_io_instance->x509_private_key);
+                tls_io_instance->x509_private_key = NULL;
             }
 
             if (mallocAndStrcpy_s(&tls_io_instance->x509_private_key, (const char *)value) != 0)

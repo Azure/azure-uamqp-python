@@ -29,9 +29,15 @@ option(use_builtin_httpapi "set use_builtin_httpapi to ON to use the built-in ht
 option(use_cppunittest "set use_cppunittest to ON to build CppUnitTest tests on Windows (default is OFF)" OFF)
 option(suppress_header_searches "do not try to find headers - used when compiler check will fail" OFF)
 option(use_custom_heap "use externally defined heap functions instead of the malloc family" OFF)
+option(no_openssl_engine "Disables the use of ENGINEs in OpenSSL" OFF)
+option(enable_ipv6 "set enable_ipv6 to ON to enable dual-ip-stack (IPv4 and IPv6) support (default is OFF for IPv4 only)" OFF)
 
 if(${use_custom_heap})
     add_definitions(-DGB_USE_CUSTOM_HEAP)
+endif()
+
+if (${enable_ipv6})
+    add_definitions(-DIPV6_ENABLED)
 endif()
 
 if(WIN32)
@@ -48,7 +54,7 @@ if(WIN32)
 
 else()
     option(use_schannel "set use_schannel to ON if schannel is to be used, set to OFF to not use schannel" OFF)
-    if(MACOSX)
+    if(DEFINED MACOSX)
         option(use_openssl "set use_openssl to ON if openssl is to be used, set to OFF to not use openssl" OFF)
         option(use_socketio "set use_socketio to ON if socketio is to be included in the library, set to OFF if a different implementation will be provided" OFF)
     else()
@@ -65,7 +71,7 @@ option(no_logging "disable logging (default is OFF)" OFF)
 
 # The options setting for use_socketio is not reliable. If openssl is used, make sure it's on,
 # and if apple tls is used then use_socketio must be off.
-if (MACOSX)
+if (DEFINED MACOSX)
     if (${use_openssl})
         set(use_socketio ON)
     else()
@@ -106,6 +112,10 @@ if(${memory_trace})
 endif()
 
 if(${use_openssl})
+    if(${no_openssl_engine})
+        add_definitions(-DOPENSSL_NO_ENGINE)
+    endif()
+
     if("${OPENSSL_ROOT_DIR}" STREQUAL "" AND NOT ("$ENV{OpenSSLDir}" STREQUAL ""))
         set(OPENSSL_ROOT_DIR $ENV{OpenSSLDir} CACHE PATH "")
     endif()
@@ -115,6 +125,14 @@ if(${use_openssl})
     if (NOT TARGET OpenSSL::SSL OR NOT TARGET OpenSSL::Crypto OR NOT ${OPENSSL_INCLUDE_DIR})
         find_package(OpenSSL REQUIRED)
     endif()
+
+    # The block below enables the v1 back-compatibility layer in OpenSSL 3,
+    # if using that version or later. For reference, please check the OpenSSL
+    # official documentation: https://www.openssl.org/docs/man3.0/man7/openssl_user_macros.html
+    if (DEFINED OPENSSL_VERSION AND (${OPENSSL_VERSION} GREATER_EQUAL 3))
+        add_definitions(-DOPENSSL_API_COMPAT=0x10101000L)
+    endif()
+
     include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
 
@@ -214,7 +232,6 @@ set(source_c_files
     ./src/gbnetwork.c
     ./src/gb_stdio.c
     ./src/gb_time.c
-    ./src/gb_rand.c
     ./src/hmac.c
     ./src/hmacsha256.c
     ./src/xio.c
@@ -238,6 +255,7 @@ set(source_c_files
     ${CONDITION_C_FILE}
     ${LOCK_C_FILE}
     ${TIMER_C_FILE}
+    ${RANDOM_C_FILE}
     ${STRING_UTILS_C_FILE}
     ${PLATFORM_C_FILE}
     ${SOCKETIO_C_FILE}
@@ -262,6 +280,7 @@ if(${use_http})
         ./src/httpheaders.c
         ${HTTP_C_FILE}
     )
+    add_definitions(-DUSE_HTTP)
 endif()
 
 if(${use_schannel})
@@ -336,7 +355,6 @@ set(source_h_files
     ./inc/azure_c_shared_utility/gbnetwork.h
     ./inc/azure_c_shared_utility/gb_stdio.h
     ./inc/azure_c_shared_utility/gb_time.h
-    ./inc/azure_c_shared_utility/gb_rand.h
     ./inc/azure_c_shared_utility/hmac.h
     ./inc/azure_c_shared_utility/hmacsha256.h
     ./inc/azure_c_shared_utility/http_proxy_io.h
@@ -373,7 +391,7 @@ set(source_h_files
     ./inc/azure_c_shared_utility/tlsio.h
     ./inc/azure_c_shared_utility/optionhandler.h
     ./inc/azure_c_shared_utility/memory_data.h
-    ./inc/azure_c_shared_utility/safe_math.h
+    ./inc/azure_c_shared_utility/safe_math.h    
     ${LOGGING_STACKTRACE_H_FILE}
 )
 
@@ -451,11 +469,12 @@ SOURCE_GROUP(devdoc FILES ${aziotsharedutil_md_files})
 
 # Add ignore deprecated functions so we may use 1.1.1 APIs
 # in OpenSSL 3
-if(LINUX)
+if(DEFINED LINUX OR DEFINED MACOSX)
   set_property(
     SOURCE
       ${CMAKE_CURRENT_LIST_DIR}/adapters/tlsio_openssl.c
       ${CMAKE_CURRENT_LIST_DIR}/adapters/x509_openssl.c
+      ${CMAKE_CURRENT_LIST_DIR}/adapters/httpapi_curl.c
     PROPERTY COMPILE_OPTIONS
       -Wno-deprecated-declarations
   )
@@ -609,6 +628,14 @@ if(LINUX)
             link_directories(${UUID_LIBRARY_DIRS})
             set(aziotsharedutil_target_libs ${aziotsharedutil_target_libs} -L${UUID_LIBRARY_DIRS} ${UUID_LIBRARIES})
         else()
+            if (DEFINED UUID_INCLUDE_DIR)
+                include_directories(${UUID_INCLUDE_DIR})
+            endif()
+
+            if (DEFINED UUID_LIBRARY_DIRS)
+                link_directories(${UUID_LIBRARY_DIRS})
+            endif()
+
             set(aziotsharedutil_target_libs ${aziotsharedutil_target_libs} uuid)
         endif()
     endif()

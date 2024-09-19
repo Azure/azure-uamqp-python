@@ -15,20 +15,20 @@ static char* vprintf_alloc(const char* format, va_list va)
 {
     char* result;
     int neededSize = vsnprintf(NULL, 0, format, va);
-    if (neededSize < 0)
+    if (neededSize < 0 || (neededSize + 1) < 0)
     {
         result = NULL;
     }
     else
     {
-        result = (char*)malloc(neededSize + 1);
+        result = (char*)malloc((size_t)neededSize + 1);
         if (result == NULL)
         {
             /*return as is*/
         }
         else
         {
-            if (vsnprintf(result, neededSize + 1, format, va) != neededSize)
+            if (vsnprintf(result, (size_t)neededSize + 1, format, va) != neededSize)
             {
                 free(result);
                 result = NULL;
@@ -157,6 +157,9 @@ void consolelogger_log_with_GetLastError(const char* file, const char* func, int
     timeString = get_ctime(&t);
 #endif // LOGGER_DISABLE_PAL
 
+    // In case time is not implemented
+    timeString = timeString == NULL ? "<NO TIME IMPL>" : timeString;
+
     systemMessage = printf_alloc("Error: Time:%.24s File:%s Func:%s Line:%d %s", timeString, file, func, line, lastErrorAsString);
 
     if (systemMessage == NULL)
@@ -220,6 +223,9 @@ void consolelogger_log(LOG_CATEGORY log_category, const char* file, const char* 
     t = get_time(NULL);
     timeString = get_ctime(&t);
 #endif // LOGGER_DISABLE_PAL
+
+    // In case time is not implemented
+    timeString = timeString == NULL ? "<NO TIME IMPL>" : timeString;
 
     switch (log_category)
     {
