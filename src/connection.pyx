@@ -183,7 +183,7 @@ cdef class Connection(StructBase):
 
 #### Callback
 
-cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STATE_TAG new_connection_state, c_connection.CONNECTION_STATE_TAG previous_connection_state):
+cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STATE_TAG new_connection_state, c_connection.CONNECTION_STATE_TAG previous_connection_state) noexcept:
     if <void*>context != NULL:
         context_pyobj = <PyObject*>context
         if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
@@ -196,7 +196,7 @@ cdef void on_connection_state_changed(void* context, c_connection.CONNECTION_STA
             _logger.info("Unknown connection state changed: %r to %r", previous_connection_state, new_connection_state)
 
 
-cdef void on_io_error(void* context):
+cdef void on_io_error(void* context) noexcept:
     if <void*>context != NULL:
         context_obj = <object>context
         if hasattr(context_obj, '_io_error'):
