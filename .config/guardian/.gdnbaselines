@@ -21,9 +21,9 @@
       ],
       "tool": "credscan",
       "ruleId": "CSCAN-GENERAL0060",
-      "createdDate": "2024-09-14 07:18:00Z",
-      "expirationDate": "2025-03-10 07:26:37Z",
-      "justification": "This error is baselined with an expiration date of 180 days from 2024-09-21 07:26:37Z"
+      "createdDate": "2024-09-15 07:17:48Z",
+      "expirationDate": "2025-03-11 07:25:48Z",
+      "justification": "This error is baselined with an expiration date of 180 days from 2024-09-22 07:25:48Z"
     },
     "755800b7948961790ed2b96be6e8203b3bd5966295809bb37607b0dcc324aa25": {
       "signature": "755800b7948961790ed2b96be6e8203b3bd5966295809bb37607b0dcc324aa25",
@@ -35,9 +35,9 @@
       ],
       "tool": "credscan",
       "ruleId": "CSCAN-GENERAL0060",
-      "createdDate": "2024-09-14 07:18:00Z",
-      "expirationDate": "2025-03-10 07:26:37Z",
-      "justification": "This error is baselined with an expiration date of 180 days from 2024-09-21 07:26:37Z"
+      "createdDate": "2024-09-15 07:17:48Z",
+      "expirationDate": "2025-03-11 07:25:48Z",
+      "justification": "This error is baselined with an expiration date of 180 days from 2024-09-22 07:25:48Z"
     }
   }
 }
