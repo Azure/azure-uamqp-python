@@ -5,8 +5,8 @@ pipelines:
     retail:
       source:
         credscan:
-          lastModifiedDate: 2024-09-23
+          lastModifiedDate: 2024-09-24
         psscriptanalyzer:
-          lastModifiedDate: 2024-09-23
+          lastModifiedDate: 2024-09-24
         armory:
-          lastModifiedDate: 2024-09-23
+          lastModifiedDate: 2024-09-24
