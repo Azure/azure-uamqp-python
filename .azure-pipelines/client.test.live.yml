@@ -24,24 +24,24 @@ jobs:
     timeoutInMinutes: 120
 
     strategy:
-      maxParallel: 1
+      # maxParallel: 1
       matrix:
-        x64 Python 3.8:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-win_amd64'
-        x64 Python 3.9:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-win_amd64'
-        x64 Python 3.10:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-win_amd64'
-        x64 Python 3.11:
-          PythonArchitecture: 'x64'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-win_amd64'
+        # x64 Python 3.8:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-win_amd64'
+        # x64 Python 3.9:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-win_amd64'
+        # x64 Python 3.10:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-win_amd64'
+        # x64 Python 3.11:
+        #   PythonArchitecture: 'x64'
+        #   PythonVersion: '$(PythonVersion311)'
+        #   BWFilter: 'cp311-win_amd64'
         x64 Python 3.12:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion312)'
@@ -143,24 +143,24 @@ jobs:
       vmImage: 'macos-latest'
 
     strategy:
-      maxParallel: 1
+      # maxParallel: 1
       matrix:
-        Python 3.8:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-macosx_x86_64'
-        Python 3.9:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-macosx_x86_64'
-        Python 3.10:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-macosx_x86_64'
-        Python 3.11:
-          PythonBin: 'python3'
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-macosx_x86_64'
+        # Python 3.8:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-macosx_x86_64'
+        # Python 3.9:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-macosx_x86_64'
+        # Python 3.10:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-macosx_x86_64'
+        # Python 3.11:
+        #   PythonBin: 'python3'
+        #   PythonVersion: '$(PythonVersion311)'
+        #   BWFilter: 'cp311-macosx_x86_64'
         Python 3.12:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion312)'
@@ -268,20 +268,20 @@ jobs:
       vmImage: 'ubuntu-20.04'
 
     strategy:
-      maxParallel: 1
+      # maxParallel: 1
       matrix:
-        Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          BWFilter: 'cp38-manylinux_x86_64'
-        Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          BWFilter: 'cp39-manylinux_x86_64'
-        Python 3.10:
-          PythonVersion: '$(PythonVersion310)'
-          BWFilter: 'cp310-manylinux_x86_64'
-        Python 3.11:
-          PythonVersion: '$(PythonVersion311)'
-          BWFilter: 'cp311-manylinux_x86_64'
+        # Python 3.8:
+        #   PythonVersion: '$(PythonVersion38)'
+        #   BWFilter: 'cp38-manylinux_x86_64'
+        # Python 3.9:
+        #   PythonVersion: '$(PythonVersion39)'
+        #   BWFilter: 'cp39-manylinux_x86_64'
+        # Python 3.10:
+        #   PythonVersion: '$(PythonVersion310)'
+        #   BWFilter: 'cp310-manylinux_x86_64'
+        # Python 3.11:
+        #   PythonVersion: '$(PythonVersion311)'
+        #   BWFilter: 'cp311-manylinux_x86_64'
         Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-manylinux_x86_64'
@@ -365,15 +365,6 @@ jobs:
       vmImage: windows-2022
     strategy:
       matrix:
-        EventHub x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'EventHub'
-        EventHub x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'ServiceBus'
         ServiceBus x64 Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           SDK: 'ServiceBus'
@@ -423,15 +414,6 @@ jobs:
       vmImage: 'ubuntu-20.04'
     strategy:
       matrix:
-        EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'EventHub'
-        EventHub Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'ServiceBus'
         ServiceBus Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           SDK: 'ServiceBus'
