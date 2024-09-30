@@ -7,6 +7,7 @@ variables:
   PythonVersion310: '3.10'
   PythonVersion311: '3.11'
   PythonVersion312: '3.12'
+  PythonVersion313: '3.13.0-rc.2'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -45,7 +46,11 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-win_amd64'
-            
+        x64 Python 3.13:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-win_amd64'
+
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
@@ -60,7 +65,7 @@ jobs:
         displayName: 'Install dependencies'
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
-      
+
       - pwsh: |
           Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
           # In order of component appearance in the install command below, these are the names of the components
@@ -80,7 +85,7 @@ jobs:
             --add Microsoft.VisualStudio.Workload.NativeDesktop `
             --quiet --wait --norestart
         displayName: Install build script requirements
-   
+
       - script: |
           call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
           python -m pip install cibuildwheel==2.21.1
@@ -160,7 +165,10 @@ jobs:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-macosx_x86_64'
-
+        Python 3.13:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-macosx_x86_64'
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
@@ -169,6 +177,7 @@ jobs:
       PythonVersion310: '3.10'
       PythonVersion311: '3.11'
       PythonVersion312: '3.12'
+      PythonVersion313: '3.13.0-rc.2'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -192,7 +201,7 @@ jobs:
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
-  
+
       - bash: |
           set -o errexit
           python -m pip install cibuildwheel==2.21.1 --force
@@ -276,6 +285,9 @@ jobs:
         Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-manylinux_x86_64'
+        Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-manylinux_x86_64'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -365,6 +377,9 @@ jobs:
         ServiceBus x64 Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           SDK: 'ServiceBus'
+        ServiceBus x64 Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
+          SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
       OSArch: 'Windows'
@@ -419,6 +434,9 @@ jobs:
           SDK: 'ServiceBus'
         ServiceBus Python 3.12:
           PythonVersion: '$(PythonVersion312)'
+          SDK: 'ServiceBus'
+        ServiceBus Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
           SDK: 'ServiceBus'
     variables:
       OSArch: 'Linux'
