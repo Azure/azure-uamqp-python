@@ -140,7 +140,7 @@ jobs:
     #dependsOn: 'Windows'
 
     pool:
-      vmImage: 'macos-13'
+      vmImage: 'macos-12'
 
     strategy:
       maxParallel: 1
@@ -387,7 +387,7 @@ jobs:
     dependsOn: 'MacOS'
     pool:
       name: 'Azure Pipelines'
-      vmImage: 'macos-13'
+      vmImage: 'macos-12'
     strategy:
       matrix:
         Eventhub Python 3.13:
