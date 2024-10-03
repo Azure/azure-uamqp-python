@@ -97,7 +97,7 @@ cdef class cMessageSender(StructBase):
 #### Callbacks (context is a MessageSender instance)
 
 
-cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result, c_amqpvalue.AMQP_VALUE delivery_state):
+cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_RESULT_TAG send_result, c_amqpvalue.AMQP_VALUE delivery_state) noexcept:
     cdef c_amqpvalue.AMQP_VALUE send_data
     if <void*>delivery_state == NULL:
         wrapped = None
@@ -114,7 +114,7 @@ cdef void on_message_send_complete(void* context, c_message_sender.MESSAGE_SEND_
             context_obj._on_message_sent(context_obj, send_result, delivery_state=wrapped)
 
 
-cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state):
+cdef void on_message_sender_state_changed(void* context, c_message_sender.MESSAGE_SENDER_STATE_TAG new_state, c_message_sender.MESSAGE_SENDER_STATE_TAG previous_state) noexcept:
     if context != NULL:
         context_pyobj = <PyObject*>context
         if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
