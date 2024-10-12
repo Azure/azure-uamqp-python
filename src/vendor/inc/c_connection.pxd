@@ -20,7 +20,7 @@ cdef extern from "azure_uamqp_c/connection.h":
         pass
 
     cdef enum CONNECTION_STATE_TAG:
-        CONNECTION_STATE_START,
+        CONNECTION_STATE_START = 0,     # because C code uses `typedef enum`
         CONNECTION_STATE_HDR_RCVD,
         CONNECTION_STATE_HDR_SENT,
         CONNECTION_STATE_HDR_EXCH,
