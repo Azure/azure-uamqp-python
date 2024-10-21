@@ -7,7 +7,7 @@ variables:
   PythonVersion310: '3.10'
   PythonVersion311: '3.11'
   PythonVersion312: '3.12'
-  PythonVersion313: '3.13.0'
+  PythonVersion313: '3.13'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -177,7 +177,7 @@ jobs:
       PythonVersion310: '3.10'
       PythonVersion311: '3.11'
       PythonVersion312: '3.12'
-      PythonVersion313: '3.13.0'
+      PythonVersion313: '3.13'
 
     steps:
       - task: DownloadPipelineArtifact@1
