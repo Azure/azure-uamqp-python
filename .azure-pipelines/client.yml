@@ -7,7 +7,7 @@ variables:
   PythonVersion310: '3.10'
   PythonVersion311: '3.11'
   PythonVersion312: '3.12'
-  PythonVersion313: '3.13.0-rc.2'
+  PythonVersion313: '3.13'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 
@@ -97,7 +97,7 @@ extends:
           PythonVersion310: '3.10'
           PythonVersion311: '3.11'
           PythonVersion312: '3.12'
-          PythonVersion313: '3.13.0-rc.2'
+          PythonVersion313: '3.13'
 
         steps:
           - task: DownloadPipelineArtifact@1
@@ -127,8 +127,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.21.1 --force
-            displayName: Install cibuildwheel 2.21.1
+              python -m pip install cibuildwheel==2.21.3 --force
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -241,8 +241,8 @@ extends:
 
           - script: |
               call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-              python -m pip install cibuildwheel==2.21.1
-            displayName: Install cibuildwheel 2.21.1
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -331,8 +331,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.21.1
-            displayName: Install cibuildwheel 2.21.1
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -423,8 +423,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.21.1
-            displayName: Install cibuildwheel 2.21.1
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -484,30 +484,30 @@ extends:
                       - 'uamqp-linux-3.10-whl'
                       - 'uamqp-linux-3.11-whl'
                       - 'uamqp-linux-3.12-whl'
-                      - 'uamqp-linux-3.13.0-rc.2-whl'
+                      - 'uamqp-linux-3.13-whl'
                       - 'uamqp-macosx10.9-3.8-whl'
                       - 'uamqp-macosx10.9-3.9-whl'
                       - 'uamqp-macosx10.9-3.10-whl'
                       - 'uamqp-macosx10.9-3.11-whl'
                       - 'uamqp-macosx10.9-3.12-whl'
-                      - 'uamqp-macosx10.9-3.13.0-rc.2-whl'
+                      - 'uamqp-macosx10.9-3.13.-whl'
                       - 'uamqp-manylinux2014_x86_64-3.8-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.9-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.10-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.11-x64-whl'
-                      - 'uamqp-manylinux2014_x86_64-3.13.0-rc.2-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.13-x64-whl'
                       - 'uamqp-winx64-3.8-whl'
                       - 'uamqp-winx64-3.9-whl'
                       - 'uamqp-winx64-3.10-whl'
                       - 'uamqp-winx64-3.11-whl'
                       - 'uamqp-winx64-3.12-whl'
-                      - 'uamqp-winx64-3.13.0-rc.2-whl'
+                      - 'uamqp-winx64-3.13-whl'
                       - 'uamqp-winx86-3.8-whl'
                       - 'uamqp-winx86-3.9-whl'
                       - 'uamqp-winx86-3.10-whl'
                       - 'uamqp-winx86-3.11-whl'
                       - 'uamqp-winx86-3.12-whl'
-                      - 'uamqp-winx86-3.13.0-rc.2-whl'
+                      - 'uamqp-winx86-3.13-whl'
 
                 - pwsh: |
                     $root = "$(Pipeline.Workspace)"
