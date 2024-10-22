@@ -1,5 +1,12 @@
 # Release History
 
+## 1.6.11 (2024-10-22)
+
+-   Added support for python 3.13
+-   Updated OpenSSL dependency to 3.0 LTS
+-   Updated Cython dependency to 3.0.11
+-   Updated Azure uAMQP C and Azure C Shared Utility dependencies
+
 ## 1.6.10 (2024-09-11)
 
 -   Incorporate fixes from
