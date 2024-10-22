@@ -1,12 +1,13 @@
 trigger:
    - main
- 
+
 variables:
   PythonVersion38: '3.8'
   PythonVersion39: '3.9'
   PythonVersion310: '3.10'
   PythonVersion311: '3.11'
   PythonVersion312: '3.12'
+  PythonVersion313: '3.13'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 
@@ -83,6 +84,10 @@ extends:
               PythonBin: 'python3'
               PythonVersion: '$(PythonVersion312)'
               BWFilter: 'cp312-*'
+            Python 3.13:
+              PythonBin: 'python3'
+              PythonVersion: '$(PythonVersion313)'
+              BWFilter: 'cp313-*'
 
         variables:
           MacOSXDeploymentTarget: '10.9'
@@ -92,6 +97,7 @@ extends:
           PythonVersion310: '3.10'
           PythonVersion311: '3.11'
           PythonVersion312: '3.12'
+          PythonVersion313: '3.13'
 
         steps:
           - task: DownloadPipelineArtifact@1
@@ -121,8 +127,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.16.2 --force
-            displayName: Install cibuildwheel 2.16.2
+              python -m pip install cibuildwheel==2.21.3 --force
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -189,26 +195,10 @@ extends:
               PythonArchitecture: 'x64'
               PythonVersion: '$(PythonVersion312)'
               BWFilter: 'cp312-win_amd64'
-            x86 Python 3.8:
-              PythonArchitecture: 'x86'
-              PythonVersion: '$(PythonVersion38)'
-              BWFilter: 'cp38-win32'
-            x86 Python 3.9:
-              PythonArchitecture: 'x86'
-              PythonVersion: '$(PythonVersion39)'
-              BWFilter: 'cp39-win32'
-            x86 Python 3.10:
-              PythonArchitecture: 'x86'
-              PythonVersion: '$(PythonVersion310)'
-              BWFilter: 'cp310-win32'
-            x86 Python 3.11:
-              PythonArchitecture: 'x86'
-              PythonVersion: '$(PythonVersion311)'
-              BWFilter: 'cp311-win32'
-            x86 Python 3.12:
-              PythonArchitecture: 'x86'
-              PythonVersion: '$(PythonVersion312)'
-              BWFilter: 'cp312-win32'
+            x64 Python 3.13:
+              PythonArchitecture: 'x64'
+              PythonVersion: '$(PythonVersion313)'
+              BWFilter: 'cp313-win_amd64'
 
         steps:
           - pwsh: |
@@ -251,8 +241,8 @@ extends:
 
           - script: |
               call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-              python -m pip install cibuildwheel==2.16.2
-            displayName: Install cibuildwheel 2.16.2
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -316,6 +306,9 @@ extends:
             Python 3.12:
               PythonVersion: '$(PythonVersion312)'
               BWFilter: 'cp312-*'
+            Python 3.13:
+              PythonVersion: '$(PythonVersion313)'
+              BWFilter: 'cp313-*'
 
         steps:
           - template: /.azure-pipelines/use-python-version.yml
@@ -338,8 +331,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.16.2
-            displayName: Install cibuildwheel 2.16.2
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -347,8 +340,8 @@ extends:
             env:
               CIBW_BUILD: $(BWFilter)
               CIBW_PRERELEASE_PYTHONS: True
-              CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-              CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+              CIBW_BEFORE_BUILD_LINUX: yum -y install perl-IPC-Cmd && bash utils/install_openssl.sh
+              CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib64" CPATH="/opt/pyca/cryptography/openssl/include" UAMQP_REBUILD_PYX="True"
 
           - script: ls ./dist
             displayName: 'Check output'
@@ -404,6 +397,10 @@ extends:
               PythonVersion: '$(PythonVersion312)'
               Platform: 'manylinux2014_x86_64'
               BWFilter: 'cp312-*'
+            Python313-manylinux2014:
+              PythonVersion: '$(PythonVersion313)'
+              Platform: 'manylinux2014_x86_64'
+              BWFilter: 'cp313-*'
 
         steps:
           - template: /.azure-pipelines/use-python-version.yml
@@ -426,8 +423,8 @@ extends:
 
           - bash: |
               set -o errexit
-              python -m pip install cibuildwheel==2.16.2
-            displayName: Install cibuildwheel 2.16.2
+              python -m pip install cibuildwheel==2.21.3
+            displayName: Install cibuildwheel 2.21.3
 
           - pwsh: |
               cibuildwheel --output-dir dist .
@@ -435,8 +432,8 @@ extends:
             env:
               CIBW_BUILD: $(BWFilter)
               CIBW_PRERELEASE_PYTHONS: True
-              CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-              CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+              CIBW_BEFORE_BUILD_LINUX: yum -y install perl-IPC-Cmd && bash utils/install_openssl.sh
+              CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib64" CPATH="/opt/pyca/cryptography/openssl/include" UAMQP_REBUILD_PYX="True"
               CIBW_MANYLINUX_*_IMAGE: manylinux2014
 
           - script: ls ./dist
@@ -480,33 +477,37 @@ extends:
 
                 - template: /.azure-pipelines/templates/steps/download-targeted-artifacts.yml
                   parameters:
-                    ArtifactList: 
+                    ArtifactList:
                       - 'uamqp-sdist'
                       - 'uamqp-linux-3.8-whl'
                       - 'uamqp-linux-3.9-whl'
                       - 'uamqp-linux-3.10-whl'
                       - 'uamqp-linux-3.11-whl'
                       - 'uamqp-linux-3.12-whl'
+                      - 'uamqp-linux-3.13-whl'
                       - 'uamqp-macosx10.9-3.8-whl'
                       - 'uamqp-macosx10.9-3.9-whl'
                       - 'uamqp-macosx10.9-3.10-whl'
                       - 'uamqp-macosx10.9-3.11-whl'
                       - 'uamqp-macosx10.9-3.12-whl'
+                      - 'uamqp-macosx10.9-3.13.-whl'
                       - 'uamqp-manylinux2014_x86_64-3.8-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.9-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.10-x64-whl'
                       - 'uamqp-manylinux2014_x86_64-3.11-x64-whl'
-                      - 'uamqp-manylinux2014_x86_64-3.12-x64-whl'
+                      - 'uamqp-manylinux2014_x86_64-3.13-x64-whl'
                       - 'uamqp-winx64-3.8-whl'
                       - 'uamqp-winx64-3.9-whl'
                       - 'uamqp-winx64-3.10-whl'
                       - 'uamqp-winx64-3.11-whl'
                       - 'uamqp-winx64-3.12-whl'
+                      - 'uamqp-winx64-3.13-whl'
                       - 'uamqp-winx86-3.8-whl'
                       - 'uamqp-winx86-3.9-whl'
                       - 'uamqp-winx86-3.10-whl'
                       - 'uamqp-winx86-3.11-whl'
                       - 'uamqp-winx86-3.12-whl'
+                      - 'uamqp-winx86-3.13-whl'
 
                 - pwsh: |
                     $root = "$(Pipeline.Workspace)"

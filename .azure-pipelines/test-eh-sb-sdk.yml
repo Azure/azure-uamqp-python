@@ -86,6 +86,7 @@ steps:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       AZURE_TEST_RUN_LIVE: 'true'
       TEST_PYAMQP: 'false'
+      PROXY_URL: 'http://localhost:5000'
     inputs:
       azureSubscription: azure-sdk-tests
       azurePowerShellVersion: LatestVersion

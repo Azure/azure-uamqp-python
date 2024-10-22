@@ -7,6 +7,7 @@ variables:
   PythonVersion310: '3.10'
   PythonVersion311: '3.11'
   PythonVersion312: '3.12'
+  PythonVersion313: '3.13'
   GetPip: 'https://bootstrap.pypa.io/get-pip.py'
 
 jobs:
@@ -45,7 +46,11 @@ jobs:
           PythonArchitecture: 'x64'
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-win_amd64'
-            
+        x64 Python 3.13:
+          PythonArchitecture: 'x64'
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-win_amd64'
+
     steps:
       - template: /.azure-pipelines/use-python-version.yml
         parameters:
@@ -60,7 +65,7 @@ jobs:
         displayName: 'Install dependencies'
         env:
           PYTHONWARNINGS: ignore:DEPRECATION
-      
+
       - pwsh: |
           Invoke-WebRequest "$(VS_INSTALLER_URL)" -OutFile "$(VS_INSTALLER_PATH)"
           # In order of component appearance in the install command below, these are the names of the components
@@ -80,11 +85,11 @@ jobs:
             --add Microsoft.VisualStudio.Workload.NativeDesktop `
             --quiet --wait --norestart
         displayName: Install build script requirements
-   
+
       - script: |
           call "$(VS_ENTERPRISE_PATH)\VC\Auxiliary\Build\vcvars64.bat"
-          python -m pip install cibuildwheel==2.16.2
-        displayName: Install cibuildwheel 2.16.2
+          python -m pip install cibuildwheel==2.21.3
+        displayName: Install cibuildwheel 2.21.3
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -135,7 +140,7 @@ jobs:
     dependsOn: 'Windows'
 
     pool:
-      vmImage: 'macos-latest'
+      vmImage: 'macos-12'
 
     strategy:
       maxParallel: 1
@@ -160,7 +165,10 @@ jobs:
           PythonBin: 'python3'
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-macosx_x86_64'
-
+        Python 3.13:
+          PythonBin: 'python3'
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-macosx_x86_64'
     variables:
       MacOSXDeploymentTarget: '10.9'
       OpenSSLDir: $(Agent.BuildDirectory)/openssl-macosx$(MacOSXDeploymentTarget)
@@ -169,6 +177,7 @@ jobs:
       PythonVersion310: '3.10'
       PythonVersion311: '3.11'
       PythonVersion312: '3.12'
+      PythonVersion313: '3.13'
 
     steps:
       - task: DownloadPipelineArtifact@1
@@ -192,11 +201,11 @@ jobs:
           python -m pip --version
           python -m pip install --user -r dev_requirements.txt
         displayName: 'Install dependencies'
-  
+
       - bash: |
           set -o errexit
-          python -m pip install cibuildwheel==2.16.2 --force
-        displayName: Install cibuildwheel 2.16.2
+          python -m pip install cibuildwheel==2.21.3 --force
+        displayName: Install cibuildwheel 2.21.3
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -276,6 +285,9 @@ jobs:
         Python 3.12:
           PythonVersion: '$(PythonVersion312)'
           BWFilter: 'cp312-manylinux_x86_64'
+        Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
+          BWFilter: 'cp313-manylinux_x86_64'
 
     steps:
       - template: /.azure-pipelines/use-python-version.yml
@@ -298,8 +310,8 @@ jobs:
 
       - bash: |
           set -o errexit
-          python -m pip install cibuildwheel==2.16.2
-        displayName: Install cibuildwheel 2.16.2
+          python -m pip install cibuildwheel==2.21.3
+        displayName: Install cibuildwheel 2.21.3
 
       - pwsh: |
           cibuildwheel --output-dir dist .
@@ -307,8 +319,8 @@ jobs:
         env:
           CIBW_BUILD: $(BWFilter)
           CIBW_PRERELEASE_PYTHONS: True
-          CIBW_BEFORE_BUILD_LINUX: bash utils/install_openssl.sh
-          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib" CPATH="/opt/pyca/cryptography/openssl/include" CIBW_ARCHS_LINUX="x86_64"
+          CIBW_BEFORE_BUILD_LINUX: yum -y install perl-IPC-Cmd && bash utils/install_openssl.sh
+          CIBW_ENVIRONMENT_LINUX: OPENSSL_ROOT_DIR="/opt/pyca/cryptography/openssl" LIBRARY_PATH="/opt/pyca/cryptography/openssl/lib64" CPATH="/opt/pyca/cryptography/openssl/include" UAMQP_REBUILD_PYX="True"
 
       - script: ls ./dist
         displayName: 'Check output'
@@ -353,17 +365,11 @@ jobs:
       vmImage: windows-2022
     strategy:
       matrix:
-        EventHub x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'EventHub'
-        EventHub x64 Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus x64 Python 3.8:
-          PythonVersion: '$(PythonVersion38)'
-          SDK: 'ServiceBus'
         ServiceBus x64 Python 3.12:
           PythonVersion: '$(PythonVersion312)'
+          SDK: 'ServiceBus'
+        ServiceBus x64 Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
           SDK: 'ServiceBus'
     variables:
       PythonArchitecture: 'x64'
@@ -381,16 +387,16 @@ jobs:
     dependsOn: 'MacOS'
     pool:
       name: 'Azure Pipelines'
-      vmImage: 'macos-latest'
+      vmImage: 'macos-12'
     strategy:
       matrix:
-        EventHub Python 3.12:
-          SDK: 'EventHub'
-        ServiceBus Python 3.12:
+        Eventhub Python 3.13:
+          SDK: 'Eventhub'
+        ServiceBus Python 3.13:
           SDK: 'ServiceBus'
     variables:
       PythonBin: 'python3'
-      PythonVersion: '3.12'
+      PythonVersion: '3.13'
       MacOSXDeploymentTarget: '10.9'
       OSArch: 'MacOS'
       DownloadArtifactFolder: 'uamqp-macosx$(MacOSXDeploymentTarget)-$(PythonVersion)-whl'
@@ -408,17 +414,11 @@ jobs:
       vmImage: 'ubuntu-20.04'
     strategy:
       matrix:
-        EventHub Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'EventHub'
-        EventHub Python 3.12:
-          PythonVersion: '$(PythonVersion312)'
-          SDK: 'EventHub'
-        ServiceBus Python 3.9:
-          PythonVersion: '$(PythonVersion39)'
-          SDK: 'ServiceBus'
         ServiceBus Python 3.12:
           PythonVersion: '$(PythonVersion312)'
+          SDK: 'ServiceBus'
+        ServiceBus Python 3.13:
+          PythonVersion: '$(PythonVersion313)'
           SDK: 'ServiceBus'
     variables:
       OSArch: 'Linux'
