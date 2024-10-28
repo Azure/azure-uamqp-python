@@ -502,12 +502,6 @@ extends:
                       - 'uamqp-winx64-3.11-whl'
                       - 'uamqp-winx64-3.12-whl'
                       - 'uamqp-winx64-3.13-whl'
-                      - 'uamqp-winx86-3.8-whl'
-                      - 'uamqp-winx86-3.9-whl'
-                      - 'uamqp-winx86-3.10-whl'
-                      - 'uamqp-winx86-3.11-whl'
-                      - 'uamqp-winx86-3.12-whl'
-                      - 'uamqp-winx86-3.13-whl'
 
                 - pwsh: |
                     $root = "$(Pipeline.Workspace)"
