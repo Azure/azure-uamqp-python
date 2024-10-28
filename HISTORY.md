@@ -1,6 +1,6 @@
 # Release History
 
-## 1.6.11 (2024-10-22)
+## 1.6.11 (2024-10-28)
 
 -   Added support for python 3.13
 -   Updated OpenSSL dependency to 3.0 LTS
