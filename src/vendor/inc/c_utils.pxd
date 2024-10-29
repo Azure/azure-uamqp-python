@@ -34,7 +34,7 @@ cdef extern from "azure_c_shared_utility/buffer_.h":
 cdef extern from "azure_c_shared_utility/map.h":
 
     cdef enum MAP_RESULT_TAG:
-        MAP_OK,
+        MAP_OK = 1, # because C code uses `MU_DEFINE_ENUM`
         MAP_ERROR,
         MAP_INVALIDARG,
         MAP_KEYEXISTS,
@@ -99,7 +99,7 @@ cdef extern from "azure_c_shared_utility/doublylinkedlist.h":
 cdef extern from "azure_c_shared_utility/optionhandler.h":
 
     cdef enum OPTIONHANDLER_RESULT_TAG:
-        OPTIONHANDLER_OK,
+        OPTIONHANDLER_OK = 0,   # because code uses MU_DEFINE_ENUM_WITHOUT_INVALID
         OPTIONHANDLER_ERROR,
         OPTIONHANDLER_INVALIDARG
 
