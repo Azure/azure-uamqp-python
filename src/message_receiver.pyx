@@ -120,7 +120,7 @@ cdef class cMessageReceiver(StructBase):
 
 #### Callbacks (context is a MessageReceiver instance)
 
-cdef void on_message_receiver_state_changed(void* context, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG new_state, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG previous_state) noexcept:
+cdef void on_message_receiver_state_changed(const void* context, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG new_state, c_message_receiver.MESSAGE_RECEIVER_STATE_TAG previous_state) noexcept:
     if context != NULL:
         context_pyobj = <PyObject*>context
         if context_pyobj.ob_refcnt == 0: # context is being garbage collected, skip the callback
