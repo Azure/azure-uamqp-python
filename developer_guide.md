@@ -25,7 +25,7 @@ The library is built using [cibuildwheel ](https://cibuildwheel.pypa.io/en/stabl
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows use .venv\Scripts\activate
-pip install -r dev_ requirements.txt
+pip install -r dev_requirements.txt
 ```
 
 * Build the library using cibuildwheel:
