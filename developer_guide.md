@@ -9,7 +9,7 @@ The project has two C library dependencies, they are vendored in the repository 
 * [Azure uAMQP for C](https://github.com/Azure/azure-uamqp-c) - Last vendor [commit](https://github.com/Azure/azure-uamqp-c/commit/96d7179f60e558b2c350194ea0061c725377f7e0) 
 * [Azure C Shared Utility](https://github.com/Azure/azure-c-shared-utility) - Last vendor [commit](https://github.com/Azure/azure-c-shared-utility/commit/51d6f3f7246876051f713c7abed28f909bf604e3)
 
-These libraries are updated whenever there is a security or critical bug fix that needs to be applied. The process is to update the vendored libraries manually by copying the files over in to the vendor directory. 
+These libraries are updated whenever there is a security or critical bug fix that needs to be applied. The process is to update the vendored libraries manually by copying the files over into the vendor directory. 
 
 ## Setting up the development environment
 
@@ -41,7 +41,7 @@ The built wheels will be placed in the `wheelhouse` directory. You can then inst
 pip install wheelhouse/your_wheel_file.whl
 ```
 
-To change the build configuration, for example to set minium python to build wheels for, pass in compilation flags etc the `pyproject.toml` file can be be modified. For further details and configuration options refer to the [cibuildwheel documentation](https://cibuildwheel.pypa.io/en/stable/configuration/).
+To change the build configuration, for example to set minimum python to build wheels for, pass in compilation flags etc the `pyproject.toml` file can be modified. For further details and configuration options refer to the [cibuildwheel documentation](https://cibuildwheel.pypa.io/en/stable/configuration/).
 
 After these changes are validated and tested locally, they need to be applied to the [client.test.live.yml](.azure-pipelines/client.test.live.yml) and [client.test.yml](.azure-pipelines/client.test.yml) files to ensure that the changes are applied to the CI/CD pipeline. The pipeline will then build the library and run the tests on the changes made.
 
