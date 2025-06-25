@@ -14,8 +14,8 @@ jobs:
   - job: 'Windows'
 
     pool:
-      name: azsdk-pool-mms-win-2022-general
-      vmImage: MMS2022
+      name: azsdk-pool
+      demands: ImageOverride -equals windows-2022
     variables:
       VS_INSTALLER_URL: "https://aka.ms/vs/17/release/vs_enterprise.exe"
       VS_INSTALLER_PATH: "$(Build.BinariesDirectory)/vs_enterprise.exe"
@@ -361,8 +361,8 @@ jobs:
     timeoutInMinutes: 300
     dependsOn: 'Windows'
     pool:
-      name: azsdk-pool-mms-win-2022-general
-      vmImage: windows-2022
+      name: azsdk-pool
+      demands: ImageOverride -equals windows-2022
     strategy:
       matrix:
         ServiceBus x64 Python 3.12:
@@ -410,8 +410,8 @@ jobs:
     timeoutInMinutes: 300
     dependsOn: 'Linux'
     pool:
-      name: 'azsdk-pool-mms-ubuntu-2004-general'
-      vmImage: 'ubuntu-20.04'
+      name: azsdk-pool
+      demands: ImageOverride -equals ubuntu-24.04
     strategy:
       matrix:
         ServiceBus Python 3.12:
