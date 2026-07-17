@@ -7,7 +7,7 @@
 cdef extern from "azure_c_shared_utility/xlogging.h":
 
     cdef enum LOG_CATEGORY_TAG:
-        AZ_LOG_ERROR,
+        AZ_LOG_ERROR = 0, # because C code uses `typedef enum`
         AZ_LOG_INFO,
         AZ_LOG_TRACE
 

@@ -15,7 +15,7 @@ cdef extern from "azure_uamqp_c/amqpvalue_to_string.h":
 cdef extern from "azure_uamqp_c/amqp_types.h":
 
     cdef enum AMQP_TYPE_TAG:
-        AMQP_TYPE_NULL,
+        AMQP_TYPE_NULL = 1,  # because C code uses `MU_DEFINE_ENUM`
         AMQP_TYPE_BOOL,
         AMQP_TYPE_UBYTE,
         AMQP_TYPE_USHORT,

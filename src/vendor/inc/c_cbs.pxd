@@ -25,13 +25,13 @@ cdef enum AUTH_STATUS:
 cdef extern from "azure_uamqp_c/cbs.h":
 
     cdef enum CBS_OPERATION_RESULT_TAG:
-        CBS_OPERATION_RESULT_OK,
+        CBS_OPERATION_RESULT_OK = 1,    # because C code uses `MU_DEFINE_ENUM`
         CBS_OPERATION_RESULT_CBS_ERROR,
         CBS_OPERATION_RESULT_OPERATION_FAILED,
         CBS_OPERATION_RESULT_INSTANCE_CLOSED
 
     cdef enum CBS_OPEN_COMPLETE_RESULT_TAG:
-        CBS_OPEN_OK,
+        CBS_OPEN_OK = 1,    # because C code uses `MU_DEFINE_ENUM`
         CBS_OPEN_ERROR,
         CBS_OPEN_CANCELLED
 

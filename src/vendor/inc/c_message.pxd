@@ -25,7 +25,7 @@ cdef extern from "azure_uamqp_c/messaging.h":
 cdef extern from "azure_uamqp_c/message.h":
 
     cdef enum MESSAGE_BODY_TYPE_TAG:
-        MESSAGE_BODY_TYPE_NONE,
+        MESSAGE_BODY_TYPE_NONE = 1, # because C code uses `MU_DEFINE_ENUM`
         MESSAGE_BODY_TYPE_DATA,
         MESSAGE_BODY_TYPE_SEQUENCE,
         MESSAGE_BODY_TYPE_VALUE,

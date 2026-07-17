@@ -16,13 +16,13 @@ cimport c_amqpvalue
 cdef extern from "azure_uamqp_c/message_sender.h":
 
     cdef enum MESSAGE_SEND_RESULT_TAG:
-        MESSAGE_SEND_OK,
+        MESSAGE_SEND_OK = 1,    # because C code uses `MU_DEFINE_ENUM`
         MESSAGE_SEND_ERROR,
         MESSAGE_SEND_TIMEOUT,
         MESSAGE_SEND_CANCELLED
 
     cdef enum MESSAGE_SENDER_STATE_TAG:
-        MESSAGE_SENDER_STATE_IDLE,
+        MESSAGE_SENDER_STATE_IDLE = 1,  # because C code uses `MU_DEFINE_ENUM`
         MESSAGE_SENDER_STATE_OPENING,
         MESSAGE_SENDER_STATE_OPEN,
         MESSAGE_SENDER_STATE_CLOSING,

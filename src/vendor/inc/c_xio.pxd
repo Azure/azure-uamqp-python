@@ -15,12 +15,12 @@ cdef extern from "azure_c_shared_utility/xio.h":
     ctypedef void* XIO_HANDLE
 
     cdef enum IO_SEND_RESULT_TAG:
-        IO_SEND_OK,
+        IO_SEND_OK = 1, # because C code uses `MU_DEFINE_ENUM`
         IO_SEND_ERROR,
         IO_SEND_CANCELLED
 
     cdef enum IO_OPEN_RESULT_TAG:
-        IO_OPEN_OK,
+        IO_OPEN_OK = 1, # because C code uses `MU_DEFINE_ENUM`
         IO_OPEN_ERROR,
         IO_OPEN_CANCELLED
 
